@@ -1,14 +1,892 @@
-<!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="./favicon.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>lesson-planner</title>
-    <script type="module" crossorigin src="./assets/index-j5BCN4tr.js"></script>
-    <link rel="stylesheet" crossorigin href="./assets/index-DCIcuISC.css">
-  </head>
-  <body>
-    <div id="root"></div>
-  </body>
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Unterrichtsplaner" />
+  <title>Unterrichtsplaner</title>
+  <link rel="manifest" href="manifest.json" />
+  <link rel="apple-touch-icon" href="icon.svg" />
+  <script>
+    try {
+      const raw = localStorage.getItem('lehrerapp_v3');
+      if (raw) {
+        const db = JSON.parse(raw);
+        if (db && db.settings) {
+          if (db.settings.theme) document.documentElement.setAttribute('data-theme', db.settings.theme);
+          if (db.settings.themeBg) document.documentElement.style.setProperty('--bg-primary', db.settings.themeBg);
+          if (db.settings.themeCard) {
+            document.documentElement.style.setProperty('--bg-card', db.settings.themeCard);
+            document.documentElement.style.setProperty('--bg-secondary', db.settings.themeCard);
+            document.documentElement.style.setProperty('--sidebar-bg', db.settings.themeCard);
+          }
+          if (db.settings.themeAccent) {
+            document.documentElement.style.setProperty('--accent', db.settings.themeAccent);
+            document.documentElement.style.setProperty('--text-accent', db.settings.themeAccent);
+          }
+          if (db.settings.themeRadius !== undefined) {
+            let rad = db.settings.themeRadius;
+            if (rad > 12) rad = 12;
+            document.documentElement.style.setProperty('--radius-sm', Math.max(0, rad - 2) + 'px');
+            document.documentElement.style.setProperty('--radius-md', rad + 'px');
+            document.documentElement.style.setProperty('--radius-lg', (rad + 4) + 'px');
+            document.documentElement.style.setProperty('--radius-xl', (rad + 10) + 'px');
+          }
+        }
+      }
+    } catch(e) {}
+  </script>
+  <link rel="stylesheet" href="style.css?v=21" />
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('sw.js').catch(err => console.log('SW registration failed:', err));
+      });
+    }
+  </script>
+</head>
+<body>
+<div id="app">
+
+  <!-- ─── Sidebar ─────────────────────────────────────── -->
+  <nav id="sidebar">
+    <div class="sidebar-header" style="display:flex; justify-content:space-between; align-items:center;">
+      <div class="app-logo" style="cursor:pointer;" onclick="location.reload()" title="Neuladen">
+        <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
+          <rect width="32" height="32" rx="8" fill="url(#lg)"/>
+          <defs><linearGradient id="lg" x1="0" y1="0" x2="32" y2="32">
+            <stop offset="0%" stop-color="#6366f1"/><stop offset="100%" stop-color="#8b5cf6"/>
+          </linearGradient></defs>
+          <text x="8" y="22" font-size="18" fill="white" font-family="serif">P</text>
+        </svg>
+        <span class="app-name">Planer</span>
+      </div>
+      <button class="sidebar-toggle-btn" onclick="toggleSidebar(event)" title="Seitenleiste umschalten">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <line x1="3" y1="12" x2="21" y2="12"></line>
+          <line x1="3" y1="6" x2="21" y2="6"></line>
+          <line x1="3" y1="18" x2="21" y2="18"></line>
+        </svg>
+      </button>
+    </div>
+    <div class="nav-items">
+      <button class="nav-item" data-view="dashboard" id="nav-dashboard">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/>
+          <rect x="14" y="14" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/>
+        </svg>
+        <span>Dashboard</span>
+      </button>
+      <button class="nav-item active" data-view="timetable" id="nav-timetable">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/>
+          <line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
+        </svg>
+        <span>Stundenplan</span>
+      </button>
+      <button class="nav-item" data-view="classes" id="nav-classes">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+          <circle cx="9" cy="7" r="4"/>
+          <path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+        </svg>
+        <span>Klassen</span>
+      </button>
+      <button class="nav-item" data-view="seating" id="nav-seating">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+          <line x1="3" y1="9" x2="21" y2="9"/>
+          <line x1="9" y1="21" x2="9" y2="9"/>
+        </svg>
+        <span>Sitzplan</span>
+      </button>
+    </div>
+    <div class="sidebar-footer">
+      <button class="nav-item" id="nav-settings" onclick="openSettings()">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="3"/>
+          <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+        </svg>
+        <span>Einstellungen</span>
+      </button>
+    </div>
+  </nav>
+
+  <!-- ─── Main ─────────────────────────────────────────── -->
+  <main id="main-content" onclick="collapseSidebar()">
+
+    <!-- DASHBOARD -->
+    <div id="view-dashboard" class="view">
+      <div class="view-header">
+        <h1>Dashboard & Warnungen</h1>
+      </div>
+      <div class="view-content" style="padding:20px; max-width:800px; margin:0 auto;" id="dashboard-content">
+        <!-- Dashboard Content will be injected here -->
+      </div>
+    </div>
+
+    <!-- STUNDENPLAN -->
+    <div id="view-timetable" class="view active">
+      <div class="view-header">
+        <h1>Stundenplan</h1>
+        <div class="header-actions">
+          <button class="btn-secondary" onclick="navigateWeek(-1)">‹</button>
+          <div style="position:relative; display:flex; align-items:center; justify-content:center; cursor:pointer;" title="Klicke hier, um zu einem bestimmten Datum zu springen">
+            <span id="week-label" class="week-label" style="pointer-events:none;"></span>
+            <input type="date" id="week-date-picker" onchange="jumpToDate(this.value)" style="position:absolute; width:100%; height:100%; opacity:0; cursor:pointer; top:0; left:0;" onclick="try{this.showPicker();}catch(e){}" />
+          </div>
+          <button class="btn-secondary" onclick="navigateWeek(1)">›</button>
+          <button class="btn-primary" onclick="goToCurrentWeek()">Heute</button>
+        </div>
+      </div>
+      <div class="timetable-grid-wrapper">
+        <div id="timetable-grid" class="timetable-grid"></div>
+      </div>
+    </div>
+
+    <!-- KLASSEN -->
+    <div id="view-classes" class="view">
+      <div id="level-subjects" class="class-level">
+        <div class="view-header">
+          <h1>Klassen & Fächer</h1>
+          <div class="header-actions">
+            <button class="btn-primary" onclick="openAddSubjectGroup()">+ Fach/Klasse</button>
+          </div>
+        </div>
+        <div id="subject-groups-container" class="subject-groups-grid"></div>
+      </div>
+    </div>
+
+    <!-- STUDENTS & OVERVIEW (Unified Class Dashboard) -->
+    <div id="view-students" class="view">
+      <div class="view-header" style="flex-direction:column; align-items:flex-start; gap:16px; height:auto; padding:20px 30px;">
+        <div style="display:flex; align-items:center; justify-content:space-between; width:100%;">
+          <div style="display:flex; align-items:center; gap:16px;">
+            <button class="btn-secondary" onclick="switchView('classes')" style="padding:8px 12px;">← Zurück</button>
+            <div>
+              <h1 id="student-view-title" style="margin:0;"></h1>
+              <span id="student-view-subtitle" class="subtitle"></span>
+            </div>
+          </div>
+          <div class="header-actions">
+            <button id="btn-add-overview-col" class="btn-primary hidden" onclick="openAddColumnModal()">+ Neue Spalte</button>
+            <button class="btn-primary" style="margin-left:8px;" onclick="openSeatingForGroup(currentGroupId)">Zum Sitzplan</button>
+            <button id="btn-student-actions" class="btn-icon" style="margin-left:8px;" title="Aktionen" onclick="openStudentActionsModal()">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+            </button>
+          </div>
+        </div>
+        <div class="modal-tabs" style="border-bottom:none; padding:0; width:100%;">
+          <button class="tab-btn active" id="overview-tab-students" onclick="switchClassDashboardTab('students')">🧑‍🎓 Schüler</button>
+          <button class="tab-btn" id="overview-tab-grades" onclick="switchClassDashboardTab('grades')">🎓 Noten</button>
+          <button class="tab-btn" id="overview-tab-participation" onclick="switchClassDashboardTab('participation')">🙋 Mitarbeit</button>
+          <button class="tab-btn" id="overview-tab-attendance" onclick="switchClassDashboardTab('attendance')">📅 Anwesenheit</button>
+          <button class="tab-btn" id="overview-tab-homework" onclick="switchClassDashboardTab('homework')">📚 Hausaufgaben</button>
+        </div>
+      </div>
+      <div id="mass-delete-bar" class="hidden" style="background:var(--danger-soft); padding: 8px 30px; display:flex; justify-content:space-between; align-items:center;">
+        <span style="color:var(--danger); font-weight:600;"><span id="mass-delete-count">0</span> Schüler ausgewählt</span>
+        <button class="btn-primary" style="background:var(--danger); border-color:var(--danger);" onclick="deleteSelectedStudents()">Ausgewählte löschen</button>
+      </div>
+      <div id="students-container" class="students-list"></div>
+      <div id="overview-content" class="hidden" style="flex:1; overflow-y:auto; padding:22px;"></div>
+    </div>
+
+    <!-- SEATING PLAN -->
+    <div id="view-seating" class="view">
+      <div class="view-header" style="flex-wrap: wrap; gap: 16px;">
+        <h1 style="display:flex; align-items:center; gap:8px;">
+          Sitzplan
+        </h1>
+        <div class="header-actions" style="background: var(--bg-card); padding: 6px 8px; border-radius: 12px; border: 1px solid var(--border); box-shadow: 0 4px 6px rgba(0,0,0,0.05); gap: 12px; flex-wrap: wrap; width: fit-content; max-width: 100%;">
+          <div style="display:flex; align-items:center; gap:8px; padding-right:12px; border-right:1px solid var(--border); max-width: 400px;">
+            <select id="seating-group-select" class="form-input" style="font-size:14px; padding:6px 10px; min-width:140px; max-width:220px; font-weight:600; border-radius:8px;" onchange="onSeatingGroupSelectChange()"></select>
+          </div>
+          <div style="display:flex; align-items:center; gap:8px; padding-right:12px; max-width: 320px;">
+            <div id="seating-date-strip" class="scroll-chips-container"></div>
+            <div style="position:relative; width:48px; height:48px; flex-shrink:0;">
+              <button class="btn-icon" style="width:100%; height:100%; border-radius:12px; border:1px solid var(--border); background:var(--bg-elevated); display:flex; align-items:center; justify-content:center; pointer-events:none; color:var(--text-secondary);">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+              </button>
+              <input type="date" id="seating-date-hidden" style="position:absolute; top:0; left:0; width:100%; height:100%; opacity:0; cursor:pointer;" onclick="try{this.showPicker();}catch(e){}" onchange="onHiddenDateChange(this.value)" />
+            </div>
+          </div>
+          <div style="display:flex; align-items:center; position:relative; border-left:1px solid var(--border); padding-left:12px; gap:8px;">
+            <button class="btn-icon" title="Raster-Größe einstellen" onclick="toggleSeatingSettings(event)" style="width:48px; height:48px; border-radius:12px;">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="pointer-events:none;"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="3" x2="9" y2="21"/><line x1="15" y1="3" x2="15" y2="21"/></svg>
+            </button>
+            <div id="seating-settings-popup" class="hidden" style="position:absolute; top:60px; right:0; background:var(--bg-card); border:1px solid var(--border); border-radius:12px; padding:16px; box-shadow:var(--shadow-md); z-index:100; display:flex; flex-direction:column; gap:12px;">
+              <h3 style="font-size:13px; margin:0; color:var(--text-secondary);">Raster-Größe</h3>
+              <div style="display:flex; align-items:center; gap:8px;">
+                <input type="number" id="seating-cols" class="form-input" style="width:50px; padding:6px; font-size:14px; text-align:center; border:1px solid var(--border); background:var(--bg-elevated);" min="1" max="20" placeholder="X" onchange="saveSeatingGrid()" />
+                <span style="color:var(--text-muted);font-weight:bold;">×</span>
+                <input type="number" id="seating-rows" class="form-input" style="width:50px; padding:6px; font-size:14px; text-align:center; border:1px solid var(--border); background:var(--bg-elevated);" min="1" max="20" placeholder="Y" onchange="saveSeatingGrid()" />
+              </div>
+            </div>
+            <button id="btn-seating-edit" class="btn-icon" onclick="toggleSeatingEditMode()" style="width:48px; height:48px; padding:0; border-radius:12px; display:flex; align-items:center; justify-content:center; cursor:pointer;" title="Sitzplan bearbeiten">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="pointer-events:none;"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+            </button>
+          </div>
+        </div>
+      </div>
+      <div class="seating-canvas" id="seating-canvas">
+        <div id="seating-empty" class="empty-state">
+          <div class="empty-state-icon">🪑</div>
+          <div class="empty-state-title">Keine Schüler</div>
+          <div class="empty-state-desc">Wähle eine Klasse aus oder füge zuerst Schüler hinzu.</div>
+        </div>
+      </div>
+    </div>
+
+
+
+  </main>
+</div>
+
+<!-- ══════════════════ MODALS ══════════════════ -->
+
+<!-- Lesson Detail / Notes -->
+<div id="modal-lesson" class="modal-overlay hidden" onclick="closeModalOnOverlay(event,'modal-lesson')">
+  <div class="modal modal-lesson-detail" onclick="event.stopPropagation()">
+
+    <div class="modal-header">
+      <div style="flex:1;min-width:0">
+        <div style="display:flex;align-items:center;gap:8px">
+          <div id="lesson-color-dot" style="width:11px;height:11px;border-radius:50%;flex-shrink:0"></div>
+          <h2 id="lesson-modal-title" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis"></h2>
+          <span id="lesson-ausfall-badge" class="ausfall-badge hidden">AUSFALL</span>
+        </div>
+        <span id="lesson-modal-subtitle" class="modal-subtitle"></span>
+        <div id="lesson-seating-link-container" class="hidden" style="margin-top: 8px;">
+           <button class="btn-secondary" style="font-size:11px; padding:3px 8px; min-height:0; height:24px; gap:4px; font-weight:600;" onclick="openSeatingForActiveLesson()">
+             🪑 Sitzplan öffnen
+           </button>
+        </div>
+        <!-- Next lesson info -->
+        <div id="next-lesson-banner" class="next-lesson-banner hidden">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+          <span id="next-lesson-text"></span>
+        </div>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center;flex-shrink:0">
+        <button class="btn-icon" onclick="openEditLesson()" title="Stunde bearbeiten">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+        </button>
+        <button class="btn-icon" onclick="saveLessonDataAndClose()" title="Schließen">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+    </div>
+
+    <!-- Quick Access Bar -->
+    <div style="background:var(--bg-secondary); padding:10px 14px; border-bottom:1px solid var(--border); display:flex; gap:10px;">
+      <button id="lesson-btn-overview" class="btn-primary" style="flex:1; font-size:13px; font-weight:600; padding:8px;" onclick="openClassOverviewFromLesson()">📊 Notenübersicht</button>
+      <button id="lesson-btn-students" class="btn-secondary" style="flex:1; font-size:13px; font-weight:600; padding:8px;" onclick="openQuickStudentListFromLesson()">🧑‍🎓 Schüler bewerten</button>
+    </div>
+
+    <!-- Ausfall overlay -->
+    <div id="lesson-ausfall-overlay" class="ausfall-overlay hidden">
+      <div class="ausfall-overlay-content">
+        <span class="ausfall-icon">❌</span>
+        <span class="ausfall-text">Diese Stunde fällt aus</span>
+        <button class="btn-secondary" onclick="toggleAusfall()">Ausfall aufheben</button>
+      </div>
+    </div>
+
+    <!-- Notes form -->
+    <div id="lesson-notes-form" class="lesson-notes-form">
+
+      <!-- Unterrichtsinhalt -->
+      <div class="notes-section">
+        <div class="notes-section-header">
+          <span class="notes-section-icon">📖</span>
+          <span class="notes-section-label">Unterrichtsinhalt</span>
+        </div>
+        <textarea id="lesson-done-text" placeholder="Was wurde heute behandelt / durchgenommen..." class="notes-textarea" style="margin-top:10px"></textarea>
+      </div>
+
+      <!-- Hausaufgaben -->
+      <div class="notes-section">
+        <div class="notes-section-header">
+          <span class="notes-section-icon">📚</span>
+          <span class="notes-section-label">Hausaufgaben</span>
+          <label class="toggle-switch">
+            <input type="checkbox" id="hw-toggle" onchange="toggleSection('hw')">
+            <span class="toggle-slider"></span>
+          </label>
+        </div>
+        <div id="hw-section-body" class="notes-section-body hidden">
+          <!-- Incoming HW (assigned for this date from other lessons) -->
+          <div id="hw-incoming-list" class="incoming-list hidden"></div>
+          <!-- HW assigned from this lesson to future dates -->
+          <div id="hw-items-list" class="entry-list" style="margin-top:8px"></div>
+          <div class="upcoming-chips-row" id="hw-date-chips"></div>
+          <div class="add-entry-row" style="margin-top:6px">
+            <input type="text" id="new-hw-text" placeholder="Aufgabe (Buch S. 12, Arbeitsblatt...)" class="entry-input" />
+            <input type="date" id="new-hw-date" class="entry-date" />
+            <button class="btn-primary" onclick="addHWItem()">+</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Absent students banner -->
+      <div id="lesson-absent-container" class="hidden" style="margin-bottom:20px; padding:10px 14px; background:var(--danger-soft); border:1px solid rgba(239,68,68,.3); border-radius:10px;">
+        <div style="font-size:12px; font-weight:700; color:var(--danger); margin-bottom:4px; display:flex; align-items:center; gap:6px;">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+          Fehlend / Entschuldigt
+        </div>
+        <div id="lesson-absent-list" style="font-size:13px; color:var(--text-primary); line-height:1.4;"></div>
+      </div>
+
+      <!-- Test / Prüfung -->
+      <div class="notes-section">
+        <div class="notes-section-header">
+          <span class="notes-section-icon">✍️</span>
+          <span class="notes-section-label">Test / Schularbeit angekündigt</span>
+          <label class="toggle-switch">
+            <input type="checkbox" id="test-toggle" onchange="toggleSection('test')">
+            <span class="toggle-slider"></span>
+          </label>
+        </div>
+        <div id="test-section-body" class="notes-section-body hidden">
+          <div id="test-incoming-list" class="incoming-list hidden"></div>
+          <div id="test-items-list" class="entry-list" style="margin-top:8px"></div>
+          <div class="upcoming-chips-row" id="test-date-chips"></div>
+          <div class="add-entry-row" style="margin-top:6px">
+            <input type="text" id="new-test-text" placeholder="Stoff, Themen, Art der Prüfung..." class="entry-input" />
+            <input type="date" id="new-test-date" class="entry-date" />
+            <button class="btn-primary" onclick="addTestItem()">+</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Notizen & Anmerkungen (merged) -->
+      <div class="notes-section">
+        <div class="notes-section-header">
+          <span class="notes-section-icon">📝</span>
+          <span class="notes-section-label">Notizen & Anmerkungen</span>
+        </div>
+        <textarea id="lesson-notes-text" placeholder="Allgemeine Notizen, Beobachtungen, Besonderes..." class="notes-textarea notes-textarea-sm" style="margin-top:10px"></textarea>
+      </div>
+
+    </div><!-- /lesson-notes-form -->
+
+    <div class="modal-footer" style="justify-content: space-between;">
+      <button class="btn-secondary" id="btn-ausfall-bottom" onclick="toggleAusfall()">Stunde entfällt</button>
+      <button class="btn-primary" onclick="saveLessonDataAndClose()">Speichern & Schließen</button>
+    </div>
+  </div>
+</div>
+
+<!-- Add / Edit Lesson Slot -->
+<div id="modal-add-lesson" class="modal-overlay hidden" onclick="closeModalOnOverlay(event,'modal-add-lesson')">
+  <div class="modal modal-small" onclick="event.stopPropagation()">
+    <div class="modal-header">
+      <h2 id="add-lesson-title">Stunde hinzufügen</h2>
+      <button class="modal-close" onclick="closeModal('modal-add-lesson')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label>Klasse verknüpfen (optional)</label>
+        <select id="new-lesson-group" class="form-input" onchange="onLessonGroupChange()">
+          <option value="">— Freie Eingabe (keine Verknüpfung) —</option>
+        </select>
+      </div>
+      <!-- Group preview (shown when a group is linked) -->
+      <div id="lesson-group-preview" class="group-preview hidden">
+        <div class="group-preview-badge">
+          <span id="lesson-preview-class"></span>
+          <span class="group-preview-dot">·</span>
+          <span id="lesson-preview-subject"></span>
+        </div>
+        <div class="group-preview-hint">Wird so im Stundenplan angezeigt</div>
+      </div>
+      <!-- Free subject field (shown when no group linked) -->
+      <div id="lesson-subject-field" class="form-group">
+        <label>Fach / Klasse</label>
+        <input type="text" id="new-lesson-subject" placeholder="z.B. Mathematik 7b" class="form-input" />
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Tag</label>
+          <select id="new-lesson-day" class="form-input">
+            <option value="0">Montag</option>
+            <option value="1">Dienstag</option>
+            <option value="2">Mittwoch</option>
+            <option value="3">Donnerstag</option>
+            <option value="4">Freitag</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Block</label>
+          <select id="new-lesson-block" class="form-input"></select>
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Farbe</label>
+        <div class="color-picker" id="lesson-color-picker"></div>
+      </div>
+      <div class="form-group">
+        <label>Raum (optional)</label>
+        <input type="text" id="new-lesson-room" placeholder="z.B. R102" class="form-input" />
+      </div>
+        <div class="form-group" style="margin-top:12px;">
+          <label class="form-label">Wiederholung?</label>
+          <select id="new-lesson-recurring" class="form-input">
+            <option value="weekly">Jede Woche</option>
+            <option value="biweekly">Alle 2 Wochen</option>
+            <option value="none">Nur einmalig</option>
+          </select>
+        </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-danger-outline hidden" id="btn-delete-lesson" onclick="deleteLessonSlotFromEdit()">Löschen</button>
+      <button class="btn-secondary" onclick="closeModal('modal-add-lesson')">Abbrechen</button>
+      <button class="btn-primary" onclick="saveLessonSlot()">Speichern</button>
+    </div>
+  </div>
+</div>
+
+<!-- Add / Edit Grade Form Modal -->
+<div id="modal-grade-form" class="modal-overlay hidden" onclick="closeModalOnOverlay(event,'modal-grade-form'); closeGradeForm();">
+  <div class="modal modal-small" onclick="event.stopPropagation()">
+    <div class="modal-header">
+      <h2 id="grade-form-title">Note eintragen</h2>
+      <button class="modal-close" onclick="closeGradeForm()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label class="form-label">Art</label>
+        <select id="gf-type" class="form-input">
+          <option value="mitarbeit">Mitarbeit (+/-)</option>
+          <option value="test">Test / HÜ</option>
+          <option value="schularbeit">Schularbeit / Klausur</option>
+          <option value="muendlich">Mündliche Prüfung</option>
+          <option value="projekt">Projekt / Referat</option>
+          <option value="hausaufgabe">Hausaufgabe</option>
+          <option value="sonstig">Sonstiges</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Note / Wert (z.B. 1, 2.5, +)</label>
+        <input type="text" id="gf-value" class="form-input" placeholder="z.B. 1 oder +">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Datum</label>
+        <input type="date" id="gf-date" class="form-input">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Anlass / Bemerkung (optional)</label>
+        <input type="text" id="gf-label" class="form-input" placeholder="z.B. 1. Test, Buchvorstellung...">
+      </div>
+    </div>
+    <div class="modal-footer" style="display:flex; justify-content:space-between; align-items:center;">
+      <button id="gf-btn-delete" class="btn-secondary" style="color:var(--danger); border-color:var(--danger-soft);" onclick="deleteGradeFromForm()">Löschen</button>
+      <div>
+        <button class="btn-secondary" onclick="closeGradeForm()">Abbrechen</button>
+        <button class="btn-primary" onclick="saveGradeFromForm()">Speichern</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Add / Edit Subject Group -->
+<div id="modal-add-group" class="modal-overlay hidden" onclick="closeModalOnOverlay(event,'modal-add-group')">
+  <div class="modal modal-small" onclick="event.stopPropagation()">
+    <div class="modal-header">
+      <h2 id="group-modal-title">Klasse + Fach hinzufügen</h2>
+      <button class="modal-close" onclick="closeModal('modal-add-group')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group"><label>Klasse</label><input type="text" id="new-group-class" placeholder="z.B. 7b" class="form-input" /></div>
+      <div class="form-group">
+        <label>Fach</label>
+        <input type="text" id="new-group-subject" placeholder="z.B. Mathematik" class="form-input" list="subject-suggestions" />
+        <datalist id="subject-suggestions"></datalist>
+      </div>
+      <div class="form-group"><label>Schuljahr (optional)</label><input type="text" id="new-group-year" placeholder="z.B. 2025/26" class="form-input" /></div>
+      <div class="form-group"><label>Farbe</label><div class="color-picker" id="group-color-picker"></div></div>
+      <div class="form-group" style="margin-top:20px; border-top:1px solid var(--border); padding-top:16px;">
+        <label>Noten-Wichtung (in %)</label>
+        <p style="font-size:12px; color:var(--text-muted); margin-bottom:12px; line-height:1.4;">Lege fest, zu wie viel Prozent die <strong>Schularbeiten / Klausuren</strong> in die Gesamtnote zählen. Alle anderen Noten werden zusammengefasst und bilden den restlichen Prozent-Anteil.</p>
+        <div style="display:flex; align-items:center; gap:12px;">
+          <input type="number" id="weight-schularbeit" class="form-input" style="width:80px;" value="50" min="0" max="100" />
+          <span style="font-size:13px; font-weight:600; color:var(--text-secondary);">% für Schularbeiten / Klausuren</span>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer" style="justify-content: space-between;">
+      <button id="btn-delete-group" class="btn-secondary" style="color:var(--danger); border-color:var(--danger); display:none;">Löschen</button>
+      <div style="display:flex; gap:8px;">
+        <button class="btn-secondary" onclick="closeModal('modal-add-group')">Abbrechen</button>
+        <button class="btn-primary" onclick="saveSubjectGroup()">Speichern</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Add / Edit Student -->
+<div id="modal-add-student" class="modal-overlay hidden" onclick="closeModalOnOverlay(event,'modal-add-student')">
+  <div class="modal modal-small" onclick="event.stopPropagation()">
+    <div class="modal-header">
+      <h2 id="student-modal-title">Schüler hinzufügen</h2>
+      <button class="modal-close" onclick="closeModal('modal-add-student')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-row">
+        <div class="form-group"><label>Vorname</label><input type="text" id="new-student-first" placeholder="Vorname" class="form-input" /></div>
+        <div class="form-group"><label>Nachname</label><input type="text" id="new-student-last" placeholder="Nachname" class="form-input" /></div>
+      </div>
+      <div class="form-group"><label>Notizen</label><textarea id="new-student-notes" placeholder="Besonderheiten..." class="form-input" rows="3"></textarea></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-secondary" onclick="closeModal('modal-add-student')">Abbrechen</button>
+      <button class="btn-primary" onclick="saveStudent()">Speichern</button>
+    </div>
+  </div>
+</div>
+
+<!-- Import Students Modal -->
+<div id="modal-import-students" class="modal-overlay hidden" onclick="closeModalOnOverlay(event,'modal-import-students')">
+  <div class="modal modal-small" onclick="event.stopPropagation()">
+    <div class="modal-header">
+      <h2>Mehrere Schüler hinzufügen</h2>
+      <button class="modal-close" onclick="closeModal('modal-import-students')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label>Von bestehender Klasse kopieren:</label>
+        <select id="import-from-group" class="form-input">
+          <option value="">-- Bitte wählen --</option>
+        </select>
+        <button class="btn-secondary" style="margin-top: 8px; width: 100%;" onclick="importStudentsFromGroup()">Ausgewählte Klasse kopieren</button>
+      </div>
+      <div style="margin: 16px 0; border-bottom: 1px solid var(--border);"></div>
+      <div class="form-group">
+        <label>Oder Namen einfügen (ein Name pro Zeile):</label>
+        <textarea id="import-text" class="form-input" style="height: 120px;" placeholder="Max Mustermann&#10;Anna Schmidt&#10;..."></textarea>
+      </div>
+      <div class="form-group" style="margin-top: 12px; margin-bottom: 12px;">
+        <label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
+          <input type="checkbox" id="import-skip-duplicates" checked>
+          Vorhandene Namen überspringen
+        </label>
+      </div>
+      <button class="btn-secondary" style="width: 100%;" onclick="importStudentsFromText()">Text importieren</button>
+    </div>
+  </div>
+</div>
+
+<!-- Student Actions Modal -->
+<div id="modal-student-actions" class="modal-overlay hidden" onclick="closeModalOnOverlay(event,'modal-student-actions')">
+  <div class="modal modal-small" onclick="event.stopPropagation()">
+    <div class="modal-header">
+      <h2>Aktionen</h2>
+      <button class="modal-close" onclick="closeModal('modal-student-actions')">✕</button>
+    </div>
+    <div class="modal-body" style="display:flex; flex-direction:column; gap:12px;">
+      <button class="btn-secondary" style="width:100%; text-align:left; justify-content:flex-start;" onclick="closeModal('modal-student-actions'); openAddStudent()">
+        <span style="margin-right:8px; font-size:16px;">🧑‍🎓</span> Einzelnen Schüler hinzufügen
+      </button>
+      <button class="btn-secondary" style="width:100%; text-align:left; justify-content:flex-start;" onclick="closeModal('modal-student-actions'); openImportStudentsModal()">
+        <span style="margin-right:8px; font-size:16px;">📋</span> Mehrere Schüler hinzufügen
+      </button>
+      <button class="btn-secondary" style="width:100%; text-align:left; justify-content:flex-start;" onclick="closeModal('modal-student-actions'); exportGradesCSV()">
+        <span style="margin-right:8px; font-size:16px;">📥</span> Notenexport als CSV-Datei
+      </button>
+      <div style="border-bottom: 1px solid var(--border); margin: 4px 0;"></div>
+      <button class="btn-secondary" style="width:100%; text-align:left; justify-content:flex-start;" onclick="closeModal('modal-student-actions'); toggleStudentEditMode()">
+        <span style="margin-right:8px; font-size:16px;">🗑️</span> Schülerliste bearbeiten / löschen
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Add / Edit Column Modal -->
+<div id="modal-add-column" class="modal-overlay hidden" onclick="closeModalOnOverlay(event,'modal-add-column')">
+  <div class="modal modal-small" onclick="event.stopPropagation()">
+    <div class="modal-header">
+      <h2 id="column-modal-title">Neue Spalte</h2>
+      <button class="modal-close" onclick="closeModal('modal-add-column')">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label>Datum</label>
+        <input type="date" id="new-col-date" class="form-input" />
+      </div>
+      <div class="form-group">
+        <label>Anlass / Bezeichnung (optional)</label>
+        <input type="text" id="new-col-label" placeholder="z.B. 1. Vokabeltest" class="form-input" />
+      </div>
+      <div class="form-group" id="new-col-type-group" style="display:none;">
+        <label>Art der Note</label>
+        <select id="new-col-type" class="form-input">
+          <option value="test">Sonstige Note (Test, Mitarbeit, etc.)</option>
+          <option value="schularbeit">Schularbeit / Klausur</option>
+        </select>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-secondary" onclick="closeModal('modal-add-column')">Abbrechen</button>
+      <button class="btn-primary" onclick="saveOverviewColumn()">Speichern</button>
+    </div>
+  </div>
+</div>
+
+<!-- Student Detail -->
+<div id="modal-student-detail" class="modal-overlay hidden" onclick="closeModalOnOverlay(event,'modal-student-detail')">
+  <div class="modal modal-student-detail" onclick="event.stopPropagation()">
+    <div class="modal-header">
+      <div style="display:flex; align-items:center; gap:12px;">
+        <div><h2 id="sdetail-name" style="margin:0;"></h2><span id="sdetail-group" class="modal-subtitle"></span></div>
+        <button class="btn-icon" title="Daten exportieren" onclick="exportCurrentStudent()" style="color:var(--text-secondary); width:36px; height:36px;">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        </button>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center">
+        <button class="modal-close" onclick="closeModal('modal-student-detail')">✕</button>
+      </div>
+    </div>
+    <div class="modal-tabs">
+      <button class="tab-btn active" onclick="switchStudentTab('grades')">🎓 Noten</button>
+      <button class="tab-btn" onclick="switchStudentTab('participation')">🙋 Mitarbeit</button>
+      <button class="tab-btn" onclick="switchStudentTab('attendance')">📅 Anwesenheit</button>
+      <button class="tab-btn" onclick="switchStudentTab('homework')">📚 Hausaufgaben</button>
+      <button class="tab-btn" onclick="switchStudentTab('notes')">📝 Notizen</button>
+    </div>
+    <div class="modal-body">
+      <div id="student-tab-grades" class="s-tab active">
+        <div class="grades-summary" id="grades-summary"></div>
+        <div class="entry-list" id="grades-list"></div>
+        <div style="margin-top: 16px;">
+          <button class="btn-primary" style="width: 100%; justify-content: center;" onclick="openGradeFormForCurrentStudentDetailed()">+ Neue Note eintragen</button>
+        </div>
+      </div>
+      <div id="student-tab-notes" class="s-tab hidden">
+        <div class="entry-list" id="student-notes-list"></div>
+        <div class="add-entry-row">
+          <input type="text" id="new-student-note-text" placeholder="Neue Anmerkung..." class="entry-input" />
+          <input type="date" id="new-student-note-date" class="entry-date" />
+          <button class="btn-primary" onclick="addStudentNote()">Hinzufügen</button>
+        </div>
+      </div>
+      <div id="student-tab-attendance" class="s-tab hidden">
+        <div class="entry-list" id="attendance-list"></div>
+        <div class="add-entry-row">
+          <input type="date" id="new-att-date" class="entry-date" />
+          <select id="new-att-type" class="form-input" style="flex:1">
+            <option value="abwesend">Unentschuldigt</option>
+            <option value="entschuldigt">Entschuldigt</option>
+            <option value="zuspät">Zu spät</option>
+          </select>
+          <input type="text" id="new-att-note" placeholder="Grund..." class="entry-input" style="flex:1" />
+          <button class="btn-primary" onclick="addAttendanceEntry()">+</button>
+        </div>
+      </div>
+      <div id="student-tab-participation" class="s-tab hidden">
+        <div class="entry-list" id="participation-list"></div>
+      </div>
+      <div id="student-tab-homework" class="s-tab hidden">
+        <div class="entry-list" id="student-homework-list"></div>
+        <div class="add-entry-row">
+          <input type="date" id="new-hw-student-date" class="entry-date" />
+          <input type="text" id="new-hw-student-note" placeholder="Bemerkung..." class="entry-input" style="flex:1" />
+          <button class="btn-primary" onclick="addStudentHomework()">+</button>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer" style="justify-content: space-between;">
+      <button class="btn-icon btn-danger-icon" title="Schüler löschen" onclick="deleteCurrentStudent()" style="width: auto; padding: 0 12px; border: 1px solid var(--danger);">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right:6px;"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/></svg> Schüler löschen
+      </button>
+      <div style="display:flex; gap:8px;">
+        <button class="btn-secondary" onclick="openEditStudent()">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right:4px;"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg> Bearbeiten
+        </button>
+        <button class="btn-primary" onclick="closeModal('modal-student-detail')">Fertig</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Settings -->
+<div id="modal-settings" class="modal-overlay hidden" onclick="closeModalOnOverlay(event,'modal-settings')">
+  <div class="modal modal-settings-modal" onclick="event.stopPropagation()">
+    <div class="modal-header">
+      <h2>Einstellungen</h2>
+      <button class="modal-close" onclick="closeModal('modal-settings')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group"><label>Lehrername</label><input type="text" id="settings-teacher-name" class="form-input" placeholder="Dein Name" /></div>
+      <div class="form-group"><label>Schule</label><input type="text" id="settings-school" class="form-input" placeholder="Schulname" /></div>
+      <div class="form-group">
+        <label>Sitzplan: Auto-Vorschlag Vorlauf</label>
+        <div style="display:flex; align-items:center; gap:8px;">
+          <input type="number" id="settings-seating-buffer" class="form-input" style="width:80px;" min="0" max="60" value="5" />
+          <span style="font-size:13px; color:var(--text-secondary);">Minuten vor Stundenbeginn</span>
+        </div>
+      </div>
+      <div class="settings-section" style="margin-top:16px;">
+        <h3 style="margin-bottom:12px;font-size:14px;">Warnungs-Schwellenwerte (Dashboard)</h3>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Unentsch. Fehlzeiten</label>
+            <input type="number" id="settings-warn-absences" class="form-input" min="1" max="50" placeholder="z.B. 3" />
+          </div>
+          <div class="form-group">
+            <label>Vergessene HA</label>
+            <input type="number" id="settings-warn-homework" class="form-input" min="1" max="50" placeholder="z.B. 3" />
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Notenschnitt schlechter als</label>
+            <input type="number" id="settings-warn-grade" class="form-input" step="0.1" min="1" max="6" placeholder="z.B. 4.5" />
+          </div>
+        </div>
+      </div>
+      <div class="settings-section">
+        <h3 style="margin-bottom:12px;font-size:14px;">Theme & Farben</h3>
+        <div class="form-group">
+          <label>Hintergrundfarbe</label>
+          <div style="display:flex; gap:10px; flex-wrap:wrap; margin-bottom:12px;" id="settings-bg-colors">
+            <!-- Light Backgrounds -->
+            <div class="color-swatch settings-swatch-bg" style="background:#fbcfe8; --swatch-color:#f9a8d4;" data-color="#fbcfe8" data-mode="light" data-card="#fce7f3" title="Pastellrosa" onclick="selectThemeBg(this, '#fbcfe8', 'light', '#fce7f3')"></div>
+            <div class="color-swatch settings-swatch-bg" style="background:#fae8b4; --swatch-color:#fcd34d;" data-color="#fae8b4" data-mode="light" data-card="#fdf4d8" title="Creme" onclick="selectThemeBg(this, '#fae8b4', 'light', '#fdf4d8')"></div>
+            <div class="color-swatch settings-swatch-bg" style="background:#c2d6c6; --swatch-color:#9eb8a4;" data-color="#c2d6c6" data-mode="light" data-card="#dbe7dd" title="Salbeigrün" onclick="selectThemeBg(this, '#c2d6c6', 'light', '#dbe7dd')"></div>
+            <div class="color-swatch settings-swatch-bg" style="background:#bfdbfe; --swatch-color:#93c5fd;" data-color="#bfdbfe" data-mode="light" data-card="#dbeafe" title="Eisblau" onclick="selectThemeBg(this, '#bfdbfe', 'light', '#dbeafe')"></div>
+            <div class="color-swatch settings-swatch-bg" style="background:#ddd6fe; --swatch-color:#c4b5fd;" data-color="#ddd6fe" data-mode="light" data-card="#ede9fe" title="Lavendel" onclick="selectThemeBg(this, '#ddd6fe', 'light', '#ede9fe')"></div>
+            <!-- Dark / Mid Backgrounds -->
+            <div class="color-swatch settings-swatch-bg" style="background:#1f2937; --swatch-color:#6b7280;" data-color="#1f2937" data-mode="dark" data-card="#374151" title="Schiefer" onclick="selectThemeBg(this, '#1f2937', 'dark', '#374151')"></div>
+            <div class="color-swatch settings-swatch-bg" style="background:#18181b; --swatch-color:#71717a;" data-color="#18181b" data-mode="dark" data-card="#27272a" title="Dämmerung" onclick="selectThemeBg(this, '#18181b', 'dark', '#27272a')"></div>
+            <div class="color-swatch settings-swatch-bg" style="background:#0f172a; --swatch-color:#475569;" data-color="#0f172a" data-mode="dark" data-card="#1e293b" title="Tiefsee" onclick="selectThemeBg(this, '#0f172a', 'dark', '#1e293b')"></div>
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Akzentfarbe</label>
+          <div style="display:flex; gap:10px; flex-wrap:wrap; margin-bottom:12px;" id="settings-accent-colors">
+            <div class="color-swatch settings-swatch-accent" style="background:#be123c; --swatch-color:#be123c;" data-color="#be123c" title="Dusty Rose" onclick="selectThemeAccent(this, '#be123c')"></div>
+            <div class="color-swatch settings-swatch-accent" style="background:#fb7185; --swatch-color:#fb7185;" data-color="#fb7185" title="Soft Coral" onclick="selectThemeAccent(this, '#fb7185')"></div>
+            <div class="color-swatch settings-swatch-accent" style="background:#fb923c; --swatch-color:#fb923c;" data-color="#fb923c" title="Pfirsich" onclick="selectThemeAccent(this, '#fb923c')"></div>
+            <div class="color-swatch settings-swatch-accent" style="background:#eab308; --swatch-color:#eab308;" data-color="#eab308" title="Sonnengelb" onclick="selectThemeAccent(this, '#eab308')"></div>
+            <div class="color-swatch settings-swatch-accent" style="background:#4ade80; --swatch-color:#4ade80;" data-color="#4ade80" title="Mint Grün" onclick="selectThemeAccent(this, '#4ade80')"></div>
+            <div class="color-swatch settings-swatch-accent" style="background:#38bdf8; --swatch-color:#38bdf8;" data-color="#38bdf8" title="Himmelblau" onclick="selectThemeAccent(this, '#38bdf8')"></div>
+            <div class="color-swatch settings-swatch-accent" style="background:#818cf8; --swatch-color:#818cf8;" data-color="#818cf8" title="Periwinkle" onclick="selectThemeAccent(this, '#818cf8')"></div>
+            <div class="color-swatch settings-swatch-accent" style="background:#f472b6; --swatch-color:#f472b6;" data-color="#f472b6" title="Blush Pink" onclick="selectThemeAccent(this, '#f472b6')"></div>
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Kanten-Radius: <span id="settings-radius-val">8px</span></label>
+          <input type="range" id="settings-radius" min="0" max="12" value="8" style="width:100%" oninput="document.getElementById('settings-radius-val').textContent=this.value+'px'; applyThemePreview()" />
+        </div>
+      </div>
+      <div class="settings-section">
+        <h3 style="margin-bottom:12px;font-size:14px;">Anzeige</h3>
+        <div class="form-group">
+          <label>Schüler sortieren nach</label>
+          <select id="settings-sort-order" class="form-input">
+            <option value="firstName">Vorname (Max Müller)</option>
+            <option value="lastName">Nachname (Müller, Max)</option>
+          </select>
+        </div>
+      </div>
+      <!-- Block Times Editor -->
+      <div class="settings-section">
+        <div class="settings-section-header">
+          <h3>Stundenzeiten (Blöcke)</h3>
+          <button class="btn-secondary" style="font-size:12px;padding:5px 10px" onclick="addBlockRow()">+ Block</button>
+        </div>
+        <p style="font-size:12px;color:var(--text-muted);margin:6px 0 12px">Diese Zeiten erscheinen links im Stundenplan und als Auswahloptionen beim Hinzufügen.</p>
+        <div id="blocks-editor"></div>
+      </div>
+
+      <div class="settings-section">
+        <h3>App Version</h3>
+        <p style="font-size:12px;color:var(--text-muted);margin:6px 0 12px">Die App funktioniert 100% offline. Klicke hier, um manuell nach einer neuen Version auf dem Server zu suchen.</p>
+        <button class="btn-primary" onclick="forceAppUpdate()">🔄 App jetzt aktualisieren</button>
+      </div>
+
+      <div class="settings-section">
+        <h3>Über & Kontakt</h3>
+        <p style="font-size:12px;color:var(--text-muted);margin:6px 0 12px">Hast du Fragen, Probleme oder Wünsche für neue Funktionen?</p>
+        <!-- HIER BITTE DEINE E-MAIL-ADRESSE EINTRAGEN: -->
+        <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:8px;">
+          <a href="mailto:ericwinderlich@gmail.com?subject=Feedback zur Lehrer App" class="btn-secondary" style="text-decoration:none; display:inline-flex; align-items:center; gap:8px;">📧 E-Mail schreiben</a>
+          <button class="btn-secondary" style="display:inline-flex; align-items:center; gap:8px;" onclick="navigator.clipboard.writeText('ericwinderlich@gmail.com').then(() => showToast('E-Mail-Adresse kopiert!'))">📋 Adresse kopieren</button>
+        </div>
+      </div>
+
+      <div class="settings-section">
+        <h3>Datenverwaltung</h3>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:8px;">
+          <button class="btn-secondary" onclick="exportData()">📥 Exportieren</button>
+          <button class="btn-secondary" onclick="importDataClick()">📤 Importieren</button>
+          <button class="btn-danger-outline" onclick="clearAllData()">🗑️ Alles löschen</button>
+        </div>
+        <input type="file" id="import-file-input" accept=".json" style="display:none" onchange="importData(event)" />
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-primary" onclick="saveSettings()">Speichern</button>
+    </div>
+  </div>
+</div>
+
+  <div id="toast-container"></div>
+
+  <!-- Lesson Students Selector Modal -->
+  <div id="modal-lesson-students" class="modal-overlay hidden" onclick="closeModalOnOverlay(event,'modal-lesson-students')">
+    <div class="modal modal-small" onclick="event.stopPropagation()">
+      <div class="modal-header">
+        <h2>Schüler auswählen</h2>
+        <button class="modal-close" onclick="closeModal('modal-lesson-students')">✕</button>
+      </div>
+      <div class="modal-body" style="padding:0;">
+        <div id="lesson-students-list" style="display:flex; flex-direction:column;"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Seating Student Quick Modal -->
+  <div id="modal-seating-student" class="modal-overlay hidden" onclick="closeModalOnOverlay(event,'modal-seating-student')">
+    <div class="modal modal-small" onclick="event.stopPropagation()">
+      <div class="modal-header">
+        <h2 id="seating-student-title">Schüler</h2>
+        <div style="display:flex;gap:8px;align-items:center">
+          <button class="btn-secondary" style="padding:4px 8px; font-size:12px;" onclick="jumpToStudentDetailFromSeating()">Zum Profil</button>
+          <button class="modal-close" onclick="closeModal('modal-seating-student')">✕</button>
+        </div>
+      </div>
+      <div class="modal-body" style="padding:16px;">
+        <div style="text-align:center; margin-bottom:16px;">
+          <div style="font-size:14px; color:var(--text-secondary); margin-bottom:8px;" id="seating-student-date-label"></div>
+          <div style="display:flex; justify-content:center; gap:12px;">
+            <button class="btn-secondary" style="font-size:24px; padding:8px 16px;" onclick="addParticipationSmiley('positive')">😊</button>
+            <button class="btn-secondary" style="font-size:24px; padding:8px 16px;" onclick="addParticipationSmiley('neutral')">😐</button>
+            <button class="btn-secondary" style="font-size:24px; padding:8px 16px;" onclick="addParticipationSmiley('negative')">☹️</button>
+          </div>
+          <div style="display:flex; flex-direction:column; gap:8px; margin-top:16px;">
+            <div style="display:flex; gap:8px;">
+              <button class="btn-secondary" style="flex:1; font-size:12px; color:var(--danger); border-color:var(--danger);" onclick="setSeatingAbsence('abwesend')">❌ Unentschuldigt fehlen</button>
+              <button class="btn-secondary" style="flex:1; font-size:12px; color:var(--success); border-color:var(--success);" onclick="setSeatingAbsence('entschuldigt')">✅ Entschuldigt fehlen</button>
+            </div>
+            <button class="btn-secondary" style="width:100%; font-size:12px; color:var(--warning);" onclick="setSeatingHomework()">📚 Hausaufgabe vergessen</button>
+          </div>
+        </div>
+        <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--border); padding-bottom:6px; margin-bottom:10px;">
+          <div style="display:flex; gap: 12px; align-items: center;">
+            <h3 style="font-size:13px; font-weight:600; color:var(--text-secondary); margin:0;">Bisherige Noten</h3>
+            <div id="seating-student-participation-summary" style="font-size:11px; font-weight:700; padding:3px 6px; background:var(--bg-elevated); border-radius:4px;" title="Mitarbeit (Positiv : Neutral : Negativ)">0 : 0 : 0</div>
+          </div>
+          <button class="btn-secondary" style="font-size:11px; padding:4px 8px;" onclick="openGradeFormForCurrentStudent()">➕ Neue Note</button>
+        </div>
+        <div id="seating-student-grades" style="max-height:200px; overflow-y:auto; display:flex; flex-direction:column; gap:8px;"></div>
+      </div>
+    </div>
+  </div>
+
+  <script src="app.js?v=73"></script>
+</body>
 </html>
