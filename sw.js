@@ -1,9 +1,9 @@
-const CACHE_NAME = 'lehrer-app-v74'; // Update to v74 to trigger a new installation
+const CACHE_NAME = 'lehrer-app-v167';
 const ASSETS = [
   './',
   './index.html',
-  './app.js?v=74',
-  './style.css?v=74',
+  './app.js?v=167',
+  './style.css?v=167',
   './manifest.json',
   './icon.svg'
 ];
@@ -14,7 +14,8 @@ self.addEventListener('install', event => {
       // Use cache-busting on install so we don't accidentally cache old HTTP-cached files
       return Promise.all(
         ASSETS.map(url => {
-          return fetch(url + '?buster=' + Date.now()).then(response => {
+          const bustUrl = url + (url.includes('?') ? '&' : '?') + 'buster=' + Date.now();
+          return fetch(bustUrl).then(response => {
             if (!response.ok) throw new Error('Fetch failed for ' + url);
             return cache.put(url, response); // Save as original URL
           });

@@ -191,16 +191,54 @@ function renderTimetable() {
   document.getElementById('week-label').textContent =
     `KW ${weekNo}  ·  ${formatDateDE(dates[0])} – ${formatDateDE(dates[4])} ${dates[0].getFullYear()}`;
 
+  // "Heute" button + week-label only glow on the current week
+  const heuteBtn = document.querySelector('button[onclick="goToCurrentWeek()"]');
+  const weekLabel = document.getElementById('week-label');
+  const isCurrentWeek = currentWeekOffset === 0;
+  if (heuteBtn) heuteBtn.classList.toggle('active', isCurrentWeek);
+  if (weekLabel) weekLabel.classList.toggle('active', isCurrentWeek);
+
   grid.innerHTML = '';
-  grid.style.gridTemplateColumns = '84px repeat(5, 1fr)';
-  grid.style.gridTemplateRows = `auto repeat(${blocks.length}, 1fr)`;
+  
+  // Calculate dynamic square cell size that fits the screen
+  const wrapper = grid.parentElement;
+  const availW = wrapper.clientWidth - 48; // padding 24+24
+  const availH = wrapper.clientHeight - 48;
+  
+  const daysW = availW - 84 - 60; // 84px for time label, 60px for 5 gaps of 12px
+  const maxCellW = daysW / 5;
+  
+  const blocksH = availH - 60 - (blocks.length * 12); // ~60px header, gaps
+  const maxCellH = blocksH / blocks.length;
+  
+  let cellSize = Math.min(maxCellW, maxCellH);
+  if (cellSize < 80) cellSize = 80;
+  
+  const actualContentWidth = 84 + 12 + (5 * cellSize);
+  const extraSpace = Math.max(0, availW - actualContentWidth);
+  const extraGap = extraSpace / 4; // distribute across the 4 gaps between the 5 days
+  
+  grid.style.margin = '0';
+  wrapper.style.overflow = 'hidden';
+  grid.style.justifyContent = 'start';
+  
+  // 11 columns: Time, gap, Mo, gap, Tu, gap, We, gap, Th, gap, Fr
+  grid.style.gridTemplateColumns = `84px 12px ${cellSize}px ${extraGap}px ${cellSize}px ${extraGap}px ${cellSize}px ${extraGap}px ${cellSize}px ${extraGap}px ${cellSize}px`;
+  grid.style.gridTemplateRows = `auto repeat(${blocks.length}, ${cellSize}px)`;
+  grid.style.rowGap = '12px';
+  grid.style.columnGap = '0px';
 
   // Header row
-  grid.appendChild(Object.assign(document.createElement('div'),{className:'tt-corner'}));
+  const corner = document.createElement('div');
+  corner.className = 'tt-corner';
+  corner.style.gridColumn = '1';
+  grid.appendChild(corner);
+  
   dates.forEach((d, i) => {
     const el = document.createElement('div');
     el.className = 'tt-day-header' + (isToday(d) ? ' today' : '');
     el.innerHTML = `<div>${DAY_SHORT[i]}</div><div style="font-size:10px;font-weight:400;margin-top:1px">${formatDateDE(d)}</div>`;
+    el.style.gridColumn = (3 + i * 2).toString();
     grid.appendChild(el);
   });
 
@@ -210,31 +248,29 @@ function renderTimetable() {
     timeEl.className = 'tt-time-label';
     timeEl.innerHTML = `<div class="tt-time-block-name">${escHtml(block.label)}</div>
       <div class="tt-time-block-range">${escHtml(block.start)}<br>${escHtml(block.end)}</div>`;
+    timeEl.style.gridColumn = '1';
     grid.appendChild(timeEl);
 
     dates.forEach((d, dayIdx) => {
       const dateStr = formatDate(d);
       const cell = document.createElement('div');
       cell.className = 'tt-cell';
+      cell.style.gridColumn = (3 + dayIdx * 2).toString();
 
-      const lesson = db.lessonSlots.find(s => {
+      const lessons = db.lessonSlots.filter(s => {
         if (s.day !== dayIdx || s.block !== block.num) return false;
         if (s.recurring === true || s.recurring === 'weekly') return true;
         if (s.recurring === 'biweekly') return (weekNo % 2) === ((s.startWeek || weekNo) % 2);
         return s.specificDate === dateStr;
       });
 
-      if (lesson) {
+      const renderLessonHTML = (lesson, extraClasses = '') => {
         const key  = lesson.id + '_' + dateStr;
         const data = db.lessonData[key] || {};
         const isAusfall = !!data.ausfall;
-
-        // Also check incoming items targeting this date from other lesson sessions
         const incoming = getIncomingItems(lesson.id, dateStr);
-
         const activeHW   = (data.hwItems||[]).filter(i => !i.targetDate || i.targetDate === dateStr);
         const hasHW      = (data.hwEnabled && activeHW.length > 0) || incoming.hw.length > 0;
-        
         const activeTest = (data.testItems||[]).filter(i => !i.targetDate || i.targetDate === dateStr);
         const hasTest    = (data.testEnabled && activeTest.length > 0) || incoming.tests.length > 0;
 
@@ -243,24 +279,14 @@ function renderTimetable() {
         if (hasTest) indicators.push({ label:'Test',  color:'#ef4444' });
         if (data.notes) indicators.push({ label:'Notiz', color:'#64748b' });
 
-        // Resolve display name from group if linked, otherwise use slot.subject
         let displayMain, displaySub;
         if (lesson.groupId) {
           const group = db.groups.find(g => g.id === lesson.groupId);
-          if (group) {
-            displayMain = group.subject;
-            displaySub  = group.className;
-          } else {
-            displayMain = lesson.subject;
-            displaySub  = null;
-          }
-        } else {
-          displayMain = lesson.subject;
-          displaySub  = null;
-        }
+          if (group) { displayMain = group.subject; displaySub  = group.className; }
+          else { displayMain = lesson.subject; displaySub  = null; }
+        } else { displayMain = lesson.subject; displaySub  = null; }
 
-        cell.innerHTML = `
-          <div class="tt-lesson${isAusfall?' ausfall-lesson':''}"
+        return `<div class="tt-lesson${isAusfall?' ausfall-lesson':''} ${extraClasses}"
                style="background:${hexToRgba(lesson.color,0.15)};color:${lesson.color}"
                onclick="openLessonDetail('${lesson.id}','${dateStr}')">
             <div>
@@ -274,13 +300,27 @@ function renderTimetable() {
               ).join('')}
             </div>
           </div>`;
+      };
+
+      const renderEmptyHTML = (part) => {
+        return `<div class="tt-empty-cell" title="${DAYS[dayIdx]}, ${block.label} – Klicken zum Hinzufügen"
+                     onclick="openAddLessonSlot(${dayIdx}, ${block.num}, '${dateStr}', '${part}')">
+                  <span class="tt-add-icon">+</span>
+                </div>`;
+      };
+
+      if (lessons.length === 0) {
+        cell.innerHTML = renderEmptyHTML('full');
+      } else if (lessons.length === 1 && (!lessons[0].part || lessons[0].part === 'full')) {
+        cell.innerHTML = renderLessonHTML(lessons[0]);
       } else {
-        const empty = document.createElement('div');
-        empty.className = 'tt-empty-cell';
-        empty.title = `${DAYS[dayIdx]}, ${block.label} – Klicken zum Hinzufügen`;
-        empty.innerHTML = `<span class="tt-add-icon">+</span>`;
-        empty.addEventListener('click', () => openAddLessonSlot(dayIdx, block.num, dateStr));
-        cell.appendChild(empty);
+        // Split block
+        const first = lessons.find(l => l.part === 'first');
+        const second = lessons.find(l => l.part === 'second');
+        cell.innerHTML = `<div class="tt-split-container">
+          <div class="tt-split-half">${first ? renderLessonHTML(first) : renderEmptyHTML('first')}</div>
+          <div class="tt-split-half">${second ? renderLessonHTML(second) : renderEmptyHTML('second')}</div>
+        </div>`;
       }
       grid.appendChild(cell);
     });
@@ -386,7 +426,21 @@ function onLessonGroupChange() {
 let currentSpecificDate = null;
 
 // ─── Add / Edit lesson slot ───────────────────────────────────────────────
-function openAddLessonSlot(preDay = null, preBlock = null, specificDateStr = null) {
+function openAddLessonSlot(preDay = null, preBlock = null, specificDateStr = null, part = 'full') {
+  const radios = document.getElementsByName('new-lesson-part');
+  for(let r of radios) {
+    r.disabled = false;
+    r.parentElement.style.opacity = '1';
+    r.parentElement.title = '';
+    
+    if (r.value === part) r.checked = true;
+    
+    if (part !== 'full' && r.value !== part) {
+      r.disabled = true;
+      r.parentElement.style.opacity = '0.4';
+      r.parentElement.title = 'Diese Hälfte ist bereits belegt';
+    }
+  }
   currentSpecificDate = specificDateStr;
   editingSlotId = null;
   document.getElementById('add-lesson-title').textContent = 'Stunde hinzufügen';
@@ -432,6 +486,25 @@ function openEditLesson() {
   selectedLessonColor = slot.color || APP_COLORS[0];
   renderColorPicker('lesson-color-picker', APP_COLORS, val => { selectedLessonColor = val; });
 
+  const radios = document.getElementsByName('new-lesson-part');
+  const partner = db.lessonSlots.find(s => s.id !== slot.id && s.day === slot.day && s.block === slot.block && s.part && s.part !== 'full');
+  
+  for(let r of radios) {
+    r.disabled = false;
+    r.parentElement.style.opacity = '1';
+    r.parentElement.title = '';
+    
+    if(r.value === (slot.part || 'full')) r.checked = true;
+    
+    if (partner) {
+      if (r.value === 'full' || r.value === partner.part) {
+         r.disabled = true;
+         r.parentElement.style.opacity = '0.4';
+         r.parentElement.title = 'Dieser Platz ist bereits belegt';
+      }
+    }
+  }
+
   // Sync preview state
   if (slot.groupId) {
     const g = db.groups.find(x => x.id === slot.groupId);
@@ -456,12 +529,36 @@ function saveLessonSlot() {
   const room      = document.getElementById('new-lesson-room').value.trim();
   const recurringVal = document.getElementById('new-lesson-recurring').value;
   const groupId   = document.getElementById('new-lesson-group').value || null;
+  let part = 'full';
+  const radios = document.getElementsByName('new-lesson-part');
+  for(let r of radios) if(r.checked) part = r.value;
 
   if (groupId) {
     const g = db.groups.find(x => x.id === groupId);
     if (g) subject = g.subject;
   }
   if (!subject) { showToast('Bitte Fach/Klasse eingeben', 'error'); return; }
+
+  // --- Overlap Validation ---
+  const existingLessons = db.lessonSlots.filter(s => {
+    if (editingSlotId && s.id === editingSlotId) return false;
+    if (s.day !== day || s.block !== block) return false;
+    return true; 
+  });
+  
+  if (part === 'full' && existingLessons.length > 0) {
+    showToast('Block ist bereits belegt! Ganzer Block nicht möglich.', 'error');
+    return;
+  }
+  
+  if (part !== 'full') {
+    const conflicting = existingLessons.find(s => s.part === 'full' || s.part === part || !s.part);
+    if (conflicting) {
+      showToast('Dieser Platz ist im Block bereits belegt!', 'error');
+      return;
+    }
+  }
+  // --------------------------
 
   let recurring = false, startWeek = null, specificDate = null;
   let startWeekDate = null;
@@ -486,10 +583,10 @@ function saveLessonSlot() {
 
   if (editingSlotId) {
     const slot = db.lessonSlots.find(s => s.id === editingSlotId);
-    if (slot) Object.assign(slot, { subject, day, block, room, recurring, startWeek, specificDate, color: selectedLessonColor, groupId });
+    if (slot) Object.assign(slot, { subject, day, block, room, recurring, startWeek, specificDate, color: selectedLessonColor, groupId, part });
     showToast('Stunde gespeichert ✓');
   } else {
-    db.lessonSlots.push({ id: uid(), day, block, subject, room, color: selectedLessonColor, recurring, startWeek, specificDate, groupId });
+    db.lessonSlots.push({ id: uid(), day, block, subject, room, color: selectedLessonColor, recurring, startWeek, specificDate, groupId, part });
     showToast('Stunde hinzugefügt ✓');
   }
   saveDB();
@@ -923,8 +1020,8 @@ function renderSubjectGroups() {
           <div class="sgc-stat"><div class="sgc-stat-value" style="color:${gradeColor(parseFloat(avg))}">${avg}</div><div class="sgc-stat-label">Ø Note</div></div>
           <div class="sgc-stat"><div class="sgc-stat-value">${grades.length}</div><div class="sgc-stat-label">Noten</div></div>
         </div>
-        <div style="margin-top:16px; display:flex; gap:8px;">
-          <button class="btn-secondary" style="flex:1; justify-content:center; padding:10px 4px; font-weight:600; font-size:12px;" onclick="event.stopPropagation();openSeatingForGroup('${g.id}')">🪑 Sitzplan</button>
+        <div style="margin-top:12px; display:flex; gap:8px;">
+          <button class="btn-primary" style="flex:1; justify-content:center;" onclick="event.stopPropagation();openSeatingForGroup('${g.id}')">🪑 Sitzplan</button>
         </div>`;
       card.addEventListener('click', () => openGroupStudents(g.id));
       container.appendChild(card);
@@ -2346,6 +2443,9 @@ function clearAllData() {
 // ─── Seating Plan ─────────────────────────────────────────────────────────
 let currentSeatingGroupId = '';
 let currentSeatingDateStr = '';
+let activeSeatingGroups = null;
+let lastSeatingGroupId = '';
+let lastSeatingDateStr = '';
 
 function getSuggestedSeatingGroupId() {
   const now = new Date();
@@ -2406,12 +2506,20 @@ function initSeatingPlan() {
 }
 
 function renderSeatingGroupSelect() {
-  const select = document.getElementById('seating-group-select');
-  if (!select) return;
-  select.innerHTML = '';
+  const menu = document.getElementById('seating-group-menu');
+  const label = document.getElementById('seating-group-current-label');
+  if (!menu || !label) return;
+  menu.innerHTML = '';
   
   if (!currentSeatingGroupId && db.groups.length > 0) {
     currentSeatingGroupId = db.groups[0].id;
+  }
+  
+  const activeGroup = db.groups.find(g => g.id === currentSeatingGroupId);
+  if (activeGroup) {
+    label.textContent = activeGroup.className;
+  } else {
+    label.textContent = 'Klasse';
   }
   
   const grouped = {};
@@ -2424,30 +2532,67 @@ function renderSeatingGroupSelect() {
   const sortedSubjects = Object.keys(grouped).sort((a,b) => a.localeCompare(b, undefined, { numeric: true }));
   
   sortedSubjects.forEach(subject => {
-    const optgroup = document.createElement('optgroup');
-    optgroup.label = `${subject}`;
+    const header = document.createElement('div');
+    header.style.fontSize = '10px';
+    header.style.fontWeight = '700';
+    header.style.color = 'var(--text-muted)';
+    header.style.textTransform = 'uppercase';
+    header.style.padding = '6px 10px 2px';
+    header.style.textAlign = 'center';
+    header.style.letterSpacing = '0.5px';
+    header.textContent = subject;
+    menu.appendChild(header);
     
     const classes = grouped[subject].sort((a,b) => a.className.localeCompare(b.className, undefined, { numeric: true }));
     
     classes.forEach(g => {
-      const option = document.createElement('option');
-      option.value = g.id;
-      option.textContent = `Klasse ${g.className}`;
-      if (g.id === currentSeatingGroupId) option.selected = true;
-      optgroup.appendChild(option);
+      const item = document.createElement('div');
+      item.style.padding = '6px 12px';
+      item.style.fontSize = '13px';
+      item.style.fontWeight = '600';
+      item.style.borderRadius = '8px';
+      item.style.cursor = 'pointer';
+      item.style.textAlign = 'center';
+      item.style.transition = 'all var(--transition)';
+      item.style.color = g.id === currentSeatingGroupId ? 'var(--text-accent)' : 'var(--text-primary)';
+      item.style.background = g.id === currentSeatingGroupId ? 'var(--accent-soft)' : 'transparent';
+      item.textContent = `Klasse ${g.className}`;
+      
+      item.onmouseover = () => {
+        if (g.id !== currentSeatingGroupId) item.style.background = 'var(--bg-card-hover)';
+      };
+      item.onmouseout = () => {
+        if (g.id !== currentSeatingGroupId) item.style.background = 'transparent';
+      };
+      
+      item.onclick = (e) => {
+        e.stopPropagation();
+        currentSeatingGroupId = g.id;
+        menu.classList.add('hidden');
+        renderSeatingGroupSelect();
+        renderSeatingPlan();
+      };
+      
+      menu.appendChild(item);
     });
-    
-    select.appendChild(optgroup);
   });
 }
 
-function onSeatingGroupSelectChange() {
-  const select = document.getElementById('seating-group-select');
-  if (select) {
-    currentSeatingGroupId = select.value;
-    renderSeatingPlan();
+function toggleCustomGroupDropdown(event) {
+  event.stopPropagation();
+  const menu = document.getElementById('seating-group-menu');
+  if (menu) {
+    menu.classList.toggle('hidden');
   }
 }
+
+// Close dropdown on click outside
+document.addEventListener('click', () => {
+  const menu = document.getElementById('seating-group-menu');
+  if (menu && !menu.classList.contains('hidden')) {
+    menu.classList.add('hidden');
+  }
+});
 
 function renderSeatingDateStrip() {
   const container = document.getElementById('seating-date-strip');
@@ -2524,7 +2669,9 @@ function saveSeatingGrid() {
   const g = db.groups.find(x => x.id === groupId);
   if (!g) return;
   g.seatingCols = parseInt(document.getElementById('seating-cols').value) || 10;
-  g.seatingRows = parseInt(document.getElementById('seating-rows').value) || 5;
+  let rows = parseInt(document.getElementById('seating-rows').value) || 5;
+  if (rows > 6) rows = 6;
+  g.seatingRows = rows;
   saveDB();
   renderSeatingPlan();
 }
@@ -2534,6 +2681,12 @@ function renderSeatingPlan() {
   const dateStr = currentSeatingDateStr;
   const canvas = document.getElementById('seating-canvas');
   const emptyState = document.getElementById('seating-empty');
+
+  if (lastSeatingGroupId !== groupId || lastSeatingDateStr !== dateStr) {
+    activeSeatingGroups = null;
+    lastSeatingGroupId = groupId;
+    lastSeatingDateStr = dateStr;
+  }
 
   // clear old elements
   canvas.querySelectorAll('.seating-card').forEach(c => c.remove());
@@ -2563,30 +2716,31 @@ function renderSeatingPlan() {
   // Reset canvas size temporarily to get an accurate width without old scrollbars
   canvas.style.minWidth = '0px';
   canvas.style.minHeight = '0px';
-  canvas.parentElement.style.overflow = 'hidden'; // Hide scrollbars during measurement to prevent interference
   
-  // Force a synchronous reflow of the parent to ensure the scrollbar is actually removed from layout math
-  void canvas.parentElement.clientWidth;
+  const wrapper = document.getElementById('seating-canvas-wrapper');
+  const containerWidth = (wrapper ? wrapper.clientWidth : canvas.parentElement.clientWidth) - 40;
+  const containerHeight = (wrapper ? wrapper.clientHeight : canvas.parentElement.clientHeight) - 40;
   
-  const containerWidth = canvas.clientWidth || 800;
-  
-  // Smart Fit Algorithm - No Math.floor to avoid rounding gaps
-  let cellWidth = containerWidth / cols;
-  let cellHeight = cellWidth * (100 / 140);
+  // Square cells: use the smaller of the two to keep cells perfectly square
+  const maxCellW = containerWidth / cols;
+  const maxCellH = containerHeight / rows;
+  const cellSize = Math.floor(Math.min(maxCellW, maxCellH));
+  const cellWidth = cellSize;
+  const cellHeight = cellSize;
 
-  if (cellWidth > 150) { cellWidth = 150; cellHeight = 107; }
-  if (cellWidth < 65) { cellWidth = 65; cellHeight = 46; }
-
-  const isCompact = cellWidth < 100;
+  const isCompact = cellSize < 100;
   const gridWidth = cols * cellWidth;
   const gridHeight = rows * cellHeight;
 
-  // Center the grid inside the canvas if it's smaller than the container width
-  const offsetX = Math.max(0, (containerWidth - gridWidth) / 2);
+  // Canvas wraps the grid exactly - no padding gap
+  const offsetX = 0;
+  const offsetY = 0;
 
   canvas.style.minWidth = gridWidth + 'px';
+  canvas.style.maxWidth = gridWidth + 'px';
   canvas.style.minHeight = gridHeight + 'px';
-  canvas.parentElement.style.overflow = 'auto'; // Restore scroll
+  canvas.style.maxHeight = gridHeight + 'px';
+  canvas.parentElement.style.overflow = 'hidden';
 
   // Draw Grid Cells
   for (let r = 0; r < rows; r++) {
@@ -2594,7 +2748,7 @@ function renderSeatingPlan() {
       const cell = document.createElement('div');
       cell.className = 'seating-grid-cell' + (c % 2 === 1 ? ' thick-border' : '');
       cell.style.left = (offsetX + c * cellWidth) + 'px';
-      cell.style.top = (r * cellHeight) + 'px';
+      cell.style.top = (offsetY + r * cellHeight) + 'px';
       cell.style.width = cellWidth + 'px';
       cell.style.height = cellHeight + 'px';
       canvas.appendChild(cell);
@@ -2654,15 +2808,17 @@ function renderSeatingPlan() {
     card.dataset.gridX = gx;
     card.dataset.gridY = gy;
     
-    const paddingX = Math.min(10, cellWidth * 0.1);
-    const paddingY = Math.min(10, cellHeight * 0.1);
-    const cardWidth = cellWidth - (paddingX * 2);
-    const cardHeight = cellHeight - (paddingY * 2);
+    const maxCardSize = Math.min(cellWidth, cellHeight);
+    const padding = Math.min(10, maxCardSize * 0.1);
+    const cardSize = maxCardSize - (padding * 2);
 
-    card.style.left = (offsetX + gx * cellWidth + paddingX) + 'px';
-    card.style.top = (gy * cellHeight + paddingY) + 'px';
-    card.style.width = cardWidth + 'px';
-    card.style.height = cardHeight + 'px';
+    const centerX = offsetX + gx * cellWidth + (cellWidth - cardSize) / 2;
+    const centerY = offsetY + gy * cellHeight + (cellHeight - cardSize) / 2;
+
+    card.style.left = centerX + 'px';
+    card.style.top = centerY + 'px';
+    card.style.width = cardSize + 'px';
+    card.style.height = cardSize + 'px';
 
     if (isCompact) card.classList.add('compact');
 
@@ -2688,6 +2844,20 @@ function renderSeatingPlan() {
       });
     }
 
+    // Re-apply active groups if any
+    if (activeSeatingGroups && activeSeatingGroups[s.id]) {
+      const gInfo = activeSeatingGroups[s.id];
+      card.classList.add('grouped');
+      card.style.borderColor = gInfo.color;
+      card.style.boxShadow = `0 0 10px ${gInfo.color}80, inset 0 0 5px ${gInfo.color}30`;
+      
+      const badge = document.createElement('div');
+      badge.className = 'seating-group-badge';
+      badge.textContent = gInfo.groupName;
+      badge.style.backgroundColor = gInfo.color;
+      card.appendChild(badge);
+    }
+
     canvas.appendChild(card);
   });
 
@@ -2698,12 +2868,17 @@ function renderSeatingPlan() {
 
     const tDesk = document.createElement('div');
     tDesk.className = 'teacher-desk';
-    const tPaddingX = Math.min(10, cellWidth * 0.1);
-    const tPaddingY = Math.min(10, cellHeight * 0.1);
-    tDesk.style.left = (offsetX + tdX * cellWidth + tPaddingX) + 'px';
-    tDesk.style.top = (tdY * cellHeight + tPaddingY) + 'px';
-    tDesk.style.width = (cellWidth * 2 - tPaddingX * 2) + 'px';
-    tDesk.style.height = (cellHeight - tPaddingY * 2) + 'px';
+    const maxCardSize = Math.min(cellWidth, cellHeight);
+    const padding = Math.min(10, maxCardSize * 0.1);
+    const cardSize = maxCardSize - (padding * 2);
+
+    const centerX = offsetX + tdX * cellWidth + (cellWidth * 2 - (cardSize * 2 + padding * 2)) / 2;
+    const centerY = offsetY + tdY * cellHeight + (cellHeight - cardSize) / 2;
+
+    tDesk.style.left = centerX + 'px';
+    tDesk.style.top = centerY + 'px';
+    tDesk.style.width = (cardSize * 2 + padding * 2) + 'px';
+    tDesk.style.height = cardSize + 'px';
     tDesk.innerHTML = 'Lehrerpult';
 
     if (seatingEditMode) {
@@ -2712,6 +2887,177 @@ function renderSeatingPlan() {
     }
     
     canvas.appendChild(tDesk);
+  }
+}
+
+// ─── Seating Plan Live Features: Randomizer & Groups ──────────────────────
+let lastSelectedRandomStudentId = null;
+const groupColors = [
+  '#3b82f6', '#10b981', '#8b5cf6', '#f97316', '#ef4444', '#06b6d4',
+  '#ec4899', '#eab308', '#6366f1', '#14b8a6', '#84cc16', '#a855f7'
+];
+
+function startSeatingRandomizer() {
+  const groupId = currentSeatingGroupId;
+  const dateStr = currentSeatingDateStr;
+  if (!groupId) {
+    showToast('Keine Klasse ausgewählt', 'error');
+    return;
+  }
+  
+  const students = db.students[groupId] || [];
+  const presentStudents = students.filter(s => {
+    const absence = (s.attendance || []).find(a => a.date === dateStr && (a.type === 'abwesend' || a.type === 'entschuldigt'));
+    return !absence;
+  });
+
+  if (presentStudents.length === 0) {
+    showToast('Keine anwesenden Schüler in dieser Klasse!', 'error');
+    return;
+  }
+
+  const modal = document.getElementById('modal-seating-randomizer');
+  const nameEl = document.getElementById('random-student-name');
+  
+  nameEl.textContent = 'Auswahl läuft...';
+  modal.classList.remove('hidden');
+
+  document.querySelectorAll('.seating-card').forEach(card => {
+    card.classList.remove('random-highlight', 'random-winner');
+  });
+
+  let duration = 2000;
+  let start = Date.now();
+  let delay = 50;
+  
+  function tick() {
+    const elapsed = Date.now() - start;
+    const index = Math.floor(Math.random() * presentStudents.length);
+    const candidate = presentStudents[index];
+    
+    document.querySelectorAll('.seating-card').forEach(card => {
+      card.classList.toggle('random-highlight', card.dataset.id === candidate.id);
+    });
+
+    if (elapsed < duration) {
+      delay = 50 + Math.pow(elapsed / duration, 2) * 300;
+      setTimeout(tick, delay);
+    } else {
+      let finalStudent = candidate;
+      if (presentStudents.length > 1 && candidate.id === lastSelectedRandomStudentId) {
+        const otherStudents = presentStudents.filter(s => s.id !== lastSelectedRandomStudentId);
+        finalStudent = otherStudents[Math.floor(Math.random() * otherStudents.length)];
+      }
+      
+      lastSelectedRandomStudentId = finalStudent.id;
+      window.currentRandomStudent = { studentId: finalStudent.id, groupId, dateStr };
+
+      document.querySelectorAll('.seating-card').forEach(card => {
+        card.classList.remove('random-highlight');
+        if (card.dataset.id === finalStudent.id) {
+          card.classList.add('random-winner');
+          card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      });
+
+      nameEl.textContent = finalStudent.firstName + ' ' + finalStudent.lastName;
+    }
+  }
+
+  tick();
+}
+
+function openSeatingGroupModal() {
+  if (!currentSeatingGroupId) {
+    showToast('Keine Klasse ausgewählt', 'error');
+    return;
+  }
+  openModal('modal-seating-groups');
+}
+
+function generateSeatingGroups() {
+  const groupId = currentSeatingGroupId;
+  const dateStr = currentSeatingDateStr;
+  
+  const size = parseInt(document.getElementById('seating-group-size').value) || 3;
+  const method = document.getElementById('seating-group-method').value;
+
+  const students = db.students[groupId] || [];
+  const presentStudents = students.filter(s => {
+    const absence = (s.attendance || []).find(a => a.date === dateStr && (a.type === 'abwesend' || a.type === 'entschuldigt'));
+    return !absence;
+  });
+
+  if (presentStudents.length === 0) {
+    showToast('Keine anwesenden Schüler zum Einteilen!', 'error');
+    return;
+  }
+
+  clearSeatingGroups(false);
+
+  let groups = [];
+  if (method === 'random') {
+    const shuffled = [...presentStudents].sort(() => Math.random() - 0.5);
+    for (let i = 0; i < shuffled.length; i += size) {
+      groups.push(shuffled.slice(i, i + size));
+    }
+  } else if (method === 'proximity') {
+    const ungrouped = [...presentStudents];
+    
+    while (ungrouped.length > 0) {
+      const current = ungrouped.shift();
+      const currentGroup = [current];
+      
+      while (currentGroup.length < size && ungrouped.length > 0) {
+        let bestIndex = -1;
+        let minDist = Infinity;
+        
+        for (let i = 0; i < ungrouped.length; i++) {
+          const candidate = ungrouped[i];
+          const dist = Math.sqrt(
+            Math.pow((current.gridX || 0) - (candidate.gridX || 0), 2) +
+            Math.pow((current.gridY || 0) - (candidate.gridY || 0), 2)
+          );
+          if (dist < minDist) {
+            minDist = dist;
+            bestIndex = i;
+          }
+        }
+        
+        if (bestIndex !== -1) {
+          currentGroup.push(ungrouped.splice(bestIndex, 1)[0]);
+        }
+      }
+      
+      groups.push(currentGroup);
+    }
+  }
+
+  activeSeatingGroups = {};
+  groups.forEach((group, groupIndex) => {
+    const color = groupColors[groupIndex % groupColors.length];
+    const groupName = `G${groupIndex + 1}`;
+    group.forEach(student => {
+      activeSeatingGroups[student.id] = { color, groupName };
+    });
+  });
+
+  renderSeatingPlan();
+  closeModal('modal-seating-groups');
+  showToast(`${groups.length} Gruppen gebildet!`);
+}
+
+function clearSeatingGroups(showMsg = true) {
+  activeSeatingGroups = null;
+  document.querySelectorAll('.seating-card.grouped').forEach(card => {
+    card.classList.remove('grouped');
+    card.style.borderColor = '';
+    card.style.boxShadow = '';
+    card.querySelectorAll('.seating-group-badge').forEach(b => b.remove());
+  });
+  if (showMsg) {
+    closeModal('modal-seating-groups');
+    showToast('Gruppen aufgehoben');
   }
 }
 
@@ -3224,12 +3570,136 @@ document.addEventListener('focusout', e => {
   }
 });
 
+// ─── Custom Form Dropdowns ────────────────────────────────────────────────
+function makeCustomFormDropdown(selectEl) {
+  if (selectEl.dataset.customDropdownInitialized) return;
+  selectEl.dataset.customDropdownInitialized = 'true';
+  selectEl.style.display = 'none';
+
+  const container = document.createElement('div');
+  container.className = 'custom-form-dropdown';
+
+  const trigger = document.createElement('button');
+  trigger.type = 'button';
+  trigger.className = 'custom-form-dropdown-trigger';
+  
+  const label = document.createElement('span');
+  label.style.flex = '1';
+  label.style.textAlign = 'left';
+  label.style.overflow = 'hidden';
+  label.style.textOverflow = 'ellipsis';
+  label.style.whiteSpace = 'nowrap';
+
+  const svg = document.createElement('div');
+  svg.style.flexShrink = '0';
+  svg.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="opacity: 0.6; margin-left: 8px;"><polyline points="6 9 12 15 18 9"></polyline></svg>`;
+
+  trigger.appendChild(label);
+  trigger.appendChild(svg);
+
+  const menu = document.createElement('div');
+  menu.className = 'custom-form-dropdown-menu';
+
+  container.appendChild(trigger);
+  container.appendChild(menu);
+
+  selectEl.parentNode.insertBefore(container, selectEl.nextSibling);
+
+  function renderMenu() {
+    menu.innerHTML = '';
+    let selectedText = '...';
+    
+    const renderOption = (opt) => {
+      const item = document.createElement('div');
+      item.className = 'custom-form-dropdown-item';
+      item.textContent = opt.textContent;
+      item.dataset.value = opt.value;
+      if (selectEl.value === opt.value) {
+        item.classList.add('selected');
+        selectedText = opt.textContent;
+      }
+      item.onclick = (e) => {
+        e.stopPropagation();
+        selectEl.value = opt.value;
+        selectEl.dispatchEvent(new Event('change', { bubbles: true }));
+        menu.classList.remove('show');
+        renderMenu(); // Re-render to update selected state
+        
+        // Execute inline onchange if present
+        if (typeof selectEl.onchange === 'function') {
+           selectEl.onchange();
+        }
+      };
+      return item;
+    };
+
+    Array.from(selectEl.children).forEach(child => {
+      if (child.tagName === 'OPTGROUP') {
+        const groupLabel = document.createElement('div');
+        groupLabel.className = 'custom-form-dropdown-optgroup';
+        groupLabel.textContent = child.label;
+        menu.appendChild(groupLabel);
+        Array.from(child.children).forEach(opt => {
+          menu.appendChild(renderOption(opt));
+        });
+      } else if (child.tagName === 'OPTION') {
+        menu.appendChild(renderOption(child));
+      }
+    });
+
+    label.textContent = selectedText;
+  }
+
+  // Initial render
+  renderMenu();
+
+  trigger.onclick = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const isShowing = menu.classList.contains('show');
+    document.querySelectorAll('.custom-form-dropdown-menu.show').forEach(m => m.classList.remove('show'));
+    const seatingMenu = document.getElementById('seating-group-menu');
+    if (seatingMenu) seatingMenu.classList.add('hidden'); // Close seating menu
+    if (!isShowing) menu.classList.add('show');
+  };
+
+  document.addEventListener('click', (e) => {
+    if (!container.contains(e.target)) {
+      menu.classList.remove('show');
+    }
+  });
+
+  // Watch for DOM changes (e.g. innerHTML updates)
+  const observer = new MutationObserver(() => {
+    renderMenu();
+  });
+  observer.observe(selectEl, { childList: true, subtree: true, attributes: true, attributeFilter: ['value'] });
+
+  // Override value setter to update UI programmatically
+  const originalDescriptor = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value');
+  if (originalDescriptor && !selectEl.dataset.valueOverridden) {
+    Object.defineProperty(selectEl, 'value', {
+      get: function() { return originalDescriptor.get.call(this); },
+      set: function(val) {
+        originalDescriptor.set.call(this, val);
+        renderMenu();
+      }
+    });
+    selectEl.dataset.valueOverridden = 'true';
+  }
+}
+
+function initAllCustomDropdowns() {
+  document.querySelectorAll('select.form-input').forEach(makeCustomFormDropdown);
+}
+
 // ─── Init ─────────────────────────────────────────────────────────────────
 if (typeof process === 'undefined' || process.env.NODE_ENV !== 'test') {
   applyThemePreview();
   renderTimetable();
   renderSubjectGroups();
   checkBackupReminder();
+  initAllCustomDropdowns();
 }
 
 function checkBackupReminder() {
@@ -3429,6 +3899,101 @@ window.jumpToStudentDetailFromSeating = function() {
   openGroupStudents(groupId);
   openStudentDetail(studentId);
 };
+
+
+// ─── Timer & Stopwatch ───────────────────────────────────────────────────
+let timerInterval = null;
+let timerSeconds = 300; // 5 mins default
+let timerIsRunning = false;
+
+function updateTimerDisplay() {
+  const el = document.getElementById('timer-display');
+  if (!el) return;
+  const m = Math.floor(timerSeconds / 60).toString().padStart(2, '0');
+  const s = (timerSeconds % 60).toString().padStart(2, '0');
+  el.textContent = m + ':' + s;
+}
+
+function adjustTimer(mins) {
+  if (timerIsRunning) return;
+  timerSeconds += mins * 60;
+  if (timerSeconds < 0) timerSeconds = 0;
+  updateTimerDisplay();
+}
+
+function toggleTimer() {
+  const btn = document.getElementById('btn-timer-toggle');
+  if (timerIsRunning) {
+    clearInterval(timerInterval);
+    timerIsRunning = false;
+    btn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="margin-left:2px;"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>';
+  } else {
+    if (timerSeconds <= 0) return;
+    timerIsRunning = true;
+    btn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16"></rect><rect x="14" y="4" width="4" height="16"></rect></svg>';
+    timerInterval = setInterval(() => {
+      timerSeconds--;
+      updateTimerDisplay();
+      if (timerSeconds <= 0) {
+        clearInterval(timerInterval);
+        timerIsRunning = false;
+        btn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="margin-left:2px;"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>';
+        showToast('Timer abgelaufen!');
+      }
+    }, 1000);
+  }
+}
+
+function resetTimer() {
+  clearInterval(timerInterval);
+  timerIsRunning = false;
+  timerSeconds = 300;
+  document.getElementById('btn-timer-toggle').innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="margin-left:2px;"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>';
+  updateTimerDisplay();
+}
+
+let stopwatchInterval = null;
+let stopwatchMs = 0;
+let stopwatchIsRunning = false;
+let stopwatchLastTick = 0;
+
+function updateStopwatchDisplay() {
+  const el = document.getElementById('stopwatch-display');
+  if (!el) return;
+  const totalSeconds = Math.floor(stopwatchMs / 1000);
+  const m = Math.floor(totalSeconds / 60).toString().padStart(2, '0');
+  const s = (totalSeconds % 60).toString().padStart(2, '0');
+  const ms = Math.floor((stopwatchMs % 1000) / 100).toString();
+  el.textContent = m + ':' + s + '.' + ms;
+}
+
+function toggleStopwatch() {
+  const btn = document.getElementById('btn-stopwatch-toggle');
+  if (stopwatchIsRunning) {
+    clearInterval(stopwatchInterval);
+    stopwatchIsRunning = false;
+    btn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="margin-left:2px;"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>';
+  } else {
+    stopwatchIsRunning = true;
+    btn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16"></rect><rect x="14" y="4" width="4" height="16"></rect></svg>';
+    stopwatchLastTick = Date.now();
+    stopwatchInterval = setInterval(() => {
+      const now = Date.now();
+      stopwatchMs += (now - stopwatchLastTick);
+      stopwatchLastTick = now;
+      updateStopwatchDisplay();
+    }, 100);
+  }
+}
+
+function resetStopwatch() {
+  clearInterval(stopwatchInterval);
+  stopwatchIsRunning = false;
+  stopwatchMs = 0;
+  document.getElementById('btn-stopwatch-toggle').innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="margin-left:2px;"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>';
+  updateStopwatchDisplay();
+}
+
 
 // Export for testing
 if (typeof module !== 'undefined' && module.exports) {
