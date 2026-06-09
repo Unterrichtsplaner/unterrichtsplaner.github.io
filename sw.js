@@ -1,9 +1,9 @@
-const CACHE_NAME = 'lehrer-app-v73'; // Update to v73 to trigger a new installation
+const CACHE_NAME = 'lehrer-app-v74'; // Update to v74 to trigger a new installation
 const ASSETS = [
   './',
   './index.html',
-  './app.js?v=73',
-  './style.css?v=73',
+  './app.js?v=74',
+  './style.css?v=74',
   './manifest.json',
   './icon.svg'
 ];
