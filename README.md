@@ -21,7 +21,7 @@ Du kannst diese App extrem leicht für dich selbst anpassen, **auch ohne program
 Anstatt Programmieren zu lernen, lassen wir die KI die Arbeit für uns machen:
 
 1. **Forke** dieses Repository auf GitHub auf deinen eigenen Account (oben rechts auf "Fork" klicken).
-2. Lade dir den Ordner herunter oder nutze Tools wie [Cursor.com](https://cursor.com), [Antigravity](https://google.com) oder sogar ChatGPT (lade die Dateien `index.html` und `app.js` hoch).
+2. Lade dir den Ordner herunter oder nutze Tools wie [Cursor.com](https://cursor.com), [Antigravity](https://antigravity.google) oder sogar ChatGPT (lade die Dateien `index.html` und `app.js` hoch).
 3. **Gib der KI einen Befehl!** Zum Beispiel:
    > *"Hallo KI, das ist der Code für einen Unterrichtsplaner. Bitte füge im Popup-Menü für Schüler einen neuen Button namens 'Sportzeug vergessen' hinzu. Wenn ich darauf klicke, soll ein 👕-Symbol beim Schüler gespeichert werden."*
 4. Die KI wird dir genau den Code geben, den du ersetzen musst, oder ihn in Editoren wie Cursor direkt für dich einfügen.
