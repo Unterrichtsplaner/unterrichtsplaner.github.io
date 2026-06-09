@@ -233,11 +233,25 @@ input[type="date"] { min-height: 1.2em; } /* Fix iOS Safari date input collapse 
 .tab-btn.active{background:var(--accent-soft);color:var(--accent);border-color:var(--accent-soft);font-weight:700;}
 
 /* ─── Seating Plan ───────────────────────────── */
-.seating-canvas{position:relative;background:var(--bg-secondary);border-radius:12px;border:1px solid var(--border);overflow:hidden;min-height:200px;}
-.seating-grid-cell{position:absolute;border-right:1px dashed var(--border);border-bottom:1px dashed var(--border);box-sizing:border-box;pointer-events:none;}
-.seating-grid-cell.thick-border{border-right:3px solid var(--border);}
-.seating-card{position:absolute;background:var(--bg-elevated);border-radius:10px;border:2px solid var(--accent);box-shadow:var(--shadow-sm);display:flex;flex-direction:column;justify-content:center;align-items:center;padding:8px;text-align:center;cursor:pointer;transition:box-shadow 0.2s, transform 0.2s, left 0.1s, top 0.1s;z-index:10;}
-.teacher-desk{position:absolute;background:var(--bg-elevated);border-radius:10px;border:2px solid var(--accent);box-shadow:var(--shadow-sm);display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;color:var(--text-primary);font-weight:bold;font-size:14px;cursor:pointer;transition:box-shadow 0.2s, transform 0.2s, left 0.1s, top 0.1s;z-index:10;}
+.seating-canvas {
+  position: relative;
+  background-color: var(--bg-secondary);
+  border-radius: var(--radius-xl);
+  border: 1px solid var(--border);
+  overflow: hidden;
+  min-height: 200px;
+  transition: background 0.3s ease;
+}
+.seating-canvas.edit-mode {
+  background-color: var(--bg-primary);
+}
+.seating-grid-cell{position:absolute;border-right:1px dashed var(--border);border-bottom:1px dashed var(--border);box-sizing:border-box;pointer-events:none;opacity:0;transition:opacity 0.25s ease;}
+.seating-grid-cell.thick-border{border-right:2px solid var(--border);}
+.seating-canvas.edit-mode .seating-grid-cell,
+.seating-canvas.show-grid-always .seating-grid-cell{opacity:0.45;}
+.seating-card{position:absolute;background:var(--bg-card);border-radius:12px;border:1px solid var(--border);box-shadow:var(--shadow-sm);display:flex;flex-direction:column;justify-content:center;align-items:center;padding:8px;text-align:center;cursor:pointer;transition:box-shadow 0.2s, transform 0.2s, border-color 0.2s, left 0.1s, top 0.1s;z-index:10;}
+.seating-card:hover{transform:translateY(-2px);box-shadow:var(--shadow-md);border-color:var(--border-active);}
+.teacher-desk{position:absolute;background:var(--bg-elevated);border-radius:12px;border:1.5px solid var(--border);box-shadow:var(--shadow-sm);display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;color:var(--text-secondary);font-weight:700;font-size:13px;cursor:pointer;transition:all 0.2s ease;z-index:10;}
 .teacher-desk.draggable-mode{cursor:grab;user-select:none;touch-action:none;border-color:var(--warning, #fbbf24);box-shadow:0 0 0 2px rgba(251, 191, 36, 0.3);}
 .teacher-desk.draggable-mode.dragging{transition:box-shadow 0.2s, transform 0.2s;z-index:1000 !important;}
 .teacher-desk.draggable-mode:active{cursor:grabbing;box-shadow:var(--shadow-md);transform:scale(1.05);z-index:20;}

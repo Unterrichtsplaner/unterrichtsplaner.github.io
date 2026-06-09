@@ -2682,6 +2682,18 @@ function renderSeatingPlan() {
   const canvas = document.getElementById('seating-canvas');
   const emptyState = document.getElementById('seating-empty');
 
+  if (canvas) {
+    if (seatingEditMode) {
+      canvas.classList.add('edit-mode');
+    } else {
+      canvas.classList.remove('edit-mode');
+    }
+    const showGridAlways = !!db.settings.showSeatingGridAlways;
+    canvas.classList.toggle('show-grid-always', showGridAlways);
+    const showGridChk = document.getElementById('seating-show-grid-always');
+    if (showGridChk) showGridChk.checked = showGridAlways;
+  }
+
   if (lastSeatingGroupId !== groupId || lastSeatingDateStr !== dateStr) {
     activeSeatingGroups = null;
     lastSeatingGroupId = groupId;
@@ -3059,6 +3071,13 @@ function clearSeatingGroups(showMsg = true) {
     closeModal('modal-seating-groups');
     showToast('Gruppen aufgehoben');
   }
+}
+
+function onToggleShowGridAlways(checked) {
+  if (!db.settings) db.settings = {};
+  db.settings.showSeatingGridAlways = checked;
+  saveDB();
+  renderSeatingPlan();
 }
 
 function removeNextLessonNote(groupId, dateStr, noteString) {

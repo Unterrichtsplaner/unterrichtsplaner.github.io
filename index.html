@@ -233,6 +233,11 @@
               <input type="text" inputmode="numeric" pattern="[0-9]*" id="seating-cols" class="form-input" style="width:32px; height:26px; padding:0; font-size:12px; text-align:center; border-radius:99px;" placeholder="X" onchange="saveSeatingGrid()" />
               <span style="color:var(--text-muted); font-size:11px; font-weight:bold;">×</span>
               <input type="text" inputmode="numeric" pattern="[0-9]*" id="seating-rows" class="form-input" style="width:32px; height:26px; padding:0; font-size:12px; text-align:center; border-radius:99px;" placeholder="Y" onchange="saveSeatingGrid()" />
+              <div style="width:1px; height:16px; background:var(--border); margin:0 4px;"></div>
+              <label style="display:flex; align-items:center; gap:6px; font-size:11px; font-weight:600; color:var(--text-secondary); cursor:pointer; margin-right:4px; user-select:none;">
+                <input type="checkbox" id="seating-show-grid-always" onchange="onToggleShowGridAlways(this.checked)" style="width:13px; height:13px; cursor:pointer;" />
+                Raster zeigen
+              </label>
             </div>
           </div>
           <!-- Bearbeiten -->
@@ -1015,6 +1020,6 @@
     </div>
   </div>
 
-  <script src="app.js?v=167"></script>
+  <script src="app.js?v=170"></script>
 </body>
 </html>
