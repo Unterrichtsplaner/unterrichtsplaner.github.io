@@ -28,6 +28,10 @@ Anstatt Programmieren zu lernen, lassen wir die KI die Arbeit für uns machen:
 5. Lade deine neuen Dateien bei GitHub hoch und aktiviere unter den Repository-Einstellungen `Settings > Pages` die GitHub Pages.
 6. Fertig! Deine ganz private, angepasste Version der App ist live.
 
+> [!TIP]
+> **Keine Ahnung von Code? Überhaupt kein Problem!**
+> Wenn du an irgendeiner Stelle nicht weiterweißt oder einen Fehler bekommst, frag einfach die KI. Kopiere ihr die Fehlermeldung oder den Code hinein und bitte sie um Hilfe. Sie wird dir Schritt für Schritt erklären, was zu tun ist, und dich an die Hand nehmen – befolge einfach ihre Anweisungen!
+
 ---
 
 ## 📜 Lizenz & Nutzung
