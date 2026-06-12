@@ -972,17 +972,27 @@ function renderSubjectGroups() {
   const subjects = Object.keys(groupsBySubject).sort((a, b) => a.localeCompare(b));
 
   subjects.forEach(subj => {
+    // Create Section Container
+    const section = document.createElement('div');
+    section.className = 'subject-section';
+    section.style.display = 'flex';
+    section.style.flexDirection = 'column';
+    section.style.gap = '12px';
+
     // Add Subject Header
     const header = document.createElement('div');
-    header.style.gridColumn = '1 / -1';
-    header.style.marginTop = '16px';
     header.style.paddingBottom = '8px';
     header.style.borderBottom = '2px solid var(--border)';
     header.style.fontSize = '18px';
     header.style.fontWeight = '700';
     header.style.color = 'var(--text-primary)';
+    header.style.marginTop = '16px';
     header.textContent = subj;
-    container.appendChild(header);
+    section.appendChild(header);
+
+    // Create Grid for cards
+    const grid = document.createElement('div');
+    grid.className = 'subject-groups-grid';
 
     // Sort groups within subject chronologically by grade
     const sortedGroups = groupsBySubject[subj].sort((a, b) => {
@@ -1024,8 +1034,11 @@ function renderSubjectGroups() {
           <button class="btn-primary" style="flex:1; justify-content:center;" onclick="event.stopPropagation();openSeatingForGroup('${g.id}')">🪑 Sitzplan</button>
         </div>`;
       card.addEventListener('click', () => openGroupStudents(g.id));
-      container.appendChild(card);
+      grid.appendChild(card);
     });
+
+    section.appendChild(grid);
+    container.appendChild(section);
   });
 }
 
