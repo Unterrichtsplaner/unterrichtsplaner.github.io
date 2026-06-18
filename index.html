@@ -867,6 +867,66 @@
           </select>
         </div>
       </div>
+
+      <!-- Cloud-Synchronisierung (E2EE) -->
+      <div class="settings-section">
+        <h3>☁️ Cloud-Synchronisierung (E2EE)</h3>
+        <p style="font-size:12px;color:var(--text-muted);margin:6px 0 12px">
+          Synchronisiere deine Unterrichtsdaten sicher und Ende-zu-Ende-verschlüsselt (E2EE) mit unserem zentralen Firebase-Server.
+          Niemand (nicht einmal der Administrator) kann deine verschlüsselten Schülerdaten lesen.
+        </p>
+
+        <!-- Firebase Configured, Auth Area -->
+        <div id="sync-auth-section">
+          <div style="background: var(--bg-card); padding: 12px; border-radius: var(--radius); margin-bottom: 12px; border: 1px solid var(--border-color);">
+            <div id="sync-user-status" style="font-weight: 600; margin-bottom: 8px;">Nicht angemeldet</div>
+            
+            <!-- Auth Form (E-Mail/Password) -->
+            <div id="sync-login-form">
+              <div class="form-group" style="margin-bottom: 8px;">
+                <input type="email" id="sync-email" class="form-input" placeholder="E-Mail-Adresse" />
+              </div>
+              <div class="form-group" style="margin-bottom: 12px;">
+                <input type="password" id="sync-password" class="form-input" placeholder="Passwort" />
+              </div>
+              <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                <button class="btn-primary" onclick="loginEmail()">Einloggen</button>
+                <button class="btn-secondary" onclick="registerEmail()">Registrieren</button>
+                <button class="btn-secondary" style="display:inline-flex; align-items:center; gap:6px;" onclick="loginGoogle()">
+                  <svg style="width:14px;height:14px;" viewBox="0 0 24 24"><path fill="currentColor" d="M12.24 10.285V13.4h6.887C18.2 15.614 15.645 18 12.24 18c-3.328 0-6-2.67-6-6s2.672-6 6-6c1.487 0 2.85.5 3.938 1.4L18.4 5.2C16.8 3.7 14.7 2.8 12.24 2.8 7.2 2.8 3 7 3 12s4.2 9.2 9.24 9.2c5.228 0 9.1-3.6 9.1-9.2 0-.6-.1-1.2-.2-1.7H12.24z"/></svg>
+                  Google Login
+                </button>
+              </div>
+            </div>
+
+            <!-- Logged In Panel -->
+            <div id="sync-logged-in-panel" class="hidden">
+              <button class="btn-danger-outline" style="padding: 4px 10px; font-size: 11px;" onclick="logoutSync()">Ausloggen</button>
+            </div>
+          </div>
+
+          <!-- Master Password Config -->
+          <div id="sync-crypto-section" class="hidden">
+            <div class="form-group">
+              <label>Master-Passwort (für lokale E2EE-Verschlüsselung)</label>
+              <input type="password" id="sync-master-password" class="form-input" placeholder="Master-Passwort festlegen/eingeben" oninput="updateMasterPassword(this.value)" />
+              <div style="font-size:11px; color:var(--danger); margin-top:4px; font-weight:600;">
+                ⚠️ WICHTIG: Dieses Passwort verschlüsselt deine Daten lokal auf deinem Gerät. Es wird NIEMALS unverschlüsselt übertragen. Wenn du es verlierst, sind deine Cloud-Daten unlesbar verloren!
+              </div>
+            </div>
+
+            <!-- Sync Controls -->
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-top:16px;">
+              <div>
+                <span id="sync-status-badge" class="badge-status" style="background: var(--bg-card); padding: 4px 8px; border-radius: 4px; border: 1px solid var(--border-color); font-size: 12px;">Status: Bereit</span>
+                <div id="sync-last-time" style="font-size:11px; color:var(--text-muted); margin-top:2px;">Noch nie synchronisiert</div>
+              </div>
+              <button class="btn-primary" onclick="triggerManualSync()">Jetzt synchronisieren</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <!-- Block Times Editor -->
       <div class="settings-section">
         <div class="settings-section-header">
@@ -1020,6 +1080,52 @@
     </div>
   </div>
 
+  <!-- Sync Conflict Modal -->
+  <div id="modal-sync-conflict" class="modal-overlay hidden" onclick="event.stopPropagation()">
+    <div class="modal modal-medium" onclick="event.stopPropagation()" style="max-width: 480px;">
+      <div class="modal-header">
+        <h2 style="color: var(--danger); display: flex; align-items: center; gap: 8px;">⚠️ Konflikt erkannt</h2>
+      </div>
+      <div class="modal-body" style="padding: 20px;">
+        <p style="margin-bottom: 16px; font-size: 13px; line-height: 1.5; color: var(--text-secondary);">
+          Sowohl auf diesem Gerät als auch in der Cloud wurden seit der letzten Synchronisation Änderungen vorgenommen. 
+          Da die Daten Ende-zu-Ende-verschlüsselt sind, kann die App sie nicht automatisch mergen.
+        </p>
+        
+        <div style="background: var(--bg-card); padding: 12px; border-radius: var(--radius); border: 1px solid var(--border-color); margin-bottom: 20px; font-size: 13px;">
+          <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+            <strong>Lokale Version auf diesem Gerät:</strong>
+            <span id="conflict-local-time" style="color: var(--accent); font-weight: bold;">Unbekannt</span>
+          </div>
+          <div style="display: flex; justify-content: space-between;">
+            <strong>Neuere Version in der Cloud:</strong>
+            <span id="conflict-cloud-time" style="color: var(--success); font-weight: bold;">Unbekannt</span>
+          </div>
+        </div>
+        
+        <p style="font-weight: 600; margin-bottom: 12px; font-size: 13px;">Wie möchtest du vorgehen?</p>
+      </div>
+      <div class="modal-footer" style="flex-direction: column; gap: 10px; align-items: stretch; display: flex; padding: 16px;">
+        <button class="btn-primary" style="background: var(--success); border-color: var(--success); width: 100%;" onclick="resolveConflict('pull')">
+          📥 Cloud-Version laden (Lokale Änderungen VERWERFEN)
+        </button>
+        <button class="btn-secondary" style="color: var(--danger); border-color: var(--danger); width: 100%;" onclick="resolveConflict('push')">
+          📤 Lokale Version hochladen (Cloud-Version ÜBERSCHREIBEN)
+        </button>
+        <button class="btn-secondary" style="width: 100%;" onclick="resolveConflict('backup')">
+          💾 Sicherheitskopie exportieren und Cloud laden
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script src="lib/crypto-js.min.js"></script>
+  <script src="crypto-helper.js"></script>
+  <script src="lib/firebase-app-compat.js"></script>
+  <script src="lib/firebase-auth-compat.js"></script>
+  <script src="lib/firebase-firestore-compat.js"></script>
+  <script src="firebase-config.js"></script>
+  <script src="sync-manager.js"></script>
   <script src="app.js?v=172"></script>
 </body>
 </html>

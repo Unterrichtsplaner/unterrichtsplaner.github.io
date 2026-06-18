@@ -52,7 +52,19 @@ function loadDB() {
     students: {},
   };
 }
-function saveDB() { localStorage.setItem('lehrerapp_v3', JSON.stringify(db)); }
+function saveDB() {
+  if (!db.settings) db.settings = {};
+  db.settings.lastModified = Date.now();
+  localStorage.setItem('lehrerapp_v3', JSON.stringify(db));
+  
+  // Automatischer Cloud-Hintergrundsync (Autosave)
+  if (typeof SyncManager !== 'undefined' && SyncManager.isInitialized && SyncManager.currentUser && SyncManager.masterPassword) {
+    if (window.syncTimeout) clearTimeout(window.syncTimeout);
+    window.syncTimeout = setTimeout(() => {
+      triggerSyncInternal();
+    }, 3000); // 3 Sekunden Verzögerung nach der letzten Eingabe
+  }
+}
 function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2,6); }
 
 function sortStudents(studentsArr) {
@@ -4026,6 +4038,298 @@ function resetStopwatch() {
   updateStopwatchDisplay();
 }
 
+
+// ─── Cloud Sync (E2EE) Implementation ──────────────────────────────────────
+
+// Initialisiert die Synchronisierung beim Laden der App
+function initSync() {
+  // 1. Initialisiere den SyncManager mit der fest verbauten FIREBASE_CONFIG
+  if (typeof FIREBASE_CONFIG !== 'undefined') {
+    const success = SyncManager.init(FIREBASE_CONFIG);
+    if (success) {
+      // Wenn das Passwort im sessionStorage liegt (z.B. nach Page Reload), wiederherstellen
+      const savedPassword = sessionStorage.getItem('sync_master_password');
+      if (savedPassword) {
+        SyncManager.setMasterPassword(savedPassword);
+        const passInput = document.getElementById('sync-master-password');
+        if (passInput) passInput.value = savedPassword;
+      }
+    }
+  }
+
+  // 2. Setze Callbacks im SyncManager
+  SyncManager.callbacks.onAuthStateChanged = (user) => {
+    updateSyncUI();
+    if (user && SyncManager.masterPassword) {
+      // Automatischer Hintergrund-Sync bei Login
+      triggerSyncInternal();
+    }
+  };
+
+  SyncManager.callbacks.onSyncStatusChanged = (status) => {
+    const badge = document.getElementById('sync-status-badge');
+    if (!badge) return;
+    if (status === 'checking') {
+      badge.textContent = 'Status: Prüfe...';
+      badge.style.background = 'var(--warning-soft)';
+      badge.style.color = 'var(--warning)';
+    } else if (status === 'synced') {
+      badge.textContent = 'Status: Synchronisiert';
+      badge.style.background = 'var(--success-soft)';
+      badge.style.color = 'var(--success)';
+    } else if (status === 'conflict') {
+      badge.textContent = 'Status: Konflikt!';
+      badge.style.background = 'var(--danger-soft)';
+      badge.style.color = 'var(--danger)';
+    } else if (status === 'error') {
+      badge.textContent = 'Status: Fehler!';
+      badge.style.background = 'var(--danger-soft)';
+      badge.style.color = 'var(--danger)';
+    } else {
+      badge.textContent = 'Status: Bereit';
+      badge.style.background = 'var(--bg-card)';
+      badge.style.color = 'var(--text-primary)';
+    }
+  };
+
+  SyncManager.callbacks.onConflictDetected = (conflictInfo) => {
+    // Öffne das Konflikt-Modal und fülle die Zeiten aus
+    const localTime = new Date(conflictInfo.localTimestamp).toLocaleString('de-DE');
+    const cloudTime = new Date(conflictInfo.cloudTimestamp).toLocaleString('de-DE');
+    
+    document.getElementById('conflict-local-time').textContent = localTime;
+    document.getElementById('conflict-cloud-time').textContent = cloudTime;
+    
+    // Speichere die Konflikt-Informationen global
+    window.currentConflict = conflictInfo;
+    
+    openModal('modal-sync-conflict');
+  };
+
+  // 3. UI updaten
+  updateSyncUI();
+}
+
+// Aktualisiert das UI basierend auf Firebase- und Auth-Status
+function updateSyncUI() {
+  const userStatus = document.getElementById('sync-user-status');
+  const loginForm = document.getElementById('sync-login-form');
+  const loggedInPanel = document.getElementById('sync-logged-in-panel');
+  const cryptoSection = document.getElementById('sync-crypto-section');
+  const lastTimeEl = document.getElementById('sync-last-time');
+
+  if (!userStatus) return; // Falls DOM noch nicht bereit
+
+  // Benutzer angemeldet?
+  if (SyncManager.currentUser) {
+    userStatus.textContent = `Angemeldet als: ${SyncManager.currentUser.email}`;
+    loginForm.classList.add('hidden');
+    loggedInPanel.classList.remove('hidden');
+    cryptoSection.classList.remove('hidden');
+    
+    // Letzter Sync-Zeitpunkt anzeigen
+    if (db.syncSettings && db.syncSettings.lastSyncedCloudTimestamp) {
+      const d = new Date(db.syncSettings.lastSyncedCloudTimestamp);
+      lastTimeEl.textContent = `Zuletzt synchronisiert: ${d.toLocaleString('de-DE')}`;
+    } else {
+      lastTimeEl.textContent = 'Noch nie synchronisiert';
+    }
+  } else {
+    userStatus.textContent = 'Nicht angemeldet';
+    loginForm.classList.remove('hidden');
+    loggedInPanel.classList.add('hidden');
+    cryptoSection.classList.add('hidden');
+  }
+}
+
+// E-Mail Login
+function loginEmail() {
+  const email = document.getElementById('sync-email').value.trim();
+  const password = document.getElementById('sync-password').value.trim();
+  if (!email || !password) return;
+
+  SyncManager.loginWithEmail(email, password)
+    .then(() => {
+      showToast('Erfolgreich eingeloggt ✓');
+      document.getElementById('sync-email').value = '';
+      document.getElementById('sync-password').value = '';
+    })
+    .catch(err => {
+      alert('Fehler beim Login: ' + err.message);
+    });
+}
+
+// E-Mail Registrierung
+function registerEmail() {
+  const email = document.getElementById('sync-email').value.trim();
+  const password = document.getElementById('sync-password').value.trim();
+  if (!email || !password) return;
+
+  if (password.length < 6) {
+    alert('Das Passwort muss mindestens 6 Zeichen lang sein.');
+    return;
+  }
+
+  SyncManager.registerWithEmail(email, password)
+    .then(() => {
+      showToast('Registrierung erfolgreich! Angemeldet ✓');
+      document.getElementById('sync-email').value = '';
+      document.getElementById('sync-password').value = '';
+    })
+    .catch(err => {
+      alert('Fehler bei der Registrierung: ' + err.message);
+    });
+}
+
+// Google Login
+function loginGoogle() {
+  SyncManager.loginWithGoogle()
+    .then(() => {
+      showToast('Erfolgreich mit Google angemeldet ✓');
+    })
+    .catch(err => {
+      alert('Fehler bei der Google-Anmeldung: ' + err.message);
+    });
+}
+
+// Logout
+function logoutSync() {
+  SyncManager.logout()
+    .then(() => {
+      sessionStorage.removeItem('sync_master_password');
+      const passInput = document.getElementById('sync-master-password');
+      if (passInput) passInput.value = '';
+      showToast('Ausgeloggt.');
+    });
+}
+
+// Master-Passwort ändern
+function updateMasterPassword(pwd) {
+  SyncManager.setMasterPassword(pwd);
+  sessionStorage.setItem('sync_master_password', pwd);
+}
+
+// Triggert den Sync-Prozess
+function triggerManualSync() {
+  if (!SyncManager.masterPassword) {
+    alert('Bitte gib zuerst dein Master-Passwort ein.');
+    return;
+  }
+  triggerSyncInternal();
+}
+
+// Führt den eigentlichen Sync im Hintergrund durch
+async function triggerSyncInternal() {
+  if (!SyncManager.isInitialized || !SyncManager.currentUser || !SyncManager.masterPassword) return;
+
+  try {
+    const localDataString = JSON.stringify(db);
+    const localTimestamp = db.settings.lastModified || Date.now();
+    const lastSynced = (db.syncSettings && db.syncSettings.lastSyncedCloudTimestamp) || 0;
+
+    const result = await SyncManager.sync(localDataString, localTimestamp, lastSynced);
+
+    if (result.status === 'sync_done') {
+      if (result.action === 'pulled' && result.data) {
+        // Daten aus der Cloud geladen und erfolgreich entschlüsselt -> übernehmen!
+        const parsed = JSON.parse(result.data);
+        if (parsed.settings) {
+          db = parsed;
+          if (!db.syncSettings) db.syncSettings = {};
+          db.syncSettings.lastSyncedCloudTimestamp = result.cloudTimestamp;
+          // Lokales Speichern
+          localStorage.setItem('lehrerapp_v3', JSON.stringify(db));
+          
+          showToast('Daten erfolgreich aus der Cloud synchronisiert! ✓');
+          
+          // Ansichten aktualisieren
+          renderTimetable();
+          renderSubjectGroups();
+        }
+      } else {
+        // Erfolgreicher Upload
+        if (!db.syncSettings) db.syncSettings = {};
+        db.syncSettings.lastSyncedCloudTimestamp = result.cloudTimestamp;
+        saveDB();
+        showToast('Daten erfolgreich in die Cloud geladen! ✓');
+      }
+      updateSyncUI();
+    } else if (result.status === 'no_change') {
+      if (!db.syncSettings) db.syncSettings = {};
+      db.syncSettings.lastSyncedCloudTimestamp = result.cloudTimestamp;
+      saveDB();
+      showToast('Daten bereits auf dem neuesten Stand.');
+      updateSyncUI();
+    }
+  } catch (error) {
+    console.error("Fehler beim Sync:", error);
+    showToast('❌ Sync-Fehler: ' + error.message);
+  }
+}
+
+// Löst Konflikte
+async function resolveConflict(decision) {
+  const conflict = window.currentConflict;
+  if (!conflict) return;
+
+  closeModal('modal-sync-conflict');
+
+  try {
+    if (decision === 'pull') {
+      // Cloud-Version übernehmen
+      const decrypted = CryptoHelper.decrypt(conflict.cloudPayload.encryptedData, SyncManager.masterPassword);
+      const parsed = JSON.parse(decrypted);
+      
+      db = parsed;
+      if (!db.syncSettings) db.syncSettings = {};
+      db.syncSettings.lastSyncedCloudTimestamp = conflict.cloudTimestamp;
+      
+      saveDB();
+      showToast('Cloud-Version geladen und lokale Änderungen verworfen.');
+      renderTimetable();
+      renderSubjectGroups();
+      updateSyncUI();
+      
+    } else if (decision === 'push') {
+      // Lokale Version erzwingen (Cloud überschreiben)
+      const localDataString = JSON.stringify(db);
+      const now = Date.now();
+      
+      await SyncManager.saveToCloud(localDataString, now);
+      
+      if (!db.syncSettings) db.syncSettings = {};
+      db.syncSettings.lastSyncedCloudTimestamp = now;
+      db.settings.lastModified = now;
+      saveDB();
+      
+      showToast('Cloud-Version erfolgreich mit lokalem Stand überschrieben.');
+      updateSyncUI();
+      
+    } else if (decision === 'backup') {
+      // Sicherheitskopie exportieren und dann Cloud laden
+      exportData(); // Ruft den Standard-Export auf
+      
+      // Und dann Cloud laden (wie 'pull')
+      const decrypted = CryptoHelper.decrypt(conflict.cloudPayload.encryptedData, SyncManager.masterPassword);
+      const parsed = JSON.parse(decrypted);
+      
+      db = parsed;
+      if (!db.syncSettings) db.syncSettings = {};
+      db.syncSettings.lastSyncedCloudTimestamp = conflict.cloudTimestamp;
+      
+      saveDB();
+      showToast('Backup gespeichert und Cloud-Version geladen.');
+      renderTimetable();
+      renderSubjectGroups();
+      updateSyncUI();
+    }
+  } catch (e) {
+    alert('Fehler bei der Konfliktlösung: ' + e.message);
+  }
+}
+
+// Starte Sync-Initialisierung beim Laden
+initSync();
 
 // Export for testing
 if (typeof module !== 'undefined' && module.exports) {
