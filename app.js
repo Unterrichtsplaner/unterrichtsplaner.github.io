@@ -3745,36 +3745,7 @@ if (typeof process === 'undefined' || process.env.NODE_ENV !== 'test') {
   initAllCustomDropdowns();
 }
 
-function checkBackupReminder() {
-  const lastBackup = db.settings.lastBackupTimestamp || 0;
-  const daysSince = (Date.now() - lastBackup) / (1000 * 60 * 60 * 24);
-  
-  if (daysSince > 7) {
-    const card = document.createElement('div');
-    card.id = 'backup-reminder-card';
-    card.style.cssText = `
-      position: fixed; bottom: 20px; right: 20px; z-index: 10000;
-      background: var(--danger-soft); border: 1px solid rgba(239,68,68,.3);
-      padding: 16px; border-radius: 12px; box-shadow: 0 10px 25px rgba(0,0,0,0.2);
-      max-width: 320px; display: flex; flex-direction: column; gap: 10px;
-      backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
-    `;
-    card.innerHTML = `
-      <div style="display:flex; align-items:center; gap:8px; color:var(--danger); font-weight:700; font-size:14px;">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
-        Sicherheits-Erinnerung
-      </div>
-      <div style="font-size:13px; color:var(--text-primary); line-height:1.4;">
-        Dein letztes Backup ist ${lastBackup === 0 ? 'noch nie gemacht worden' : 'über 7 Tage her'}. Bitte sichere deine Daten, um keinen Fortschritt zu verlieren!
-      </div>
-      <div style="display:flex; gap:8px; margin-top:4px;">
-        <button class="btn-primary" style="flex:1; background:var(--danger); border-color:var(--danger); font-size:13px; padding:8px;" onclick="exportData(); document.getElementById('backup-reminder-card').remove();">📥 Jetzt sichern</button>
-        <button class="btn-secondary" style="font-size:13px; padding:8px 12px;" onclick="document.getElementById('backup-reminder-card').remove();">Später</button>
-      </div>
-    `;
-    document.body.appendChild(card);
-  }
-}
+
 
 // ─── PWA Update Logic ───────────────────────────────────────────────────
 function forceAppUpdate() {
