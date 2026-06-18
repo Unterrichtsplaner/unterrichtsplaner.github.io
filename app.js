@@ -4093,8 +4093,10 @@ function initSync() {
 
   SyncManager.callbacks.onConflictDetected = (conflictInfo) => {
     // Öffne das Konflikt-Modal und fülle die Zeiten aus
-    const localTime = new Date(conflictInfo.localTimestamp).toLocaleString('de-DE');
-    const cloudTime = new Date(conflictInfo.cloudTimestamp).toLocaleString('de-DE');
+    const isLocalNewer = conflictInfo.localTimestamp > conflictInfo.cloudTimestamp;
+    
+    const localTime = new Date(conflictInfo.localTimestamp).toLocaleString('de-DE') + (isLocalNewer ? ' (aktueller)' : '');
+    const cloudTime = new Date(conflictInfo.cloudTimestamp).toLocaleString('de-DE') + (!isLocalNewer ? ' (aktueller)' : '');
     
     document.getElementById('conflict-local-time').textContent = localTime;
     document.getElementById('conflict-cloud-time').textContent = cloudTime;
@@ -4274,6 +4276,14 @@ async function triggerSyncInternal() {
 async function resolveConflict(decision) {
   const conflict = window.currentConflict;
   if (!conflict) return;
+
+  if (decision === 'pull') {
+    if (!confirm("Bist du dir sicher, dass du die Version aus der Cloud laden willst?\n\n⚠️ Alle deine lokalen Änderungen, die du auf diesem Gerät offline gemacht hast, gehen dabei verloren!")) return;
+  } else if (decision === 'push') {
+    if (!confirm("Bist du dir sicher, dass du deine lokale Version hochladen willst?\n\n⚠️ Der Speicherstand in der Cloud wird komplett überschrieben. Änderungen von anderen Geräten gehen verloren!")) return;
+  } else if (decision === 'backup') {
+    if (!confirm("Möchtest du eine Sicherheitskopie deiner lokalen Daten auf deinem PC speichern und danach den Speicherstand aus der Cloud laden?")) return;
+  }
 
   closeModal('modal-sync-conflict');
 
