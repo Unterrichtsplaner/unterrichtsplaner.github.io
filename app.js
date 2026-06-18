@@ -4237,6 +4237,10 @@ async function triggerSyncInternal() {
           db = parsed;
           if (!db.syncSettings) db.syncSettings = {};
           db.syncSettings.lastSyncedCloudTimestamp = result.cloudTimestamp;
+          
+          // Design-Einstellungen anwenden
+          updateAppliedThemeFromDB();
+          
           // Lokales Speichern
           localStorage.setItem('lehrerapp_v3', JSON.stringify(db));
           
@@ -4284,6 +4288,9 @@ async function resolveConflict(decision) {
       if (!db.syncSettings) db.syncSettings = {};
       db.syncSettings.lastSyncedCloudTimestamp = conflict.cloudTimestamp;
       
+      // Design-Einstellungen anwenden
+      updateAppliedThemeFromDB();
+      
       saveDB(true);
       showToast('Cloud-Version geladen und lokale Änderungen verworfen.');
       renderTimetable();
@@ -4317,6 +4324,9 @@ async function resolveConflict(decision) {
       if (!db.syncSettings) db.syncSettings = {};
       db.syncSettings.lastSyncedCloudTimestamp = conflict.cloudTimestamp;
       
+      // Design-Einstellungen anwenden
+      updateAppliedThemeFromDB();
+      
       saveDB(true);
       showToast('Backup gespeichert und Cloud-Version geladen.');
       renderTimetable();
@@ -4325,6 +4335,17 @@ async function resolveConflict(decision) {
     }
   } catch (e) {
     alert('Fehler bei der Konfliktlösung: ' + e.message);
+  }
+}
+
+// Hilfsfunktion zum Aktualisieren des Themes aus den Einstellungen in der DB
+function updateAppliedThemeFromDB() {
+  if (db.settings) {
+    currentThemeAccent = db.settings.themeAccent || '#6366f1';
+    currentThemeBg     = db.settings.themeBg || '#0f1117';
+    currentThemeMode   = db.settings.theme || 'dark';
+    currentThemeCard   = db.settings.themeCard || '#1e2130';
+    applyThemePreview();
   }
 }
 
