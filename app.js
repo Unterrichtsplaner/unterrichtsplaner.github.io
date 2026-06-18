@@ -52,13 +52,13 @@ function loadDB() {
     students: {},
   };
 }
-function saveDB() {
+function saveDB(skipCloudSync = false) {
   if (!db.settings) db.settings = {};
   db.settings.lastModified = Date.now();
   localStorage.setItem('lehrerapp_v3', JSON.stringify(db));
   
   // Automatischer Cloud-Hintergrundsync (Autosave)
-  if (typeof SyncManager !== 'undefined' && SyncManager.isInitialized && SyncManager.currentUser && SyncManager.masterPassword) {
+  if (!skipCloudSync && typeof SyncManager !== 'undefined' && SyncManager.isInitialized && SyncManager.currentUser && SyncManager.masterPassword) {
     if (window.syncTimeout) clearTimeout(window.syncTimeout);
     window.syncTimeout = setTimeout(() => {
       triggerSyncInternal();
@@ -4250,14 +4250,14 @@ async function triggerSyncInternal() {
         // Erfolgreicher Upload
         if (!db.syncSettings) db.syncSettings = {};
         db.syncSettings.lastSyncedCloudTimestamp = result.cloudTimestamp;
-        saveDB();
+        saveDB(true);
         showToast('Daten erfolgreich in die Cloud geladen! ✓');
       }
       updateSyncUI();
     } else if (result.status === 'no_change') {
       if (!db.syncSettings) db.syncSettings = {};
       db.syncSettings.lastSyncedCloudTimestamp = result.cloudTimestamp;
-      saveDB();
+      saveDB(true);
       showToast('Daten bereits auf dem neuesten Stand.');
       updateSyncUI();
     }
@@ -4284,7 +4284,7 @@ async function resolveConflict(decision) {
       if (!db.syncSettings) db.syncSettings = {};
       db.syncSettings.lastSyncedCloudTimestamp = conflict.cloudTimestamp;
       
-      saveDB();
+      saveDB(true);
       showToast('Cloud-Version geladen und lokale Änderungen verworfen.');
       renderTimetable();
       renderSubjectGroups();
@@ -4300,7 +4300,7 @@ async function resolveConflict(decision) {
       if (!db.syncSettings) db.syncSettings = {};
       db.syncSettings.lastSyncedCloudTimestamp = now;
       db.settings.lastModified = now;
-      saveDB();
+      saveDB(true);
       
       showToast('Cloud-Version erfolgreich mit lokalem Stand überschrieben.');
       updateSyncUI();
@@ -4317,7 +4317,7 @@ async function resolveConflict(decision) {
       if (!db.syncSettings) db.syncSettings = {};
       db.syncSettings.lastSyncedCloudTimestamp = conflict.cloudTimestamp;
       
-      saveDB();
+      saveDB(true);
       showToast('Backup gespeichert und Cloud-Version geladen.');
       renderTimetable();
       renderSubjectGroups();
