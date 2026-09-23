@@ -1,0 +1,15 @@
+{
+  "name": "unterrichtsplaner",
+  "private": true,
+  "description": "Offline-fähiger Unterrichtsplaner (PWA) – keine Build-Pipeline, die App läuft direkt aus den Dateien.",
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "bump": "node scripts/bump-version.js",
+    "serve": "node server.js"
+  },
+  "devDependencies": {
+    "jsdom": "^26.0.0",
+    "vitest": "^3.0.0"
+  }
+}
