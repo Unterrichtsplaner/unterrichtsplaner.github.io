@@ -24,13 +24,15 @@ Priorität: 🔴 Datenverlust / App kaputt · 🟠 falsche Anzeige / nervig · �
 
 ## B. Noten
 
-- [ ] **B1** 🔴 `saveGradeFromForm` / `deleteGradeFromForm` (~Z. 3453, 3475) greifen auf `#view-overview` zu, das es nicht gibt → TypeError, Listen werden nicht aktualisiert, danach kann die falsche Note bearbeitet werden.
-- [ ] **B2** 🔴 „2,5“ wird als 2.0 gespeichert (`parseFloat` ohne Komma-Ersetzung, ~Z. 3437). Ebenso „2-“ → 2.0.
-- [ ] **B3** 🟠 Drei verschiedene Durchschnitte: Liste (gewichtet, `calculateStudentAverage`) vs. Schülerdetail ~Z. 1925, Sitzplan ~Z. 2804, Klassenkarte ~Z. 1019 (alle ungewichtet). Alles über `calculateStudentAverage`.
-- [ ] **B4** 🟠 CSV-Export ~Z. 2406: „Schriftlich“ = schularbeit+test, Gewichtung = schularbeit+klausur. Notentypen zentral definieren.
-- [ ] **B5** 🟠 Gewichtung nicht auf 0–100 begrenzt (~Z. 1108) → 150 % ergibt Schnitt < 1.
-- [ ] **B6** 🟠 Feld-Chaos `label` vs. `note` bei Noten: `addGradeEntry` schreibt `label`, Übersicht liest `note` (~Z. 1970 / 1253). `addGradeEntry` ist außerdem toter Code (Formular-IDs `new-grade-*` existieren nicht).
-- [ ] **B7** 🟢 `g.note ?? …` zeigt bei leerer Bemerkung einen leeren Titel statt des Typs (~Z. 3343) → `||`.
+> Behoben. Tests: `tests/grades-ui.test.js`. Noteneingabe: „2,5“ → 2.5; „2-“/„2+“ bleiben als Tendenz stehen und zählen als 2 (Wunsch des Nutzers); Text wie „+“ bleibt stehen und zählt nicht; Zahlen außerhalb 1–6 werden abgelehnt. CSV-Spalten jetzt „Schularbeiten;Sonstige;Gesamtnote“ wie die Gewichtung.
+
+- [x] **B1** 🔴 `saveGradeFromForm` / `deleteGradeFromForm` (~Z. 3453, 3475) greifen auf `#view-overview` zu, das es nicht gibt → TypeError, Listen werden nicht aktualisiert, danach kann die falsche Note bearbeitet werden.
+- [x] **B2** 🔴 „2,5“ wird als 2.0 gespeichert (`parseFloat` ohne Komma-Ersetzung, ~Z. 3437). Ebenso „2-“ → 2.0.
+- [x] **B3** 🟠 Drei verschiedene Durchschnitte: Liste (gewichtet, `calculateStudentAverage`) vs. Schülerdetail ~Z. 1925, Sitzplan ~Z. 2804, Klassenkarte ~Z. 1019 (alle ungewichtet). Alles über `calculateStudentAverage`.
+- [x] **B4** 🟠 CSV-Export ~Z. 2406: „Schriftlich“ = schularbeit+test, Gewichtung = schularbeit+klausur. Notentypen zentral definieren.
+- [x] **B5** 🟠 Gewichtung nicht auf 0–100 begrenzt (~Z. 1108) → 150 % ergibt Schnitt < 1.
+- [x] **B6** 🟠 Feld-Chaos `label` vs. `note` bei Noten: `addGradeEntry` schreibt `label`, Übersicht liest `note` (~Z. 1970 / 1253). `addGradeEntry` ist außerdem toter Code (Formular-IDs `new-grade-*` existieren nicht).
+- [x] **B7** 🟢 `g.note ?? …` zeigt bei leerer Bemerkung einen leeren Titel statt des Typs (~Z. 3343) → `||`.
 
 ## C. Schüler & Klassen
 
@@ -39,7 +41,7 @@ Priorität: 🔴 Datenverlust / App kaputt · 🟠 falsche Anzeige / nervig · �
 - [ ] **C3** 🟠 `renderClasses()` existiert nicht (~Z. 1138) → ReferenceError nach jedem Speichern einer Klasse.
 - [ ] **C4** 🟠 Klasse löschen: zugehörige Stunden bleiben verwaist, Ansicht bleibt auf gelöschter Klasse stehen (`deleteGroup`).
 - [ ] **C5** 🟠 Hausaufgaben-Spalte umbenennen entkoppelt alle Einträge (~Z. 1605: nur `date` geändert, nicht `note`).
-- [ ] **C6** 🟠 Schülerakten-Export schreibt „undefined“ (`g.label`, `a.label`, `n.label`) und stürzt bei Einträgen ohne `date` ab (~Z. 2152–2191).
+- [ ] **C6** 🟠 Schülerakten-Export schreibt „undefined“ (~~`g.label`~~ in Block B erledigt, `a.label`, `n.label`) und stürzt bei Einträgen ohne `date` ab (~Z. 2152–2191).
 - [ ] **C7** 🟢 Zähler in der Schülerliste veralten nach `deleteAttendance`/`deleteParticipation`.
 - [ ] **C8** 🟢 „zu spät“ erscheint in der Übersicht als leere Zelle; „F“ tippen überschreibt es (~Z. 1476).
 - [ ] **C9** 🟢 Warnschwellen lassen sich nicht auf 0 setzen (`parseInt(...) || 3`, ~Z. 2369).
@@ -100,3 +102,10 @@ Priorität: 🔴 Datenverlust / App kaputt · 🟠 falsche Anzeige / nervig · �
 | A5 | `clearAllData` repariert, Hinweis auf Cloud | Block A |
 | A6 | Kein Auto-Sync, solange Konflikt offen | Block A |
 | A8 | Nur Gleichheitsvergleich der Versionskennung; Upload per Firestore-Transaktion | Block A |
+| B1 | Notenformular merkt sich die Note per Referenz; `refreshGradeViews()` statt `#view-overview` | Block B |
+| B2 | `parseGradeInput()` (Komma, Tendenz, 1–6) für Formular und Tabelle; `gradeNumber()` zum Lesen | Block B |
+| B3 | Klassenkarte, Schülerdetail, Sitzplan über `calculateStudentAverage` / `calculateGroupAverage` | Block B |
+| B4 | `gradeCategory()` zentral; CSV-Spalten wie Gewichtung | Block B |
+| B5 | Gewichtung außerhalb 0–100 wird abgelehnt, gespeicherte Werte werden begrenzt (`getSchularbeitWeight`) | Block B |
+| B6 | `migrateDB()`: `label` → `note` (auch bei Import/Cloud); `addGradeEntry`/`deleteGrade` entfernt | Block B |
+| B7 | Sitzplan-Schülerfenster: `g.note \|\| Typ` | Block B |

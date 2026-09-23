@@ -45,7 +45,7 @@ db = {
              seatingRows, seatingCols, teacherDeskX, teacherDeskY, seatingPlan: [{ studentId, … }],
              gradeEvents, attendanceEvents, participationEvents, homeworkEvents }],
   students: { '<groupId>': [{ id, firstName, lastName,
-             grades: [{ type, value /*String!*/, date, note }],
+             grades: [{ type, value /*String! '2.0', '2-' (Tendenz), '+' (zählt nicht)*/, date, note }],
              attendance: [{ id?, date, type, note }],
              participation: [{ id?, date, value, label? }],
              homework: [{ id, date, note }],
@@ -69,14 +69,15 @@ Datumswerte sind Strings `YYYY-MM-DD` in **lokaler** Zeit (`formatDate()`). Nie 
 
 ## Regeln (aus Fehlern gelernt)
 
-1. **Notendurchschnitt nur über `calculateStudentAverage(student, groupId)`.** Keine eigenen Rechnungen in Views.
+1. **Notendurchschnitt nur über `calculateStudentAverage(student, groupId)`** (Klassenschnitt: `calculateGroupAverage`). Keine eigenen Rechnungen in Views. Notenwerte nie mit `parseFloat` lesen, sondern mit `gradeNumber()` (versteht „2-“); Eingaben über `parseGradeInput()`; Schularbeit vs. Sonstige nur über `gradeCategory()`.
 2. **`lastModified` bedeutet „Nutzer hat Daten geändert“.** Nutzeränderungen → `saveDB()`. Alles andere (Sync-Metadaten, Migrationen) → `persistDB()`. `saveDB()` nie in Render-Funktionen aufrufen.
 3. **Alles, was in `innerHTML` oder in `onclick="…"` landet und vom Nutzer stammt, geht durch `escHtml()`.** Namen, Spaltentitel, Notenwerte, Notizen.
 4. **Einträge nie per Index aus einer sortierten Kopie löschen.** Immer per `id` oder Objekt-Referenz.
 5. **Zweiwöchige Stunden nicht über `Kalenderwoche % 2` berechnen** (Jahre mit KW 53).
 6. **Jede aufgerufene Funktion und jede `getElementById`-ID muss existieren.** Nach Umbauen mit grep gegenprüfen.
 7. **Keine stillen Fallbacks auf leere Daten.** Lieber Fehler anzeigen als echte Daten überschreiben.
-8. **Kleine Schritte.** Pro Änderung ein Thema; kein „nebenbei noch schnell“ in anderen Bereichen.
+8. **Formulare merken sich den bearbeiteten Eintrag per Objekt-Referenz, nicht per Index.** Zwischen Öffnen und Speichern kann sich die Liste ändern (Sync, andere Ansicht).
+9. **Kleine Schritte.** Pro Änderung ein Thema; kein „nebenbei noch schnell“ in anderen Bereichen.
 
 ## Arbeitsablauf
 
@@ -87,7 +88,7 @@ Datumswerte sind Strings `YYYY-MM-DD` in **lokaler** Zeit (`formatDate()`). Nie 
 5. In `BUGS.md` abhaken und neue Erkenntnisse hier in „Regeln“ ergänzen.
 6. Commit auf einem Branch. **Mergen/Pushen auf `main` = live für alle Geräte**, nur nach Rückfrage.
 
-Änderungen am Datenmodell brauchen eine Migration in `loadDB()`, damit bestehende Daten weiter funktionieren. Vorher daran denken, dass der Nutzer ein Backup (Export) hat.
+Änderungen am Datenmodell brauchen eine Migration in `migrateDB()` (läuft in `loadDB()`, beim Import und bei der Cloud-Übernahme; muss beliebig oft laufen dürfen und setzt kein `lastModified`), damit bestehende Daten weiter funktionieren. Vorher daran denken, dass der Nutzer ein Backup (Export) hat.
 
 ## Tests
 

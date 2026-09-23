@@ -42,7 +42,7 @@ let selectedGroupColor  = APP_COLORS[0];
 function loadDB() {
   try {
     const raw = localStorage.getItem('lehrerapp_v3');
-    if (raw) return JSON.parse(raw);
+    if (raw) return migrateDB(JSON.parse(raw));
   } catch(e) {}
   return {
     settings: { teacherName:'', school:'', blocks: null },
@@ -51,6 +51,16 @@ function loadDB() {
     groups: [],
     students: {},
   };
+}
+// Altdaten angleichen. Muss beliebig oft laufen dürfen; gespeichert wird beim nächsten persistDB/saveDB.
+function migrateDB(data) {
+  // Noten: Bemerkung hieß früher teils `label`, heute immer `note`
+  Object.values(data.students || {}).forEach(list => (list || []).forEach(st => (st.grades || []).forEach(gr => {
+    if (!('label' in gr)) return;
+    if (gr.note === undefined) gr.note = gr.label;
+    delete gr.label;
+  })));
+  return data;
 }
 // Für jede Änderung durch den Nutzer: markiert die Daten als geändert und stößt den Cloud-Sync an.
 function saveDB() {
@@ -1021,8 +1031,9 @@ function renderSubjectGroups() {
 
     sortedGroups.forEach(g => {
       const students = db.students[g.id] || [];
-      const grades = students.flatMap(s => s.grades||[]).map(gr => parseFloat(gr.value)).filter(v => !isNaN(v));
-      const avg = grades.length ? (grades.reduce((a,b)=>a+b,0)/grades.length).toFixed(1) : '–';
+      const gradeCount = students.flatMap(s => s.grades||[]).filter(gr => !isNaN(gradeNumber(gr.value))).length;
+      const groupAvg = calculateGroupAverage(g.id);
+      const avg = groupAvg !== null ? groupAvg.toFixed(1) : '–';
 
       // Linked timetable slots → show which days this class meets
       const linkedSlots = db.lessonSlots.filter(s => s.groupId === g.id && s.recurring);
@@ -1045,7 +1056,7 @@ function renderSubjectGroups() {
         <div class="sgc-stats">
           <div class="sgc-stat"><div class="sgc-stat-value">${students.length}</div><div class="sgc-stat-label">Schüler</div></div>
           <div class="sgc-stat"><div class="sgc-stat-value" style="color:${gradeColor(parseFloat(avg))}">${avg}</div><div class="sgc-stat-label">Ø Note</div></div>
-          <div class="sgc-stat"><div class="sgc-stat-value">${grades.length}</div><div class="sgc-stat-label">Noten</div></div>
+          <div class="sgc-stat"><div class="sgc-stat-value">${gradeCount}</div><div class="sgc-stat-label">Noten</div></div>
         </div>
         <div style="margin-top:12px; display:flex; gap:8px;">
           <button class="btn-primary" style="flex:1; justify-content:center;" onclick="event.stopPropagation();openSeatingForGroup('${g.id}')">🪑 Sitzplan</button>
@@ -1110,10 +1121,13 @@ function saveSubjectGroup() {
   const subject   = document.getElementById('new-group-subject').value.trim();
   const year      = document.getElementById('new-group-year').value.trim();
   
-  const schularbeitWeight = parseFloat(document.getElementById('weight-schularbeit').value);
-  const finalSchularbeitWeight = isNaN(schularbeitWeight) ? 50 : schularbeitWeight;
+  const weightInput = document.getElementById('weight-schularbeit').value.trim();
+  const finalSchularbeitWeight = weightInput === '' ? 50 : Number(weightInput.replace(',', '.'));
   
   if (!className || !subject) { showToast('Bitte Klasse und Fach eingeben', 'error'); return; }
+  if (isNaN(finalSchularbeitWeight) || finalSchularbeitWeight < 0 || finalSchularbeitWeight > 100) {
+    showToast('Gewichtung muss zwischen 0 und 100 % liegen', 'error'); return;
+  }
   if (editingGroupId) {
     const g = db.groups.find(x => x.id === editingGroupId);
     if (g) {
@@ -1143,31 +1157,35 @@ function saveSubjectGroup() {
   editingGroupId = null; renderClasses();
 }
 
+// Teil-Durchschnitte nach Gewichtungs-Kategorie (siehe gradeCategory), jeweils null wenn keine Noten.
+function calculateGradeCategoryAverages(student) {
+  const sums = { schularbeit: 0, sonstige: 0 }, counts = { schularbeit: 0, sonstige: 0 };
+  ((student && student.grades) || []).forEach(gr => {
+    const v = gradeNumber(gr.value);
+    if (isNaN(v)) return;
+    const cat = gradeCategory(gr.type);
+    sums[cat] += v;
+    counts[cat]++;
+  });
+  return {
+    schularbeit: counts.schularbeit ? sums.schularbeit / counts.schularbeit : null,
+    sonstige: counts.sonstige ? sums.sonstige / counts.sonstige : null,
+  };
+}
+
+// Anteil der Schularbeiten in Prozent (0–100), Standard 50
+function getSchularbeitWeight(group) {
+  const w = parseFloat(group && group.schularbeitWeight);
+  return isNaN(w) ? 50 : Math.min(100, Math.max(0, w));
+}
+
 function calculateStudentAverage(student, groupId) {
   const g = db.groups.find(x => x.id === groupId);
   if (!g || !student || !student.grades || student.grades.length === 0) return null;
 
-  const wSchularbeit = g.schularbeitWeight !== undefined ? parseFloat(g.schularbeitWeight) : 50;
+  const wSchularbeit = getSchularbeitWeight(g);
   const wSonstige = 100 - wSchularbeit;
-
-  let sumSchularbeit = 0, countSchularbeit = 0;
-  let sumSonstige = 0, countSonstige = 0;
-
-  student.grades.forEach(gr => {
-    const v = parseFloat(gr.value);
-    if (!isNaN(v)) {
-      if (gr.type === 'schularbeit' || gr.type === 'klausur') {
-        sumSchularbeit += v;
-        countSchularbeit++;
-      } else {
-        sumSonstige += v;
-        countSonstige++;
-      }
-    }
-  });
-
-  const avgSchularbeit = countSchularbeit > 0 ? sumSchularbeit / countSchularbeit : null;
-  const avgSonstige = countSonstige > 0 ? sumSonstige / countSonstige : null;
+  const { schularbeit: avgSchularbeit, sonstige: avgSonstige } = calculateGradeCategoryAverages(student);
 
   if (avgSchularbeit !== null && avgSonstige !== null) {
     return (avgSchularbeit * wSchularbeit + avgSonstige * wSonstige) / 100;
@@ -1177,6 +1195,12 @@ function calculateStudentAverage(student, groupId) {
     return avgSonstige;
   }
   return null;
+}
+
+// Klassenschnitt = Mittel der Schülerschnitte (Schüler ohne Noten zählen nicht)
+function calculateGroupAverage(groupId) {
+  const avgs = (db.students[groupId] || []).map(s => calculateStudentAverage(s, groupId)).filter(a => a !== null);
+  return avgs.length ? avgs.reduce((a, b) => a + b, 0) / avgs.length : null;
 }
 
 function deleteGroup(id) {
@@ -1279,19 +1303,15 @@ function renderOverviewTable() {
         const matchingGradeIdx = (s.grades||[]).findIndex(g => g.date === ev.date && (g.note ?? gradeTypeLabel(g.type)) === ev.label);
         const val = matchingGradeIdx !== -1 ? s.grades[matchingGradeIdx].value : '';
         const evType = ev.type || 'test';
-        html += `<td style="padding:4px;"><input type="text" class="form-input" style="width:100%; text-align:center; padding:6px; font-weight:600; color:${val ? gradeColor(parseFloat(val)) : 'inherit'}" value="${val}" placeholder="-" onchange="updateInlineGrade('${s.id}', '${ev.date}', '${escHtml(ev.label)}', this.value, '${evType}')" /></td>`;
+        html += `<td style="padding:4px;"><input type="text" class="form-input" style="width:100%; text-align:center; padding:6px; font-weight:600; color:${val ? gradeColor(gradeNumber(val)) : 'inherit'}" value="${val}" placeholder="-" onchange="updateInlineGrade('${s.id}', '${ev.date}', '${escHtml(ev.label)}', this.value, '${evType}')" /></td>`;
       });
       html += `</tr>`;
     });
     
     // Bottom average row
     html += '<tr><td style="position:sticky;left:0;background:var(--bg-card);font-weight:700;">Durchschnitt</td>';
-    let totalSum = 0, totalCount = 0;
-    sortedStudents.forEach(s => {
-      const sAvg = calculateStudentAverage(s, currentOverviewGroupId);
-      if (sAvg !== null) { totalSum += sAvg; totalCount++; }
-    });
-    const totalAvg = totalCount > 0 ? (totalSum / totalCount).toFixed(1) : '–';
+    const groupAvg = calculateGroupAverage(currentOverviewGroupId);
+    const totalAvg = groupAvg !== null ? groupAvg.toFixed(1) : '–';
     html += `<td style="font-weight:700;color:${gradeColor(parseFloat(totalAvg))};text-align:center;">${totalAvg}</td>`;
 
     gradeEvents.forEach(ev => {
@@ -1299,7 +1319,7 @@ function renderOverviewTable() {
       sortedStudents.forEach(s => {
         const matchingGradeIdx = (s.grades||[]).findIndex(g => g.date === ev.date && (g.note ?? gradeTypeLabel(g.type)) === ev.label);
         if (matchingGradeIdx !== -1) {
-          const val = parseFloat(s.grades[matchingGradeIdx].value);
+          const val = gradeNumber(s.grades[matchingGradeIdx].value);
           if (!isNaN(val)) { sum += val; count++; }
         }
       });
@@ -1429,14 +1449,13 @@ function updateInlineGrade(studentId, date, label, value, type = 'test') {
   if (!value) {
     if (idx !== -1) s.grades.splice(idx, 1);
   } else {
-    let numVal = parseFloat(value);
-    // Validation
-    if (isNaN(numVal) || numVal < 1 || numVal > 6) {
-      showToast('Bitte eine Note zwischen 1 und 6 eingeben', 'error');
+    const parsed = parseGradeInput(value);
+    if (!parsed || parsed.number === null) {
+      showToast('Bitte eine Note zwischen 1 und 6 eingeben (z. B. 2, 2,5 oder 2-)', 'error');
       renderOverviewTable(); // Reset input
       return;
     }
-    const finalValue = numVal.toFixed(1);
+    const finalValue = parsed.value;
     if (idx !== -1) {
       s.grades[idx].value = finalValue;
       if (type) s.grades[idx].type = type; // Update type if it was changed
@@ -1926,9 +1945,14 @@ function renderGradesList(s) {
     summary.innerHTML = '<span style="color:var(--text-muted);font-size:13px">Noch keine Noten.</span>';
   } else {
     const byType = {};
-    grades.forEach(g => { if (!byType[g.type]) byType[g.type]=[]; byType[g.type].push(parseFloat(g.value)); });
-    const all = grades.map(g => parseFloat(g.value)).filter(v => !isNaN(v));
-    const avg = all.length ? (all.reduce((a,b)=>a+b,0)/all.length).toFixed(1) : '–';
+    grades.forEach(g => {
+      const v = gradeNumber(g.value);
+      if (isNaN(v)) return;
+      if (!byType[g.type]) byType[g.type]=[];
+      byType[g.type].push(v);
+    });
+    const rawAvg = calculateStudentAverage(s, currentGroupId);
+    const avg = rawAvg !== null ? rawAvg.toFixed(1) : '–';
     summary.innerHTML = `
       <div class="grade-summary-item" style="margin-right:16px">
         <div class="grade-avg-display" style="color:${gradeColor(parseFloat(avg))}">${avg}</div>
@@ -1947,7 +1971,7 @@ function renderGradesList(s) {
   if (!grades.length) { list.innerHTML='<div style="color:var(--text-muted);font-size:13px;padding:6px 0">Noten erscheinen hier.</div>'; return; }
   [...grades].sort((a,b)=>(b.date||'').localeCompare(a.date||'')).forEach((g,i) => {
     const originalIdx = s.grades.indexOf(g);
-    const color = gradeColor(parseFloat(g.value));
+    const color = gradeColor(gradeNumber(g.value));
     const el = document.createElement('div');
     el.className = 'grade-item';
     el.style.cursor = 'pointer';
@@ -1956,32 +1980,13 @@ function renderGradesList(s) {
     el.innerHTML = `
       <div class="grade-value" style="color:${color}">${g.value}</div>
       <div class="grade-type-badge">${gradeTypeLabel(g.type)}</div>
-      <div class="grade-label">${escHtml(g.note||g.label||'')}</div>
+      <div class="grade-label">${escHtml(g.note||'')}</div>
       <div class="grade-date">${g.date ? formatDateShort(g.date) : ''}</div>
       <div style="color:var(--text-muted); font-size:16px;">✎</div>`;
     list.appendChild(el);
   });
 }
 
-function addGradeEntry() {
-  const type  = document.getElementById('new-grade-type').value;
-  const value = document.getElementById('new-grade-value').value;
-  const label = document.getElementById('new-grade-label').value.trim();
-  const date  = document.getElementById('new-grade-date').value;
-  if (!value || isNaN(parseFloat(value))) { showToast('Bitte gültige Note eingeben', 'error'); return; }
-  const s = getCurrentStudent();
-  if (!s) return;
-  if (!s.grades) s.grades = [];
-  s.grades.push({ type, value: parseFloat(value).toFixed(1), label, date });
-  saveDB(); renderGradesList(s); renderStudents();
-  ['new-grade-value','new-grade-label','new-grade-date'].forEach(id => document.getElementById(id).value='');
-  showToast('Note eingetragen ✓');
-}
-
-function deleteGrade(idx) {
-  const s = getCurrentStudent(); if (!s) return;
-  s.grades.splice(idx,1); saveDB(); renderGradesList(s); renderStudents();
-}
 
 function renderStudentNotesList(s) {
   const notes = s.studentNotes||[];
@@ -2156,7 +2161,7 @@ function exportCurrentStudent() {
   if (s.grades && s.grades.length > 0) {
     const sortedGrades = [...s.grades].sort((a,b) => a.date.localeCompare(b.date));
     sortedGrades.forEach(g => {
-      txt += `${formatDateLong(g.date)} | ${g.label} | ${g.type === 'schularbeit' ? 'Klassenarbeit' : 'Sonstige Leistung'} | Note: ${g.value}\n`;
+      txt += `${formatDateLong(g.date)} | ${g.note || gradeTypeLabel(g.type)} | ${gradeCategory(g.type) === 'schularbeit' ? 'Klassenarbeit' : 'Sonstige Leistung'} | Note: ${g.value}\n`;
     });
   } else {
     txt += `Keine Noten eingetragen.\n`;
@@ -2402,24 +2407,14 @@ function exportGradesCSV() {
   if (!g) return;
   
   const students = db.students[g.id] || [];
-  let csvContent = "\uFEFFNachname;Vorname;Muendlich;Schriftlich;Gesamtnote\n"; // \uFEFF is BOM for Excel to read UTF-8 correctly
+  let csvContent = "\uFEFFNachname;Vorname;Schularbeiten;Sonstige;Gesamtnote\n"; // \uFEFF is BOM for Excel to read UTF-8 correctly
+  const fmt = v => v !== null ? v.toFixed(2).replace('.', ',') : '';
   
   sortStudents(students).forEach(s => {
-    const grades = s.grades || [];
-    
-    // Mündlich: muendlich, mitarbeit
-    const oralGrades = grades.filter(gr => gr.type === 'muendlich' || gr.type === 'mitarbeit').map(gr => parseFloat(gr.value)).filter(v => !isNaN(v));
-    const oralAvg = oralGrades.length ? (oralGrades.reduce((a,b)=>a+b,0)/oralGrades.length).toFixed(2).replace('.', ',') : '';
-    
-    // Schriftlich: schularbeit, test
-    const writtenGrades = grades.filter(gr => gr.type === 'schularbeit' || gr.type === 'test').map(gr => parseFloat(gr.value)).filter(v => !isNaN(v));
-    const writtenAvg = writtenGrades.length ? (writtenGrades.reduce((a,b)=>a+b,0)/writtenGrades.length).toFixed(2).replace('.', ',') : '';
-    
-    // Gesamt
-    const rAvg = calculateStudentAverage(s, g.id);
-    const totalAvg = rAvg !== null ? rAvg.toFixed(2).replace('.', ',') : '';
-    
-    csvContent += `"${s.lastName || ''}";"${s.firstName || ''}";"${oralAvg}";"${writtenAvg}";"${totalAvg}"\n`;
+    // Spalten wie die Gewichtung der Klasse (gradeCategory), damit sich die Gesamtnote daraus ergibt
+    const parts = calculateGradeCategoryAverages(s);
+    const total = calculateStudentAverage(s, g.id);
+    csvContent += `"${s.lastName || ''}";"${s.firstName || ''}";"${fmt(parts.schularbeit)}";"${fmt(parts.sonstige)}";"${fmt(total)}"\n`;
   });
   
   const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
@@ -2454,7 +2449,7 @@ function importData(event) {
     try {
       const parsed = JSON.parse(e.target.result);
       if (parsed.lessonSlots && parsed.groups && parsed.students) {
-        db = parsed; saveDB(); renderTimetable(); renderSubjectGroups(); closeModal('modal-settings');
+        db = migrateDB(parsed); saveDB(); renderTimetable(); renderSubjectGroups(); closeModal('modal-settings');
         showToast('Importiert ✓');
       } else { showToast('Ungültiges Format','error'); }
     } catch { showToast('Fehler beim Importieren','error'); }
@@ -2804,8 +2799,8 @@ function renderSeatingPlan() {
   });
 
   students.forEach((s) => {
-    const grades = (s.grades||[]).map(gr => parseFloat(gr.value)).filter(v => !isNaN(v));
-    const avg = grades.length ? (grades.reduce((a,b)=>a+b,0)/grades.length).toFixed(1) : '–';
+    const rawAvg = calculateStudentAverage(s, groupId);
+    const avg = rawAvg !== null ? rawAvg.toFixed(1) : '–';
     
     // check absence, hw and participation
     const absence = (s.attendance||[]).find(a => a.date === dateStr && (a.type === 'abwesend' || a.type === 'entschuldigt'));
@@ -3340,10 +3335,10 @@ function openSeatingStudentModal(studentId, groupId, dateStr) {
     sortedGrades.forEach(g => {
       const el = document.createElement('div');
       el.style.cssText = 'display:flex; justify-content:space-between; align-items:center; background:var(--bg-secondary); padding:8px 12px; border-radius:8px; font-size:13px;';
-      const valColor = gradeColor(parseFloat(g.value));
+      const valColor = gradeColor(gradeNumber(g.value));
       el.innerHTML = `
         <div style="display:flex; flex-direction:column; flex:1;">
-          <span style="font-weight:600; color:var(--text-primary)">${escHtml(g.note ?? gradeTypeLabel(g.type))}</span>
+          <span style="font-weight:600; color:var(--text-primary)">${escHtml(g.note || gradeTypeLabel(g.type))}</span>
           <span style="font-size:11px; color:var(--text-muted)">${formatDateShort(g.date)}</span>
         </div>
         <div style="display:flex; align-items:center; gap:12px;">
@@ -3368,12 +3363,13 @@ function openGradeFormForCurrentStudent() {
 }
 
 // ─── Global Grade Form ────────────────────────────────────────────────────
-let currentGradeFormCtx = null; // { studentId, groupId, gradeIdx }
+let currentGradeFormCtx = null; // { studentId, groupId, grade } – grade = Objekt-Referenz (null = neue Note)
 
 function openGradeForm(studentId, groupId, gradeIdx, defaultDateStr = '', defaultLabel = '') {
-  currentGradeFormCtx = { studentId, groupId, gradeIdx };
   const s = db.students[groupId]?.find(x => x.id === studentId);
   if (!s) return;
+  // Referenz statt Index merken: der Index kann sich verschieben, solange das Formular offen ist
+  currentGradeFormCtx = { studentId, groupId, grade: (gradeIdx >= 0 && s.grades && s.grades[gradeIdx]) || null };
 
   // Hide the quick student modal if it's open, so they don't overlap awkwardly
   const seatingModal = document.getElementById('modal-seating-student');
@@ -3390,13 +3386,13 @@ function openGradeForm(studentId, groupId, gradeIdx, defaultDateStr = '', defaul
   }
 
   const btnDelete = document.getElementById('gf-btn-delete');
-  if (gradeIdx >= 0 && s.grades && s.grades[gradeIdx]) {
-    const g = s.grades[gradeIdx];
+  if (currentGradeFormCtx.grade) {
+    const g = currentGradeFormCtx.grade;
     document.getElementById('grade-form-title').textContent = 'Note bearbeiten';
     document.getElementById('gf-type').value = g.type || 'test';
     document.getElementById('gf-value').value = g.value || '';
     document.getElementById('gf-date').value = g.date || formatDate(new Date());
-    document.getElementById('gf-label').value = g.note || g.label || '';
+    document.getElementById('gf-label').value = g.note || '';
     btnDelete.style.display = 'block';
   } else {
     document.getElementById('grade-form-title').textContent = 'Neue Note';
@@ -3424,11 +3420,21 @@ function closeGradeForm() {
   }
 }
 
-function saveGradeFromForm() {
-  if (!currentGradeFormCtx) return;
-  const { studentId, groupId, gradeIdx } = currentGradeFormCtx;
+// Notenformular: Note der offenen Form im aktuellen db-Stand suchen (per Referenz, nie per Index)
+function findGradeFormTarget() {
+  if (!currentGradeFormCtx) return null;
+  const { studentId, groupId, grade } = currentGradeFormCtx;
   const s = db.students[groupId]?.find(x => x.id === studentId);
-  if (!s) return;
+  if (!s) return null;
+  const idx = grade ? (s.grades || []).indexOf(grade) : -1;
+  return { s, groupId, idx, isEdit: !!grade };
+}
+
+function saveGradeFromForm() {
+  const target = findGradeFormTarget();
+  if (!target) { showToast('Schüler nicht gefunden – Note wurde nicht gespeichert', 'error'); return; }
+  const { s, groupId, idx, isEdit } = target;
+  if (isEdit && idx === -1) { showToast('Diese Note gibt es nicht mehr (z. B. durch Sync) – bitte neu öffnen', 'error'); return; }
 
   const type = document.getElementById('gf-type').value;
   const value = document.getElementById('gf-value').value.trim();
@@ -3436,48 +3442,52 @@ function saveGradeFromForm() {
   const label = document.getElementById('gf-label').value.trim();
 
   if (!value) { showToast('Bitte einen Wert eingeben', 'error'); return; }
-
-  const numVal = parseFloat(value);
-  const finalValue = !isNaN(numVal) ? numVal.toFixed(1) : value;
+  const parsed = parseGradeInput(value);
+  if (!parsed) { showToast('Bitte eine Note zwischen 1 und 6 eingeben (z. B. 2, 2,5 oder 2-)', 'error'); return; }
 
   if (!s.grades) s.grades = [];
-
-  if (gradeIdx >= 0 && gradeIdx < s.grades.length) {
-    s.grades[gradeIdx] = { type, value: finalValue, date: dateStr, note: label };
+  const entry = { type, value: parsed.value, date: dateStr, note: label };
+  if (isEdit) {
+    s.grades[idx] = entry;
     showToast('Note aktualisiert');
   } else {
-    s.grades.push({ type, value: finalValue, date: dateStr, note: label });
+    s.grades.push(entry);
     showToast('Note hinzugefügt');
   }
 
   saveDB();
   closeGradeForm();
-  
-  if (!document.getElementById('view-overview').classList.contains('hidden')) {
-    renderOverviewTable();
-  }
-  const detailModal = document.getElementById('modal-student-detail');
-  if (detailModal && !detailModal.classList.contains('hidden')) {
-    renderGradesList(s);
-    renderStudents();
-    if (typeof renderDashboard === 'function') renderDashboard();
-  }
+  refreshGradeViews(s, groupId);
 }
 
 function deleteGradeFromForm() {
-  if (!currentGradeFormCtx) return;
-  const { studentId, groupId, gradeIdx } = currentGradeFormCtx;
-  const s = db.students[groupId]?.find(x => x.id === studentId);
-  if (!s || gradeIdx < 0) return;
+  const target = findGradeFormTarget();
+  if (!target || !target.isEdit) return;
+  const { s, groupId, idx } = target;
+  if (idx === -1) { showToast('Diese Note gibt es nicht mehr (z. B. durch Sync) – bitte neu öffnen', 'error'); return; }
 
-  s.grades.splice(gradeIdx, 1);
+  s.grades.splice(idx, 1);
   saveDB();
   showToast('Note gelöscht');
   closeGradeForm();
+  refreshGradeViews(s, groupId);
+}
 
-  if (!document.getElementById('view-overview').classList.contains('hidden')) {
+// Nach Änderungen im Notenformular alles neu zeichnen, was gerade sichtbar ist und Noten zeigt
+function refreshGradeViews(s, groupId) {
+  const overview = document.getElementById('overview-content');
+  if (overview && !overview.classList.contains('hidden') && currentOverviewGroupId === groupId) {
     renderOverviewTable();
   }
+  const detailModal = document.getElementById('modal-student-detail');
+  if (detailModal && !detailModal.classList.contains('hidden') && currentGroupId === groupId) {
+    renderGradesList(s);
+    renderStudents();
+  }
+  if (document.getElementById('view-seating')?.classList.contains('active') && currentSeatingGroupId === groupId) {
+    renderSeatingPlan();
+  }
+  if (document.getElementById('view-dashboard')?.classList.contains('active')) renderDashboard();
 }
 
 // ─── Lesson Quick Access ──────────────────────────────────────────────────
@@ -3587,6 +3597,34 @@ function gradeColor(val) {
 function gradeTypeLabel(type) {
   return {schularbeit:'Schularbeit',test:'Test',muendlich:'Mündlich',mitarbeit:'Mitarbeit',
           projekt:'Projekt',hausaufgabe:'HA',sonstig:'Sonstiges'}[type] || type;
+}
+
+// Zentrale Zuordnung für die Gewichtung (Klasse → schularbeitWeight): diese Typen zählen als
+// „Schularbeit“, alle anderen als „Sonstige“. 'klausur' kommt nur in Altdaten vor.
+const SCHULARBEIT_GRADE_TYPES = ['schularbeit', 'klausur'];
+function gradeCategory(type) {
+  return SCHULARBEIT_GRADE_TYPES.includes(type) ? 'schularbeit' : 'sonstige';
+}
+
+// Zahlenwert einer gespeicherten Note, z. B. '2.0' → 2, '2-' → 2 (Tendenz zählt nicht), '+' → NaN
+const GRADE_INPUT_RE = /^(\d+(?:[.,]\d+)?)\s*([+-]?)$/;
+function gradeNumber(value) {
+  const m = String(value ?? '').trim().match(GRADE_INPUT_RE);
+  return m ? parseFloat(m[1].replace(',', '.')) : NaN;
+}
+
+// Nutzereingabe → { value (zu speichern), number (zählt im Schnitt, sonst null) } oder null = ungültig.
+// '2,5' → '2.5'; '2-'/'2+' bleiben als Tendenz stehen und zählen als 2; Text wie '+' zählt nicht.
+function parseGradeInput(input) {
+  const s = String(input ?? '').trim();
+  if (!s) return null;
+  const m = s.match(GRADE_INPUT_RE);
+  if (!m) return /\d/.test(s) ? null : { value: s, number: null };
+  const number = parseFloat(m[1].replace(',', '.'));
+  if (number < 1 || number > 6) return null;
+  const tendency = m[2];
+  const value = tendency ? String(Math.round(number * 10) / 10) + tendency : number.toFixed(1);
+  return { value, number };
 }
 
 // ─── Keyboard ─────────────────────────────────────────────────────────────
@@ -4233,7 +4271,7 @@ function applyCloudData(dataString, cloudTimestamp) {
   if (!parsed || !parsed.settings || !parsed.groups || !parsed.students) {
     throw new Error('Die Cloud-Daten haben ein unerwartetes Format und wurden nicht übernommen.');
   }
-  db = parsed;
+  db = migrateDB(parsed);
   markSynced(cloudTimestamp, db.settings.lastModified);
   updateAppliedThemeFromDB();
   renderTimetable();
