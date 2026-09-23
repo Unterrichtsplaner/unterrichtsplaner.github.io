@@ -52,18 +52,23 @@ function loadDB() {
     students: {},
   };
 }
-function saveDB(skipCloudSync = false) {
+// Für jede Änderung durch den Nutzer: markiert die Daten als geändert und stößt den Cloud-Sync an.
+function saveDB() {
   if (!db.settings) db.settings = {};
   db.settings.lastModified = Date.now();
-  localStorage.setItem('lehrerapp_v3', JSON.stringify(db));
-  
+  persistDB();
+
   // Automatischer Cloud-Hintergrundsync (Autosave)
-  if (!skipCloudSync && typeof SyncManager !== 'undefined' && SyncManager.isInitialized && SyncManager.currentUser && SyncManager.masterPassword) {
+  if (typeof SyncManager !== 'undefined' && SyncManager.isInitialized && SyncManager.currentUser && SyncManager.masterPassword) {
     if (window.syncTimeout) clearTimeout(window.syncTimeout);
     window.syncTimeout = setTimeout(() => {
       triggerSyncInternal();
     }, 3000); // 3 Sekunden Verzögerung nach der letzten Eingabe
   }
+}
+// Nur speichern, ohne die Daten als „geändert“ zu markieren (z. B. Sync-Metadaten).
+function persistDB() {
+  localStorage.setItem('lehrerapp_v3', JSON.stringify(db));
 }
 function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2,6); }
 
@@ -2457,12 +2462,10 @@ function importData(event) {
   reader.readAsText(file); event.target.value='';
 }
 function clearAllData() {
-  if (!confirm('ACHTUNG: Wirklich alle Daten löschen?')) return;
+  if (!confirm('ACHTUNG: Wirklich alle Daten auf diesem Gerät löschen?\n\nFalls Cloud-Sync aktiv ist, bleiben die Daten in der Cloud erhalten und werden beim nächsten Sync wieder geladen.')) return;
   localStorage.removeItem('lehrerapp_v3'); db = loadDB();
   renderTimetable(); renderSubjectGroups(); closeModal('modal-settings');
-  a.href = url;
-  a.download = `lehrerapp_export_${formatDate(new Date())}.json`;
-  a.click();
+  showToast('Lokale Daten gelöscht.');
 }
 
 // ─── Seating Plan ─────────────────────────────────────────────────────────
@@ -4063,18 +4066,15 @@ function initSync() {
   };
 
   SyncManager.callbacks.onConflictDetected = (conflictInfo) => {
-    // Öffne das Konflikt-Modal und fülle die Zeiten aus
-    const isLocalNewer = conflictInfo.localTimestamp > conflictInfo.cloudTimestamp;
-    
-    const localTime = new Date(conflictInfo.localTimestamp).toLocaleString('de-DE') + (isLocalNewer ? ' (aktueller)' : '');
-    const cloudTime = new Date(conflictInfo.cloudTimestamp).toLocaleString('de-DE') + (!isLocalNewer ? ' (aktueller)' : '');
-    
-    document.getElementById('conflict-local-time').textContent = localTime;
-    document.getElementById('conflict-cloud-time').textContent = cloudTime;
-    
-    // Speichere die Konflikt-Informationen global
+    // Öffne das Konflikt-Modal und fülle die Zeiten aus.
+    // Bewusst kein „(aktueller)“: Die Uhren verschiedener Geräte sind nicht vergleichbar.
+    const fmt = ts => ts ? new Date(ts).toLocaleString('de-DE') : 'Unbekannt';
+    document.getElementById('conflict-local-time').textContent = 'geändert ' + fmt(db.settings.lastModified);
+    document.getElementById('conflict-cloud-time').textContent = 'geändert ' + fmt(conflictInfo.cloudTimestamp);
+
+    // Solange der Konflikt offen ist, pausiert der automatische Sync (siehe triggerSyncInternal)
     window.currentConflict = conflictInfo;
-    
+
     openModal('modal-sync-conflict');
   };
 
@@ -4175,10 +4175,22 @@ function logoutSync() {
     });
 }
 
-// Master-Passwort ändern
+// Master-Passwort übernehmen (onchange, nicht bei jedem Tastendruck).
+// Direkt danach wird synchronisiert – dabei prüft der SyncManager, ob das Passwort
+// die Cloud-Daten entschlüsseln kann, bevor irgendetwas hochgeladen wird.
 function updateMasterPassword(pwd) {
   SyncManager.setMasterPassword(pwd);
-  sessionStorage.setItem('sync_master_password', pwd);
+  if (pwd) sessionStorage.setItem('sync_master_password', pwd);
+  else sessionStorage.removeItem('sync_master_password');
+  if (pwd && SyncManager.currentUser) triggerSyncInternal({ manual: true });
+}
+
+// Falsches Passwort wieder vergessen, damit kein weiterer Sync damit läuft.
+function rejectMasterPassword() {
+  SyncManager.setMasterPassword('');
+  sessionStorage.removeItem('sync_master_password');
+  const passInput = document.getElementById('sync-master-password');
+  if (passInput) passInput.value = '';
 }
 
 // Triggert den Sync-Prozess
@@ -4187,59 +4199,119 @@ function triggerManualSync() {
     alert('Bitte gib zuerst dein Master-Passwort ein.');
     return;
   }
-  triggerSyncInternal();
+  if (window.currentConflict) {
+    openModal('modal-sync-conflict');
+    return;
+  }
+  triggerSyncInternal({ manual: true });
+}
+
+// Enthält dieses Gerät überhaupt Daten? (Neues Gerät oder nach „Alle Daten löschen“)
+function isLocalDBEmpty() {
+  const hasStudents = db.students && Object.values(db.students).some(list => list && list.length);
+  return !(db.groups && db.groups.length) && !(db.lessonSlots && db.lessonSlots.length) && !hasStudents;
+}
+
+// Hat der Nutzer seit dem letzten erfolgreichen Sync etwas geändert?
+// Verglichen wird nur auf Gleichheit – die Uhrzeit anderer Geräte spielt keine Rolle.
+function isLocalDBChanged() {
+  const s = db.syncSettings || {};
+  return !('syncedLocalModified' in s) || s.syncedLocalModified !== db.settings.lastModified;
+}
+
+// Merkt sich, welcher lokale und welcher Cloud-Stand zuletzt übereinstimmten.
+function markSynced(cloudTimestamp, localModified) {
+  if (!db.syncSettings) db.syncSettings = {};
+  db.syncSettings.lastSyncedCloudTimestamp = cloudTimestamp;
+  db.syncSettings.syncedLocalModified = localModified;
+  persistDB();
+}
+
+// Übernimmt einen entschlüsselten Cloud-Stand komplett als lokale Daten.
+function applyCloudData(dataString, cloudTimestamp) {
+  const parsed = JSON.parse(dataString);
+  if (!parsed || !parsed.settings || !parsed.groups || !parsed.students) {
+    throw new Error('Die Cloud-Daten haben ein unerwartetes Format und wurden nicht übernommen.');
+  }
+  db = parsed;
+  markSynced(cloudTimestamp, db.settings.lastModified);
+  updateAppliedThemeFromDB();
+  renderTimetable();
+  renderSubjectGroups();
+  updateSyncUI();
+}
+
+// Immer nur ein Sync gleichzeitig. Wird währenddessen ein weiterer angefordert,
+// läuft er direkt im Anschluss.
+let syncRunning = false;
+let syncQueued = false;
+const SYNC_TIMEOUT_MS = 30000;
+
+function withTimeout(promise, ms) {
+  let timer;
+  const timeout = new Promise((_, reject) => {
+    timer = setTimeout(() => reject(new Error('Zeitüberschreitung – bitte Internetverbindung prüfen.')), ms);
+  });
+  return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
 }
 
 // Führt den eigentlichen Sync im Hintergrund durch
-async function triggerSyncInternal() {
+async function triggerSyncInternal({ manual = false } = {}) {
   if (!SyncManager.isInitialized || !SyncManager.currentUser || !SyncManager.masterPassword) return;
+  // Offener Konflikt: Nutzer muss erst entscheiden, sonst würde das Modal ständig neu aufgehen.
+  if (window.currentConflict) return;
+  if (syncRunning) { syncQueued = true; return; }
+  syncRunning = true;
 
   try {
+    // Schnappschuss des lokalen Stands zum Zeitpunkt des Syncs
     const localDataString = JSON.stringify(db);
-    const localTimestamp = db.settings.lastModified || Date.now();
-    const lastSynced = (db.syncSettings && db.syncSettings.lastSyncedCloudTimestamp) || 0;
+    const localModified = db.settings.lastModified;
 
-    const result = await SyncManager.sync(localDataString, localTimestamp, lastSynced);
+    const result = await withTimeout(SyncManager.sync(localDataString, {
+      localChanged: isLocalDBChanged(),
+      localIsEmpty: isLocalDBEmpty(),
+      lastSyncedCloudTimestamp: db.syncSettings ? db.syncSettings.lastSyncedCloudTimestamp : undefined,
+    }), SYNC_TIMEOUT_MS);
 
-    if (result.status === 'sync_done') {
-      if (result.action === 'pulled' && result.data) {
-        // Daten aus der Cloud geladen und erfolgreich entschlüsselt -> übernehmen!
-        const parsed = JSON.parse(result.data);
-        if (parsed.settings) {
-          db = parsed;
-          if (!db.syncSettings) db.syncSettings = {};
-          db.syncSettings.lastSyncedCloudTimestamp = result.cloudTimestamp;
-          
-          // Design-Einstellungen anwenden
-          updateAppliedThemeFromDB();
-          
-          // Lokales Speichern
-          localStorage.setItem('lehrerapp_v3', JSON.stringify(db));
-          
-          showToast('Daten erfolgreich aus der Cloud synchronisiert! ✓');
-          
-          // Ansichten aktualisieren
-          renderTimetable();
-          renderSubjectGroups();
-        }
+    if (result.status === 'pulled') {
+      if (db.settings.lastModified !== localModified) {
+        // Während des Downloads wurde lokal etwas eingetragen – nicht überschreiben!
+        // Der nächste Durchlauf erkennt das als Konflikt und fragt nach.
+        syncQueued = true;
       } else {
-        // Erfolgreicher Upload
-        if (!db.syncSettings) db.syncSettings = {};
-        db.syncSettings.lastSyncedCloudTimestamp = result.cloudTimestamp;
-        saveDB(true);
-        showToast('Daten erfolgreich in die Cloud geladen! ✓');
+        applyCloudData(result.data, result.cloudTimestamp);
+        showToast('Daten erfolgreich aus der Cloud synchronisiert! ✓');
       }
+    } else if (result.status === 'uploaded') {
+      // Nur den hochgeladenen Stand als synchron markieren; Eingaben während des Uploads
+      // bleiben „geändert“ und gehen mit dem nächsten Sync hoch.
+      markSynced(result.cloudTimestamp, localModified);
+      if (manual) showToast('Daten erfolgreich in die Cloud geladen! ✓');
       updateSyncUI();
     } else if (result.status === 'no_change') {
-      if (!db.syncSettings) db.syncSettings = {};
-      db.syncSettings.lastSyncedCloudTimestamp = result.cloudTimestamp;
-      saveDB(true);
-      showToast('Daten bereits auf dem neuesten Stand.');
+      if (manual) showToast('Daten bereits auf dem neuesten Stand.');
       updateSyncUI();
+    } else if (result.status === 'offline') {
+      if (manual) showToast('Offline – Sync folgt, sobald wieder Internet da ist.', 'error');
     }
   } catch (error) {
     console.error("Fehler beim Sync:", error);
-    showToast('❌ Sync-Fehler: ' + error.message);
+    if (error.name === 'WrongPasswordError') {
+      rejectMasterPassword();
+      alert('❌ Falsches Master-Passwort.\n\nEs passt nicht zu den Daten in der Cloud. Es wurde nichts hochgeladen. Bitte gib das Passwort erneut ein.');
+    } else if (error.name === 'CloudChangedError') {
+      // Ein anderes Gerät war schneller – einfach neu prüfen.
+      syncQueued = true;
+    } else {
+      showToast('❌ Sync-Fehler: ' + error.message, 'error');
+    }
+  } finally {
+    syncRunning = false;
+    if (syncQueued) {
+      syncQueued = false;
+      triggerSyncInternal({ manual });
+    }
   }
 }
 
@@ -4257,64 +4329,33 @@ async function resolveConflict(decision) {
   }
 
   closeModal('modal-sync-conflict');
+  window.currentConflict = null;
 
   try {
     if (decision === 'pull') {
-      // Cloud-Version übernehmen
-      const decrypted = CryptoHelper.decrypt(conflict.cloudPayload.encryptedData, SyncManager.masterPassword);
-      const parsed = JSON.parse(decrypted);
-      
-      db = parsed;
-      if (!db.syncSettings) db.syncSettings = {};
-      db.syncSettings.lastSyncedCloudTimestamp = conflict.cloudTimestamp;
-      
-      // Design-Einstellungen anwenden
-      updateAppliedThemeFromDB();
-      
-      saveDB(true);
+      applyCloudData(conflict.cloudData, conflict.cloudTimestamp);
       showToast('Cloud-Version geladen und lokale Änderungen verworfen.');
-      renderTimetable();
-      renderSubjectGroups();
-      updateSyncUI();
-      
+
     } else if (decision === 'push') {
-      // Lokale Version erzwingen (Cloud überschreiben)
-      const localDataString = JSON.stringify(db);
-      const now = Date.now();
-      
-      await SyncManager.saveToCloud(localDataString, now);
-      
-      if (!db.syncSettings) db.syncSettings = {};
-      db.syncSettings.lastSyncedCloudTimestamp = now;
-      db.settings.lastModified = now;
-      saveDB(true);
-      
+      // Lokale Version erzwingen – aber nur über genau den Cloud-Stand, den der Nutzer gesehen hat.
+      const localModified = db.settings.lastModified;
+      const newTimestamp = await SyncManager.saveToCloud(JSON.stringify(db), conflict.cloudTimestamp);
+      markSynced(newTimestamp, localModified);
       showToast('Cloud-Version erfolgreich mit lokalem Stand überschrieben.');
       updateSyncUI();
-      
+
     } else if (decision === 'backup') {
-      // Sicherheitskopie exportieren und dann Cloud laden
       exportData(); // Ruft den Standard-Export auf
-      
-      // Und dann Cloud laden (wie 'pull')
-      const decrypted = CryptoHelper.decrypt(conflict.cloudPayload.encryptedData, SyncManager.masterPassword);
-      const parsed = JSON.parse(decrypted);
-      
-      db = parsed;
-      if (!db.syncSettings) db.syncSettings = {};
-      db.syncSettings.lastSyncedCloudTimestamp = conflict.cloudTimestamp;
-      
-      // Design-Einstellungen anwenden
-      updateAppliedThemeFromDB();
-      
-      saveDB(true);
+      applyCloudData(conflict.cloudData, conflict.cloudTimestamp);
       showToast('Backup gespeichert und Cloud-Version geladen.');
-      renderTimetable();
-      renderSubjectGroups();
-      updateSyncUI();
     }
   } catch (e) {
-    alert('Fehler bei der Konfliktlösung: ' + e.message);
+    if (e.name === 'CloudChangedError') {
+      alert('In der Zwischenzeit hat ein anderes Gerät neue Daten hochgeladen. Es wird neu geprüft.');
+      triggerSyncInternal({ manual: true });
+    } else {
+      alert('Fehler bei der Konfliktlösung: ' + e.message);
+    }
   }
 }
 

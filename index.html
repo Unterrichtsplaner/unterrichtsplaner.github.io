@@ -909,7 +909,7 @@
           <div id="sync-crypto-section" class="hidden">
             <div class="form-group">
               <label>Master-Passwort (für lokale E2EE-Verschlüsselung)</label>
-              <input type="password" id="sync-master-password" class="form-input" placeholder="Master-Passwort festlegen/eingeben" oninput="updateMasterPassword(this.value)" />
+              <input type="password" id="sync-master-password" class="form-input" placeholder="Master-Passwort festlegen/eingeben" onchange="updateMasterPassword(this.value)" />
               <div style="font-size:11px; color:var(--danger); margin-top:4px; font-weight:600;">
                 ⚠️ WICHTIG: Dieses Passwort verschlüsselt deine Daten lokal auf deinem Gerät. Es wird NIEMALS unverschlüsselt übertragen. Wenn du es verlierst, sind deine Cloud-Daten unlesbar verloren!
               </div>

@@ -1,6 +1,49 @@
 /**
  * SyncManager - Verwaltet die Firebase-Synchronisierung, Authentifizierung und E2EE
+ *
+ * Grundprinzip: Die Cloud hält genau EINEN verschlüsselten Datenstand plus einen Zeitstempel
+ * (`lastModified`), der nur als Versionskennung dient. Verglichen wird nur auf Gleichheit,
+ * nie auf größer/kleiner – so spielen abweichende Uhren verschiedener Geräte keine Rolle.
  */
+
+// Wird geworfen, wenn das Master-Passwort die Cloud-Daten nicht entschlüsseln kann.
+class WrongPasswordError extends Error {
+  constructor() {
+    super('Das Master-Passwort passt nicht zu den Daten in der Cloud.');
+    this.name = 'WrongPasswordError';
+  }
+}
+
+// Wird geworfen, wenn ein anderes Gerät die Cloud zwischen Lesen und Schreiben verändert hat.
+class CloudChangedError extends Error {
+  constructor() {
+    super('Die Cloud-Daten wurden zwischenzeitlich von einem anderen Gerät geändert.');
+    this.name = 'CloudChangedError';
+  }
+}
+
+/**
+ * Reine Entscheidungslogik (ohne Netzwerk, dadurch testbar).
+ * @param {Object} s
+ * @param {boolean} s.hasCloud        - Gibt es überhaupt einen Cloud-Stand?
+ * @param {*}       s.cloudTimestamp  - Versionskennung des Cloud-Stands
+ * @param {*}       s.lastSyncedCloudTimestamp - Versionskennung beim letzten erfolgreichen Sync dieses Geräts
+ * @param {boolean} s.localChanged    - Hat der Nutzer seit dem letzten Sync lokal etwas geändert?
+ * @param {boolean} s.localIsEmpty    - Enthält dieses Gerät gar keine Daten (neues Gerät / zurückgesetzt)?
+ * @returns {'upload'|'pull'|'conflict'|'none'}
+ */
+function decideSync({ hasCloud, cloudTimestamp, lastSyncedCloudTimestamp, localChanged, localIsEmpty }) {
+  if (!hasCloud) {
+    // Einen leeren Stand laden wir nie hoch – das wäre nur Rauschen.
+    return localIsEmpty ? 'none' : 'upload';
+  }
+  const cloudChanged = cloudTimestamp !== lastSyncedCloudTimestamp;
+  if (!cloudChanged) return localChanged ? 'upload' : 'none';
+  // Cloud hat sich verändert:
+  if (localIsEmpty || !localChanged) return 'pull';
+  return 'conflict';
+}
+
 const SyncManager = {
   auth: null,
   db: null,
@@ -30,16 +73,13 @@ const SyncManager = {
     try {
       this.config = config;
       // Falls bereits eine App initialisiert ist, löschen wir sie nicht, sondern verwenden sie
-      let app;
       if (firebase.apps.length === 0) {
-        app = firebase.initializeApp(config);
-      } else {
-        app = firebase.app();
+        firebase.initializeApp(config);
       }
 
       this.auth = firebase.auth();
       this.db = firebase.firestore();
-      
+
       // Firestore Offline-Support aktivieren
       this.db.enablePersistence({ synchronizeTabs: true }).catch((err) => {
         console.warn("Firestore Persistence konnte nicht aktiviert werden:", err.code);
@@ -105,137 +145,114 @@ const SyncManager = {
     return this.auth.signOut();
   },
 
-  /**
-   * Holt den aktuellen Cloud-Datensatz ab (Metadaten oder das gesamte Paket)
-   */
-  async getCloudData() {
-    if (!this.isInitialized || !this.currentUser) return null;
-    
-    const docRef = this.db.collection('users_data').doc(this.currentUser.uid);
-    const doc = await docRef.get();
-    
-    if (doc.exists) {
-      return doc.data(); // Enthält { encryptedData, lastModified }
-    }
-    return null;
+  _docRef() {
+    return this.db.collection('users_data').doc(this.currentUser.uid);
   },
 
   /**
-   * Speichert Daten in der Cloud (Verschlüsselt mit dem Master-Passwort)
-   * @param {string} rawDataString - Die unverschlüsselten JSON-Daten als String
-   * @param {number} timestamp - Der Zeitstempel dieser Änderung (lokal)
+   * Holt den aktuellen Cloud-Datensatz direkt vom Server (nie aus dem Offline-Cache,
+   * sonst würden Entscheidungen auf veralteten Daten getroffen).
+   * @returns {Object|null} { encryptedData, lastModified }
    */
-  async saveToCloud(rawDataString, timestamp) {
-    if (!this.isInitialized || !this.currentUser) return false;
+  async getCloudData() {
+    if (!this.isInitialized || !this.currentUser) return null;
+    const doc = await this._docRef().get({ source: 'server' });
+    return doc.exists ? doc.data() : null;
+  },
+
+  /**
+   * Entschlüsselt einen Cloud-Datensatz; wirft WrongPasswordError bei falschem Passwort.
+   */
+  decryptPayload(cloudPayload) {
+    try {
+      return CryptoHelper.decrypt(cloudPayload.encryptedData, this.masterPassword);
+    } catch (e) {
+      throw new WrongPasswordError();
+    }
+  },
+
+  /**
+   * Speichert Daten verschlüsselt in der Cloud – aber nur, wenn die Cloud noch auf dem
+   * erwarteten Stand ist (Firestore-Transaktion). Sonst CloudChangedError.
+   * @param {string} rawDataString - Die unverschlüsselten JSON-Daten als String
+   * @param {*} expectedCloudTimestamp - Versionskennung, die in der Cloud stehen muss (null = Cloud muss leer sein)
+   * @returns {number} die neue Versionskennung in der Cloud
+   */
+  async saveToCloud(rawDataString, expectedCloudTimestamp) {
+    if (!this.isInitialized || !this.currentUser) throw new Error("Nicht angemeldet.");
     if (!this.masterPassword) {
       throw new Error("Master-Passwort fehlt. Verschlüsselung nicht möglich.");
     }
 
-    try {
-      // 1. Daten lokal verschlüsseln
-      const encrypted = CryptoHelper.encrypt(rawDataString, this.masterPassword);
+    const encrypted = CryptoHelper.encrypt(rawDataString, this.masterPassword);
+    const docRef = this._docRef();
 
-      // 2. In Firestore speichern
-      const docRef = this.db.collection('users_data').doc(this.currentUser.uid);
-      await docRef.set({
-        encryptedData: encrypted,
-        lastModified: timestamp
-      });
+    return this.db.runTransaction(async (tx) => {
+      const snap = await tx.get(docRef);
+      const current = snap.exists ? snap.data().lastModified : null;
+      if (current !== expectedCloudTimestamp) throw new CloudChangedError();
 
-      console.log("SyncManager: Erfolgreich in der Cloud gespeichert. Zeitstempel:", timestamp);
-      return true;
-    } catch (error) {
-      console.error("SyncManager: Fehler beim Speichern in der Cloud:", error);
-      throw error;
-    }
+      // Neue Kennung muss sich vom alten Stand unterscheiden, auch wenn die Uhr hinterherhinkt.
+      let newTimestamp = Date.now();
+      if (typeof current === 'number' && newTimestamp <= current) newTimestamp = current + 1;
+
+      tx.set(docRef, { encryptedData: encrypted, lastModified: newTimestamp });
+      return newTimestamp;
+    });
   },
 
   /**
-   * Führt die Synchronisation aus und prüft auf Konflikte.
+   * Führt die Synchronisation aus. Lädt nie etwas hoch, bevor nicht bewiesen ist,
+   * dass das Master-Passwort die bestehenden Cloud-Daten entschlüsseln kann.
+   *
    * @param {string} localDataString - Lokaler unverschlüsselter Datenstring
-   * @param {number} localTimestamp - Lokaler Zeitstempel der letzten Änderung
-   * @param {number} lastSyncedCloudTimestamp - Zeitstempel des letzten erfolgreichen Syncs
-   * @returns {Object} { status: 'sync_done'|'conflict'|'no_user'|'no_change', data: ... }
+   * @param {Object} local
+   * @param {boolean} local.localChanged
+   * @param {boolean} local.localIsEmpty
+   * @param {*} local.lastSyncedCloudTimestamp
+   * @returns {Object} { status: 'uploaded'|'pulled'|'conflict'|'no_change'|'offline'|'no_user', ... }
    */
-  async sync(localDataString, localTimestamp, lastSyncedCloudTimestamp) {
+  async sync(localDataString, { localChanged, localIsEmpty, lastSyncedCloudTimestamp }) {
     if (!this.isInitialized || !this.currentUser) {
       return { status: 'no_user' };
+    }
+    if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+      return { status: 'offline' };
     }
 
     this.updateStatus('checking');
 
     try {
-      // 1. Cloud-Daten abrufen
       const cloudPayload = await this.getCloudData();
+      const hasCloud = !!cloudPayload;
+      const cloudTimestamp = hasCloud ? cloudPayload.lastModified : null;
 
-      // Fall A: Noch keine Daten in der Cloud vorhanden
-      if (!cloudPayload) {
-        console.log("SyncManager: Keine Cloud-Daten vorhanden. Initialer Upload...");
-        await this.saveToCloud(localDataString, localTimestamp);
+      // Passwort-Probe: Ohne erfolgreiche Entschlüsselung geht nichts weiter.
+      const cloudData = hasCloud ? this.decryptPayload(cloudPayload) : null;
+
+      const action = decideSync({ hasCloud, cloudTimestamp, lastSyncedCloudTimestamp, localChanged, localIsEmpty });
+
+      if (action === 'upload') {
+        const newTimestamp = await this.saveToCloud(localDataString, cloudTimestamp);
         this.updateStatus('synced');
-        return { status: 'sync_done', cloudTimestamp: localTimestamp };
+        return { status: 'uploaded', cloudTimestamp: newTimestamp };
       }
 
-      const cloudTimestamp = cloudPayload.lastModified;
-
-      // Fall B: Cloud-Daten sind identisch mit unserem letzten bekannten Sync-Stand
-      // oder wir haben keine lokalen Änderungen seitdem
-      if (cloudTimestamp === lastSyncedCloudTimestamp) {
-        if (localTimestamp > lastSyncedCloudTimestamp) {
-          // Wir haben neuere lokale Änderungen -> Hochladen
-          console.log("SyncManager: Lokale Änderungen vorhanden. Upload...");
-          await this.saveToCloud(localDataString, localTimestamp);
-          this.updateStatus('synced');
-          return { status: 'sync_done', cloudTimestamp: localTimestamp };
-        } else {
-          // Keine Änderungen auf beiden Seiten
-          this.updateStatus('synced');
-          return { status: 'no_change', cloudTimestamp: cloudTimestamp };
-        }
-      }
-
-      // Fall C: Jemand anderes hat in der Cloud Änderungen vorgenommen (cloudTimestamp > lastSyncedCloudTimestamp)
-      if (cloudTimestamp > lastSyncedCloudTimestamp) {
-        // Haben wir AUCH lokale Änderungen vorgenommen?
-        if (localTimestamp > lastSyncedCloudTimestamp) {
-          // KONFLIKT! Beide Seiten haben Änderungen vorgenommen.
-          console.warn("SyncManager: Konflikt erkannt! Cloud-Stand:", cloudTimestamp, "Lokal-Stand:", localTimestamp, "Basis:", lastSyncedCloudTimestamp);
-          this.updateStatus('conflict');
-          
-          if (this.callbacks.onConflictDetected) {
-            // Callback zur UI-Behandlung aufrufen
-            this.callbacks.onConflictDetected({
-              localTimestamp,
-              cloudTimestamp,
-              cloudPayload
-            });
-          }
-          return { 
-            status: 'conflict', 
-            localTimestamp, 
-            cloudTimestamp,
-            cloudPayload 
-          };
-        } else {
-          // Nur die Cloud ist neuer. Wir übernehmen die Cloud-Daten.
-          console.log("SyncManager: Cloud-Daten sind neuer. Herunterladen...");
-          const decrypted = CryptoHelper.decrypt(cloudPayload.encryptedData, this.masterPassword);
-          this.updateStatus('synced');
-          return { status: 'sync_done', action: 'pulled', data: decrypted, cloudTimestamp: cloudTimestamp };
-        }
-      }
-
-      // Fall D: Lokale Daten sind neuer, und in der Cloud gab es keine Zwischenänderungen 
-      // (das sollte theoretisch durch Fall B abgedeckt sein, aber zur Sicherheit)
-      if (localTimestamp > cloudTimestamp) {
-        console.log("SyncManager: Lokale Daten sind neuer als die Cloud. Upload...");
-        await this.saveToCloud(localDataString, localTimestamp);
+      if (action === 'pull') {
         this.updateStatus('synced');
-        return { status: 'sync_done', cloudTimestamp: localTimestamp };
+        return { status: 'pulled', data: cloudData, cloudTimestamp };
+      }
+
+      if (action === 'conflict') {
+        console.warn("SyncManager: Konflikt erkannt! Cloud:", cloudTimestamp, "Basis:", lastSyncedCloudTimestamp);
+        this.updateStatus('conflict');
+        const conflict = { cloudTimestamp, cloudPayload, cloudData };
+        if (this.callbacks.onConflictDetected) this.callbacks.onConflictDetected(conflict);
+        return { status: 'conflict', ...conflict };
       }
 
       this.updateStatus('synced');
-      return { status: 'no_change', cloudTimestamp: cloudTimestamp };
+      return { status: 'no_change', cloudTimestamp };
 
     } catch (error) {
       console.error("SyncManager: Fehler beim Sync:", error);
