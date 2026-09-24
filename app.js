@@ -4047,7 +4047,8 @@ function createEntryItem(text, date, onDelete) {
 
 function openModal(id)  { const m = document.getElementById(id); if(m) m.classList.remove('hidden'); }
 function closeModal(id) { const m = document.getElementById(id); if(m) m.classList.add('hidden'); }
-function closeModalOnOverlay(event, id) { if (event.target === document.getElementById(id)) closeModal(id); }
+// Tippen neben ein Fenster: wie sein Schließen-Knopf, also z. B. Stunden-Notizen speichern (BUGS G13)
+function closeModalOnOverlay(event, id) { if (event.target === document.getElementById(id)) closeModalLikeButton(id); }
 
 function showToast(msg, type='success') {
   const t = Object.assign(document.createElement('div'), { className:`toast ${type}`, textContent: msg });
@@ -4142,19 +4143,22 @@ function parseGradeInput(input, scale = GRADE_SCALES['1-6']) {
 }
 
 // ─── Keyboard ─────────────────────────────────────────────────────────────
-// Escape schließt nur das oberste Fenster, und zwar so wie sein eigener Schließen-Knopf (BUGS G7).
-// Alle Fenster liegen auf derselben Ebene, also ist das letzte offene im Markup das oberste.
+// Escape und Tippen daneben schließen ein Fenster so wie sein eigener Schließen-Knopf (BUGS G7, G13).
 const MODAL_CLOSE_ACTIONS = {
   'modal-lesson': () => saveLessonDataAndClose(),   // wie „Schließen“: Notizen nicht verwerfen
   'modal-grade-form': () => closeGradeForm(),
   'modal-sync-conflict': null,                       // Entscheidung nötig, nicht wegdrückbar
 };
+function closeModalLikeButton(id) {
+  const action = id in MODAL_CLOSE_ACTIONS ? MODAL_CLOSE_ACTIONS[id] : () => closeModal(id);
+  if (action) action();
+}
+
+// Escape: nur das oberste Fenster. Alle liegen auf derselben Ebene, also ist das letzte offene im Markup das oberste.
 function closeTopModal() {
   const open = [...document.querySelectorAll('.modal-overlay:not(.hidden)')];
   const top = open[open.length - 1];
-  if (!top) return;
-  const action = top.id in MODAL_CLOSE_ACTIONS ? MODAL_CLOSE_ACTIONS[top.id] : () => closeModal(top.id);
-  if (action) action();
+  if (top) closeModalLikeButton(top.id);
 }
 
 document.addEventListener('keydown', e => {

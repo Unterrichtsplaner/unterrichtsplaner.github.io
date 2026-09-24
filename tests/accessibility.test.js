@@ -127,6 +127,47 @@ describe('G7: Escape schließt das oberste Fenster', () => {
   });
 });
 
+describe('G13: Tippen neben ein Fenster schließt es wie sein Schließen-Knopf', () => {
+  const isOpen = id => !document.getElementById(id).classList.contains('hidden');
+  // Inline-onclick läuft im Test nicht (CLAUDE.md Regel 18): Funktion direkt aufrufen, Attribut separat prüfen
+  const tapBeside = id => app(`closeModalOnOverlay({ target: document.getElementById(${JSON.stringify(id)}) }, ${JSON.stringify(id)})`);
+
+  afterEach(() => document.querySelectorAll('.modal-overlay').forEach(m => m.classList.add('hidden')));
+
+  it('Stunden-Fenster: eingetippte Notizen bleiben erhalten', () => {
+    app('openLessonDetail("l1", "2026-09-22")');
+    document.getElementById('lesson-done-text').value = 'Bruchrechnen';
+    document.getElementById('lesson-notes-text').value = 'Beamer defekt';
+    tapBeside('modal-lesson');
+    expect(isOpen('modal-lesson')).toBe(false);
+    expect(app('db.lessonData["l1_2026-09-22"].done')).toBe('Bruchrechnen');
+    expect(app('db.lessonData["l1_2026-09-22"].notes')).toBe('Beamer defekt');
+  });
+
+  it('Tippen ins Fenster selbst schließt nichts', () => {
+    app('openLessonDetail("l1", "2026-09-22")');
+    app('closeModalOnOverlay({ target: document.getElementById("lesson-notes-text") }, "modal-lesson")');
+    expect(isOpen('modal-lesson')).toBe(true);
+  });
+
+  it('Notenformular: kehrt zur Schülerakte zurück', () => {
+    app('currentGroupId = "g1"');
+    app('openStudentDetail("s1")');
+    app('openGradeForm("s1", "g1", -1)');
+    tapBeside('modal-grade-form');
+    expect(isOpen('modal-grade-form')).toBe(false);
+    expect(isOpen('modal-student-detail')).toBe(true);
+    expect(app('currentGradeFormCtx')).toBeNull();
+  });
+
+  it('alle Fenster im Markup rufen beim Tippen daneben closeModalOnOverlay mit ihrer eigenen ID auf', () => {
+    document.querySelectorAll('.modal-overlay').forEach(m => {
+      if (m.id === 'modal-sync-conflict') return;
+      expect(m.getAttribute('onclick'), m.id).toBe(`closeModalOnOverlay(event,'${m.id}')`);
+    });
+  });
+});
+
 describe('G7: Knöpfe ohne Text haben ein aria-label', () => {
   it('statisches Markup', () => {
     expect(unnamedButtons()).toEqual([]);

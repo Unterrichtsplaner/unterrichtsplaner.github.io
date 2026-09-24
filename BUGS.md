@@ -92,7 +92,7 @@ Priorität: 🔴 Datenverlust / App kaputt · 🟠 falsche Anzeige / nervig · �
 - [x] **G10** 🟢 Kommentar „HIER BITTE DEINE E-MAIL-ADRESSE EINTRAGEN“ in index.html ~Z. 949.
 - [x] **G11** 🟢 `server.js`: Pfadprüfung per `startsWith` unsauber, liefert `.git/` aus (nur Dev-Server).
 - [x] **G12** 🔴 `loadDB()` verschluckt JSON-Fehler und startet mit leerer DB → nächstes Speichern überschreibt die kaputten (evtl. rettbaren) Daten.
-- [ ] **G13** 🟠 (bei G7 aufgefallen) Tippen neben das Stunden-Fenster (`closeModalOnOverlay`) schließt es **ohne** zu speichern: eingetippte Notizen/„Was wurde behandelt“ sind weg. „Schließen“ und Escape speichern (`saveLessonDataAndClose`). Entweder beim Tippen daneben auch speichern oder gar nicht schließen.
+- [x] **G13** 🟠 (bei G7 aufgefallen) Tippen neben das Stunden-Fenster (`closeModalOnOverlay`) schließt es **ohne** zu speichern: eingetippte Notizen/„Was wurde behandelt“ sind weg. „Schließen“ und Escape speichern (`saveLessonDataAndClose`). Entweder beim Tippen daneben auch speichern oder gar nicht schließen.
 
 ## H. Design & Funktionen (Review mit Beispieldaten, 24.09.2026)
 
@@ -180,3 +180,4 @@ Priorität: 🔴 Datenverlust / App kaputt · 🟠 falsche Anzeige / nervig · �
 | G8 | `tools.js`, `app.js.bak` gelöscht | Block G |
 | G10 | Kommentar entfernt | Block G |
 | G11 | `server.js`: Pfad dekodiert + `path.relative`-Prüfung, keine versteckten Dateien (`.git`); `createServer()` testbar, Port per `PORT` | Block G |
+| G13 | Tippen neben ein Fenster nimmt denselben Weg wie Escape und der Schließen-Knopf (`closeModalLikeButton`): Stunden-Fenster speichert Notizen, Notenformular kehrt zurück | Block G |
