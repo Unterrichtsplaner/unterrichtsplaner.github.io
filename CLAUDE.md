@@ -27,11 +27,11 @@ lib/crypto-js.min.js → crypto-helper.js → lib/firebase-*-compat.js → fireb
 | `index.html` | Gesamtes Markup inkl. aller Modals (`modal-*`) und Views (`view-dashboard/timetable/classes/students/seating`) |
 | `sync-manager.js` | Firebase-Auth + Firestore, Sync-Entscheidung (`decideSync`), Passwort-Probe, Upload per Transaktion |
 | `crypto-helper.js` | E2EE: verschlüsselt die komplette DB mit dem Master-Passwort, bevor sie in die Cloud geht |
-| `sw.js` | Service Worker, cache-first. Cache-Liste `ASSETS` muss exakt zu den URLs in index.html passen |
+| `sw.js` | Service Worker: die Seite (index.html) network-first mit Cache-Fallback, alle anderen eigenen Dateien cache-first. Cache-Liste `ASSETS` muss exakt zu den URLs in index.html passen |
 | `firestore.rules` | Kopie der Firestore-Sicherheitsregeln (jeder Nutzer nur sein eigenes Dokument). Änderungen hier **und** in der Firebase-Konsole machen |
 | `firebase-config.js` | Öffentliche Firebase-Web-Config. Die ist absichtlich öffentlich, Schutz passiert über Firestore-Regeln + E2EE |
 | `lib/` | Fremdbibliotheken (vendored). **Nicht anfassen.** |
-| `tools.js`, `app.js.bak` | Toter Code (siehe BUGS G8) |
+| `server.js` | Nur Dev-Server (`npm run serve`), liefert keine versteckten Dateien aus |
 
 ## Datenmodell
 
@@ -103,6 +103,10 @@ Datumswerte sind Strings `YYYY-MM-DD` in **lokaler** Zeit (`formatDate()`). Nie 
 23. **Unlesbare gespeicherte Daten nie überschreiben.** `loadDB()` legt sie als `lehrerapp_v3_defekt_<Zeit>` ab und meldet das (`dbLoadFailure`); klappt die Kopie nicht, blockiert `persistDB()`, bis der Nutzer die Datei heruntergeladen hat.
 24. **Gewählte Daten/Ansichten verfallen über Nacht.** Ein im Sitzplan gewähltes Datum gilt nur am Tag der Wahl (`setSeatingDate`/`refreshSeatingDate`); wer Einträge mit einem gemerkten Datum anlegt, prüft vorher, ob inzwischen ein neuer Tag ist. Wer eine Ansicht gezielt für eine Klasse öffnet, übergibt sie (`openSeatingForGroup(groupId, dateStr)`), statt eine globale Variable zu setzen, die die Ansicht beim Öffnen wieder überschreibt.
 25. **Automatische Notiz-Zeilen (z. B. „… hat letzte Stunde unentschuldigt gefehlt“) mit vollem Namen schreiben und zeilenweise entfernen**, nie per `replace` auf dem ganzen Text; Eintragen und Entfernen über dieselben Hilfsfunktionen (`addAbsenceNote`/`removeAbsenceNote`).
+26. **Eigene Skripte/Stylesheets in index.html immer mit `?v=N`** (nur `lib/` nicht). index.html kommt online frisch vom Server; eine Datei ohne Versionsnummer käme noch aus dem alten Cache, und neues `app.js` liefe mit altem `sync-manager.js`. Die frische index.html nie in den Cache legen. `tests/pwa-cache.test.js` prüft das.
+27. **Neue Fenster (`modal-*`) schließt Escape automatisch** (`closeTopModal`: das letzte offene im Markup). Braucht ein Fenster beim Schließen mehr als `closeModal` (speichern, Kontext zurücksetzen) oder darf es nicht weggedrückt werden, in `MODAL_CLOSE_ACTIONS` eintragen. Knöpfe ohne Text bekommen ein `aria-label` (`tests/accessibility.test.js`).
+28. **Laufende Zeiten (Timer, Stoppuhr, Countdowns) über `Date.now()` rechnen, nie Ticks zählen.** Intervalle stehen still, solange das iPad gesperrt ist.
+29. **CSS-Variablen nur verwenden, wenn sie in `style.css` definiert sind** (`tests/css-vars.test.js`). Bei Farbe mit Transparenz eine fertige Variable (`--accent-glow`, `--danger-soft` …) nehmen, keine `rgba(var(--…-rgb))`.
 
 ## Arbeitsablauf
 
@@ -113,7 +117,7 @@ Datumswerte sind Strings `YYYY-MM-DD` in **lokaler** Zeit (`formatDate()`). Nie 
 5. In `BUGS.md` abhaken und neue Erkenntnisse hier in „Regeln“ ergänzen.
 6. Commit auf einem Branch. **Mergen/Pushen auf `main` = live für alle Geräte**, nur nach Rückfrage.
 
-**So kommt ein Update bei Nutzern an** (in der Generalprobe am 24.09.2026 beobachtet): Beim **ersten** Öffnen nach dem Deploy läuft noch die alte Version aus dem Cache (inklusive ihrer alten Fehler, auch Sync). Der neue Service Worker installiert sich dabei im Hintergrund, und ab dem **zweiten** Öffnen läuft die neue Version. Neuer Code muss deshalb immer mit Daten klarkommen, die die alte Version gerade noch geschrieben hat.
+**So kommt ein Update bei Nutzern an:** Seit v191 (BUGS G2) lädt die Seite online zuerst vom Server, das Update läuft also schon beim **ersten** Öffnen nach dem Deploy (offline oder bei hängendem WLAN nach 3 s die gecachte Version). Geräte, die noch eine ältere Version als v191 installiert haben, verhalten sich beim Sprung auf v191 noch wie früher (in der Generalprobe am 24.09.2026 beobachtet): erstes Öffnen = alte Version aus dem Cache, ab dem zweiten die neue. GitHub Pages lässt Browser Dateien bis zu 10 Minuten zwischenspeichern, direkt nach dem Deploy kann also noch kurz der alte Stand kommen. Neuer Code muss immer mit Daten klarkommen, die die alte Version gerade noch geschrieben hat.
 
 Änderungen am Datenmodell brauchen eine Migration in `migrateDB()` (läuft in `loadDB()`, beim Import und bei der Cloud-Übernahme; muss beliebig oft laufen dürfen und setzt kein `lastModified`), damit bestehende Daten weiter funktionieren. Vorher daran denken, dass der Nutzer ein Backup (Export) hat.
 

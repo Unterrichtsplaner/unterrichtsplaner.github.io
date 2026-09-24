@@ -1111,7 +1111,7 @@ function renderItemList(listId, items, type, incoming, incomingId) {
       el.innerHTML = `
         <span class="entry-item-text">${escHtml(item.text)}</span>
         ${targetLabel}
-        <button class="entry-item-delete" onclick="removeItem('${type}', ${i})">✕</button>
+        <button class="entry-item-delete" aria-label="Löschen" onclick="removeItem('${type}', ${i})">✕</button>
       `;
       list.appendChild(el);
     });
@@ -2351,7 +2351,7 @@ function renderAttendanceList(s) {
       <span style="color:${typeColors[a.type]||'inherit'};font-weight:600;min-width:86px;font-size:12px">${a.type.charAt(0).toUpperCase()+a.type.slice(1)}</span>
       <span class="entry-item-text">${escHtml(a.note||'')}</span>
       <span class="entry-item-date">${a.date?formatDateShort(a.date):''}</span>
-      <button class="entry-item-delete">✕</button>`;
+      <button class="entry-item-delete" aria-label="Löschen">✕</button>`;
     el.querySelector('.entry-item-delete').onclick = () => deleteAttendance(a);
     list.appendChild(el);
   });
@@ -2396,7 +2396,7 @@ function renderStudentParticipationList(s) {
       <span style="color:${valColors[p.value]||'inherit'};font-weight:800;font-size:16px;min-width:30px;text-align:center;">${valLabels[p.value]||p.value}</span>
       <span class="entry-item-text">${desc}</span>
       <span class="entry-item-date">${p.date ? formatDateShort(p.date) : ''}</span>
-      <button class="entry-item-delete">×</button>`;
+      <button class="entry-item-delete" aria-label="Löschen">×</button>`;
     el.querySelector('.entry-item-delete').onclick = () => deleteParticipation(p);
     list.appendChild(el);
   });
@@ -2425,7 +2425,7 @@ function renderStudentHomeworkList(s) {
         <div style="font-weight:600; color:var(--warning); font-size:14px;">Hausaufgabe vergessen</div>
         ${h.note ? `<div style="font-size:12px; color:var(--text-secondary); margin-top:2px;">${escHtml(h.note)}</div>` : ''}
       </div>
-      <button class="btn-icon btn-danger-icon" onclick="deleteStudentHomework('${h.id}')">
+      <button class="btn-icon btn-danger-icon" aria-label="Löschen" onclick="deleteStudentHomework('${h.id}')">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/></svg>
       </button>
     </div>`;
@@ -2692,7 +2692,7 @@ function renderBlocksEditor() {
       <input class="block-time-input" type="time" value="${b.start}" data-bidx="${i}" data-field="start" />
       <span class="block-sep">–</span>
       <input class="block-time-input" type="time" value="${b.end}" data-bidx="${i}" data-field="end" />
-      <button class="block-delete-btn" onclick="deleteBlockRow(${i})">✕</button>
+      <button class="block-delete-btn" aria-label="Block löschen" onclick="deleteBlockRow(${i})">✕</button>
     `;
     editor.appendChild(row);
   });
@@ -4040,7 +4040,7 @@ function createEntryItem(text, date, onDelete) {
   el.innerHTML = `
     <span class="entry-item-text">${escHtml(text)}</span>
     <span class="entry-item-date">${date ? formatDateShort(date) : ''}</span>
-    <button class="entry-item-delete">✕</button>`;
+    <button class="entry-item-delete" aria-label="Löschen">✕</button>`;
   el.querySelector('.entry-item-delete').onclick = onDelete;
   return el;
 }
@@ -4142,11 +4142,23 @@ function parseGradeInput(input, scale = GRADE_SCALES['1-6']) {
 }
 
 // ─── Keyboard ─────────────────────────────────────────────────────────────
+// Escape schließt nur das oberste Fenster, und zwar so wie sein eigener Schließen-Knopf (BUGS G7).
+// Alle Fenster liegen auf derselben Ebene, also ist das letzte offene im Markup das oberste.
+const MODAL_CLOSE_ACTIONS = {
+  'modal-lesson': () => saveLessonDataAndClose(),   // wie „Schließen“: Notizen nicht verwerfen
+  'modal-grade-form': () => closeGradeForm(),
+  'modal-sync-conflict': null,                       // Entscheidung nötig, nicht wegdrückbar
+};
+function closeTopModal() {
+  const open = [...document.querySelectorAll('.modal-overlay:not(.hidden)')];
+  const top = open[open.length - 1];
+  if (!top) return;
+  const action = top.id in MODAL_CLOSE_ACTIONS ? MODAL_CLOSE_ACTIONS[top.id] : () => closeModal(top.id);
+  if (action) action();
+}
+
 document.addEventListener('keydown', e => {
-  if (e.key === 'Escape') {
-    ['modal-lesson','modal-add-lesson','modal-add-group','modal-add-student','modal-student-detail','modal-settings']
-      .forEach(m => closeModal(m));
-  }
+  if (e.key === 'Escape') closeTopModal();
   if (e.key === 'Enter' && !e.shiftKey) {
     if (document.activeElement.id === 'new-hw-text')   addHWItem();
     if (document.activeElement.id === 'new-test-text') addTestItem();
@@ -4571,9 +4583,22 @@ window.jumpToStudentDetailFromSeating = function() {
 
 
 // ─── Timer & Stopwatch ───────────────────────────────────────────────────
+// Beide rechnen mit der Uhrzeit (Date.now), nicht mit gezählten Ticks: War das iPad gesperrt
+// oder die App im Hintergrund, feuern Intervalle nicht, die Zeit läuft aber weiter (BUGS G6).
+const PLAY_SVG  = '<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="margin-left:2px;"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>';
+const PAUSE_SVG = '<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16"></rect><rect x="14" y="4" width="4" height="16"></rect></svg>';
+
+function setPlayButton(id, running, name) {
+  const btn = document.getElementById(id);
+  if (!btn) return;
+  btn.innerHTML = running ? PAUSE_SVG : PLAY_SVG;
+  btn.setAttribute('aria-label', `${name} ${running ? 'anhalten' : 'starten'}`);
+}
+
 let timerInterval = null;
-let timerSeconds = 300; // 5 mins default
+let timerSeconds = 300; // 5 mins default; läuft der Timer, ist das die zuletzt angezeigte Restzeit
 let timerIsRunning = false;
+let timerEndsAt = 0;    // Date.now()-Zeitpunkt, an dem der laufende Timer abläuft
 
 function updateTimerDisplay() {
   const el = document.getElementById('timer-display');
@@ -4590,26 +4615,30 @@ function adjustTimer(mins) {
   updateTimerDisplay();
 }
 
-function toggleTimer() {
-  const btn = document.getElementById('btn-timer-toggle');
-  if (timerIsRunning) {
+function timerTick() {
+  if (!timerIsRunning) return;
+  timerSeconds = Math.max(0, Math.ceil((timerEndsAt - Date.now()) / 1000));
+  updateTimerDisplay();
+  if (timerSeconds <= 0) {
     clearInterval(timerInterval);
     timerIsRunning = false;
-    btn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="margin-left:2px;"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>';
+    setPlayButton('btn-timer-toggle', false, 'Timer');
+    showToast('Timer abgelaufen!');
+  }
+}
+
+function toggleTimer() {
+  if (timerIsRunning) {
+    timerTick();
+    clearInterval(timerInterval);
+    timerIsRunning = false;
+    setPlayButton('btn-timer-toggle', false, 'Timer');
   } else {
     if (timerSeconds <= 0) return;
     timerIsRunning = true;
-    btn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16"></rect><rect x="14" y="4" width="4" height="16"></rect></svg>';
-    timerInterval = setInterval(() => {
-      timerSeconds--;
-      updateTimerDisplay();
-      if (timerSeconds <= 0) {
-        clearInterval(timerInterval);
-        timerIsRunning = false;
-        btn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="margin-left:2px;"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>';
-        showToast('Timer abgelaufen!');
-      }
-    }, 1000);
+    timerEndsAt = Date.now() + timerSeconds * 1000;
+    setPlayButton('btn-timer-toggle', true, 'Timer');
+    timerInterval = setInterval(timerTick, 250);
   }
 }
 
@@ -4617,7 +4646,7 @@ function resetTimer() {
   clearInterval(timerInterval);
   timerIsRunning = false;
   timerSeconds = 300;
-  document.getElementById('btn-timer-toggle').innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="margin-left:2px;"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>';
+  setPlayButton('btn-timer-toggle', false, 'Timer');
   updateTimerDisplay();
 }
 
@@ -4636,22 +4665,25 @@ function updateStopwatchDisplay() {
   el.textContent = m + ':' + s + '.' + ms;
 }
 
+function stopwatchTick() {
+  if (!stopwatchIsRunning) return;
+  const now = Date.now();
+  stopwatchMs += (now - stopwatchLastTick);
+  stopwatchLastTick = now;
+  updateStopwatchDisplay();
+}
+
 function toggleStopwatch() {
-  const btn = document.getElementById('btn-stopwatch-toggle');
   if (stopwatchIsRunning) {
+    stopwatchTick();
     clearInterval(stopwatchInterval);
     stopwatchIsRunning = false;
-    btn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="margin-left:2px;"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>';
+    setPlayButton('btn-stopwatch-toggle', false, 'Stoppuhr');
   } else {
     stopwatchIsRunning = true;
-    btn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16"></rect><rect x="14" y="4" width="4" height="16"></rect></svg>';
+    setPlayButton('btn-stopwatch-toggle', true, 'Stoppuhr');
     stopwatchLastTick = Date.now();
-    stopwatchInterval = setInterval(() => {
-      const now = Date.now();
-      stopwatchMs += (now - stopwatchLastTick);
-      stopwatchLastTick = now;
-      updateStopwatchDisplay();
-    }, 100);
+    stopwatchInterval = setInterval(stopwatchTick, 100);
   }
 }
 
@@ -4659,9 +4691,12 @@ function resetStopwatch() {
   clearInterval(stopwatchInterval);
   stopwatchIsRunning = false;
   stopwatchMs = 0;
-  document.getElementById('btn-stopwatch-toggle').innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="margin-left:2px;"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>';
+  setPlayButton('btn-stopwatch-toggle', false, 'Stoppuhr');
   updateStopwatchDisplay();
 }
+
+// App wieder im Vordergrund: sofort die richtige Zeit zeigen, nicht erst beim nächsten Tick
+document.addEventListener('visibilitychange', () => { timerTick(); stopwatchTick(); });
 
 
 // ─── Cloud Sync (E2EE) Implementation ──────────────────────────────────────

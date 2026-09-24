@@ -2,13 +2,13 @@
 <html lang="de">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="apple-mobile-web-app-title" content="Unterrichtsplaner" />
   <title>Unterrichtsplaner</title>
   <link rel="manifest" href="manifest.json" />
-  <link rel="apple-touch-icon" href="icon.svg" />
+  <link rel="apple-touch-icon" sizes="180x180" href="icon-180.png" />
   <script>
     try {
       const raw = localStorage.getItem('lehrerapp_v3');
@@ -38,7 +38,7 @@
       }
     } catch(e) {}
   </script>
-  <link rel="stylesheet" href="style.css?v=190" />
+  <link rel="stylesheet" href="style.css?v=191" />
   <script>
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
@@ -216,10 +216,10 @@
           <div id="seating-date-strip" class="scroll-chips-container" style="overflow: visible; flex-shrink: 0;"></div>
           <!-- Kalender-Picker -->
           <div style="position:relative; width:34px; height:34px; flex-shrink:0;">
-            <button class="btn-icon" style="width:100%; height:100%; pointer-events:none;">
+            <button class="btn-icon" style="width:100%; height:100%; pointer-events:none;" aria-hidden="true" tabindex="-1">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
             </button>
-            <input type="date" id="seating-date-hidden" style="position:absolute; top:0; left:0; width:100%; height:100%; opacity:0; cursor:pointer;" onclick="try{this.showPicker();}catch(e){}" onchange="onHiddenDateChange(this.value)" />
+            <input type="date" id="seating-date-hidden" aria-label="Datum wählen" style="position:absolute; top:0; left:0; width:100%; height:100%; opacity:0; cursor:pointer;" onclick="try{this.showPicker();}catch(e){}" onchange="onHiddenDateChange(this.value)" />
           </div>
           <!-- Trennstrich -->
           <div style="width:1px; height:20px; background:var(--border); flex-shrink:0;"></div>
@@ -267,7 +267,7 @@
            <span id="timer-display" style="font-family: monospace; font-size: 24px; font-weight: 700; width: 75px; text-align: center;">05:00</span>
            <button class="btn-icon" onclick="adjustTimer(-1)" title="-1 Min">-</button>
            <button class="btn-icon" onclick="adjustTimer(1)" title="+1 Min">+</button>
-           <button class="btn-icon" onclick="toggleTimer()" id="btn-timer-toggle" style="background:var(--accent-soft); color:var(--text-accent); border-radius:50%; width:32px; height:32px; display:flex; align-items:center; justify-content:center;">
+           <button class="btn-icon" onclick="toggleTimer()" id="btn-timer-toggle" aria-label="Timer starten" style="background:var(--accent-soft); color:var(--text-accent); border-radius:50%; width:32px; height:32px; display:flex; align-items:center; justify-content:center;">
              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="margin-left:2px;"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
            </button>
            <button class="btn-icon" onclick="resetTimer()" title="Zurücksetzen">
@@ -278,7 +278,7 @@
         <div class="tool-widget" style="display: flex; align-items: center; gap: 12px; background: var(--bg-elevated); padding: 8px 16px; border-radius: 100px; border: 1px solid var(--border);">
            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color:var(--text-secondary);"><circle cx="12" cy="12" r="10"></circle><path d="M12 2v4"></path><path d="M12 14 16 10"></path></svg>
            <span id="stopwatch-display" style="font-family: monospace; font-size: 24px; font-weight: 700; width: 100px; text-align: center;">00:00.0</span>
-           <button class="btn-icon" onclick="toggleStopwatch()" id="btn-stopwatch-toggle" style="background:var(--accent-soft); color:var(--text-accent); border-radius:50%; width:32px; height:32px; display:flex; align-items:center; justify-content:center;">
+           <button class="btn-icon" onclick="toggleStopwatch()" id="btn-stopwatch-toggle" aria-label="Stoppuhr starten" style="background:var(--accent-soft); color:var(--text-accent); border-radius:50%; width:32px; height:32px; display:flex; align-items:center; justify-content:center;">
              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="margin-left:2px;"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
            </button>
            <button class="btn-icon" onclick="resetStopwatch()" title="Zurücksetzen">
@@ -381,7 +381,7 @@
           <div class="add-entry-row" style="margin-top:6px">
             <input type="text" id="new-hw-text" placeholder="Aufgabe (Buch S. 12, Arbeitsblatt...)" class="entry-input" />
             <input type="date" id="new-hw-date" class="entry-date" />
-            <button class="btn-primary btn-circle" onclick="addHWItem()">
+            <button class="btn-primary btn-circle" onclick="addHWItem()" aria-label="Hausaufgabe hinzufügen">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
             </button>
           </div>
@@ -414,7 +414,7 @@
           <div class="add-entry-row" style="margin-top:6px">
             <input type="text" id="new-test-text" placeholder="Stoff, Themen, Art der Prüfung..." class="entry-input" />
             <input type="date" id="new-test-date" class="entry-date" />
-            <button class="btn-primary btn-circle" onclick="addTestItem()">
+            <button class="btn-primary btn-circle" onclick="addTestItem()" aria-label="Test hinzufügen">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
             </button>
           </div>
@@ -444,7 +444,7 @@
   <div class="modal modal-small" onclick="event.stopPropagation()">
     <div class="modal-header">
       <h2 id="add-lesson-title">Stunde hinzufügen</h2>
-      <button class="modal-close" onclick="closeModal('modal-add-lesson')">✕</button>
+      <button class="modal-close" aria-label="Schließen" onclick="closeModal('modal-add-lesson')">✕</button>
     </div>
     <div class="modal-body">
       <div class="form-group">
@@ -530,7 +530,7 @@
   <div class="modal modal-small" onclick="event.stopPropagation()">
     <div class="modal-header">
       <h2 id="grade-form-title">Note eintragen</h2>
-      <button class="modal-close" onclick="closeGradeForm()">✕</button>
+      <button class="modal-close" aria-label="Schließen" onclick="closeGradeForm()">✕</button>
     </div>
     <div class="modal-body">
       <div class="form-group">
@@ -573,7 +573,7 @@
   <div class="modal modal-small" onclick="event.stopPropagation()">
     <div class="modal-header">
       <h2 id="group-modal-title">Klasse + Fach hinzufügen</h2>
-      <button class="modal-close" onclick="closeModal('modal-add-group')">✕</button>
+      <button class="modal-close" aria-label="Schließen" onclick="closeModal('modal-add-group')">✕</button>
     </div>
     <div class="modal-body">
       <div class="form-group"><label>Klasse</label><input type="text" id="new-group-class" placeholder="z.B. 7b" class="form-input" /></div>
@@ -616,7 +616,7 @@
   <div class="modal modal-small" onclick="event.stopPropagation()">
     <div class="modal-header">
       <h2 id="student-modal-title">Schüler hinzufügen</h2>
-      <button class="modal-close" onclick="closeModal('modal-add-student')">✕</button>
+      <button class="modal-close" aria-label="Schließen" onclick="closeModal('modal-add-student')">✕</button>
     </div>
     <div class="modal-body">
       <div class="form-row">
@@ -637,7 +637,7 @@
   <div class="modal modal-small" onclick="event.stopPropagation()">
     <div class="modal-header">
       <h2>Mehrere Schüler hinzufügen</h2>
-      <button class="modal-close" onclick="closeModal('modal-import-students')">✕</button>
+      <button class="modal-close" aria-label="Schließen" onclick="closeModal('modal-import-students')">✕</button>
     </div>
     <div class="modal-body">
       <div class="form-group">
@@ -668,7 +668,7 @@
   <div class="modal modal-small" onclick="event.stopPropagation()">
     <div class="modal-header">
       <h2>Aktionen</h2>
-      <button class="modal-close" onclick="closeModal('modal-student-actions')">✕</button>
+      <button class="modal-close" aria-label="Schließen" onclick="closeModal('modal-student-actions')">✕</button>
     </div>
     <div class="modal-body" style="display:flex; flex-direction:column; gap:12px;">
       <button class="btn-secondary" style="width:100%; text-align:left; justify-content:flex-start;" onclick="closeModal('modal-student-actions'); openAddStudent()">
@@ -693,7 +693,7 @@
   <div class="modal modal-small" onclick="event.stopPropagation()">
     <div class="modal-header">
       <h2 id="column-modal-title">Neue Spalte</h2>
-      <button class="modal-close" onclick="closeModal('modal-add-column')">×</button>
+      <button class="modal-close" aria-label="Schließen" onclick="closeModal('modal-add-column')">×</button>
     </div>
     <div class="modal-body">
       <div class="form-group">
@@ -730,7 +730,7 @@
         </button>
       </div>
       <div style="display:flex;gap:8px;align-items:center">
-        <button class="modal-close" onclick="closeModal('modal-student-detail')">✕</button>
+        <button class="modal-close" aria-label="Schließen" onclick="closeModal('modal-student-detail')">✕</button>
       </div>
     </div>
     <div class="modal-tabs">
@@ -766,7 +766,7 @@
             <option value="zuspät">Zu spät</option>
           </select>
           <input type="text" id="new-att-note" placeholder="Grund..." class="entry-input" style="flex:1" />
-          <button class="btn-primary btn-circle" onclick="addAttendanceEntry()">
+          <button class="btn-primary btn-circle" onclick="addAttendanceEntry()" aria-label="Fehlzeit eintragen">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
           </button>
         </div>
@@ -779,7 +779,7 @@
         <div class="add-entry-row">
           <input type="date" id="new-hw-student-date" class="entry-date" />
           <input type="text" id="new-hw-student-note" placeholder="Bemerkung..." class="entry-input" style="flex:1" />
-          <button class="btn-primary btn-circle" onclick="addStudentHomework()">
+          <button class="btn-primary btn-circle" onclick="addStudentHomework()" aria-label="Vergessene Hausaufgabe eintragen">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
           </button>
         </div>
@@ -804,7 +804,7 @@
   <div class="modal modal-settings-modal" onclick="event.stopPropagation()">
     <div class="modal-header">
       <h2>Einstellungen</h2>
-      <button class="modal-close" onclick="closeModal('modal-settings')">✕</button>
+      <button class="modal-close" aria-label="Schließen" onclick="closeModal('modal-settings')">✕</button>
     </div>
     <div class="modal-body">
       <div class="form-group"><label>Lehrername</label><input type="text" id="settings-teacher-name" class="form-input" placeholder="Dein Name" /></div>
@@ -895,7 +895,7 @@
 
         <!-- Firebase Configured, Auth Area -->
         <div id="sync-auth-section">
-          <div style="background: var(--bg-card); padding: 12px; border-radius: var(--radius); margin-bottom: 12px; border: 1px solid var(--border-color);">
+          <div style="background: var(--bg-card); padding: 12px; border-radius: var(--radius-md); margin-bottom: 12px; border: 1px solid var(--border);">
             <div id="sync-user-status" style="font-weight: 600; margin-bottom: 8px;">Nicht angemeldet</div>
             
             <!-- Auth Form (E-Mail/Password) -->
@@ -935,7 +935,7 @@
             <!-- Sync Controls -->
             <div style="display:flex; justify-content:space-between; align-items:center; margin-top:16px;">
               <div>
-                <span id="sync-status-badge" class="badge-status" style="background: var(--bg-card); padding: 4px 8px; border-radius: 4px; border: 1px solid var(--border-color); font-size: 12px;">Status: Bereit</span>
+                <span id="sync-status-badge" class="badge-status" style="background: var(--bg-card); padding: 4px 8px; border-radius: 4px; border: 1px solid var(--border); font-size: 12px;">Status: Bereit</span>
                 <div id="sync-last-time" style="font-size:11px; color:var(--text-muted); margin-top:2px;">Noch nie synchronisiert</div>
               </div>
               <button class="btn-primary" onclick="triggerManualSync()">Jetzt synchronisieren</button>
@@ -963,7 +963,6 @@
       <div class="settings-section">
         <h3>Über & Kontakt</h3>
         <p style="font-size:12px;color:var(--text-muted);margin:6px 0 12px">Hast du Fragen, Probleme oder Wünsche für neue Funktionen?</p>
-        <!-- HIER BITTE DEINE E-MAIL-ADRESSE EINTRAGEN: -->
         <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:8px;">
           <a href="mailto:ericwinderlich@gmail.com?subject=Feedback zur Lehrer App" class="btn-secondary" style="text-decoration:none; display:inline-flex; align-items:center;"><i data-icon="mail"></i>E-Mail schreiben</a>
           <button class="btn-secondary" style="display:inline-flex; align-items:center;" onclick="navigator.clipboard.writeText('ericwinderlich@gmail.com').then(() => showToast('E-Mail-Adresse kopiert!'))"><i data-icon="copy"></i>Adresse kopieren</button>
@@ -1001,7 +1000,7 @@
     <div class="modal modal-small" onclick="event.stopPropagation()">
       <div class="modal-header">
         <h2>Gruppen bilden</h2>
-        <button class="modal-close" onclick="closeModal('modal-seating-groups')">✕</button>
+        <button class="modal-close" aria-label="Schließen" onclick="closeModal('modal-seating-groups')">✕</button>
       </div>
       <div class="modal-body">
         <div class="form-group">
@@ -1034,9 +1033,9 @@
 
   <!-- Seating Randomizer Overlay -->
   <div id="modal-seating-randomizer" class="modal-overlay hidden" onclick="closeModalOnOverlay(event,'modal-seating-randomizer')">
-    <div class="modal modal-small" onclick="event.stopPropagation()" style="background: var(--bg-card); border: 2px solid var(--accent); box-shadow: 0 0 30px rgba(var(--accent-rgb), 0.3); text-align: center; overflow: visible;">
+    <div class="modal modal-small" onclick="event.stopPropagation()" style="background: var(--bg-card); border: 2px solid var(--accent); box-shadow: 0 0 30px var(--accent-glow); text-align: center; overflow: visible;">
       <div class="modal-header" style="border: none; justify-content: flex-end; padding: 12px 12px 0 0;">
-        <button class="modal-close" onclick="closeModal('modal-seating-randomizer')" style="background: transparent; border: none; font-size: 20px;">✕</button>
+        <button class="modal-close" aria-label="Schließen" onclick="closeModal('modal-seating-randomizer')" style="background: transparent; border: none; font-size: 20px;">✕</button>
       </div>
       <div class="modal-body" style="padding: 24px 30px 30px 30px;">
         <div style="font-size: 48px; margin-bottom: 16px; animation: bounce 1s infinite; color: var(--accent);"><i data-icon="dice"></i></div>
@@ -1051,7 +1050,7 @@
     <div class="modal modal-small" onclick="event.stopPropagation()">
       <div class="modal-header">
         <h2>Schüler auswählen</h2>
-        <button class="modal-close" onclick="closeModal('modal-lesson-students')">✕</button>
+        <button class="modal-close" aria-label="Schließen" onclick="closeModal('modal-lesson-students')">✕</button>
       </div>
       <div class="modal-body" style="padding:0;">
         <div id="lesson-students-list" style="display:flex; flex-direction:column;"></div>
@@ -1066,7 +1065,7 @@
         <h2 id="seating-student-title">Schüler</h2>
         <div style="display:flex;gap:8px;align-items:center">
           <button class="btn-secondary" onclick="jumpToStudentDetailFromSeating()">Zum Profil</button>
-          <button class="modal-close" onclick="closeModal('modal-seating-student')">✕</button>
+          <button class="modal-close" aria-label="Schließen" onclick="closeModal('modal-seating-student')">✕</button>
         </div>
       </div>
       <div class="modal-body" style="padding:16px;">
@@ -1112,7 +1111,7 @@
           Da die Daten Ende-zu-Ende-verschlüsselt sind, kann die App sie nicht automatisch mergen.
         </p>
         
-        <div style="background: var(--bg-card); padding: 12px; border-radius: var(--radius); border: 1px solid var(--border-color); margin-bottom: 20px; font-size: 13px;">
+        <div style="background: var(--bg-card); padding: 12px; border-radius: var(--radius-md); border: 1px solid var(--border); margin-bottom: 20px; font-size: 13px;">
           <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
             <strong>Lokale Version auf diesem Gerät:</strong>
             <span id="conflict-local-time" style="color: var(--accent); font-weight: bold;">Unbekannt</span>
@@ -1140,12 +1139,12 @@
   </div>
 
   <script src="lib/crypto-js.min.js"></script>
-  <script src="crypto-helper.js"></script>
+  <script src="crypto-helper.js?v=191"></script>
   <script src="lib/firebase-app-compat.js"></script>
   <script src="lib/firebase-auth-compat.js"></script>
   <script src="lib/firebase-firestore-compat.js"></script>
-  <script src="firebase-config.js"></script>
-  <script src="sync-manager.js"></script>
-  <script src="app.js?v=190"></script>
+  <script src="firebase-config.js?v=191"></script>
+  <script src="sync-manager.js?v=191"></script>
+  <script src="app.js?v=191"></script>
 </body>
 </html>

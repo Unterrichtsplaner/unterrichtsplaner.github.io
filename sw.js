@@ -1,18 +1,21 @@
-const CACHE_NAME = 'lehrer-app-v190';
+const CACHE_NAME = 'lehrer-app-v191';
 const ASSETS = [
   './',
   './index.html',
-  './app.js?v=190',
-  './style.css?v=190',
+  './app.js?v=191',
+  './style.css?v=191',
   './manifest.json',
   './icon.svg',
+  './icon-180.png',
+  './icon-192.png',
+  './icon-512.png',
   './lib/crypto-js.min.js',
-  './crypto-helper.js',
+  './crypto-helper.js?v=191',
   './lib/firebase-app-compat.js',
   './lib/firebase-auth-compat.js',
   './lib/firebase-firestore-compat.js',
-  './firebase-config.js',
-  './sync-manager.js'
+  './firebase-config.js?v=191',
+  './sync-manager.js?v=191'
 ];
 
 self.addEventListener('install', event => {
@@ -42,19 +45,41 @@ self.addEventListener('activate', event => {
   self.clients.claim();
 });
 
-// Cache-First Strategy: NEVER go to network if it's in the cache
+// Wie lange die Seite auf den Server wartet, bevor sie die gecachte Version zeigt (hängendes Schul-WLAN)
+const NAVIGATION_TIMEOUT_MS = 3000;
+
+// Die Seite selbst (index.html): zuerst aus dem Netz, damit ein Update schon beim ersten Öffnen ankommt;
+// offline, bei Serverfehler oder hängendem Netz die gecachte Version (BUGS G2).
+// Die frische index.html wird NICHT in den Cache gelegt: sie verweist auf neue ?v=-Dateien, die in diesem
+// Cache fehlen – offline passte dann nichts mehr zusammen. Den neuen Stand cacht der neue Service Worker.
+function networkFirstPage(request) {
+  const fromCache = () => caches.match(request).then(r => r || caches.match('./index.html'));
+  return new Promise(resolve => {
+    let done = false;
+    const finish = (responsePromise) => { if (!done) { done = true; resolve(responsePromise); } };
+    // Ohne gecachte Seite (noch nie installiert) weiter aufs Netz warten
+    const timer = setTimeout(() => fromCache().then(cached => { if (cached) finish(cached); }), NAVIGATION_TIMEOUT_MS);
+    fetch(request)
+      .then(response => {
+        clearTimeout(timer);
+        if (response.ok) { finish(response); return; }
+        // Serverfehler: lieber die gecachte Seite, und nur wenn es die nicht gibt, die Fehlerseite
+        finish(fromCache().then(cached => cached || response));
+      })
+      .catch(() => { clearTimeout(timer); finish(fromCache().then(cached => cached || Response.error())); });
+  });
+}
+
 self.addEventListener('fetch', event => {
   // Nur eigene Dateien abfangen. Firebase (Login, Firestore-Dauerverbindung) und andere Domains
   // gehen direkt ins Netz – sonst dreht der Lade-Kreisel endlos und „offline“ wird umgangen.
   if (event.request.method !== 'GET' || new URL(event.request.url).origin !== self.location.origin) return;
+  if (event.request.mode === 'navigate') {
+    event.respondWith(networkFirstPage(event.request));
+    return;
+  }
+  // Alle anderen eigenen Dateien: cache-first (dank ?v=-Nummer passen sie immer zur Seite)
   event.respondWith(
-    caches.match(event.request).then(cachedResponse => {
-      // Return cached version if found
-      if (cachedResponse) {
-        return cachedResponse;
-      }
-      // Otherwise fallback to network (only happens on first load or for uncached assets)
-      return fetch(event.request);
-    })
+    caches.match(event.request).then(cachedResponse => cachedResponse || fetch(event.request))
   );
 });

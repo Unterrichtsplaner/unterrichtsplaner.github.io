@@ -1,17 +1,16 @@
 {
-  "name": "Lehrer-Planer",
+  "name": "Unterrichtsplaner",
   "short_name": "Planer",
   "description": "Unterrichtsplaner & Notenverwaltung für Lehrkräfte",
+  "lang": "de",
   "start_url": ".",
   "display": "standalone",
-  "background_color": "#000000",
-  "theme_color": "#0A84FF",
+  "background_color": "#0f1117",
+  "theme_color": "#0f1117",
   "icons": [
-    {
-      "src": "icon.svg",
-      "sizes": "192x192 512x512",
-      "type": "image/svg+xml",
-      "purpose": "any maskable"
-    }
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" },
+    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
   ]
 }

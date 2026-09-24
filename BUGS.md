@@ -81,17 +81,18 @@ Priorität: 🔴 Datenverlust / App kaputt · 🟠 falsche Anzeige / nervig · �
 ## G. PWA, Oberfläche, Aufräumen
 
 - [x] **G1** 🟠 Versionsnummern an drei Stellen von Hand → jetzt `npm run bump` + Test `tests/pwa-cache.test.js`.
-- [ ] **G2** 🟠 `index.html` wird cache-first ausgeliefert → Updates nur über neue SW-Version. Besser: Navigation network-first mit Cache-Fallback.
-- [ ] **G3** 🟠 Undefinierte CSS-Variablen: `--border-color`, `--radius`, `--bg-hover`, `--accent-rgb`, `--success-soft`, `--warning-soft`.
-- [ ] **G4** 🟠 Zoom gesperrt (`user-scalable=no`, `touch-action`) – Barrierefreiheit.
-- [ ] **G5** 🟠 iOS-Icon ist SVG (wird nicht unterstützt) → PNG 180×180. Manifest: PNG 192/512, Farben/Namen angleichen.
-- [ ] **G6** 🟢 Timer zählt Ticks statt Uhrzeit → geht nach, wenn iPad gesperrt war (~Z. 3948).
-- [ ] **G7** 🟢 Escape schließt nicht alle Modals; Icon-Buttons ohne `aria-label`.
-- [ ] **G8** 🟢 `tools.js` ist toter Code (Duplikat, nirgends eingebunden) → löschen. `app.js.bak` löschen.
+- [x] **G2** 🟠 `index.html` wird cache-first ausgeliefert → Updates nur über neue SW-Version. Besser: Navigation network-first mit Cache-Fallback.
+- [x] **G3** 🟠 Undefinierte CSS-Variablen: `--border-color`, `--radius`, `--bg-hover`, `--accent-rgb`, `--success-soft`, `--warning-soft`.
+- [x] **G4** 🟠 Zoom gesperrt (`user-scalable=no`, `touch-action`) – Barrierefreiheit.
+- [x] **G5** 🟠 iOS-Icon ist SVG (wird nicht unterstützt) → PNG 180×180. Manifest: PNG 192/512, Farben/Namen angleichen.
+- [x] **G6** 🟢 Timer zählt Ticks statt Uhrzeit → geht nach, wenn iPad gesperrt war (~Z. 3948).
+- [x] **G7** 🟢 Escape schließt nicht alle Modals; Icon-Buttons ohne `aria-label`.
+- [x] **G8** 🟢 `tools.js` ist toter Code (Duplikat, nirgends eingebunden) → löschen. `app.js.bak` löschen.
 - [x] **G9** 🟠 (in der Generalprobe aufgefallen: endloser Lade-Kreisel, DevTools-„Offline“ wirkungslos) SW-`fetch` fängt auch POST/Fremd-Domains ab; `forceAppUpdate` wartet nicht auf `caches.delete`.
-- [ ] **G10** 🟢 Kommentar „HIER BITTE DEINE E-MAIL-ADRESSE EINTRAGEN“ in index.html ~Z. 949.
-- [ ] **G11** 🟢 `server.js`: Pfadprüfung per `startsWith` unsauber, liefert `.git/` aus (nur Dev-Server).
+- [x] **G10** 🟢 Kommentar „HIER BITTE DEINE E-MAIL-ADRESSE EINTRAGEN“ in index.html ~Z. 949.
+- [x] **G11** 🟢 `server.js`: Pfadprüfung per `startsWith` unsauber, liefert `.git/` aus (nur Dev-Server).
 - [x] **G12** 🔴 `loadDB()` verschluckt JSON-Fehler und startet mit leerer DB → nächstes Speichern überschreibt die kaputten (evtl. rettbaren) Daten.
+- [ ] **G13** 🟠 (bei G7 aufgefallen) Tippen neben das Stunden-Fenster (`closeModalOnOverlay`) schließt es **ohne** zu speichern: eingetippte Notizen/„Was wurde behandelt“ sind weg. „Schließen“ und Escape speichern (`saveLessonDataAndClose`). Entweder beim Tippen daneben auch speichern oder gar nicht schließen.
 
 ## H. Design & Funktionen (Review mit Beispieldaten, 24.09.2026)
 
@@ -170,3 +171,12 @@ Priorität: 🔴 Datenverlust / App kaputt · 🟠 falsche Anzeige / nervig · �
 | E4 | Hinweis „… hat letzte Stunde unentschuldigt gefehlt“ mit vollem Namen, in der nächsten Stunde, die wirklich stattfindet (`nextLessonOfGroup` über `lessonsOnDate`: A/B, Vertretung, Ausfall); Entfernen zeilenweise in allen Stunden der Klasse 4 Wochen danach, alter Vorname-Hinweis nur bei eindeutigem Vornamen (`addAbsenceNote`/`removeAbsenceNote`); Schülerdetail nutzt `currentGroupId` | Block E |
 | E5 | `closeGradeForm()` setzt `currentGradeFormCtx` zurück | Block E |
 | E6 | Zufallsauswahl gesperrt, solange sie läuft; Gruppen gleichmäßig (`seatingGroupSizes`: max. Wunschgröße, Unterschied ≤ 1, niemand allein), Mischen per Fisher-Yates (`shuffled`) | Block E |
+| G2 | Seite (Navigation) network-first mit 3-s-Zeitlimit, offline/Serverfehler aus dem Cache; frische index.html wird nicht in den alten Cache gelegt; alle eigenen Skripte mit `?v=` (Test) | Block G |
+| G3 | Undefinierte CSS-Variablen ersetzt (`--border`, `--radius-md`, `--bg-card-hover`, `--accent-glow`), `--success-soft`/`--warning-soft` definiert; Test prüft alle `var(--…)` | Block G |
+| G4 | Zoom erlaubt (viewport ohne `maximum-scale`/`user-scalable`, `touch-action: manipulation`); Eingabefelder auf Touch-Geräten 16 px, damit iOS nicht bei jedem Feld hineinzoomt | Block G |
+| G5 | Neues Icon (Linien-Kalender statt Apple-Emoji, randlos): `icon-180.png` (iOS), `icon-192/512.png` (Manifest, auch maskable); Manifest-Name „Unterrichtsplaner“, Farben = App-Hintergrund | Block G |
+| G6 | Timer/Stoppuhr rechnen mit `Date.now()` (Endzeitpunkt), sofort richtig nach `visibilitychange`; Start/Pause-Knopf mit wechselndem `aria-label` | Block G |
+| G7 | Escape schließt nur das oberste Fenster über dessen eigenen Weg (`closeTopModal`, `MODAL_CLOSE_ACTIONS`: Stunde speichert, Notenformular kehrt zurück, Sync-Konflikt bleibt); Knöpfe ohne Text mit `aria-label` (Test über alle Ansichten) | Block G |
+| G8 | `tools.js`, `app.js.bak` gelöscht | Block G |
+| G10 | Kommentar entfernt | Block G |
+| G11 | `server.js`: Pfad dekodiert + `path.relative`-Prüfung, keine versteckten Dateien (`.git`); `createServer()` testbar, Port per `PORT` | Block G |

@@ -2,7 +2,8 @@ const http = require('http');
 const fs = require('fs');
 const path = require('path');
 
-const PORT = 3000;
+const PORT = Number(process.env.PORT) || 3000;
+const ROOT = __dirname;
 
 const MIME_TYPES = {
   '.html': 'text/html',
@@ -16,45 +17,67 @@ const MIME_TYPES = {
   '.ico': 'image/x-icon'
 };
 
-const server = http.createServer((req, res) => {
-  // Verhindere URL-Manipulation für Sicherheit
-  let safeUrl = req.url.split('?')[0];
-  if (safeUrl === '/') safeUrl = '/index.html';
-  
-  const filePath = path.join(__dirname, safeUrl);
-  
-  // Sicherheit: Verhindere Zugriff außerhalb des aktuellen Ordners
-  if (!filePath.startsWith(__dirname)) {
-    res.statusCode = 403;
-    res.end('Access Denied');
-    return;
+// Liefert nur Dateien innerhalb des Projektordners aus, keine versteckten (.git, .claude …).
+function resolveSafePath(url) {
+  let urlPath;
+  try {
+    urlPath = decodeURIComponent(url.split('?')[0]);
+  } catch (e) {
+    return null;
   }
-  
-  const ext = path.extname(filePath);
-  const contentType = MIME_TYPES[ext] || 'application/octet-stream';
-  
-  fs.readFile(filePath, (err, content) => {
-    if (err) {
-      if (err.code === 'ENOENT') {
-        res.statusCode = 404;
-        res.end('Seite nicht gefunden');
-      } else {
-        res.statusCode = 500;
-        res.end(`Interner Fehler: ${err.code}`);
-      }
-    } else {
-      res.writeHead(200, { 
-        'Content-Type': contentType,
-        'Cache-Control': 'no-store, no-cache, must-revalidate, private' // Caching verhindern für Dev-Mode
-      });
-      res.end(content, 'utf-8');
-    }
-  });
-});
+  if (urlPath.includes('\0')) return null;
+  if (urlPath === '/') urlPath = '/index.html';
+  const filePath = path.resolve(ROOT, '.' + path.posix.normalize('/' + urlPath));
+  const rel = path.relative(ROOT, filePath);
+  if (!rel || rel.startsWith('..') || path.isAbsolute(rel)) return null;
+  // Rohpfad prüfen: normalize würde „/../x“ still zu „/x“ machen
+  const segments = urlPath.split(/[\\/]/);
+  if (segments.some(seg => seg.startsWith('.'))) return null;
+  return filePath;
+}
 
-server.listen(PORT, () => {
-  console.log('\n==================================================');
-  console.log(`  Lehrer-App läuft auf: http://localhost:${PORT}`);
-  console.log('  Beenden mit: STRG + C');
-  console.log('==================================================\n');
-});
+function createServer() {
+  return http.createServer((req, res) => {
+    const filePath = resolveSafePath(req.url);
+    if (!filePath) {
+      res.statusCode = 403;
+      res.end('Access Denied');
+      return;
+    }
+
+    const ext = path.extname(filePath);
+    const contentType = MIME_TYPES[ext] || 'application/octet-stream';
+
+    fs.readFile(filePath, (err, content) => {
+      if (err) {
+        if (err.code === 'ENOENT' || err.code === 'EISDIR') {
+          res.statusCode = 404;
+          res.end('Seite nicht gefunden');
+        } else {
+          res.statusCode = 500;
+          res.end(`Interner Fehler: ${err.code}`);
+        }
+      } else {
+        res.writeHead(200, {
+          'Content-Type': contentType,
+          'Cache-Control': 'no-store, no-cache, must-revalidate, private' // Caching verhindern für Dev-Mode
+        });
+        res.end(content, 'utf-8');
+      }
+    });
+  });
+}
+
+module.exports = { createServer };
+
+// Nur beim Start per `npm run serve`, nicht wenn ein Test die Datei lädt
+if (require.main === module) {
+  const server = createServer();
+
+  server.listen(PORT, () => {
+    console.log('\n==================================================');
+    console.log(`  Lehrer-App läuft auf: http://localhost:${PORT}`);
+    console.log('  Beenden mit: STRG + C');
+    console.log('==================================================\n');
+  });
+}
