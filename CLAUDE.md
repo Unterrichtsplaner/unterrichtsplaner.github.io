@@ -100,6 +100,8 @@ Datumswerte sind Strings `YYYY-MM-DD` in **lokaler** Zeit (`formatDate()`). Nie 
 5. In `BUGS.md` abhaken und neue Erkenntnisse hier in „Regeln“ ergänzen.
 6. Commit auf einem Branch. **Mergen/Pushen auf `main` = live für alle Geräte**, nur nach Rückfrage.
 
+**So kommt ein Update bei Nutzern an** (in der Generalprobe am 24.09.2026 beobachtet): Beim **ersten** Öffnen nach dem Deploy läuft noch die alte Version aus dem Cache (inklusive ihrer alten Fehler, auch Sync). Der neue Service Worker installiert sich dabei im Hintergrund, und ab dem **zweiten** Öffnen läuft die neue Version. Neuer Code muss deshalb immer mit Daten klarkommen, die die alte Version gerade noch geschrieben hat.
+
 Änderungen am Datenmodell brauchen eine Migration in `migrateDB()` (läuft in `loadDB()`, beim Import und bei der Cloud-Übernahme; muss beliebig oft laufen dürfen und setzt kein `lastModified`), damit bestehende Daten weiter funktionieren. Vorher daran denken, dass der Nutzer ein Backup (Export) hat.
 
 ## Tests

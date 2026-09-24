@@ -3902,25 +3902,16 @@ if (typeof process === 'undefined' || process.env.NODE_ENV !== 'test') {
 
 
 // ─── PWA Update Logic ───────────────────────────────────────────────────
-function forceAppUpdate() {
+async function forceAppUpdate() {
   if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.getRegistrations().then(function(registrations) {
-      for(let registration of registrations) {
-        registration.unregister();
-      }
-      caches.keys().then(function(names) {
-        for (let name of names) {
-          caches.delete(name);
-        }
-        showToast('App wird aktualisiert...', 'success');
-        setTimeout(() => {
-          window.location.reload(true);
-        }, 800);
-      });
-    });
-  } else {
-    window.location.reload(true);
+    showToast('App wird aktualisiert...', 'success');
+    // Erst alles wirklich entfernen, dann neu laden (sonst kommt u. U. wieder der alte Cache)
+    const registrations = await navigator.serviceWorker.getRegistrations();
+    await Promise.all(registrations.map(r => r.unregister()));
+    const names = await caches.keys();
+    await Promise.all(names.map(name => caches.delete(name)));
   }
+  window.location.reload();
 }
 // ─── Resize Observer for Smart Fit ────────────────────────────────────────
 let seatingResizeTimeout;

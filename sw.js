@@ -1,9 +1,9 @@
-const CACHE_NAME = 'lehrer-app-v180';
+const CACHE_NAME = 'lehrer-app-v181';
 const ASSETS = [
   './',
   './index.html',
-  './app.js?v=180',
-  './style.css?v=180',
+  './app.js?v=181',
+  './style.css?v=181',
   './manifest.json',
   './icon.svg',
   './lib/crypto-js.min.js',
@@ -44,6 +44,9 @@ self.addEventListener('activate', event => {
 
 // Cache-First Strategy: NEVER go to network if it's in the cache
 self.addEventListener('fetch', event => {
+  // Nur eigene Dateien abfangen. Firebase (Login, Firestore-Dauerverbindung) und andere Domains
+  // gehen direkt ins Netz – sonst dreht der Lade-Kreisel endlos und „offline“ wird umgangen.
+  if (event.request.method !== 'GET' || new URL(event.request.url).origin !== self.location.origin) return;
   event.respondWith(
     caches.match(event.request).then(cachedResponse => {
       // Return cached version if found

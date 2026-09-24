@@ -88,7 +88,7 @@ Priorität: 🔴 Datenverlust / App kaputt · 🟠 falsche Anzeige / nervig · �
 - [ ] **G6** 🟢 Timer zählt Ticks statt Uhrzeit → geht nach, wenn iPad gesperrt war (~Z. 3948).
 - [ ] **G7** 🟢 Escape schließt nicht alle Modals; Icon-Buttons ohne `aria-label`.
 - [ ] **G8** 🟢 `tools.js` ist toter Code (Duplikat, nirgends eingebunden) → löschen. `app.js.bak` löschen.
-- [ ] **G9** 🟢 SW-`fetch` fängt auch POST/Fremd-Domains ab; `forceAppUpdate` wartet nicht auf `caches.delete`.
+- [x] **G9** 🟠 (in der Generalprobe aufgefallen: endloser Lade-Kreisel, DevTools-„Offline“ wirkungslos) SW-`fetch` fängt auch POST/Fremd-Domains ab; `forceAppUpdate` wartet nicht auf `caches.delete`.
 - [ ] **G10** 🟢 Kommentar „HIER BITTE DEINE E-MAIL-ADRESSE EINTRAGEN“ in index.html ~Z. 949.
 - [ ] **G11** 🟢 `server.js`: Pfadprüfung per `startsWith` unsauber, liefert `.git/` aus (nur Dev-Server).
 - [ ] **G12** 🟢 `loadDB()` verschluckt JSON-Fehler und startet mit leerer DB → nächstes Speichern überschreibt die kaputten (evtl. rettbaren) Daten.
