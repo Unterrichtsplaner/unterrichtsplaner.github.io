@@ -101,6 +101,8 @@ Datumswerte sind Strings `YYYY-MM-DD` in **lokaler** Zeit (`formatDate()`). Nie 
 21. **Zeitabhängige Anzeigen (laufende/nächste Stunde) bekommen die Uhrzeit als Parameter** (`timetableClock(now)`, `findNextLesson(now)`) und werden per Timer neu gezeichnet (`refreshTimetableClock`). Im Test `vi.useFakeTimers({ toFake: ['Date'] })` + `vi.setSystemTime(…)`.
 22. **Symbole nur als Linien-Icons aus `ICONS` (app.js):** in app.js `icon('name')`, in index.html `<i data-icon="name"></i>` (ersetzt `fillIcons()` beim Start). Keine Emojis in Knöpfen, Reitern, Überschriften; Ausnahme 😊😐☹️ bei der Mitarbeit. Texte in `alert`/`confirm`/Toasts sind davon ausgenommen (können kein SVG). `tests/icons.test.js` prüft das.
 23. **Unlesbare gespeicherte Daten nie überschreiben.** `loadDB()` legt sie als `lehrerapp_v3_defekt_<Zeit>` ab und meldet das (`dbLoadFailure`); klappt die Kopie nicht, blockiert `persistDB()`, bis der Nutzer die Datei heruntergeladen hat.
+24. **Gewählte Daten/Ansichten verfallen über Nacht.** Ein im Sitzplan gewähltes Datum gilt nur am Tag der Wahl (`setSeatingDate`/`refreshSeatingDate`); wer Einträge mit einem gemerkten Datum anlegt, prüft vorher, ob inzwischen ein neuer Tag ist. Wer eine Ansicht gezielt für eine Klasse öffnet, übergibt sie (`openSeatingForGroup(groupId, dateStr)`), statt eine globale Variable zu setzen, die die Ansicht beim Öffnen wieder überschreibt.
+25. **Automatische Notiz-Zeilen (z. B. „… hat letzte Stunde unentschuldigt gefehlt“) mit vollem Namen schreiben und zeilenweise entfernen**, nie per `replace` auf dem ganzen Text; Eintragen und Entfernen über dieselben Hilfsfunktionen (`addAbsenceNote`/`removeAbsenceNote`).
 
 ## Arbeitsablauf
 

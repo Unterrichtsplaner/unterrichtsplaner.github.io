@@ -67,12 +67,12 @@ Priorität: 🔴 Datenverlust / App kaputt · 🟠 falsche Anzeige / nervig · �
 
 ## E. Sitzplan
 
-- [ ] **E1** 🟠 „Sitzplan öffnen“ zeigt während laufender Stunde die falsche Klasse (`initSeatingPlan` überschreibt gewählte Gruppe).
-- [ ] **E2** 🟠 Datum bleibt über Nacht stehen (App offen) → Einträge landen am Vortag (~Z. 2521).
-- [ ] **E3** 🟠 Lehrerpult springt beim Ziehen eine Spalte nach rechts (~Z. 3270).
-- [ ] **E4** 🟠 „Hinweis für nächste Stunde“ ignoriert A/B-Woche; Entfernen sucht anders als Eintragen; nur Vorname → zwei „Anna“ kollidieren (~Z. 3108–3164).
-- [ ] **E5** 🟠 `currentGradeFormCtx` wird nach Schließen nicht zurückgesetzt → altes Modal öffnet sich später erneut.
-- [ ] **E6** 🟢 Zufallsauswahl: Doppelklick startet zwei Animationen; Gruppenbildung mischt ungleichmäßig, letzte Gruppe kann 1 Person haben.
+- [x] **E1** 🟠 „Sitzplan öffnen“ zeigt während laufender Stunde die falsche Klasse (`initSeatingPlan` überschreibt gewählte Gruppe).
+- [x] **E2** 🟠 Datum bleibt über Nacht stehen (App offen) → Einträge landen am Vortag (~Z. 2521).
+- [x] **E3** 🟠 Lehrerpult springt beim Ziehen eine Spalte nach rechts (~Z. 3270).
+- [x] **E4** 🟠 „Hinweis für nächste Stunde“ ignoriert A/B-Woche; Entfernen sucht anders als Eintragen; nur Vorname → zwei „Anna“ kollidieren (~Z. 3108–3164).
+- [x] **E5** 🟠 `currentGradeFormCtx` wird nach Schließen nicht zurückgesetzt → altes Modal öffnet sich später erneut.
+- [x] **E6** 🟢 Zufallsauswahl: Doppelklick startet zwei Animationen; Gruppenbildung mischt ungleichmäßig, letzte Gruppe kann 1 Person haben.
 
 ## F. Sicherheit (XSS)
 
@@ -164,3 +164,9 @@ Priorität: 🔴 Datenverlust / App kaputt · 🟠 falsche Anzeige / nervig · �
 | H4 | Stundenplan-Kacheln teilen sich Breite/Höhe (iPad hochkant ohne seitliches Scrollen); Klasse groß, Fach + Raum klein mit „…“; laufende Stunde mit Rahmen + „läuft noch n min“ (jede Minute neu), nächste Stunde gestrichelt; Linien-Symbole für Inhalt/HA/Test/Notiz (`timetableClock`, `refreshTimetableClock`) | Block H |
 | H7 | Notenskala pro Klasse (`group.gradeScale`, fehlt = 1–6; `gradeScale()`, `GRADE_SCALES`): Auswahl im Klassen-Dialog, Wechsel mit Rückfrage ohne Umrechnung; Punkte 0–15 ganzzahlig ohne Tendenz (`parseGradeInput(v, scale)`), Farben „hoch = gut“ (`gradeColor(v, scale)`), eigene Warnschwelle `warnPoints` (Standard: unter 5 Punkten), CSV/Schülerakte in Punkten. Alte App-Versionen ignorieren das Feld (zeigen Punkte bis zum Update wie Noten an, kein Datenverlust) | Block H |
 | H10 | Linien-Icons statt Emojis in Reitern, Knöpfen, Überschriften (`ICONS`, `icon()`, `data-icon`-Platzhalter + `fillIcons()`); Stunden-Status-Symbole nutzen dieselben Icons; Mitarbeit-Smileys bleiben; `alert`/Toasts unverändert | Block H |
+| E1 | „Sitzplan“ aus Klasse/Stunde zeigt diese Klasse (aus einer Stunde auch deren Datum) statt der laufenden Stunde (`openSeatingForGroup(groupId, dateStr)` → `seatingRequest`) | Block E |
+| E2 | Sitzplan-Datum gilt nur für den Tag, an dem es gewählt wurde; springt über Nacht auf heute (`setSeatingDate`, `refreshSeatingDate`: beim Öffnen, Antippen, Zufall/Gruppen, Timer, `visibilitychange`) | Block E |
+| E3 | Lehrerpult (2 Zellen breit) rastet in seiner Spalte ein (`makeDraggable`: halbe Überbreite abziehen) | Block E |
+| E4 | Hinweis „… hat letzte Stunde unentschuldigt gefehlt“ mit vollem Namen, in der nächsten Stunde, die wirklich stattfindet (`nextLessonOfGroup` über `lessonsOnDate`: A/B, Vertretung, Ausfall); Entfernen zeilenweise in allen Stunden der Klasse 4 Wochen danach, alter Vorname-Hinweis nur bei eindeutigem Vornamen (`addAbsenceNote`/`removeAbsenceNote`); Schülerdetail nutzt `currentGroupId` | Block E |
+| E5 | `closeGradeForm()` setzt `currentGradeFormCtx` zurück | Block E |
+| E6 | Zufallsauswahl gesperrt, solange sie läuft; Gruppen gleichmäßig (`seatingGroupSizes`: max. Wunschgröße, Unterschied ≤ 1, niemand allein), Mischen per Fisher-Yates (`shuffled`) | Block E |

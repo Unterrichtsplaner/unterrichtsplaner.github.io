@@ -240,16 +240,17 @@ document.querySelectorAll('.nav-item[data-view]').forEach(btn => {
   btn.addEventListener('click', () => switchView(btn.dataset.view));
 });
 
-function openSeatingForGroup(groupId) {
+// Gezielt geöffnet (Klasse/Stunde): diese Klasse zeigen, nicht die laufende Stunde vorschlagen (BUGS E1)
+function openSeatingForGroup(groupId, dateStr) {
   closeModal('modal-lesson');
-  currentSeatingGroupId = groupId;
+  seatingRequest = { groupId, dateStr };
   switchView('seating');
 }
 
 function openSeatingForActiveLesson() {
   const slot = db.lessonSlots.find(s => s.id === activeLessonId);
   if (slot && slot.groupId) {
-    openSeatingForGroup(slot.groupId);
+    openSeatingForGroup(slot.groupId, activeLessonDate);
   }
 }
 
@@ -2373,9 +2374,8 @@ function deleteAttendance(a) {
   const s = getCurrentStudent(); if (!s) return;
   const idx = (s.attendance||[]).indexOf(a);
   if (idx === -1) { renderAttendanceList(s); return; }
-  if (a.type === 'abwesend' && typeof currentOverviewGroupId !== 'undefined' && currentOverviewGroupId) {
-    removeNextLessonNote(currentOverviewGroupId, a.date, `${s.firstName} hat letzte Stunde unentschuldigt gefehlt`);
-  }
+  // Schülerdetail gehört zu currentGroupId (getCurrentStudent), nicht zur Klassenübersicht
+  if (a.type === 'abwesend') removeAbsenceNote(currentGroupId, a.date, s);
   s.attendance.splice(idx,1); saveDB(); renderAttendanceList(s); renderStudents();
 }
 
@@ -2828,6 +2828,27 @@ let currentSeatingDateStr = '';
 let activeSeatingGroups = null;
 let lastSeatingGroupId = '';
 let lastSeatingDateStr = '';
+let seatingRequest = null;      // { groupId, dateStr } aus openSeatingForGroup, gilt nur für das nächste Öffnen
+let seatingDateChosenOn = '';   // an welchem Tag currentSeatingDateStr gesetzt wurde (BUGS E2)
+
+function setSeatingDate(dateStr, now = new Date()) {
+  currentSeatingDateStr = dateStr;
+  seatingDateChosenOn = formatDate(now);
+}
+// Ein Datum gilt nur für den Tag, an dem es gewählt wurde. Bleibt die App über Nacht offen,
+// springt es auf heute, sonst landen Einträge am Vortag. true = Datum wurde geändert.
+function refreshSeatingDate(now = new Date()) {
+  if (currentSeatingDateStr && seatingDateChosenOn === formatDate(now)) return false;
+  setSeatingDate(formatDate(nextSchoolDay(now)), now);
+  return true;
+}
+function refreshSeatingDateIfStale() {
+  const view = document.getElementById('view-seating');
+  if (!view || !view.classList.contains('active') || document.hidden) return;
+  if (refreshSeatingDate()) { renderSeatingDateStrip(); renderSeatingPlan(); }
+}
+setInterval(refreshSeatingDateIfStale, 60000);
+document.addEventListener('visibilitychange', refreshSeatingDateIfStale);
 
 function getSuggestedSeatingGroupId() {
   const now = new Date();
@@ -2869,12 +2890,15 @@ function getSuggestedSeatingGroupId() {
 }
 
 function initSeatingPlan() {
-  if (!currentSeatingDateStr) currentSeatingDateStr = formatDate(nextSchoolDay(new Date()));
+  const request = seatingRequest;
+  seatingRequest = null;
+  if (request && request.dateStr) setSeatingDate(formatDate(nextSchoolDay(parseDate(request.dateStr))));
+  else refreshSeatingDate();
   // Datenschutz (BUGS H1): Noten bei jedem Öffnen wieder verborgen, Zustand wird nicht gespeichert
   seatingShowGrades = false;
   updateSeatingGradesButton();
   
-  const suggestedGroupId = getSuggestedSeatingGroupId();
+  const suggestedGroupId = request ? request.groupId : getSuggestedSeatingGroupId();
   if (suggestedGroupId) {
     currentSeatingGroupId = suggestedGroupId;
   }
@@ -2994,7 +3018,7 @@ function renderSeatingDateStrip() {
     
     chip.innerHTML = `<span class="date-chip-day">${dayLabel}</span><span class="date-chip-date">${dateNum}</span>`;
     chip.onclick = () => {
-      currentSeatingDateStr = dStr;
+      setSeatingDate(dStr);
       renderSeatingDateStrip();
       renderSeatingPlan();
     };
@@ -3004,7 +3028,7 @@ function renderSeatingDateStrip() {
 
 function onHiddenDateChange(val) {
   if (val) {
-    currentSeatingDateStr = formatDate(nextSchoolDay(parseDate(val)));
+    setSeatingDate(formatDate(nextSchoolDay(parseDate(val))));
     renderSeatingDateStrip();
     renderSeatingPlan();
   }
@@ -3250,7 +3274,9 @@ function renderSeatingPlan() {
       card.classList.add('draggable-mode');
     } else {
       card.addEventListener('click', (e) => {
-        openSeatingStudentModal(s.id, groupId, dateStr);
+        // Seit dem Zeichnen kann ein neuer Tag begonnen haben (App über Nacht offen, BUGS E2)
+        if (refreshSeatingDate()) { renderSeatingDateStrip(); renderSeatingPlan(); }
+        openSeatingStudentModal(s.id, groupId, currentSeatingDateStr);
       });
     }
 
@@ -3307,7 +3333,10 @@ const groupColors = [
   '#ec4899', '#eab308', '#6366f1', '#14b8a6', '#84cc16', '#a855f7'
 ];
 
+let seatingRandomizerRunning = false; // Doppelklick startet sonst zwei Animationen (BUGS E6)
 function startSeatingRandomizer() {
+  if (seatingRandomizerRunning) return;
+  if (refreshSeatingDate()) { renderSeatingDateStrip(); renderSeatingPlan(); }
   const groupId = currentSeatingGroupId;
   const dateStr = currentSeatingDateStr;
   if (!groupId) {
@@ -3331,6 +3360,7 @@ function startSeatingRandomizer() {
   
   nameEl.textContent = 'Auswahl läuft...';
   modal.classList.remove('hidden');
+  seatingRandomizerRunning = true;
 
   document.querySelectorAll('.seating-card').forEach(card => {
     card.classList.remove('random-highlight', 'random-winner');
@@ -3359,6 +3389,7 @@ function startSeatingRandomizer() {
         finalStudent = otherStudents[Math.floor(Math.random() * otherStudents.length)];
       }
       
+      seatingRandomizerRunning = false;
       lastSelectedRandomStudentId = finalStudent.id;
       window.currentRandomStudent = { studentId: finalStudent.id, groupId, dateStr };
 
@@ -3385,7 +3416,27 @@ function openSeatingGroupModal() {
   openModal('modal-seating-groups');
 }
 
+// Gruppengrößen für n Schüler bei Wunschgröße size: nie größer als size, Unterschied höchstens 1,
+// niemand allein (dann lieber eine Gruppe mehr Personen) (BUGS E6)
+function seatingGroupSizes(n, size) {
+  if (n <= 0) return [];
+  let count = Math.ceil(n / Math.max(1, size));
+  if (count > 1 && Math.floor(n / count) < 2) count--;
+  const sizes = [];
+  for (let i = 0; i < count; i++) sizes.push(Math.floor(n / count) + (i < n % count ? 1 : 0));
+  return sizes;
+}
+function shuffled(list) { // Fisher-Yates: jede Reihenfolge gleich wahrscheinlich
+  const a = [...list];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
 function generateSeatingGroups() {
+  if (refreshSeatingDate()) { renderSeatingDateStrip(); renderSeatingPlan(); }
   const groupId = currentSeatingGroupId;
   const dateStr = currentSeatingDateStr;
   
@@ -3405,20 +3456,19 @@ function generateSeatingGroups() {
 
   clearSeatingGroups(false);
 
+  const sizes = seatingGroupSizes(presentStudents.length, size);
   let groups = [];
   if (method === 'random') {
-    const shuffled = [...presentStudents].sort(() => Math.random() - 0.5);
-    for (let i = 0; i < shuffled.length; i += size) {
-      groups.push(shuffled.slice(i, i + size));
-    }
+    const order = shuffled(presentStudents);
+    sizes.forEach(n => groups.push(order.splice(0, n)));
   } else if (method === 'proximity') {
     const ungrouped = [...presentStudents];
     
-    while (ungrouped.length > 0) {
+    sizes.forEach(targetSize => {
       const current = ungrouped.shift();
       const currentGroup = [current];
       
-      while (currentGroup.length < size && ungrouped.length > 0) {
+      while (currentGroup.length < targetSize && ungrouped.length > 0) {
         let bestIndex = -1;
         let minDist = Infinity;
         
@@ -3440,7 +3490,7 @@ function generateSeatingGroups() {
       }
       
       groups.push(currentGroup);
-    }
+    });
   }
 
   activeSeatingGroups = {};
@@ -3478,28 +3528,48 @@ function onToggleShowGridAlways(checked) {
   renderSeatingPlan();
 }
 
-function removeNextLessonNote(groupId, dateStr, noteString) {
-  const relatedSlots = db.lessonSlots.filter(slot => slot.groupId === groupId);
-  if (!relatedSlots.length) return;
-  const from = new Date(dateStr + 'T12:00:00');
-  let nextLesson = null;
-  for (let i = 1; i <= 28 && !nextLesson; i++) {
-    const candidate = new Date(from);
-    candidate.setDate(from.getDate() + i);
-    const localDay = (candidate.getDay() + 6) % 7;
-    for (const slot of relatedSlots) {
-      if (slot.day === localDay) {
-        nextLesson = { dateStr: candidate.toISOString().split('T')[0], slotId: slot.id };
-        break;
-      }
-    }
+// ─── Hinweis „hat letzte Stunde unentschuldigt gefehlt“ in der nächsten Stunde (BUGS E4) ─────
+function absenceNoteText(s) { return `${s.firstName} ${s.lastName} hat letzte Stunde unentschuldigt gefehlt`; }
+// Nächste Stunde der Klasse nach dateStr, die wirklich stattfindet (A/B-Woche, Vertretung, Ausfall)
+function nextLessonOfGroup(groupId, dateStr) {
+  let d = parseDate(dateStr);
+  for (let i = 0; i < 28; i++) {
+    d = addDays(d, 1);
+    if (!isSchoolDay(d)) continue;
+    const hit = lessonsOnDate(formatDate(d)).find(l => l.slot.groupId === groupId && !l.ausfall);
+    if (hit) return { slotId: hit.slot.id, dateStr: hit.dateStr };
   }
-  if (nextLesson) {
-    const key = nextLesson.slotId + '_' + nextLesson.dateStr;
-    if (db.lessonData[key] && db.lessonData[key].notes) {
-      db.lessonData[key].notes = db.lessonData[key].notes.replace(noteString, '').replace(/^\n+|\n+$/g, '').replace(/\n\n+/g, '\n').trim();
-    }
+  return null;
+}
+function addAbsenceNote(groupId, dateStr, s) {
+  const next = nextLessonOfGroup(groupId, dateStr);
+  if (!next) return;
+  const key = next.slotId + '_' + next.dateStr;
+  if (!db.lessonData[key]) db.lessonData[key] = {};
+  const note = absenceNoteText(s);
+  const lines = (db.lessonData[key].notes || '').split('\n');
+  if (!lines.includes(note)) db.lessonData[key].notes = [...lines.filter(l => l.trim()), note].join('\n');
+}
+// Entfernt den Hinweis aus allen Stunden der Klasse in den 4 Wochen danach – so wird er auch gefunden,
+// wenn sich der Stundenplan seit dem Eintragen geändert hat (Ausfall, Vertretung).
+function removeAbsenceNote(groupId, dateStr, s) {
+  const notes = [absenceNoteText(s)];
+  // Ältere Versionen schrieben nur den Vornamen – den nur entfernen, wenn er in der Klasse eindeutig ist
+  if ((db.students[groupId] || []).filter(x => x.firstName === s.firstName).length === 1) {
+    notes.push(`${s.firstName} hat letzte Stunde unentschuldigt gefehlt`);
   }
+  const slotIds = new Set(db.lessonSlots.filter(slot => slot.groupId === groupId).map(slot => slot.id));
+  const until = formatDate(addDays(parseDate(dateStr), 28));
+  Object.keys(db.lessonData).forEach(key => {
+    const sep = key.lastIndexOf('_');
+    const slotId = key.slice(0, sep), keyDate = key.slice(sep + 1);
+    if (!slotIds.has(slotId) || keyDate <= dateStr || keyDate > until) return;
+    const entry = db.lessonData[key];
+    if (!entry || !entry.notes) return;
+    const lines = entry.notes.split('\n');
+    const kept = lines.filter(l => !notes.includes(l.trim()));
+    if (kept.length !== lines.length) entry.notes = kept.join('\n').trim();
+  });
 }
 
 function setSeatingAbsence(type) {
@@ -3512,7 +3582,7 @@ function setSeatingAbsence(type) {
   const existingIdx = s.attendance.findIndex(a => a.date === dateStr && (a.type === 'abwesend' || a.type === 'entschuldigt'));
   if (existingIdx !== -1 && s.attendance[existingIdx].type === type) {
     if (type === 'abwesend') {
-      removeNextLessonNote(groupId, dateStr, `${s.firstName} hat letzte Stunde unentschuldigt gefehlt`);
+      removeAbsenceNote(groupId, dateStr, s);
     }
     s.attendance.splice(existingIdx, 1);
     saveDB();
@@ -3525,7 +3595,7 @@ function setSeatingAbsence(type) {
   // Remove existing
   const wasAbwesend = s.attendance.some(a => a.date === dateStr && a.type === 'abwesend');
   if (wasAbwesend && type !== 'abwesend') {
-    removeNextLessonNote(groupId, dateStr, `${s.firstName} hat letzte Stunde unentschuldigt gefehlt`);
+    removeAbsenceNote(groupId, dateStr, s);
   }
   // Fehlen und „zu spät“ schließen sich am selben Tag aus
   s.attendance = s.attendance.filter(a => a.date !== dateStr || (a.type !== 'abwesend' && a.type !== 'entschuldigt' && a.type !== 'zuspät'));
@@ -3534,34 +3604,7 @@ function setSeatingAbsence(type) {
   s.attendance.push({ id: uid(), date: dateStr, type: type, note: '' });
 
   // If unexcused, add note to next lesson
-  if (type === 'abwesend') {
-    const relatedSlots = db.lessonSlots.filter(slot => slot.groupId === groupId && slot.recurring);
-    if (relatedSlots.length > 0) {
-      const from = new Date(dateStr + 'T12:00:00');
-      let nextLesson = null;
-      for (let i = 1; i <= 28 && !nextLesson; i++) {
-        const candidate = new Date(from);
-        candidate.setDate(from.getDate() + i);
-        const localDay = (candidate.getDay() + 6) % 7;
-        for (const slot of relatedSlots) {
-          if (slot.day === localDay) {
-            nextLesson = { dateStr: candidate.toISOString().split('T')[0], slotId: slot.id };
-            break;
-          }
-        }
-      }
-      if (nextLesson) {
-        const key = nextLesson.slotId + '_' + nextLesson.dateStr;
-        if (!db.lessonData[key]) db.lessonData[key] = {};
-        const note = `${s.firstName} hat letzte Stunde unentschuldigt gefehlt`;
-        if (!db.lessonData[key].notes) {
-          db.lessonData[key].notes = note;
-        } else if (!db.lessonData[key].notes.includes(note)) {
-          db.lessonData[key].notes += '\n' + note;
-        }
-      }
-    }
-  }
+  if (type === 'abwesend') addAbsenceNote(groupId, dateStr, s);
 
   saveDB();
   renderSeatingPlan();
@@ -3589,7 +3632,7 @@ function setSeatingLate() {
 
   // Wer zu spät kommt, fehlt nicht: ein Fehlen am selben Tag wird ersetzt
   if (s.attendance.some(a => a.date === dateStr && a.type === 'abwesend')) {
-    removeNextLessonNote(groupId, dateStr, `${s.firstName} hat letzte Stunde unentschuldigt gefehlt`);
+    removeAbsenceNote(groupId, dateStr, s);
   }
   s.attendance = s.attendance.filter(a => a.date !== dateStr || (a.type !== 'abwesend' && a.type !== 'entschuldigt'));
   s.attendance.push({ id: uid(), date: dateStr, type: 'zuspät', note: '' });
@@ -3674,7 +3717,9 @@ function makeDraggable(el, studentId, groupId, cellWidth, cellHeight, maxCols, m
       const centerX = parseFloat(el.style.left) + (el.offsetWidth / 2);
       const centerY = parseFloat(el.style.top) + (el.offsetHeight / 2);
       
-      let gridX = Math.floor((centerX - offsetX) / cellWidth);
+      // Ein Element über mehrere Zellen (Lehrerpult: 2) hat seine Mitte auf der Grenze zwischen
+      // seinen Zellen – daher halbe Überbreite abziehen, sonst springt es eine Spalte nach rechts (BUGS E3)
+      let gridX = Math.floor((centerX - offsetX) / cellWidth - (widthCells - 1) / 2);
       let gridY = Math.floor(centerY / cellHeight);
       
       // Clamp bounds
@@ -3836,13 +3881,17 @@ function openGradeForm(studentId, groupId, gradeIdx, defaultDateStr = '', defaul
 
 function closeGradeForm() {
   closeModal('modal-grade-form');
-  if (currentGradeFormCtx) {
-    if (currentGradeFormCtx.wasSeatingModalOpen) {
-      const { studentId, groupId } = currentGradeFormCtx;
+  // Kontext sofort vergessen: closeGradeForm wird auch aufgerufen, wenn das Formular gar nicht offen ist
+  // (z. B. aus dem Dashboard) – sonst öffnet sich später ein altes Schüler-Fenster erneut (BUGS E5)
+  const ctx = currentGradeFormCtx;
+  currentGradeFormCtx = null;
+  if (ctx) {
+    if (ctx.wasSeatingModalOpen && window.currentSeatingStudent) {
+      const { studentId, groupId } = ctx;
       // Re-open underlying modal
       openSeatingStudentModal(studentId, groupId, window.currentSeatingStudent.dateStr);
     }
-    if (currentGradeFormCtx.wasDetailModalOpen) {
+    if (ctx.wasDetailModalOpen) {
       const detailModal = document.getElementById('modal-student-detail');
       if (detailModal) detailModal.classList.remove('hidden');
     }
