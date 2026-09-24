@@ -7,6 +7,8 @@
 
 Offline-fähige PWA für Lehrkräfte: Stundenplan, Klassen, Noten, Anwesenheit, Mitarbeit, Hausaufgaben und Sitzplan. Der Autor ist selbst Lehrer und nutzt die App täglich, die Daten sind **echte Schülerdaten**. Datenverlust ist der schlimmste denkbare Fehler.
 
+**Die App wird auch von anderen Lehrkräften genutzt** (über dieselbe GitHub-Pages-Adresse und dasselbe Firebase-Projekt). Jedes Update muss für sie ohne Anleitung funktionieren: keine unerwarteten Dialoge, alte Daten (lokal wie in der Cloud) immer lesbar.
+
 Gehostet auf GitHub Pages (`unterrichtsplaner.github.io`). Was auf `main` liegt, ist sofort live.
 
 ## Architektur
