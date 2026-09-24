@@ -74,7 +74,7 @@ describe('H3: Stunden heute', () => {
 
   it('Klick öffnet die Stunde', () => {
     render();
-    expect(todayRows()[2].getAttribute('onclick')).toBe("openLessonDetail('sC','2026-09-24')");
+    expect(todayRows()[2].getAttribute('onclick')).toBe('openLessonDetail("sC","2026-09-24")');
   });
 
   it('Namen werden escaped', () => {

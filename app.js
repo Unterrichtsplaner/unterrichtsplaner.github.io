@@ -569,8 +569,8 @@ function buildTimetableCell(d, dayIdx, block, clock = timetableClock()) {
                 : isNext ? `<span class="tt-lesson-badge">als Nächstes</span>` : '';
 
     return `<div class="tt-lesson${isAusfall?' ausfall-lesson':''}${running?' running':''}${isNext?' next':''}"
-           style="background:${hexToRgba(lesson.color,0.15)};color:${lesson.color};--lesson-color:${lesson.color}"
-           onclick="openLessonDetail('${lesson.id}','${dateStr}')">
+           style="background:${hexToRgba(lesson.color,0.15)};color:${escHtml(lesson.color)};--lesson-color:${escHtml(lesson.color)}"
+           onclick="openLessonDetail(${jsArg(lesson.id)},${jsArg(dateStr)})">
         <div class="tt-lesson-head">
           <div class="tt-lesson-class">${escHtml(t.main)}</div>
           ${sub ? `<div class="tt-lesson-subject">${sub}</div>` : ''}
@@ -580,8 +580,8 @@ function buildTimetableCell(d, dayIdx, block, clock = timetableClock()) {
   };
 
   const renderEmptyHTML = (part) => {
-    return `<div class="tt-empty-cell" title="${DAYS[dayIdx]}, ${block.label} – Klicken zum Hinzufügen"
-                 onclick="openAddLessonSlot(${dayIdx}, ${block.num}, '${dateStr}', '${part}')">
+    return `<div class="tt-empty-cell" title="${DAYS[dayIdx]}, ${escHtml(block.label)} – Klicken zum Hinzufügen"
+                 onclick="openAddLessonSlot(${dayIdx}, ${block.num}, ${jsArg(dateStr)}, ${jsArg(part)})">
               <span class="tt-add-icon">+</span>
             </div>`;
   };
@@ -1111,7 +1111,7 @@ function renderItemList(listId, items, type, incoming, incomingId) {
       el.innerHTML = `
         <span class="entry-item-text">${escHtml(item.text)}</span>
         ${targetLabel}
-        <button class="entry-item-delete" aria-label="Löschen" onclick="removeItem('${type}', ${i})">✕</button>
+        <button class="entry-item-delete" aria-label="Löschen" onclick="removeItem(${jsArg(type)}, ${i})">✕</button>
       `;
       list.appendChild(el);
     });
@@ -1320,7 +1320,7 @@ function renderSubjectGroups() {
       card.className = 'subject-group-card';
       card.style.setProperty('--card-color', g.color || 'var(--accent)');
       card.innerHTML = `
-        <button class="sgc-permanent-edit-btn" title="Bearbeiten" onclick="event.stopPropagation();openEditGroup('${g.id}')">
+        <button class="sgc-permanent-edit-btn" title="Bearbeiten" onclick="event.stopPropagation();openEditGroup(${jsArg(g.id)})">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display:block; margin:auto;"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
         </button>
         <div class="sgc-class">${escHtml(g.className)}</div>
@@ -1333,7 +1333,7 @@ function renderSubjectGroups() {
           <div class="sgc-stat"><div class="sgc-stat-value">${gradeCount}</div><div class="sgc-stat-label">Noten</div></div>
         </div>
         <div style="margin-top:12px; display:flex; gap:8px;">
-          <button class="btn-primary" style="flex:1; justify-content:center;" onclick="event.stopPropagation();openSeatingForGroup('${g.id}')">${icon('seating')}Sitzplan</button>
+          <button class="btn-primary" style="flex:1; justify-content:center;" onclick="event.stopPropagation();openSeatingForGroup(${jsArg(g.id)})">${icon('seating')}Sitzplan</button>
         </div>`;
       card.addEventListener('click', () => openGroupStudents(g.id));
       grid.appendChild(card);
@@ -1593,7 +1593,7 @@ function renderOverviewTable() {
       const type = ev.type || 'test';
       const weighted = gradeCategory(type) === 'schularbeit';
       const typeTitle = weighted ? `${gradeTypeLabel(type)}: zählt ${weight} % der Note` : `${gradeTypeLabel(type)}: Sonstige, zählt ${100 - weight} % der Note`;
-      html += `<th style="cursor:pointer;" title="Klicken zum Bearbeiten" onclick="openEditColumnModal('${ev.date}', '${escHtml(ev.label)}', '${escHtml(type)}')">`
+      html += `<th style="cursor:pointer;" title="Klicken zum Bearbeiten" onclick="openEditColumnModal(${jsArg(ev.date)}, ${jsArg(ev.label)}, ${jsArg(type)})">`
         + `<div class="col-type${weighted ? ' weighted' : ''}" title="${escHtml(typeTitle)}">${escHtml(gradeTypeShort(type))}</div>`
         + `<div>${formatDateShort(ev.date)}</div><div class="col-title">${escHtml(ev.label || gradeTypeLabel(type))}</div></th>`;
     });
@@ -1605,14 +1605,14 @@ function renderOverviewTable() {
       const avg = formatGradeAverage(rawAvg);
       
       const nameDisplay = (db.settings.studentSortOrder==='lastName') ? escHtml(s.lastName)+', '+escHtml(s.firstName) : escHtml(s.firstName)+' '+escHtml(s.lastName);
-      html += `<tr><td style="position:sticky;left:0;background:var(--bg-card);font-weight:500;cursor:pointer;color:var(--accent);" onclick="openSeatingStudentModal('${s.id}', '${currentOverviewGroupId}', '${formatDate(new Date())}')">${nameDisplay}</td>`;
+      html += `<tr><td style="position:sticky;left:0;background:var(--bg-card);font-weight:500;cursor:pointer;color:var(--accent);" onclick="openSeatingStudentModal(${jsArg(s.id)}, ${jsArg(currentOverviewGroupId)}, ${jsArg(formatDate(new Date()))})">${nameDisplay}</td>`;
       html += `<td style="font-weight:700;color:${gradeColor(rawAvg, scale)};text-align:center;">${avg}</td>`;
       
       gradeEvents.forEach(ev => {
         const matchingGradeIdx = (s.grades||[]).findIndex(g => g.date === ev.date && (g.note ?? gradeTypeLabel(g.type)) === ev.label);
         const val = matchingGradeIdx !== -1 ? s.grades[matchingGradeIdx].value : '';
         const evType = ev.type || 'test';
-        html += `<td style="padding:4px;"><input type="text" class="form-input" style="width:100%; text-align:center; padding:6px; font-weight:600; color:${val ? gradeColor(gradeNumber(val), scale) : 'inherit'}" value="${val}" placeholder="-" onchange="updateInlineGrade('${s.id}', '${ev.date}', '${escHtml(ev.label)}', this.value, '${evType}')" /></td>`;
+        html += `<td style="padding:4px;"><input type="text" class="form-input" style="width:100%; text-align:center; padding:6px; font-weight:600; color:${val ? gradeColor(gradeNumber(val), scale) : 'inherit'}" value="${escHtml(val)}" placeholder="-" onchange="updateInlineGrade(${jsArg(s.id)}, ${jsArg(ev.date)}, ${jsArg(ev.label)}, this.value, ${jsArg(evType)})" /></td>`;
       });
       html += `</tr>`;
     });
@@ -1649,12 +1649,12 @@ function renderOverviewTable() {
     
     html += '<th>Bilanz</th>';
     partDates.forEach(ev => {
-      html += `<th style="cursor:pointer;" title="Klicken zum Bearbeiten" onclick="openEditColumnModal('${ev.date}', '${escHtml(ev.label)}')"><div>${formatDateShort(ev.date)}</div>${ev.label ? `<div style="font-weight:400;font-size:11px;">${escHtml(ev.label)}</div>` : ''}</th>`;
+      html += `<th style="cursor:pointer;" title="Klicken zum Bearbeiten" onclick="openEditColumnModal(${jsArg(ev.date)}, ${jsArg(ev.label)})"><div>${formatDateShort(ev.date)}</div>${ev.label ? `<div style="font-weight:400;font-size:11px;">${escHtml(ev.label)}</div>` : ''}</th>`;
     });
     html += '</tr></thead><tbody>';
 
     sortedStudents.forEach(s => {
-      html += `<tr><td style="position:sticky;left:0;background:var(--bg-card);font-weight:500;cursor:pointer;color:var(--accent);" onclick="openSeatingStudentModal('${s.id}', '${currentOverviewGroupId}', '${formatDate(new Date())}')">${escHtml(s.lastName)}, ${escHtml(s.firstName)}</td>`;
+      html += `<tr><td style="position:sticky;left:0;background:var(--bg-card);font-weight:500;cursor:pointer;color:var(--accent);" onclick="openSeatingStudentModal(${jsArg(s.id)}, ${jsArg(currentOverviewGroupId)}, ${jsArg(formatDate(new Date()))})">${escHtml(s.lastName)}, ${escHtml(s.firstName)}</td>`;
       
       let pos = 0, neu = 0, neg = 0;
       partDates.forEach(ev => {
@@ -1677,7 +1677,7 @@ function renderOverviewTable() {
         else if (val === 'neutral') emoji = '😐';
         else if (val === 'negative') emoji = '☹️';
         html += `<td style="text-align:center; padding:4px;">
-          <button style="background:none; border:none; font-size:18px; cursor:pointer;" onclick="cycleInlineParticipation('${s.id}', '${ev.date}', '${escHtml(ev.label||'')}')">${emoji}</button>
+          <button style="background:none; border:none; font-size:18px; cursor:pointer;" onclick="cycleInlineParticipation(${jsArg(s.id)}, ${jsArg(ev.date)}, ${jsArg(ev.label||'')})">${emoji}</button>
         </td>`;
       });
       html += `</tr>`;
@@ -1693,12 +1693,12 @@ function renderOverviewTable() {
     
     html += '<th>Summe</th>';
     attDates.forEach(ev => {
-      html += `<th style="cursor:pointer;" title="Klicken zum Bearbeiten" onclick="openEditColumnModal('${ev.date}', '${escHtml(ev.label)}')"><div>${formatDateShort(ev.date)}</div>${ev.label ? `<div style="font-weight:400;font-size:11px;">${escHtml(ev.label)}</div>` : ''}</th>`;
+      html += `<th style="cursor:pointer;" title="Klicken zum Bearbeiten" onclick="openEditColumnModal(${jsArg(ev.date)}, ${jsArg(ev.label)})"><div>${formatDateShort(ev.date)}</div>${ev.label ? `<div style="font-weight:400;font-size:11px;">${escHtml(ev.label)}</div>` : ''}</th>`;
     });
     html += '</tr></thead><tbody>';
 
     sortedStudents.forEach(s => {
-      html += `<tr><td style="position:sticky;left:0;background:var(--bg-card);font-weight:500;cursor:pointer;color:var(--accent);" onclick="openSeatingStudentModal('${s.id}', '${currentOverviewGroupId}', '${formatDate(new Date())}')">${escHtml(s.lastName)}, ${escHtml(s.firstName)}</td>`;
+      html += `<tr><td style="position:sticky;left:0;background:var(--bg-card);font-weight:500;cursor:pointer;color:var(--accent);" onclick="openSeatingStudentModal(${jsArg(s.id)}, ${jsArg(currentOverviewGroupId)}, ${jsArg(formatDate(new Date()))})">${escHtml(s.lastName)}, ${escHtml(s.firstName)}</td>`;
       const totalMissed = (s.attendance||[]).filter(a => a.type === 'abwesend' || a.type === 'entschuldigt').length;
       html += `<td style="text-align:center;font-weight:600;">${totalMissed}</td>`;
 
@@ -1707,7 +1707,7 @@ function renderOverviewTable() {
         const status = aIdx !== -1 ? s.attendance[aIdx].type : ''; // 'abwesend', 'entschuldigt', 'zuspät'
         const displayVal = ATTENDANCE_SHORT[status] || '';
 
-        html += `<td style="padding:4px;"><input type="text" class="form-input" style="width:100%; text-align:center; padding:6px; font-weight:600; color:${status==='abwesend' ? 'var(--danger)' : 'inherit'}" value="${displayVal}" placeholder="-" onchange="updateInlineAttendance('${s.id}', '${ev.date}', this.value)" /></td>`;
+        html += `<td style="padding:4px;"><input type="text" class="form-input" style="width:100%; text-align:center; padding:6px; font-weight:600; color:${status==='abwesend' ? 'var(--danger)' : 'inherit'}" value="${displayVal}" placeholder="-" onchange="updateInlineAttendance(${jsArg(s.id)}, ${jsArg(ev.date)}, this.value)" /></td>`;
       });
       html += `</tr>`;
     });
@@ -1721,19 +1721,19 @@ function renderOverviewTable() {
     
     html += '<th>Summe</th>';
     hwDates.forEach(ev => {
-      html += `<th style="cursor:pointer;" title="Klicken zum Bearbeiten" onclick="openEditColumnModal('${ev.date}', '${escHtml(ev.label)}')"><div>${formatDateShort(ev.date)}</div>${ev.label ? `<div style="font-weight:400;font-size:11px;">${escHtml(ev.label)}</div>` : ''}</th>`;
+      html += `<th style="cursor:pointer;" title="Klicken zum Bearbeiten" onclick="openEditColumnModal(${jsArg(ev.date)}, ${jsArg(ev.label)})"><div>${formatDateShort(ev.date)}</div>${ev.label ? `<div style="font-weight:400;font-size:11px;">${escHtml(ev.label)}</div>` : ''}</th>`;
     });
     html += '</tr></thead><tbody>';
 
     sortedStudents.forEach(s => {
-      html += `<tr><td style="position:sticky;left:0;background:var(--bg-card);font-weight:500;cursor:pointer;color:var(--accent);" onclick="openSeatingStudentModal('${s.id}', '${currentOverviewGroupId}', '${formatDate(new Date())}')">${escHtml(s.lastName)}, ${escHtml(s.firstName)}</td>`;
+      html += `<tr><td style="position:sticky;left:0;background:var(--bg-card);font-weight:500;cursor:pointer;color:var(--accent);" onclick="openSeatingStudentModal(${jsArg(s.id)}, ${jsArg(currentOverviewGroupId)}, ${jsArg(formatDate(new Date()))})">${escHtml(s.lastName)}, ${escHtml(s.firstName)}</td>`;
       const totalMissed = (s.homework||[]).length;
       html += `<td style="text-align:center;font-weight:600;color:var(--danger);">${totalMissed}</td>`;
 
       hwDates.forEach(ev => {
         const hIdx = (s.homework||[]).findIndex(x => x.date === ev.date && (x.note||'') === (ev.label||''));
         const hasMissed = hIdx !== -1;
-        html += `<td style="padding:4px;"><input type="text" class="form-input" style="width:100%; text-align:center; padding:6px; font-weight:800; color:var(--danger);" value="${hasMissed ? 'X' : ''}" placeholder="-" onchange="updateInlineHomework('${s.id}', '${ev.date}', '${escHtml(ev.label||'')}', this.value)" /></td>`;
+        html += `<td style="padding:4px;"><input type="text" class="form-input" style="width:100%; text-align:center; padding:6px; font-weight:800; color:var(--danger);" value="${hasMissed ? 'X' : ''}" placeholder="-" onchange="updateInlineHomework(${jsArg(s.id)}, ${jsArg(ev.date)}, ${jsArg(ev.label||'')}, this.value)" /></td>`;
       });
       html += `</tr>`;
     });
@@ -2015,7 +2015,7 @@ function renderStudents() {
     const row = document.createElement('div');
     row.className = 'student-row';
     row.innerHTML = `
-      ${isStudentEditMode ? `<input type="checkbox" class="student-select-cb" data-id="${s.id}" onclick="event.stopPropagation(); updateMassDeleteBar()" style="margin-right: 12px; width: 18px; height: 18px; cursor: pointer;">` : ''}
+      ${isStudentEditMode ? `<input type="checkbox" class="student-select-cb" data-id="${escHtml(s.id)}" onclick="event.stopPropagation(); updateMassDeleteBar()" style="margin-right: 12px; width: 18px; height: 18px; cursor: pointer;">` : ''}
       <div class="student-avatar" style="background:${bg};color:${fg}">${escHtml(initials.toUpperCase())}</div>
       <div class="student-info">
         <div class="student-name">${(db.settings.studentSortOrder==='lastName') ? escHtml(s.lastName)+', '+escHtml(s.firstName) : escHtml(s.firstName)+' '+escHtml(s.lastName)}</div>
@@ -2363,7 +2363,7 @@ function renderGradesList(s) {
     el.title = 'Klicken zum Bearbeiten';
     el.onclick = () => openGradeForm(s.id, currentGroupId, originalIdx);
     el.innerHTML = `
-      <div class="grade-value" style="color:${color}">${g.value}</div>
+      <div class="grade-value" style="color:${color}">${escHtml(g.value)}</div>
       <div class="grade-type-badge">${gradeTypeLabel(g.type)}</div>
       <div class="grade-label">${escHtml(g.note||'')}</div>
       <div class="grade-date">${g.date ? formatDateShort(g.date) : ''}</div>
@@ -2414,7 +2414,7 @@ function renderAttendanceList(s) {
     const el = document.createElement('div');
     el.className='entry-item';
     el.innerHTML=`
-      <span style="color:${typeColors[a.type]||'inherit'};font-weight:600;min-width:86px;font-size:12px">${a.type.charAt(0).toUpperCase()+a.type.slice(1)}</span>
+      <span style="color:${typeColors[a.type]||'inherit'};font-weight:600;min-width:86px;font-size:12px">${escHtml(a.type.charAt(0).toUpperCase()+a.type.slice(1))}</span>
       <span class="entry-item-text">${escHtml(a.note||'')}</span>
       <span class="entry-item-date">${a.date?formatDateShort(a.date):''}</span>
       <button class="entry-item-delete" aria-label="Löschen">✕</button>`;
@@ -2459,8 +2459,8 @@ function renderStudentParticipationList(s) {
     el.className = 'entry-item';
     const desc = p.label || textLabels[p.value] || 'Mitarbeit';
     el.innerHTML = `
-      <span style="color:${valColors[p.value]||'inherit'};font-weight:800;font-size:16px;min-width:30px;text-align:center;">${valLabels[p.value]||p.value}</span>
-      <span class="entry-item-text">${desc}</span>
+      <span style="color:${valColors[p.value]||'inherit'};font-weight:800;font-size:16px;min-width:30px;text-align:center;">${escHtml(valLabels[p.value]||p.value)}</span>
+      <span class="entry-item-text">${escHtml(desc)}</span>
       <span class="entry-item-date">${p.date ? formatDateShort(p.date) : ''}</span>
       <button class="entry-item-delete" aria-label="Löschen">×</button>`;
     el.querySelector('.entry-item-delete').onclick = () => deleteParticipation(p);
@@ -2491,7 +2491,7 @@ function renderStudentHomeworkList(s) {
         <div style="font-weight:600; color:var(--warning); font-size:14px;">Hausaufgabe vergessen</div>
         ${h.note ? `<div style="font-size:12px; color:var(--text-secondary); margin-top:2px;">${escHtml(h.note)}</div>` : ''}
       </div>
-      <button class="btn-icon btn-danger-icon" aria-label="Löschen" onclick="deleteStudentHomework('${h.id}')">
+      <button class="btn-icon btn-danger-icon" aria-label="Löschen" onclick="deleteStudentHomework(${jsArg(h.id)})">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/></svg>
       </button>
     </div>`;
@@ -2755,9 +2755,9 @@ function renderBlocksEditor() {
     row.className = 'block-row';
     row.innerHTML = `
       <input class="block-name-input" type="text" value="${escHtml(b.label)}" placeholder="Name" data-bidx="${i}" data-field="label" />
-      <input class="block-time-input" type="time" value="${b.start}" data-bidx="${i}" data-field="start" />
+      <input class="block-time-input" type="time" value="${escHtml(b.start)}" data-bidx="${i}" data-field="start" />
       <span class="block-sep">–</span>
-      <input class="block-time-input" type="time" value="${b.end}" data-bidx="${i}" data-field="end" />
+      <input class="block-time-input" type="time" value="${escHtml(b.end)}" data-bidx="${i}" data-field="end" />
       <button class="block-delete-btn" aria-label="Block löschen" onclick="deleteBlockRow(${i})">✕</button>
     `;
     editor.appendChild(row);
@@ -3326,7 +3326,7 @@ function renderSeatingPlan() {
     let partHtml = '';
     if (participation) {
       const valLabels = { 'positive':'<span style="color:var(--success)">+</span>', 'neutral':'<span style="color:var(--warning)">=</span>', 'negative':'<span style="color:var(--danger)">-</span>' };
-      partHtml = `<div style="position:absolute; top:-6px; right:-6px; font-size:16px; font-weight:800; background:var(--bg-elevated); padding:0 6px; border-radius:8px; border:2px solid var(--border); box-shadow:0 2px 6px rgba(0,0,0,0.3); line-height:1.2; z-index:10;">${valLabels[participation.value] || participation.value}</div>`;
+      partHtml = `<div style="position:absolute; top:-6px; right:-6px; font-size:16px; font-weight:800; background:var(--bg-elevated); padding:0 6px; border-radius:8px; border:2px solid var(--border); box-shadow:0 2px 6px rgba(0,0,0,0.3); line-height:1.2; z-index:10;">${escHtml(valLabels[participation.value] || participation.value)}</div>`;
     }
 
     card.innerHTML = `
@@ -3884,7 +3884,7 @@ function renderSeatingStudentGrades(show) {
       </div>
       <div style="display:flex; align-items:center; gap:12px;">
         <div style="font-weight:800; font-size:15px; color:${valColor}">${escHtml(g.value)}</div>
-        <button class="btn-icon" style="padding:4px;" onclick="openGradeForm('${studentId}', '${groupId}', ${g._origIdx})">
+        <button class="btn-icon" style="padding:4px;" onclick="openGradeForm(${jsArg(studentId)}, ${jsArg(groupId)}, ${g._origIdx})">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
         </button>
       </div>
@@ -4124,10 +4124,14 @@ function showToast(msg, type='success') {
   setTimeout(() => { t.style.cssText='opacity:0;transition:opacity .3s'; setTimeout(()=>t.remove(),300); }, 2500);
 }
 
+// Für Text und Attributwerte in innerHTML. Auch ' und ", damit value="…"/title="…" dicht bleiben.
 function escHtml(str) {
-  const d = document.createElement('div');
-  d.appendChild(document.createTextNode(str||''));
-  return d.innerHTML;
+  return String(str ?? '').replace(/[&<>"']/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' })[c]);
+}
+// Argument für einen Inline-Handler: onclick="f(${jsArg(x)})". Liefert ein fertiges JS-Literal samt
+// Anführungszeichen. escHtml allein reicht dort nicht: der Browser dekodiert &#39; vor dem Ausführen wieder zu '.
+function jsArg(v) {
+  return escHtml(JSON.stringify(v ?? null));
 }
 
 function formatDateShort(dateStr) {
@@ -4557,7 +4561,7 @@ function renderDashboardToday() {
       if (due.tests.length) badges.push(`<span class="dash-badge test">Test ${due.tests.length}</span>`);
       if (data.notes)       badges.push(`<span class="dash-badge note">Notiz</span>`);
       html += `<div class="dash-lesson ${state}" data-slot="${escHtml(l.slot.id)}" style="--lesson-color:${escHtml(l.slot.color || '#6366f1')}"
-                    onclick="openLessonDetail('${escHtml(l.slot.id)}','${dayStr}')">
+                    onclick="openLessonDetail(${jsArg(l.slot.id)},${jsArg(dayStr)})">
           <div class="dash-lesson-time">${l.range ? minsToTime(l.range.start) : ''}<small>${escHtml(l.block.label)}</small></div>
           <div class="dash-lesson-main">
             <div class="dash-lesson-title">${escHtml(t.main)}${t.sub ? ` <span>${escHtml(t.sub)}</span>` : ''}</div>
@@ -4583,7 +4587,7 @@ function renderDashboardToday() {
     const body = (data.notes ? `<div class="dash-next-notes">${escHtml(data.notes)}</div>` : '')
       + itemList('Hausaufgaben fällig', 'hw', due.hw) + itemList('Test', 'test', due.tests);
     html += `<section class="dash-section">
-      <div class="dash-next" style="--lesson-color:${escHtml(next.slot.color || '#6366f1')}" onclick="openLessonDetail('${escHtml(next.slot.id)}','${next.dateStr}')">
+      <div class="dash-next" style="--lesson-color:${escHtml(next.slot.color || '#6366f1')}" onclick="openLessonDetail(${jsArg(next.slot.id)},${jsArg(next.dateStr)})">
         <div class="dash-next-label">Nächste Stunde · ${escHtml(when)} · ${escHtml(next.block.label)}</div>
         <div class="dash-next-title">${escHtml(t.main)}${t.sub ? ` <span>${escHtml(t.sub)}</span>` : ''}${next.slot.room ? ` <span>· ${escHtml(next.slot.room)}</span>` : ''}</div>
         ${body || '<div class="dash-empty">Keine Notizen, nichts fällig.</div>'}
@@ -4610,11 +4614,11 @@ function renderDashboardWarnings() {
       <div class="dash-warn-list">`;
     list.forEach(w => {
       html += `<div class="dash-warn" style="border-left-color:${colors[w.type]}">
-          <div class="dash-warn-text" onclick="openStudentDetailFromDashboard('${escHtml(w.student.id)}', '${escHtml(group.id)}', '${w.type}')" title="Zum Schülerprofil springen">
+          <div class="dash-warn-text" onclick="openStudentDetailFromDashboard(${jsArg(w.student.id)}, ${jsArg(group.id)}, ${jsArg(w.type)})" title="Zum Schülerprofil springen">
             <div class="dash-warn-title">${icons[w.type]}${w.title}</div>
             <div class="dash-warn-desc">${w.desc}</div>
           </div>
-          <button class="btn-secondary" onclick="acknowledgeWarning('${escHtml(w.student.id)}', '${w.type}', ${w.count})">Erledigt</button>
+          <button class="btn-secondary" onclick="acknowledgeWarning(${jsArg(w.student.id)}, ${jsArg(w.type)}, ${w.count})">Erledigt</button>
         </div>`;
     });
     html += `</div></details>`;

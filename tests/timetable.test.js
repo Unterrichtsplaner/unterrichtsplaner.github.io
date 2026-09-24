@@ -44,7 +44,8 @@ const toasts = () => document.getElementById('toast-container').textContent;
 // Zeigt der Stundenplan diese Stunde an diesem Datum?
 function shownOn(slotId, dateStr) {
   app(`jumpToDate('${dateStr}')`);
-  return document.getElementById('timetable-grid').innerHTML.includes(`openLessonDetail('${slotId}','${dateStr}')`);
+  const want = `openLessonDetail(${JSON.stringify(slotId)},${JSON.stringify(dateStr)})`;
+  return [...document.querySelectorAll('#timetable-grid [onclick]')].some(el => el.getAttribute('onclick') === want);
 }
 
 // Formular „Stunde hinzufügen“ über ein leeres Feld im Plan öffnen und ausfüllen
@@ -333,7 +334,7 @@ describe('H2: Tagesansicht auf dem Handy', () => {
     expect(label()).toContain('Mo 05.10.');
     expect(label()).toContain('KW 41');
     expect(grid().textContent).toContain('Mathe');
-    expect(grid().querySelector('.tt-lesson').getAttribute('onclick')).toContain("'2026-10-05'");
+    expect(grid().querySelector('.tt-lesson').getAttribute('onclick')).toContain('"2026-10-05"');
   });
 
   it('breit: weiter 5-Tage-Raster', () => {
@@ -402,7 +403,7 @@ describe('H2: Tagesansicht auf dem Handy', () => {
 describe('H4: Stundenplan-Kacheln', () => {
   const grid = () => document.getElementById('timetable-grid');
   const lessonEl = (slotId, dateStr) =>
-    [...grid().querySelectorAll('.tt-lesson')].find(el => el.getAttribute('onclick') === `openLessonDetail('${slotId}','${dateStr}')`);
+    [...grid().querySelectorAll('.tt-lesson')].find(el => el.getAttribute('onclick') === `openLessonDetail("${slotId}","${dateStr}")`);
   const css = require('fs').readFileSync(require('path').join(__dirname, '..', 'style.css'), 'utf8');
   afterEach(() => vi.useRealTimers());
 

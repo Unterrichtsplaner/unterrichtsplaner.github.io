@@ -76,7 +76,7 @@ Priorität: 🔴 Datenverlust / App kaputt · 🟠 falsche Anzeige / nervig · �
 
 ## F. Sicherheit (XSS)
 
-- [ ] **F1** 🟠 `escHtml` escaped keine `'` und `"` → Spaltennamen wie „Peter's Test“ zerstören `onclick`-Handler; mit präparierten Namen läuft fremdes JavaScript. Außerdem ungeschützt: `g.value` (~Z. 1952, 3347), `participation.value` (~Z. 2865), `desc` (~Z. 2058). Über Import/Sync können solche Werte auf andere Geräte kommen.
+- [x] **F1** 🟠 `escHtml` escaped keine `'` und `"` → Spaltennamen wie „Peter's Test“ zerstören `onclick`-Handler; mit präparierten Namen läuft fremdes JavaScript. Außerdem ungeschützt: `g.value` (~Z. 1952, 3347), `participation.value` (~Z. 2865), `desc` (~Z. 2058). Über Import/Sync können solche Werte auf andere Geräte kommen.
 
 ## G. PWA, Oberfläche, Aufräumen
 
