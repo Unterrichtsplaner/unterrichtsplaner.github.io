@@ -92,6 +92,9 @@ Datumswerte sind Strings `YYYY-MM-DD` in **lokaler** Zeit (`formatDate()`). Nie 
 13. **`lessonData`-Schlüssel hängen am Datum** (`slotId_YYYY-MM-DD`). Wer Tag/Datum einer Stunde ändert, verschiebt sie mit (`moveLessonData`).
 14. **Datumsstrings mit `parseDate()` lesen** (lokal, mittags), rechnen mit `addDays`/`mondayOf`.
 15. **Cloud-Daten, die andere Geräte schreiben, immer abwärtskompatibel lesen.** Andere Lehrkräfte haben evtl. noch eine alte App-Version; Formatwechsel nur mit Kennung im Dokument, altes Format weiter lesen, und nie „kann ich nicht lesen“ als „falsches Passwort“ behandeln.
+16. **Noten sind im Unterricht vertraulich.** Ansichten, die am Pult/Beamer offen sind (Sitzplan), zeigen Noten nur auf Knopfdruck; der Zustand wird nie gespeichert.
+17. **Schultage sind Mo–Fr.** Datums-Sprünge und -Leisten über `isSchoolDay`/`nextSchoolDay`/`addSchoolDays`, nicht über `addDays(d, 1)`.
+18. **Inline-`onclick` in index.html wird im Test (jsdom) nicht ausgeführt**, weil app.js nicht im Fenster-Kontext läuft. Im Test die Funktion per `app('f()')` aufrufen und das Attribut separat prüfen.
 
 ## Arbeitsablauf
 

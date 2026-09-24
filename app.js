@@ -194,6 +194,16 @@ function formatDate(d) {
 function parseDate(dateStr) { return new Date(dateStr + 'T12:00:00'); }
 function addDays(d, n) { const r = new Date(d); r.setDate(r.getDate() + n); return r; }
 function mondayOf(d) { return addDays(d, -((d.getDay() + 6) % 7)); }
+// Schultage = Mo–Fr. Sa/So → folgender Montag
+function isSchoolDay(d) { return d.getDay() !== 0 && d.getDay() !== 6; }
+function nextSchoolDay(d) { let r = new Date(d); while (!isSchoolDay(r)) r = addDays(r, 1); return r; }
+// n Schultage weiter (n < 0: zurück), Wochenenden werden übersprungen
+function addSchoolDays(d, n) {
+  let r = new Date(d);
+  const step = n < 0 ? -1 : 1;
+  for (let left = Math.abs(n); left > 0;) { r = addDays(r, step); if (isSchoolDay(r)) left--; }
+  return r;
+}
 // Fortlaufende Wochennummer seit dem Referenz-Montag 29.12.1969 – ohne Sprung am Jahreswechsel (KW 53)
 function weekIndex(dateStr) {
   const d = parseDate(dateStr);
@@ -2526,7 +2536,7 @@ function exportGradesCSV() {
   if (!g) return;
   
   const students = db.students[g.id] || [];
-  let csvContent = "\uFEFFNachname;Vorname;Schularbeiten;Sonstige;Gesamtnote\n"; // \uFEFF is BOM for Excel to read UTF-8 correctly
+  let csvContent = "\uFEFFNachname;Vorname;Klassenarbeiten;Sonstige;Gesamtnote\n"; // \uFEFF is BOM for Excel to read UTF-8 correctly
   const fmt = v => v !== null ? v.toFixed(2).replace('.', ',') : '';
   
   sortStudents(students).forEach(s => {
@@ -2629,7 +2639,10 @@ function getSuggestedSeatingGroupId() {
 }
 
 function initSeatingPlan() {
-  if (!currentSeatingDateStr) currentSeatingDateStr = formatDate(new Date());
+  if (!currentSeatingDateStr) currentSeatingDateStr = formatDate(nextSchoolDay(new Date()));
+  // Datenschutz (BUGS H1): Noten bei jedem Öffnen wieder verborgen, Zustand wird nicht gespeichert
+  seatingShowGrades = false;
+  updateSeatingGradesButton();
   
   const suggestedGroupId = getSuggestedSeatingGroupId();
   if (suggestedGroupId) {
@@ -2735,12 +2748,11 @@ function renderSeatingDateStrip() {
   if (!container) return;
   container.innerHTML = '';
   
-  const baseDate = currentSeatingDateStr ? parseDate(currentSeatingDateStr) : new Date();
+  const baseDate = nextSchoolDay(currentSeatingDateStr ? parseDate(currentSeatingDateStr) : new Date());
   
   const days = ['So','Mo','Di','Mi','Do','Fr','Sa'];
   for(let i = -2; i <= 2; i++) {
-    const d = new Date(baseDate);
-    d.setDate(d.getDate() + i);
+    const d = addSchoolDays(baseDate, i);
     const dStr = formatDate(d);
     
     const chip = document.createElement('div');
@@ -2762,10 +2774,27 @@ function renderSeatingDateStrip() {
 
 function onHiddenDateChange(val) {
   if (val) {
-    currentSeatingDateStr = val;
+    currentSeatingDateStr = formatDate(nextSchoolDay(parseDate(val)));
     renderSeatingDateStrip();
     renderSeatingPlan();
   }
+}
+
+// BUGS H1: Notenschnitt auf den Karten nur auf Knopfdruck (Tablet am Pult / Beamer)
+let seatingShowGrades = false;
+function toggleSeatingGrades() {
+  seatingShowGrades = !seatingShowGrades;
+  updateSeatingGradesButton();
+  renderSeatingPlan();
+}
+function updateSeatingGradesButton() {
+  const btn = document.getElementById('btn-seating-grades');
+  if (!btn) return;
+  btn.classList.toggle('active', seatingShowGrades);
+  btn.title = seatingShowGrades ? 'Noten verbergen' : 'Noten anzeigen';
+  btn.setAttribute('aria-pressed', seatingShowGrades ? 'true' : 'false');
+  btn.querySelector('.eye-open').style.display = seatingShowGrades ? '' : 'none';
+  btn.querySelector('.eye-closed').style.display = seatingShowGrades ? 'none' : '';
 }
 
 let seatingEditMode = false;
@@ -2917,6 +2946,7 @@ function renderSeatingPlan() {
     
     // check absence, hw and participation
     const absence = (s.attendance||[]).find(a => a.date === dateStr && (a.type === 'abwesend' || a.type === 'entschuldigt'));
+    const late = (s.attendance||[]).some(a => a.date === dateStr && a.type === 'zuspät');
     const forgotHw = (s.homework||[]).some(h => h.date === dateStr);
     const participation = (s.participation||[]).find(p => p.date === dateStr);
 
@@ -2978,7 +3008,8 @@ function renderSeatingPlan() {
 
     card.innerHTML = `
       <div class="sc-name" style="font-size:13px; margin-top:2px;">${escHtml(s.firstName)}</div>
-      <div class="sc-gpa" style="color:${gradeColor(parseFloat(avg))}">${avg}</div>
+      ${seatingShowGrades ? `<div class="sc-gpa" style="color:${gradeColor(rawAvg ?? NaN)}">${avg}</div>` : ''}
+      ${late ? '<div class="sc-late-note">Zu spät</div>' : ''}
       ${forgotHw ? '<div class="sc-hw-note">Keine HA</div>' : ''}
       ${partHtml}
     `;
@@ -3265,7 +3296,8 @@ function setSeatingAbsence(type) {
   if (wasAbwesend && type !== 'abwesend') {
     removeNextLessonNote(groupId, dateStr, `${s.firstName} hat letzte Stunde unentschuldigt gefehlt`);
   }
-  s.attendance = s.attendance.filter(a => a.date !== dateStr || (a.type !== 'abwesend' && a.type !== 'entschuldigt'));
+  // Fehlen und „zu spät“ schließen sich am selben Tag aus
+  s.attendance = s.attendance.filter(a => a.date !== dateStr || (a.type !== 'abwesend' && a.type !== 'entschuldigt' && a.type !== 'zuspät'));
   
   // Add new
   s.attendance.push({ id: uid(), date: dateStr, type: type, note: '' });
@@ -3304,6 +3336,36 @@ function setSeatingAbsence(type) {
   renderSeatingPlan();
   closeModal('modal-seating-student');
   showToast(type === 'abwesend' ? 'Unentschuldigt eingetragen' : 'Entschuldigt eingetragen');
+}
+
+// BUGS H8: „zu spät“ direkt aus der Schnellbewertung; zweiter Klick nimmt es zurück
+function setSeatingLate() {
+  if (!window.currentSeatingStudent) return;
+  const { studentId, groupId, dateStr } = window.currentSeatingStudent;
+  const s = db.students[groupId]?.find(x => x.id === studentId);
+  if (!s) return;
+  if (!s.attendance) s.attendance = [];
+
+  const existing = s.attendance.find(a => a.date === dateStr && a.type === 'zuspät');
+  if (existing) {
+    s.attendance.splice(s.attendance.indexOf(existing), 1);
+    saveDB();
+    renderSeatingPlan();
+    closeModal('modal-seating-student');
+    showToast('Eintrag entfernt');
+    return;
+  }
+
+  // Wer zu spät kommt, fehlt nicht: ein Fehlen am selben Tag wird ersetzt
+  if (s.attendance.some(a => a.date === dateStr && a.type === 'abwesend')) {
+    removeNextLessonNote(groupId, dateStr, `${s.firstName} hat letzte Stunde unentschuldigt gefehlt`);
+  }
+  s.attendance = s.attendance.filter(a => a.date !== dateStr || (a.type !== 'abwesend' && a.type !== 'entschuldigt'));
+  s.attendance.push({ id: uid(), date: dateStr, type: 'zuspät', note: '' });
+  saveDB();
+  renderSeatingPlan();
+  closeModal('modal-seating-student');
+  showToast('Zu spät eingetragen', 'warning');
 }
 
 function setSeatingHomework() {
@@ -3708,7 +3770,7 @@ function gradeColor(val) {
 }
 
 function gradeTypeLabel(type) {
-  return {schularbeit:'Schularbeit',test:'Test',muendlich:'Mündlich',mitarbeit:'Mitarbeit',
+  return {schularbeit:'Klassenarbeit',klausur:'Klausur',test:'Test',muendlich:'Mündlich',mitarbeit:'Mitarbeit',
           projekt:'Projekt',hausaufgabe:'HA',sonstig:'Sonstiges'}[type] || type;
 }
 

@@ -38,7 +38,7 @@
       }
     } catch(e) {}
   </script>
-  <link rel="stylesheet" href="style.css?v=181" />
+  <link rel="stylesheet" href="style.css?v=182" />
   <script>
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
@@ -240,6 +240,11 @@
               </label>
             </div>
           </div>
+          <!-- Noten ein-/ausblenden (Datenschutz, standardmäßig aus) -->
+          <button id="btn-seating-grades" class="btn-icon" style="width:34px; height:34px;" onclick="toggleSeatingGrades()" title="Noten anzeigen" aria-pressed="false">
+            <svg class="eye-closed" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="pointer-events:none;"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/><path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/><path d="M14.12 14.12a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+            <svg class="eye-open" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="pointer-events:none; display:none;"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+          </button>
           <!-- Bearbeiten -->
           <button id="btn-seating-edit" class="btn-icon" style="width:34px; height:34px;" onclick="toggleSeatingEditMode()" title="Sitzplan bearbeiten">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="pointer-events:none;"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
@@ -396,7 +401,7 @@
       <div class="notes-section">
         <div class="notes-section-header">
           <span class="notes-section-icon">✍️</span>
-          <span class="notes-section-label">Test / Schularbeit angekündigt</span>
+          <span class="notes-section-label">Test / Klassenarbeit angekündigt</span>
           <label class="toggle-switch">
             <input type="checkbox" id="test-toggle" onchange="toggleSection('test')">
             <span class="toggle-slider"></span>
@@ -533,7 +538,7 @@
         <select id="gf-type" class="form-input">
           <option value="mitarbeit">Mitarbeit (+/-)</option>
           <option value="test">Test / HÜ</option>
-          <option value="schularbeit">Schularbeit / Klausur</option>
+          <option value="schularbeit">Klassenarbeit / Klausur</option>
           <option value="muendlich">Mündliche Prüfung</option>
           <option value="projekt">Projekt / Referat</option>
           <option value="hausaufgabe">Hausaufgabe</option>
@@ -581,10 +586,10 @@
       <div class="form-group"><label>Farbe</label><div class="color-picker" id="group-color-picker"></div></div>
       <div class="form-group" style="margin-top:20px; border-top:1px solid var(--border); padding-top:16px;">
         <label>Noten-Wichtung (in %)</label>
-        <p style="font-size:12px; color:var(--text-muted); margin-bottom:12px; line-height:1.4;">Lege fest, zu wie viel Prozent die <strong>Schularbeiten / Klausuren</strong> in die Gesamtnote zählen. Alle anderen Noten werden zusammengefasst und bilden den restlichen Prozent-Anteil.</p>
+        <p style="font-size:12px; color:var(--text-muted); margin-bottom:12px; line-height:1.4;">Lege fest, zu wie viel Prozent die <strong>Klassenarbeiten / Klausuren</strong> in die Gesamtnote zählen. Alle anderen Noten werden zusammengefasst und bilden den restlichen Prozent-Anteil.</p>
         <div style="display:flex; align-items:center; gap:12px;">
           <input type="number" id="weight-schularbeit" class="form-input" style="width:80px;" value="50" min="0" max="100" />
-          <span style="font-size:13px; font-weight:600; color:var(--text-secondary);">% für Schularbeiten / Klausuren</span>
+          <span style="font-size:13px; font-weight:600; color:var(--text-secondary);">% für Klassenarbeiten / Klausuren</span>
         </div>
       </div>
     </div>
@@ -695,7 +700,7 @@
         <label>Art der Note</label>
         <select id="new-col-type" class="form-input">
           <option value="test">Sonstige Note (Test, Mitarbeit, etc.)</option>
-          <option value="schularbeit">Schularbeit / Klausur</option>
+          <option value="schularbeit">Klassenarbeit / Klausur</option>
         </select>
       </div>
     </div>
@@ -1065,7 +1070,10 @@
               <button class="btn-secondary" style="flex:1; color:var(--danger); border-color:var(--danger);" onclick="setSeatingAbsence('abwesend')">❌ Unentschuldigt</button>
               <button class="btn-secondary" style="flex:1; color:var(--success); border-color:var(--success);" onclick="setSeatingAbsence('entschuldigt')">✅ Entschuldigt</button>
             </div>
-            <button class="btn-secondary" style="width:100%; color:var(--warning); border-color:var(--warning);" onclick="setSeatingHomework()">📝 Hausaufgabe fehlt</button>
+            <div style="display:flex; gap:8px;">
+              <button class="btn-secondary" style="flex:1;" onclick="setSeatingLate()">⏰ Zu spät</button>
+              <button class="btn-secondary" style="flex:1; color:var(--warning); border-color:var(--warning);" onclick="setSeatingHomework()">📝 Hausaufgabe fehlt</button>
+            </div>
           </div>
         </div>
         <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--border); padding-bottom:6px; margin-bottom:10px;">
@@ -1126,6 +1134,6 @@
   <script src="lib/firebase-firestore-compat.js"></script>
   <script src="firebase-config.js"></script>
   <script src="sync-manager.js"></script>
-  <script src="app.js?v=181"></script>
+  <script src="app.js?v=182"></script>
 </body>
 </html>

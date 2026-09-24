@@ -154,13 +154,13 @@ describe('B3: überall derselbe (gewichtete) Durchschnitt', () => {
 
   it('Sitzplan', () => {
     app('currentSeatingGroupId = "g1"; currentSeatingDateStr = "2026-09-10"');
-    app('renderSeatingPlan()');
+    app('seatingShowGrades = true; renderSeatingPlan()'); // H1: Noten sind standardmäßig verborgen
     expect(document.querySelector('.seating-card .sc-gpa').textContent).toBe('2.0');
   });
 });
 
 describe('B4: CSV-Export nach Gewichtungs-Kategorien', () => {
-  it('Spalten Schularbeiten/Sonstige passen zur Gesamtnote', async () => {
+  it('Spalten Klassenarbeiten/Sonstige passen zur Gesamtnote', async () => {
     let blob = null;
     const origCreate = URL.createObjectURL, origRevoke = URL.revokeObjectURL;
     URL.createObjectURL = (b) => { blob = b; return 'blob:test'; };
@@ -177,7 +177,7 @@ describe('B4: CSV-Export nach Gewichtungs-Kategorien', () => {
     }
     const text = await new Promise(res => { const r = new FileReader(); r.onload = () => res(r.result); r.readAsText(blob); });
     const lines = text.replace(/^﻿/, '').trim().split('\n');
-    expect(lines[0]).toBe('Nachname;Vorname;Schularbeiten;Sonstige;Gesamtnote');
+    expect(lines[0]).toBe('Nachname;Vorname;Klassenarbeiten;Sonstige;Gesamtnote');
     // Schularbeit 1; Sonstige (3+3+5)/3 = 3,67; gesamt 50/50 = 2,33
     expect(lines[1]).toBe('"Muster";"Anna";"1,00";"3,67";"2,33"');
   });
@@ -234,5 +234,24 @@ describe('B7: leere Bemerkung', () => {
     app('openSeatingStudentModal("s1", "g1", "2026-09-10")');
     expect(document.getElementById('seating-student-grades').textContent).toContain('Test');
     app('closeModal("modal-seating-student")');
+  });
+});
+
+describe('H6: „Klassenarbeit“ statt „Schularbeit“ in der Oberfläche', () => {
+  it('kein sichtbarer Text in index.html sagt „Schularbeit“', () => {
+    const fs = require('fs'), path = require('path');
+    const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+    const doc = new DOMParser().parseFromString(html, 'text/html');
+    expect(doc.body.textContent).not.toMatch(/Schularbeit/i);
+    expect(doc.body.textContent).toMatch(/Klassenarbeit/);
+  });
+
+  it('Notentyp-Bezeichnung', () => {
+    expect(app('gradeTypeLabel("schularbeit")')).toBe('Klassenarbeit');
+    expect(app('gradeTypeLabel("klausur")')).toBe('Klausur');
+  });
+
+  it('interner Schlüssel bleibt „schularbeit“', () => {
+    expect(document.querySelector('#gf-type option[value="schularbeit"]')).not.toBeNull();
   });
 });
