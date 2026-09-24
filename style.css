@@ -104,13 +104,13 @@ input[type="date"] { min-height: 1.2em; } /* Fix iOS Safari date input collapse 
 
 /* ─── Timetable ──────────────────────── */
 .timetable-grid-wrapper{flex:1;overflow:auto;padding:24px 24px;display:flex;flex-direction:column;}
-.timetable-grid{display:grid;gap:12px;min-width:650px;flex:1;}
+.timetable-grid{display:grid;gap:12px;flex:1;}
 .timetable-grid.day-view{min-width:0;align-content:start;}
 .timetable-grid.day-view .tt-day-header{font-size:15px;text-align:left;padding:4px 2px 8px;}
 .timetable-grid.day-view .tt-time-label{padding:0 4px 0 0;}
-/* Handy: Tagesansicht ohne seitliches Scrollen (BUGS H2) */
+/* Stundenplan passt sich der Breite an (iPad hochkant, BUGS H4), auf dem Handy als Tagesansicht (BUGS H2) */
+#main-content:has(#view-timetable.active){min-width:0;}
 @media(max-width:699px){
-  #main-content:has(#view-timetable.active){min-width:0;}
   #view-timetable .view-header{padding:0 12px;}
   #view-timetable .view-header h1{display:none;}
   #view-timetable .header-actions{margin-left:0 !important;gap:8px !important;min-width:0;}
@@ -123,16 +123,38 @@ input[type="date"] { min-height: 1.2em; } /* Fix iOS Safari date input collapse 
 .tt-time-block-name{font-size:12px;font-weight:700;color:var(--text-secondary);}
 .tt-time-block-range{font-size:11px;color:var(--text-muted);margin-top:4px;line-height:1.5;}
 .tt-cell{border-radius:var(--radius-md);background:var(--bg-card);border:1px solid var(--border);padding:5px;position:relative;}
-.tt-lesson{border-radius:var(--radius-sm);padding:14px 14px;cursor:pointer;transition:all var(--transition);height:100%;display:flex;flex-direction:column;justify-content:space-between;position:relative;overflow:hidden;}
+.tt-lesson{border-radius:var(--radius-sm);padding:10px 10px;min-width:0;cursor:pointer;transition:all var(--transition);height:100%;display:flex;flex-direction:column;justify-content:space-between;position:relative;overflow:hidden;}
 .tt-lesson::before{content:'';position:absolute;left:0;top:0;bottom:0;width:4px;border-radius:4px 0 0 4px;background:currentColor;opacity:.8;}
 .tt-lesson:hover{transform:translateY(-1px);box-shadow:var(--shadow-md);filter:brightness(1.1);}
 .tt-lesson:active{transform:scale(.98);}
 .tt-lesson.ausfall-lesson{opacity:.38;text-decoration:line-through;}
 
-/* ─── Timetable cell lesson display ─── */
-.tt-lesson-class{font-size:20px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;opacity:.8;margin-bottom:6px;padding-left:10px;}
-.tt-lesson-name{font-size:20px;font-weight:700;line-height:1.2;padding-left:10px;}
-.tt-lesson-room{font-size:20px;opacity:.7;margin-top:6px;padding-left:10px;}
+/* ─── Timetable cell lesson display (BUGS H4) ─── */
+.tt-lesson-head{min-width:0;padding-left:8px;}
+.tt-lesson-class{font-size:19px;font-weight:800;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.tt-lesson-subject{font-size:12.5px;font-weight:600;opacity:.8;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.tt-lesson-foot{display:flex;flex-wrap:wrap;align-items:center;gap:4px 6px;padding-left:8px;margin-top:6px;min-width:0;}
+.tt-lesson-badge{font-size:11px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;}
+.tt-status-row{display:flex;gap:5px;margin-left:auto;flex-shrink:0;}
+.tt-status{display:inline-flex;width:15px;height:15px;opacity:.85;}
+.tt-status svg{width:100%;height:100%;}
+.tt-status-hw{color:#f59e0b;}
+.tt-status-test{color:#ef4444;}
+.tt-status-notiz{color:var(--text-muted);}
+/* Laufende Stunde: kräftig; nächste Stunde: dezent */
+.tt-lesson.running{box-shadow:0 0 0 2px currentColor,var(--shadow-md);}
+.tt-lesson.running .tt-lesson-badge{background:var(--lesson-color);color:#fff;border-radius:4px;padding:2px 6px;}
+.tt-lesson.next{outline:1.5px dashed currentColor;outline-offset:-1.5px;}
+.tt-lesson.next .tt-lesson-badge{opacity:.75;font-weight:600;}
+/* iPad hochkant: schmale Spalten, weniger Rand */
+@media(min-width:700px) and (max-width:1000px){
+  .tt-cell{padding:3px;}
+  .tt-lesson{padding:8px 6px;}
+  .tt-lesson-head,.tt-lesson-foot{padding-left:5px;}
+  .tt-lesson-class{font-size:16px;}
+  .tt-lesson-subject{font-size:11.5px;}
+  .tt-time-label{padding-right:8px;}
+}
 
 /* ─── Group preview box in modal ─────── */
 .group-preview{background:var(--bg-elevated);border:1px solid var(--border-active);border-radius:10px;padding:10px 14px;margin-bottom:12px;}
@@ -140,8 +162,6 @@ input[type="date"] { min-height: 1.2em; } /* Fix iOS Safari date input collapse 
 .group-preview-dot{color:var(--text-muted);font-size:14px;}
 .group-preview-hint{font-size:11px;color:var(--text-muted);margin-top:4px;}
 
-.tt-lesson-indicators{display:flex;gap:4px;padding-left:10px;margin-top:8px;flex-wrap:wrap;}
-.tt-indicator{font-size:10px;font-weight:700;padding:2px 6px;border-radius:4px;opacity:.9;letter-spacing:.2px;text-transform:uppercase;}
 .tt-empty-cell{height:100%;display:flex;align-items:center;justify-content:center;border-radius:var(--radius-sm);border:1.5px dashed transparent;transition:all var(--transition);cursor:pointer;width:100%;}
 .tt-add-icon{font-size:20px;font-weight:200;color:transparent;transition:all var(--transition);}
 .tt-empty-cell:hover{border-color:var(--accent);background:var(--accent-soft);}
@@ -170,24 +190,23 @@ input[type="date"] { min-height: 1.2em; } /* Fix iOS Safari date input collapse 
   border-radius: var(--radius-sm);
   border: 1.5px dashed transparent;
 }
-.tt-split-half .tt-lesson-class,
-.tt-split-half .tt-lesson-name,
-.tt-split-half .tt-lesson-room {
-  font-size: 13px;
-  padding-left: 6px;
-  margin-bottom: 2px;
-  margin-top: 2px;
+.tt-split-half .tt-lesson-head,
+.tt-split-half .tt-lesson-foot {
+  padding-left: 5px;
 }
-.tt-split-half .tt-lesson-name {
+.tt-split-half .tt-lesson-class {
   font-size: 14px;
 }
-.tt-split-half .tt-lesson-indicators {
-  margin-top: 4px;
-  padding-left: 6px;
+.tt-split-half .tt-lesson-subject {
+  font-size: 11px;
+  margin-top: 1px;
 }
-.tt-split-half .tt-indicator {
-  font-size: 8px;
-  padding: 1px 4px;
+.tt-split-half .tt-lesson-foot {
+  margin-top: 2px;
+}
+.tt-split-half .tt-status {
+  width: 12px;
+  height: 12px;
 }
 /* ─── Classes grid ───────────────────── */
 #subject-groups-container {

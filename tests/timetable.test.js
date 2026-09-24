@@ -398,3 +398,82 @@ describe('H2: Tagesansicht auf dem Handy', () => {
     expect(label()).toContain('05.10. – 09.10.');
   });
 });
+
+describe('H4: Stundenplan-Kacheln', () => {
+  const grid = () => document.getElementById('timetable-grid');
+  const lessonEl = (slotId, dateStr) =>
+    [...grid().querySelectorAll('.tt-lesson')].find(el => el.getAttribute('onclick') === `openLessonDetail('${slotId}','${dateStr}')`);
+  const css = require('fs').readFileSync(require('path').join(__dirname, '..', 'style.css'), 'utf8');
+  afterEach(() => vi.useRealTimers());
+
+  it('Kacheln teilen sich die volle Breite und Höhe (keine festen Quadrate)', () => {
+    app('jumpToDate("2026-10-05")');
+    expect(grid().style.gridTemplateColumns).toMatch(/1fr/);
+    expect(grid().style.gridTemplateColumns).not.toMatch(/\d+(\.\d+)?px \d+(\.\d+)?px \d+(\.\d+)?px/);
+    expect(grid().style.gridTemplateRows).toMatch(/1fr/);
+  });
+
+  it('Klasse groß, Fach klein; lange Namen enden mit „…“', () => {
+    app('db.groups[0].subject = "Mathematik"');
+    app('jumpToDate("2026-10-05")');
+    const el = lessonEl('slotA', '2026-10-05');
+    expect(el.querySelector('.tt-lesson-class').textContent).toBe('1A');
+    expect(el.querySelector('.tt-lesson-subject').textContent).toContain('Mathematik');
+    expect(css).toMatch(/\.tt-lesson-class\{[^}]*text-overflow:ellipsis/);
+    expect(css).toMatch(/\.tt-lesson-subject\{[^}]*text-overflow:ellipsis/);
+  });
+
+  it('Stunde ohne Klasse: Fach als Titel', () => {
+    app('jumpToDate("2026-09-09")');
+    expect(lessonEl('slotAB', '2026-09-09').querySelector('.tt-lesson-class').textContent).toBe('Physik');
+  });
+
+  it('laufende Stunde hervorgehoben mit Restzeit, nächste Stunde dezent markiert', () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date(2026, 8, 9, 7, 30)); // Mi 09.09.2026, vor dem 1. Block
+    app('db.lessonSlots.push({ id: "slotW1", day: 2, block: 1, subject: "Deutsch", recurring: "weekly", color: "#6366f1", part: "full" })');
+    app('renderTimetable()');
+    expect(lessonEl('slotW1', '2026-09-09').classList.contains('next')).toBe(true);
+    expect(grid().querySelectorAll('.tt-lesson.running').length).toBe(0);
+
+    vi.setSystemTime(new Date(2026, 8, 9, 8, 52)); // 1. Block 07:45–09:15 → noch 23 min
+    app('renderTimetable()');
+    const running = lessonEl('slotW1', '2026-09-09');
+    expect(running.classList.contains('running')).toBe(true);
+    expect(running.textContent).toContain('läuft noch 23 min');
+    expect(lessonEl('slotAB', '2026-09-09').classList.contains('next')).toBe(true);
+    expect(grid().querySelectorAll('.tt-lesson.next').length).toBe(1);
+  });
+
+  it('andere Wochen zeigen keine laufende/nächste Stunde', () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date(2026, 9, 5, 8, 0)); // Mo 05.10.2026 im 1. Block
+    app('jumpToDate("2026-10-12")');
+    expect(grid().querySelectorAll('.tt-lesson.running, .tt-lesson.next').length).toBe(0);
+    app('jumpToDate("2026-10-05")');
+    expect(lessonEl('slotA', '2026-10-05').classList.contains('running')).toBe(true);
+  });
+
+  it('Status-Symbole für Inhalt, Hausaufgabe und Test', () => {
+    app(`db.lessonData['slotA_2026-10-05'] = { done: 'Brüche', hwEnabled: true, hwItems: [{ text: 'S. 12' }],
+      testEnabled: true, testItems: [{ text: 'KA' }] }`);
+    app('jumpToDate("2026-10-05")');
+    const kinds = [...lessonEl('slotA', '2026-10-05').querySelectorAll('.tt-status')].map(s => s.dataset.kind);
+    expect(kinds).toEqual(expect.arrayContaining(['inhalt', 'hw', 'test']));
+    expect(lessonEl('slotA', '2026-10-05').querySelector('.tt-status[data-kind="hw"]').getAttribute('title')).toBe('Hausaufgabe');
+    // nur eine Notiz (Beispieldaten 12.10.) → nur das Notiz-Symbol
+    app('jumpToDate("2026-10-12")');
+    expect([...lessonEl('slotA', '2026-10-12').querySelectorAll('.tt-status')].map(s => s.dataset.kind)).toEqual(['notiz']);
+  });
+
+  it('Restzeit zählt mit, wenn der Plan offen bleibt', () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date(2026, 9, 5, 8, 52)); // Mo 05.10.2026, 1. Block
+    app('switchView("timetable")');
+    app('jumpToDate("2026-10-05")');
+    expect(lessonEl('slotA', '2026-10-05').textContent).toContain('läuft noch 23 min');
+    vi.setSystemTime(new Date(2026, 9, 5, 8, 53));
+    app('refreshTimetableClock()');
+    expect(lessonEl('slotA', '2026-10-05').textContent).toContain('läuft noch 22 min');
+  });
+});

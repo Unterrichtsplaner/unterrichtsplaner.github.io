@@ -335,47 +335,28 @@ function renderTimetableWeek(grid) {
   if (weekLabel) weekLabel.classList.toggle('active', isCurrentWeek);
 
   grid.innerHTML = '';
-  
-  // Calculate dynamic square cell size that fits the screen
+  // Kacheln teilen sich Breite und Höhe (BUGS H4); zu viele Blöcke oder zu schmal: scrollen statt quetschen
   const wrapper = grid.parentElement;
-  const availW = wrapper.clientWidth - 48; // padding 24+24
-  const availH = wrapper.clientHeight - 48;
-  
-  const daysW = availW - 84 - 60; // 84px for time label, 60px for 5 gaps of 12px
-  const maxCellW = daysW / 5;
-  
-  const blocksH = availH - 60 - (blocks.length * 12); // ~60px header, gaps
-  const maxCellH = blocksH / blocks.length;
-  
-  let cellSize = Math.min(maxCellW, maxCellH);
-  const fits = cellSize >= 80;
-  if (!fits) cellSize = 80;
-  
-  const actualContentWidth = 84 + 12 + (5 * cellSize);
-  const extraSpace = Math.max(0, availW - actualContentWidth);
-  const extraGap = extraSpace / 4; // distribute across the 4 gaps between the 5 days
-  
+  wrapper.style.overflow = 'auto';
   grid.style.margin = '0';
-  wrapper.style.overflow = fits ? 'hidden' : 'auto'; // zu viele Blöcke / zu klein: scrollen statt abschneiden
-  grid.style.justifyContent = 'start';
-  
-  // 11 columns: Time, gap, Mo, gap, Tu, gap, We, gap, Th, gap, Fr
-  grid.style.gridTemplateColumns = `84px 12px ${cellSize}px ${extraGap}px ${cellSize}px ${extraGap}px ${cellSize}px ${extraGap}px ${cellSize}px ${extraGap}px ${cellSize}px`;
-  grid.style.gridTemplateRows = `auto repeat(${blocks.length}, ${cellSize}px)`;
-  grid.style.rowGap = '12px';
-  grid.style.columnGap = '0px';
+  grid.style.justifyContent = 'stretch';
+  grid.style.gridTemplateColumns = '64px repeat(5, minmax(84px, 1fr))';
+  grid.style.gridTemplateRows = `auto repeat(${blocks.length}, minmax(88px, 1fr))`;
+  grid.style.rowGap = '10px';
+  grid.style.columnGap = '10px';
+  const clock = timetableClock();
 
   // Header row
   const corner = document.createElement('div');
   corner.className = 'tt-corner';
   corner.style.gridColumn = '1';
   grid.appendChild(corner);
-  
+
   dates.forEach((d, i) => {
     const el = document.createElement('div');
     el.className = 'tt-day-header' + (isToday(d) ? ' today' : '');
     el.innerHTML = `<div>${DAY_SHORT[i]}</div><div style="font-size:10px;font-weight:400;margin-top:1px">${formatDateDE(d)}</div>`;
-    el.style.gridColumn = (3 + i * 2).toString();
+    el.style.gridColumn = String(2 + i);
     grid.appendChild(el);
   });
 
@@ -383,8 +364,8 @@ function renderTimetableWeek(grid) {
   blocks.forEach(block => {
     grid.appendChild(buildTimeLabel(block));
     dates.forEach((d, dayIdx) => {
-      const cell = buildTimetableCell(d, dayIdx, block);
-      cell.style.gridColumn = (3 + dayIdx * 2).toString();
+      const cell = buildTimetableCell(d, dayIdx, block, clock);
+      cell.style.gridColumn = String(2 + dayIdx);
       grid.appendChild(cell);
     });
   });
@@ -417,9 +398,10 @@ function renderTimetableDay(grid) {
   header.textContent = `${DAYS[dayIdx]}, ${formatDateDE(d)}`;
   grid.appendChild(header);
 
+  const clock = timetableClock();
   blocks.forEach(block => {
     grid.appendChild(buildTimeLabel(block));
-    const cell = buildTimetableCell(d, dayIdx, block);
+    const cell = buildTimetableCell(d, dayIdx, block, clock);
     cell.style.gridColumn = '2';
     grid.appendChild(cell);
   });
@@ -434,15 +416,46 @@ function buildTimeLabel(block) {
   return timeEl;
 }
 
+// Uhrzeit für die Hervorhebung im Stundenplan: laufende Stunde + nächste Stunde (BUGS H4)
+function timetableClock(now = new Date()) {
+  return { todayStr: formatDate(now), nowMins: now.getHours() * 60 + now.getMinutes(), next: findNextLesson(now) };
+}
+// Läuft gerade eine Stunde bzw. ändert sich die „nächste“: jede Minute neu zeichnen
+let timetableClockMinute = null;
+function refreshTimetableClock() {
+  const view = document.getElementById('view-timetable');
+  if (!view || !view.classList.contains('active') || document.hidden) return;
+  const now = new Date();
+  const minute = formatDate(now) + ' ' + now.getHours() + ':' + now.getMinutes();
+  if (minute === timetableClockMinute) return;
+  timetableClockMinute = minute;
+  renderTimetable();
+}
+setInterval(refreshTimetableClock, 20000);
+document.addEventListener('visibilitychange', refreshTimetableClock);
+
+// Linien-Icons für die Status-Symbole einer Stunde
+const TT_STATUS_ICONS = {
+  inhalt: '<path d="M2 4h6a4 4 0 0 1 4 4v13a3 3 0 0 0-3-3H2z"/><path d="M22 4h-6a4 4 0 0 0-4 4v13a3 3 0 0 1 3-3h7z"/>',
+  hw:     '<path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/>',
+  test:   '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><polyline points="9 15 11 17 15 13"/>',
+  notiz:  '<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>',
+};
+const TT_STATUS_TITLES = { inhalt: 'Inhalt', hw: 'Hausaufgabe', test: 'Test angekündigt', notiz: 'Notiz' };
+function ttStatusIcon(kind) {
+  return `<span class="tt-status tt-status-${kind}" data-kind="${kind}" title="${TT_STATUS_TITLES[kind]}">` +
+    `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${TT_STATUS_ICONS[kind]}</svg></span>`;
+}
+
 // Eine Zelle (Tag × Block) mit ihren Stunden bzw. „+“ zum Anlegen
-function buildTimetableCell(d, dayIdx, block) {
+function buildTimetableCell(d, dayIdx, block, clock = timetableClock()) {
   const dateStr = formatDate(d);
   const cell = document.createElement('div');
   cell.className = 'tt-cell';
 
   const lessons = lessonsAt(dateStr, block.num);
 
-  const renderLessonHTML = (lesson, extraClasses = '') => {
+  const renderLessonHTML = (lesson) => {
     const key  = lesson.id + '_' + dateStr;
     const data = db.lessonData[key] || {};
     const isAusfall = !!data.ausfall;
@@ -452,31 +465,31 @@ function buildTimetableCell(d, dayIdx, block) {
     const activeTest = (data.testItems||[]).filter(i => !i.targetDate || i.targetDate === dateStr);
     const hasTest    = (data.testEnabled && activeTest.length > 0) || incoming.tests.length > 0;
 
-    const indicators = [];
-    if (hasHW)   indicators.push({ label:'HA',   color:'#f59e0b' });
-    if (hasTest) indicators.push({ label:'Test',  color:'#ef4444' });
-    if (data.notes) indicators.push({ label:'Notiz', color:'#64748b' });
+    const status = [];
+    if (data.done && data.done.trim()) status.push('inhalt');
+    if (hasHW)   status.push('hw');
+    if (hasTest) status.push('test');
+    if (data.notes && data.notes.trim()) status.push('notiz');
 
-    let displayMain, displaySub;
-    if (lesson.groupId) {
-      const group = db.groups.find(g => g.id === lesson.groupId);
-      if (group) { displayMain = group.subject; displaySub  = group.className; }
-      else { displayMain = lesson.subject; displaySub  = null; }
-    } else { displayMain = lesson.subject; displaySub  = null; }
+    // Klasse groß, Fach (+ Raum) klein; ohne Klasse ist das Fach der Titel
+    const t = lessonTitle(lesson);
+    const sub = [t.sub, lesson.room].filter(Boolean).map(escHtml).join(' · ');
 
-    return `<div class="tt-lesson${isAusfall?' ausfall-lesson':''} ${extraClasses}"
-           style="background:${hexToRgba(lesson.color,0.15)};color:${lesson.color}"
+    const range = lessonTimeRange(block, lesson.part);
+    const running = !isAusfall && dateStr === clock.todayStr && range &&
+      range.start <= clock.nowMins && clock.nowMins < range.end;
+    const isNext = !running && clock.next && clock.next.slot.id === lesson.id && clock.next.dateStr === dateStr;
+    const badge = running ? `<span class="tt-lesson-badge">läuft noch ${range.end - clock.nowMins} min</span>`
+                : isNext ? `<span class="tt-lesson-badge">als Nächstes</span>` : '';
+
+    return `<div class="tt-lesson${isAusfall?' ausfall-lesson':''}${running?' running':''}${isNext?' next':''}"
+           style="background:${hexToRgba(lesson.color,0.15)};color:${lesson.color};--lesson-color:${lesson.color}"
            onclick="openLessonDetail('${lesson.id}','${dateStr}')">
-        <div>
-          ${displaySub ? `<div class="tt-lesson-class">${escHtml(displaySub)}</div>` : ''}
-          <div class="tt-lesson-name">${escHtml(displayMain)}</div>
-          ${lesson.room?`<div class="tt-lesson-room">${escHtml(lesson.room)}</div>`:''}
+        <div class="tt-lesson-head">
+          <div class="tt-lesson-class">${escHtml(t.main)}</div>
+          ${sub ? `<div class="tt-lesson-subject">${sub}</div>` : ''}
         </div>
-        <div class="tt-lesson-indicators">
-          ${indicators.map(ind =>
-            `<span class="tt-indicator" style="background:${hexToRgba(ind.color,0.2)};color:${ind.color}">${ind.label}</span>`
-          ).join('')}
-        </div>
+        ${badge || status.length ? `<div class="tt-lesson-foot">${badge}<span class="tt-status-row">${status.map(ttStatusIcon).join('')}</span></div>` : ''}
       </div>`;
   };
 
