@@ -93,6 +93,22 @@ Priorität: 🔴 Datenverlust / App kaputt · 🟠 falsche Anzeige / nervig · �
 - [ ] **G11** 🟢 `server.js`: Pfadprüfung per `startsWith` unsauber, liefert `.git/` aus (nur Dev-Server).
 - [ ] **G12** 🟢 `loadDB()` verschluckt JSON-Fehler und startet mit leerer DB → nächstes Speichern überschreibt die kaputten (evtl. rettbaren) Daten.
 
+## H. Design & Funktionen (Review mit Beispieldaten, 24.09.2026)
+
+> Zielgruppe: Lehrkräfte in **Deutschland**, Noten 1–6, Begriff **„Klassenarbeit“**. Die Reihenfolge entspricht der Priorität des Autors.
+
+- [ ] **H1** 🔴 **Datenschutz im Unterricht:** Der Sitzplan zeigt bei jedem Schüler groß und farbig den Notenschnitt. Wenn das iPad am Pult liegt oder projiziert wird, sieht die Klasse alle Noten. Noten standardmäßig ausblenden und per Augen-Knopf einblenden (Zustand nicht speichern, bei jedem Öffnen wieder aus).
+- [ ] **H2** 🟠 **Handy: Tagesansicht Stundenplan.** Heute ist nur ein 5-Tage-Raster sichtbar, in dem man nur 2 Tage sieht; der Rest ist seitlich verschoben, die KW-Anzeige abgeschnitten, die Seite scrollt horizontal. Unter ~700 px eine Tagesansicht: heute groß, Wischen/Pfeile zum nächsten Tag.
+- [ ] **H3** 🟠 **„Heute“-Dashboard** statt reiner Warnliste (mit Beispieldaten 35 Warnungen untereinander → wird ignoriert). Oben: Stunden heute, nächste Stunde mit ihren Notizen/Hinweisen („… hat letzte Stunde gefehlt“), fällige Hausaufgaben/Tests. Darunter die Warnungen **nach Klasse gruppiert**, zusammenklappbar.
+- [ ] **H4** 🟠 **Stundenplan-Kacheln (iPad/Desktop):** Kacheln nutzen die volle Breite statt quadratisch (heute leere Fläche rechts/oben); Klasse groß, Fach klein mit „…“ statt hartem Abschneiden („Mathemat“); laufende Stunde hervorheben („läuft noch 23 min“), nächste Stunde dezent; Status-Symbole für Inhalt / Hausaufgabe / Test angekündigt.
+- [ ] **H5** 🟠 **Notentabelle: Spaltentyp sichtbar machen.** Der Kopf zeigt nur Datum und Titel; ob eine Spalte Klassenarbeit (gewichtet) oder Mitarbeit ist, sieht man nicht. Mitarbeit-Spalten haben gar keinen Titel. Typ-Markierung (Farbe/Kürzel) im Spaltenkopf; ohne Titel den Typ anzeigen.
+- [ ] **H6** 🟠 **Begriffe für Deutschland:** „Schularbeit“ → „Klassenarbeit“ in allen Texten (index.html, app.js, Exporte). Der interne Typ-Schlüssel `schularbeit` bleibt (Datenmodell!), nur die Anzeige ändert sich.
+- [ ] **H7** 🟠 **Einstellbare Notenskala:** 1–6 als Standard, dazu 1–5 und evtl. 0–15 Punkte (Oberstufe; **noch offen**, ob gewünscht). Betrifft Eingabeprüfung (`parseGradeInput`), Farben (`gradeColor`), Warnschwelle und Durchschnitt (bei Punkten ist „höher = besser“!). Pro Klasse einstellbar, da Unter- und Oberstufe gemischt sein können.
+- [ ] **H8** 🟢 **„Zu spät“ in der Schnellbewertung** im Sitzplan (gibt es bisher nur in der Schülerakte).
+- [ ] **H9** 🟢 **Keine Wochenenden:** Die Datumsleiste im Sitzplan zeigt Samstag/Sonntag. Überall nur Mo–Fr (Datumsleiste, Sprünge „nächster Tag“).
+- [ ] **H10** 🟢 **Symbole vereinheitlichen – noch zu diskutieren.** Emojis (🎓📅🙋…) sind heute mit Linien-Icons gemischt. Vorschlag: überall die Linien-Icons wie im Menü, keine Emojis in Knöpfen/Reitern; Ausnahme 😊😐☹️ bei der Mitarbeit, weil sie dort die Information selbst sind.
+- [ ] **H11** 🟢 Schülerliste: Zähler „MITARBEIT 1 0 0 · FEHLT 3 0“ sind nur über die Farben verständlich. Kleine Erklärung beim Antippen/Darüberfahren (niedrige Priorität, Farben bleiben).
+
 ---
 
 ## Erledigt

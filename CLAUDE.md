@@ -9,6 +9,8 @@ Offline-fähige PWA für Lehrkräfte: Stundenplan, Klassen, Noten, Anwesenheit, 
 
 **Die App wird auch von anderen Lehrkräften genutzt** (über dieselbe GitHub-Pages-Adresse und dasselbe Firebase-Projekt). Jedes Update muss für sie ohne Anleitung funktionieren: keine unerwarteten Dialoge, alte Daten (lokal wie in der Cloud) immer lesbar.
 
+Zielgruppe: Lehrkräfte in **Deutschland** (Noten 1–6, „Klassenarbeit“). Der interne Notentyp heißt aus historischen Gründen `schularbeit`; in der Oberfläche heißt er „Klassenarbeit“.
+
 Gehostet auf GitHub Pages (`unterrichtsplaner.github.io`). Was auf `main` liegt, ist sofort live.
 
 ## Architektur
