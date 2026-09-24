@@ -23,3 +23,6 @@ globalThis.SyncManager = {
 };
 
 localStorage.clear();
+
+// Formulare setzen den Fokus per setTimeout (80 ms). Abwarten, damit das nicht nach dem Abbau von jsdom feuert.
+afterAll(() => new Promise(r => setTimeout(r, 150)));

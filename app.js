@@ -60,6 +60,24 @@ function migrateDB(data) {
     if (gr.note === undefined) gr.note = gr.label;
     delete gr.label;
   })));
+  (data.lessonSlots || []).forEach(slot => {
+    // Zweiwöchig: früher nur KW gespeichert (`startWeek`), deren Parität ab 2027 kippt (KW 53).
+    // Die KW stammt aus dem Schuljahr 2026 (bis 2026 lief die Parität seit 2021 durch) → Montag dieser KW 2026.
+    if (slot.recurring === 'biweekly' && !slot.startDate && slot.startWeek) {
+      slot.startDate = formatDate(addDays(parseDate('2025-12-29'), (slot.startWeek - 1) * 7)); // 29.12.2025 = Mo KW 1/2026
+    }
+    // Einmalige Stunde mit Datum auf falschem Wochentag (alter Fehler D2) → gleicher Woche, richtiger Tag
+    if (isOneOffSlot(slot) && slot.specificDate && typeof slot.day === 'number') {
+      const fixed = formatDate(addDays(mondayOf(parseDate(slot.specificDate)), slot.day));
+      if (fixed !== slot.specificDate) slot.specificDate = fixed;
+    }
+  });
+  // Alte Standard-Blöcke (5 Stück ab 08:00) durch die heutigen ersetzen – nur, wenn der 5. Block leer ist
+  const b = data.settings && data.settings.blocks;
+  if (b && b.length === 5 && b[0].start === '08:00' && b[1].start === '09:45'
+      && !(data.lessonSlots || []).some(slot => slot.block === 5)) {
+    data.settings.blocks = DEFAULT_BLOCKS.map(x => ({ ...x }));
+  }
   return data;
 }
 // Für jede Änderung durch den Nutzer: markiert die Daten als geändert und stößt den Cloud-Sync an.
@@ -95,17 +113,11 @@ function sortStudents(studentsArr) {
   });
 }
 
+// Blöcke des Stundenplans. `num` ist die feste Kennung, auf die Stunden verweisen (nie umnummerieren).
 function getBlocks() {
   const b = db.settings && db.settings.blocks;
-  if (b && b.length) {
-    if (b.length === 5 && b[0].start === '08:00' && b[1].start === '09:45') {
-      db.settings.blocks = DEFAULT_BLOCKS;
-      saveDB();
-      return DEFAULT_BLOCKS;
-    }
-    return b;
-  }
-  return DEFAULT_BLOCKS;
+  if (b && b.length) return b;
+  return DEFAULT_BLOCKS.map(x => ({ ...x })); // Kopie: die Konstante darf nie verändert werden
 }
 
 // ─── Navigation ──────────────────────────────────────────────────────────
@@ -169,6 +181,49 @@ function formatDate(d) {
   const day = String(d.getDate()).padStart(2, '0');
   return `${y}-${m}-${day}`;
 }
+// 'YYYY-MM-DD' als lokales Datum (mittags, damit Zeitzone/Sommerzeit den Tag nie verschieben)
+function parseDate(dateStr) { return new Date(dateStr + 'T12:00:00'); }
+function addDays(d, n) { const r = new Date(d); r.setDate(r.getDate() + n); return r; }
+function mondayOf(d) { return addDays(d, -((d.getDay() + 6) % 7)); }
+// Fortlaufende Wochennummer seit dem Referenz-Montag 29.12.1969 – ohne Sprung am Jahreswechsel (KW 53)
+function weekIndex(dateStr) {
+  const d = parseDate(dateStr);
+  const dayNo = Math.round(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()) / 86400000); // Tage seit 01.01.1970 (Do)
+  return Math.floor((dayNo + 3) / 7);
+}
+function sameWeekParity(dateStrA, dateStrB) { return (weekIndex(dateStrA) - weekIndex(dateStrB)) % 2 === 0; }
+
+// ─── Wann findet eine Stunde statt? ──────────────────────────────────────
+function isOneOffSlot(slot) { return slot.recurring === false || slot.recurring === 'none'; }
+// Zweiwöchig ohne Startdatum (Altdaten ohne KW) wurde schon immer jede Woche angezeigt
+function isABSlot(slot) { return slot.recurring === 'biweekly' && !!slot.startDate; }
+function slotOccursOn(slot, dateStr) {
+  if (slot.day !== (parseDate(dateStr).getDay() + 6) % 7) return false;
+  if (isOneOffSlot(slot)) return slot.specificDate === dateStr;
+  if (isABSlot(slot)) return sameWeekParity(dateStr, slot.startDate);
+  return true;
+}
+function partsOverlap(p, q) {
+  p = p || 'full'; q = q || 'full';
+  return p === 'full' || q === 'full' || p === q;
+}
+// Können zwei Stunden je am selben Tag im selben Block liegen?
+function slotsShareDate(a, b) {
+  if (a.day !== b.day || a.block !== b.block) return false;
+  if (isOneOffSlot(a)) return slotOccursOn(b, a.specificDate);
+  if (isOneOffSlot(b)) return slotOccursOn(a, b.specificDate);
+  if (isABSlot(a) && isABSlot(b)) return sameWeekParity(a.startDate, b.startDate);
+  return true;
+}
+// Stunden an einem Datum in einem Block. Eine einmalige Stunde (Vertretung) ersetzt an ihrem Tag
+// die regelmäßige Stunde im selben Platz.
+function lessonsAt(dateStr, blockNum) {
+  const lessons = db.lessonSlots.filter(s => s.block === blockNum && slotOccursOn(s, dateStr));
+  const oneOffs = lessons.filter(isOneOffSlot);
+  if (!oneOffs.length) return lessons;
+  return lessons.filter(s => isOneOffSlot(s) || !oneOffs.some(o => partsOverlap(o.part, s.part)));
+}
+
 function formatDateDE(d) { return d.toLocaleDateString('de-AT',{day:'2-digit',month:'2-digit'}); }
 function formatDateLong(dateStr) {
   const d = new Date(dateStr + 'T00:00:00');
@@ -189,7 +244,7 @@ function navigateWeek(dir) { currentWeekOffset += dir; renderTimetable(); }
 function goToCurrentWeek()  { currentWeekOffset = 0;   renderTimetable(); }
 function jumpToDate(dateStr) {
   if (!dateStr) return;
-  const targetDate = new Date(dateStr);
+  const targetDate = parseDate(dateStr);
   if (isNaN(targetDate.getTime())) return;
   const now = new Date();
   const dayOfWeek = now.getDay();
@@ -239,14 +294,15 @@ function renderTimetable() {
   const maxCellH = blocksH / blocks.length;
   
   let cellSize = Math.min(maxCellW, maxCellH);
-  if (cellSize < 80) cellSize = 80;
+  const fits = cellSize >= 80;
+  if (!fits) cellSize = 80;
   
   const actualContentWidth = 84 + 12 + (5 * cellSize);
   const extraSpace = Math.max(0, availW - actualContentWidth);
   const extraGap = extraSpace / 4; // distribute across the 4 gaps between the 5 days
   
   grid.style.margin = '0';
-  wrapper.style.overflow = 'hidden';
+  wrapper.style.overflow = fits ? 'hidden' : 'auto'; // zu viele Blöcke / zu klein: scrollen statt abschneiden
   grid.style.justifyContent = 'start';
   
   // 11 columns: Time, gap, Mo, gap, Tu, gap, We, gap, Th, gap, Fr
@@ -284,12 +340,7 @@ function renderTimetable() {
       cell.className = 'tt-cell';
       cell.style.gridColumn = (3 + dayIdx * 2).toString();
 
-      const lessons = db.lessonSlots.filter(s => {
-        if (s.day !== dayIdx || s.block !== block.num) return false;
-        if (s.recurring === true || s.recurring === 'weekly') return true;
-        if (s.recurring === 'biweekly') return (weekNo % 2) === ((s.startWeek || weekNo) % 2);
-        return s.specificDate === dateStr;
-      });
+      const lessons = lessonsAt(dateStr, block.num);
 
       const renderLessonHTML = (lesson, extraClasses = '') => {
         const key  = lesson.id + '_' + dateStr;
@@ -496,7 +547,8 @@ function openAddLessonSlot(preDay = null, preBlock = null, specificDateStr = nul
 function openEditLesson() {
   const slot = db.lessonSlots.find(s => s.id === activeLessonId);
   if (!slot) return;
-  currentSpecificDate = slot.specificDate || null;
+  // Datum der angeklickten Stunde: bestimmt Woche für „einmalig“ und A/B-Woche beim Umstellen
+  currentSpecificDate = activeLessonDate || slot.specificDate || null;
   closeModal('modal-lesson');
   editingSlotId = slot.id;
   document.getElementById('add-lesson-title').textContent = 'Stunde bearbeiten';
@@ -514,7 +566,7 @@ function openEditLesson() {
   renderColorPicker('lesson-color-picker', APP_COLORS, val => { selectedLessonColor = val; });
 
   const radios = document.getElementsByName('new-lesson-part');
-  const partner = db.lessonSlots.find(s => s.id !== slot.id && s.day === slot.day && s.block === slot.block && s.part && s.part !== 'full');
+  const partner = db.lessonSlots.find(s => s.id !== slot.id && slotsShareDate(s, slot) && s.part && s.part !== 'full');
   
   for(let r of radios) {
     r.disabled = false;
@@ -566,60 +618,63 @@ function saveLessonSlot() {
   }
   if (!subject) { showToast('Bitte Fach/Klasse eingeben', 'error'); return; }
 
-  // --- Overlap Validation ---
-  const existingLessons = db.lessonSlots.filter(s => {
-    if (editingSlotId && s.id === editingSlotId) return false;
-    if (s.day !== day || s.block !== block) return false;
-    return true; 
-  });
-  
-  if (part === 'full' && existingLessons.length > 0) {
-    showToast('Block ist bereits belegt! Ganzer Block nicht möglich.', 'error');
-    return;
-  }
-  
-  if (part !== 'full') {
-    const conflicting = existingLessons.find(s => s.part === 'full' || s.part === part || !s.part);
-    if (conflicting) {
-      showToast('Dieser Platz ist im Block bereits belegt!', 'error');
-      return;
-    }
-  }
-  // --------------------------
+  // Datum am gewählten Wochentag in der Woche der angeklickten Stunde (bzw. der angezeigten Woche)
+  const refDate = currentSpecificDate ? parseDate(currentSpecificDate) : getWeekDates(currentWeekOffset)[0];
+  const targetDateStr = formatDate(addDays(mondayOf(refDate), day));
 
-  let recurring = false, startWeek = null, specificDate = null;
-  let startWeekDate = null;
-  
-  if (currentSpecificDate) {
-    const parts = currentSpecificDate.split('-');
-    startWeekDate = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10), 12, 0, 0);
-  } else {
-    startWeekDate = getWeekDates(currentWeekOffset)[0];
-  }
-  const targetDateStr = currentSpecificDate || formatDate(startWeekDate);
-  
+  let recurring = false, startDate = null, startWeek = null, specificDate = null;
   if (recurringVal === 'weekly') {
     recurring = 'weekly';
   } else if (recurringVal === 'biweekly') {
     recurring = 'biweekly';
-    startWeek = getWeekNumber(startWeekDate);
+    startDate = targetDateStr;                          // A-Woche = Woche dieses Datums
+    startWeek = getWeekNumber(parseDate(targetDateStr)); // nur für Geräte mit alter App-Version
   } else {
     recurring = false;
     specificDate = targetDateStr;
   }
 
+  // --- Überschneidung: nur Stunden, die wirklich am selben Tag im selben Platz liegen ---
+  const candidate = { day, block, recurring, startDate, specificDate, part };
+  const today = formatDate(new Date());
+  const conflicting = db.lessonSlots.find(s => {
+    if (editingSlotId && s.id === editingSlotId) return false;
+    if (!slotsShareDate(candidate, s) || !partsOverlap(part, s.part)) return false;
+    // Vergangene Vertretung sperrt den Platz nicht für neue regelmäßige Stunden (an ihrem Tag gilt sie weiter)
+    if (isOneOffSlot(s) && !isOneOffSlot(candidate) && s.specificDate < today) return false;
+    return true;
+  });
+  if (conflicting) {
+    showToast(part === 'full' ? 'Block ist bereits belegt! Ganzer Block nicht möglich.' : 'Dieser Platz ist im Block bereits belegt!', 'error');
+    return;
+  }
+
   if (editingSlotId) {
     const slot = db.lessonSlots.find(s => s.id === editingSlotId);
-    if (slot) Object.assign(slot, { subject, day, block, room, recurring, startWeek, specificDate, color: selectedLessonColor, groupId, part });
+    if (slot) {
+      if (day !== slot.day) moveLessonData(slot.id, day - slot.day);
+      Object.assign(slot, { subject, day, block, room, recurring, startDate, startWeek, specificDate, color: selectedLessonColor, groupId, part });
+    }
     showToast('Stunde gespeichert ✓');
   } else {
-    db.lessonSlots.push({ id: uid(), day, block, subject, room, color: selectedLessonColor, recurring, startWeek, specificDate, groupId, part });
+    db.lessonSlots.push({ id: uid(), day, block, subject, room, color: selectedLessonColor, recurring, startDate, startWeek, specificDate, groupId, part });
     showToast('Stunde hinzugefügt ✓');
   }
   saveDB();
   closeModal('modal-add-lesson');
   renderTimetable();
   editingSlotId = null;
+}
+
+// Stunde auf anderen Wochentag verschoben: Notizen/HA (`lessonData[slotId_Datum]`) wandern um
+// dieselbe Anzahl Tage mit. Alle Einträge der Stunde verschieben sich gemeinsam → keine Kollision möglich.
+function moveLessonData(slotId, dayShift) {
+  const prefix = slotId + '_';
+  const entries = Object.keys(db.lessonData).filter(k => k.startsWith(prefix)).map(k => [k, db.lessonData[k]]);
+  entries.forEach(([k]) => delete db.lessonData[k]);
+  entries.forEach(([k, data]) => {
+    db.lessonData[prefix + formatDate(addDays(parseDate(k.slice(prefix.length)), dayShift))] = data;
+  });
 }
 
 function deleteLessonSlotFromEdit() {
@@ -660,22 +715,11 @@ function findUpcomingLessonDates(slotId, fromDateStr, maxCount = 4) {
   for (let i = 1; i <= 60 && results.length < maxCount; i++) {
     const candidate = new Date(from);
     candidate.setDate(from.getDate() + i);
-    const localDay = (candidate.getDay() + 6) % 7; // Mon=0 … Fri=4
-
+    const dateStr = formatDate(candidate);
     for (const slot of relatedSlots) {
-      if (slot.day === localDay) {
-        if (slot.recurring === 'biweekly') {
-          const weekNo = getWeekNumber(candidate);
-          if ((weekNo % 2) !== ((slot.startWeek || weekNo) % 2)) continue;
-        } else if (slot.recurring === false || slot.recurring === 'none') {
-          if (slot.specificDate !== formatDate(candidate)) continue;
-        }
-
-        const dateStr = formatDate(candidate);
-        if (!seenDates.has(dateStr)) {
-          seenDates.add(dateStr);
-          results.push({ dateStr, slotId: slot.id });
-        }
+      if (slotOccursOn(slot, dateStr) && !seenDates.has(dateStr)) {
+        seenDates.add(dateStr);
+        results.push({ dateStr, slotId: slot.id });
       }
     }
   }
@@ -737,7 +781,8 @@ function openLessonDetail(slotId, dateStr) {
   const block  = blocks.find(b => b.num === slot.block) || blocks[0];
   const d = new Date(dateStr + 'T12:00:00');
   document.getElementById('lesson-color-dot').style.background = slot.color || '#6366f1';
-  document.getElementById('lesson-modal-title').textContent = slot.subject;
+  const group = slot.groupId && db.groups.find(g => g.id === slot.groupId);
+  document.getElementById('lesson-modal-title').textContent = group ? `${group.subject} ${group.className}` : slot.subject;
   document.getElementById('lesson-modal-subtitle').textContent =
     `${DAYS[slot.day]}  ·  ${block ? block.label + ' (' + block.start + '–' + block.end + ')' : ''}  ·  ${d.toLocaleDateString('de-AT',{day:'2-digit',month:'long',year:'numeric'})}${slot.room ? '  ·  ' + slot.room : ''}`;
 
@@ -911,6 +956,9 @@ function ensureLessonData() {
 }
 
 function saveLessonDataAndClose() {
+  // Eingetippte, aber nicht per „+“ übernommene HA/Tests nicht verwerfen
+  if (document.getElementById('hw-toggle').checked) addHWItem();
+  if (document.getElementById('test-toggle').checked) addTestItem();
   const data = ensureLessonData();
   data.done      = document.getElementById('lesson-done-text').value;
   data.notes     = document.getElementById('lesson-notes-text').value;
@@ -1132,9 +1180,10 @@ function saveSubjectGroup() {
     const g = db.groups.find(x => x.id === editingGroupId);
     if (g) {
       Object.assign(g, { className, subject, year, color: selectedGroupColor, schularbeitWeight: finalSchularbeitWeight });
-      // Update color on all linked lesson slots
+      // Farbe und Fach auf alle verknüpften Stunden übertragen
       db.lessonSlots.filter(s => s.groupId === g.id).forEach(s => {
         s.color = selectedGroupColor;
+        s.subject = subject;
       });
     }
   } else {
@@ -2322,6 +2371,7 @@ function openSettings() {
   document.getElementById('settings-radius').value       = radVal;
   document.getElementById('settings-radius-val').textContent = radVal + 'px';
   document.getElementById('settings-sort-order').value = db.settings.studentSortOrder || 'firstName';
+  blocksDraft = getBlocks().map(b => ({ ...b }));
   renderBlocksEditor();
   openModal('modal-settings');
 }
@@ -2382,11 +2432,13 @@ function applyThemePreview() {
   }, 10);
 }
 
+// Arbeitskopie der Blöcke im Einstellungsfenster; erst „Speichern“ übernimmt sie in db
+let blocksDraft = [];
+
 function renderBlocksEditor() {
   const editor = document.getElementById('blocks-editor');
   editor.innerHTML = '';
-  const blocks = getBlocks();
-  blocks.forEach((b, i) => {
+  blocksDraft.forEach((b, i) => {
     const row = document.createElement('div');
     row.className = 'block-row';
     row.innerHTML = `
@@ -2400,19 +2452,33 @@ function renderBlocksEditor() {
   });
 }
 
+// Eingetippte Namen/Zeiten in die Arbeitskopie übernehmen (vor dem Neuzeichnen und beim Speichern)
+function readBlocksEditor() {
+  document.querySelectorAll('#blocks-editor .block-name-input, #blocks-editor .block-time-input').forEach(input => {
+    const idx   = parseInt(input.dataset.bidx);
+    const field = input.dataset.field;
+    if (!isNaN(idx) && field && blocksDraft[idx]) blocksDraft[idx][field] = input.value;
+  });
+}
+
 function addBlockRow() {
-  const blocks = getBlocks();
-  blocks.push({ num: blocks.length + 1, label: `${blocks.length+1}. Block`, start: '08:00', end: '09:30' });
-  db.settings.blocks = blocks;
+  readBlocksEditor();
+  const num = Math.max(0, ...blocksDraft.map(b => b.num)) + 1; // freie Kennung, bestehende bleiben unverändert
+  blocksDraft.push({ num, label: `${blocksDraft.length + 1}. Block`, start: '08:00', end: '09:30' });
   renderBlocksEditor();
 }
 
 function deleteBlockRow(idx) {
-  const blocks = getBlocks();
-  if (blocks.length <= 1) { showToast('Mindestens ein Block nötig', 'error'); return; }
-  blocks.splice(idx, 1);
-  blocks.forEach((b,i) => b.num = i+1);
-  db.settings.blocks = blocks;
+  readBlocksEditor();
+  const block = blocksDraft[idx];
+  if (!block) return;
+  if (blocksDraft.length <= 1) { showToast('Mindestens ein Block nötig', 'error'); return; }
+  const used = db.lessonSlots.filter(s => s.block === block.num).length;
+  if (used) {
+    showToast(`${block.label || 'Block'} enthält noch ${used} Stunde${used === 1 ? '' : 'n'} – bitte zuerst verschieben oder löschen`, 'error');
+    return;
+  }
+  blocksDraft.splice(idx, 1);
   renderBlocksEditor();
 }
 
@@ -2436,14 +2502,8 @@ function saveSettings() {
   db.settings.themeRadius = parseInt(document.getElementById('settings-radius').value);
   db.settings.studentSortOrder = document.getElementById('settings-sort-order').value;
 
-  // Read block editor values
-  const blocks = getBlocks().map((b,i) => ({ ...b }));
-  document.querySelectorAll('.block-name-input, .block-time-input').forEach(input => {
-    const idx   = parseInt(input.dataset.bidx);
-    const field = input.dataset.field;
-    if (!isNaN(idx) && field && blocks[idx]) blocks[idx][field] = input.value;
-  });
-  db.settings.blocks = blocks;
+  readBlocksEditor();
+  if (blocksDraft.length) db.settings.blocks = blocksDraft.map(b => ({ ...b }));
 
   saveDB();
   closeModal('modal-settings');
@@ -2530,7 +2590,6 @@ function getSuggestedSeatingGroupId() {
   const currentTotalMins = h * 60 + m;
   
   const blocks = getBlocks();
-  const weekNo = getWeekNumber(now);
   const dateStr = formatDate(now);
   
   let activeBlockNum = null;
@@ -2552,12 +2611,7 @@ function getSuggestedSeatingGroupId() {
   
   if (activeBlockNum === null) return null;
   
-  const activeSlot = db.lessonSlots.find(s => {
-    if (s.day !== dayIdx || s.block !== activeBlockNum) return false;
-    if (s.recurring === true || s.recurring === 'weekly') return true;
-    if (s.recurring === 'biweekly') return (weekNo % 2) === ((s.startWeek || weekNo) % 2);
-    return s.specificDate === dateStr;
-  });
+  const activeSlot = lessonsAt(dateStr, activeBlockNum)[0];
   
   if (activeSlot && activeSlot.groupId) {
     return activeSlot.groupId;
@@ -2672,7 +2726,7 @@ function renderSeatingDateStrip() {
   if (!container) return;
   container.innerHTML = '';
   
-  const baseDate = currentSeatingDateStr ? new Date(currentSeatingDateStr) : new Date();
+  const baseDate = currentSeatingDateStr ? parseDate(currentSeatingDateStr) : new Date();
   
   const days = ['So','Mo','Di','Mi','Do','Fr','Sa'];
   for(let i = -2; i <= 2; i++) {

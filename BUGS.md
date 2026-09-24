@@ -51,16 +51,18 @@ Priorität: 🔴 Datenverlust / App kaputt · 🟠 falsche Anzeige / nervig · �
 
 ## D. Stundenplan
 
-- [ ] **D1** 🔴 A/B-Woche über `Kalenderwoche % 2` (~Z. 275, 654, 2510). 2026 hat KW 53 → **ab 04.01.2027 sind alle zweiwöchigen Stunden vertauscht.** Parität über Wochen seit festem Referenz-Montag berechnen.
-- [ ] **D2** 🔴 Einmalige Stunde bekommt den Montag der Woche statt des gewählten Tages (~Z. 578–594) → unsichtbar, nicht mehr lösch-/editierbar, blockiert den Block.
-- [ ] **D3** 🔴 Überschneidungsprüfung ignoriert Datum und A/B-Woche (~Z. 555) → Vertretung sperrt Block für immer; A- und B-Woche im selben Block unmöglich.
-- [ ] **D4** 🔴 Zeitblock löschen nummeriert Blöcke neu, Stunden behalten alte Nummer → alles rutscht (~Z. 2356).
-- [ ] **D5** 🟠 `getBlocks()` gibt die Konstante `DEFAULT_BLOCKS` selbst zurück → Einstellungen „Abbrechen“ verwirft nichts (~Z. 87).
-- [ ] **D6** 🟠 Stunde auf anderen Wochentag verschieben → alte Notizen/HA (`lessonData[slotId_Datum]`) nicht mehr erreichbar.
-- [ ] **D7** 🟢 Titel zeigt alten Fachnamen nach Umbenennen der Klasse (~Z. 725).
-- [ ] **D8** 🟢 Bei > 6 Blöcken wird der Plan abgeschnitten (`overflow:hidden`, ~Z. 227).
-- [ ] **D9** 🟢 Nicht per „+“ übernommene HA/Test-Eingaben gehen beim Speichern still verloren (~Z. 898).
-- [ ] **D10** 🟢 `new Date('YYYY-MM-DD')` wird als UTC geparst (~Z. 177, 2627) – in AT/DE harmlos.
+> Behoben. Tests: `tests/timetable.test.js`. Zweiwöchige Stunden speichern jetzt ein Startdatum (`startDate`) statt der KW; alte Daten werden beim Laden auf den Rhythmus von 2026 umgerechnet. Eine einmalige Stunde (Vertretung) ersetzt an ihrem Tag die regelmäßige Stunde im selben Platz. Blöcke mit Stunden lassen sich nicht löschen. Schon früher durch D4 verrutschte Stunden lassen sich nicht automatisch zurückschieben, die muss man bei Bedarf von Hand korrigieren.
+
+- [x] **D1** 🔴 A/B-Woche über `Kalenderwoche % 2` (~Z. 275, 654, 2510). 2026 hat KW 53 → **ab 04.01.2027 sind alle zweiwöchigen Stunden vertauscht.** Parität über Wochen seit festem Referenz-Montag berechnen.
+- [x] **D2** 🔴 Einmalige Stunde bekommt den Montag der Woche statt des gewählten Tages (~Z. 578–594) → unsichtbar, nicht mehr lösch-/editierbar, blockiert den Block.
+- [x] **D3** 🔴 Überschneidungsprüfung ignoriert Datum und A/B-Woche (~Z. 555) → Vertretung sperrt Block für immer; A- und B-Woche im selben Block unmöglich.
+- [x] **D4** 🔴 Zeitblock löschen nummeriert Blöcke neu, Stunden behalten alte Nummer → alles rutscht (~Z. 2356).
+- [x] **D5** 🟠 `getBlocks()` gibt die Konstante `DEFAULT_BLOCKS` selbst zurück → Einstellungen „Abbrechen“ verwirft nichts (~Z. 87).
+- [x] **D6** 🟠 Stunde auf anderen Wochentag verschieben → alte Notizen/HA (`lessonData[slotId_Datum]`) nicht mehr erreichbar.
+- [x] **D7** 🟢 Titel zeigt alten Fachnamen nach Umbenennen der Klasse (~Z. 725).
+- [x] **D8** 🟢 Bei > 6 Blöcken wird der Plan abgeschnitten (`overflow:hidden`, ~Z. 227).
+- [x] **D9** 🟢 Nicht per „+“ übernommene HA/Test-Eingaben gehen beim Speichern still verloren (~Z. 898).
+- [x] **D10** 🟢 `new Date('YYYY-MM-DD')` wird als UTC geparst (~Z. 177, 2627) – in AT/DE harmlos.
 
 ## E. Sitzplan
 
@@ -121,3 +123,13 @@ Priorität: 🔴 Datenverlust / App kaputt · 🟠 falsche Anzeige / nervig · �
 | C8 | `ATTENDANCE_SHORT`: „Z“ für zu spät in Anzeige und Eingabe | Block C |
 | C9 | `parseWarnThreshold()`: 0 = aus, leer = Standard | Block C |
 | C10 | Dashboard-Warnung öffnet Tab `homework` | Block C |
+| D1 | A/B-Woche über fortlaufende Wochen seit Referenz-Montag (`weekIndex`, `slotOccursOn`); `startDate` statt `startWeek`, Migration | Block D |
+| D2 | Einmalige Stunde: Datum = Woche der angeklickten Stunde + gewählter Tag; Migration für verirrte Stunden | Block D |
+| D3 | Überschneidung über `slotsShareDate` (Datum, A/B-Woche); vergangene Vertretung sperrt nicht; Vertretung hat an ihrem Tag Vorrang (`lessonsAt`) | Block D |
+| D4 | Block-Nummern sind feste Kennungen, kein Umnummerieren; Block mit Stunden nicht löschbar | Block D |
+| D5 | `getBlocks()` gibt Kopie; Einstellungsfenster arbeitet auf `blocksDraft` | Block D |
+| D6 | `moveLessonData()`: Notizen/HA wandern beim Tageswechsel mit | Block D |
+| D7 | Titel aus der Klasse; Umbenennen aktualisiert `slot.subject` | Block D |
+| D8 | Plan scrollt, wenn er nicht passt | Block D |
+| D9 | Nicht übernommene HA/Test-Eingaben werden beim Speichern übernommen | Block D |
+| D10 | `parseDate()` in `jumpToDate` und Sitzplan-Datumsleiste | Block D |
