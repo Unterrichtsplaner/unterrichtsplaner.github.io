@@ -117,6 +117,11 @@ input[type="date"] { min-height: 1.2em; } /* Fix iOS Safari date input collapse 
 #main-content:has(#view-dashboard.active),
 #main-content:has(#view-classes.active),
 #main-content:has(#view-students.active){min-width:0;}
+/* Sitzplan passt sich ebenfalls an (BUGS H13), braucht dafür aber Container-Queries (iOS 16+).
+   Ältere Geräte behalten die 800 px mit seitlichem Scrollen wie bisher. */
+@supports (container-type: inline-size) {
+  #main-content:has(#view-seating.active){min-width:0;}
+}
 @media(max-width:699px){
   #view-timetable .view-header{padding:0 12px;}
   #view-timetable .view-header h1{display:none;}
@@ -305,7 +310,7 @@ input[type="date"] { min-height: 1.2em; } /* Fix iOS Safari date input collapse 
 .seating-card.draggable-mode{cursor:grab;user-select:none;touch-action:none;border-color:var(--warning, #fbbf24);box-shadow:0 0 0 2px rgba(251, 191, 36, 0.3);}
 .seating-card.draggable-mode.dragging{transition:box-shadow 0.2s, transform 0.2s;z-index:1000 !important;} /* Disable left/top transition while dragging */
 .seating-card.draggable-mode:active{cursor:grabbing;box-shadow:var(--shadow-md);transform:scale(1.05);z-index:20;}
-.seating-card .sc-name{font-size:12px;font-weight:700;line-height:1.2;color:var(--text-primary);margin-bottom:4px;word-break:break-word;}
+.seating-card .sc-name{font-size:13px;font-weight:700;line-height:1.2;color:var(--text-primary);margin-top:2px;margin-bottom:4px;overflow-wrap:break-word;-webkit-hyphens:auto;hyphens:auto;}
 .seating-card .sc-gpa{font-size:11px;font-weight:800;}
 .seating-card.is-absent-unexcused{background:rgba(239,68,68,0.15);border-color:rgba(239,68,68,0.5);opacity:0.7;}
 .seating-card.is-absent-unexcused .sc-name{text-decoration:line-through;color:var(--danger);}
@@ -317,8 +322,10 @@ input[type="date"] { min-height: 1.2em; } /* Fix iOS Safari date input collapse 
 
 /* Compact Mode */
 .seating-card.compact { padding: 4px; border-radius: 8px; }
-.seating-card.compact .sc-name { font-size: 10px; line-height: 1.1; margin-bottom: 2px; }
+.seating-card.compact .sc-name { font-size: 12px; line-height: 1.1; margin-bottom: 2px; }
 .seating-card.compact .sc-gpa { font-size: 10px; }
+.seating-card.tiny { padding: 2px; }
+.seating-card.tiny .sc-name { font-size: 10px; max-width: 100%; word-break: normal; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin: 0; }
 .seating-card.compact .sc-absent-toggle { width: 18px; height: 18px; font-size: 10px; top: -6px; right: -6px; }
 
 /* ─── Overview Table ─── */
@@ -763,4 +770,48 @@ select option{background:var(--bg-secondary);}
 @media (max-width: 600px) {
   .student-row { flex-wrap: wrap; row-gap: 8px; }
   .student-counters { order: 3; flex-basis: 100%; margin: 0 0 0 49px; }
+}
+
+/* ─── Sitzplan-Leisten (BUGS H13) ───────────────────── */
+/* Stufen nach der Breite der Ansicht (nicht des Bildschirms: Seitenleiste, Split View) */
+#view-seating { container-type: inline-size; container-name: seating; }
+.seating-header { position: relative; justify-content: flex-start; }
+.seating-toolbar { position: absolute; left: 50%; transform: translateX(-50%); display: flex; align-items: center; gap: 8px; background: var(--bg-card); padding: 4px 8px; border-radius: 99px; border: 1px solid var(--border); white-space: nowrap; max-width: 90%; justify-content: center; }
+.seating-toolbar-sep { width: 1px; height: 20px; background: var(--border); flex-shrink: 0; }
+#seating-date-strip { overflow: visible; flex-shrink: 0; }
+.seating-tools-bar { min-height: 80px; border-top: 1px solid var(--border); background: var(--bg-secondary); display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 12px 32px; flex-shrink: 0; padding: 10px 20px; margin-top: auto; position: sticky; bottom: 0; z-index: 100; }
+.tool-widget { display: flex; align-items: center; gap: 12px; background: var(--bg-elevated); padding: 8px 16px; border-radius: 100px; border: 1px solid var(--border); }
+.tool-icon { color: var(--text-secondary); flex-shrink: 0; }
+.tool-display { font-family: monospace; font-size: 24px; font-weight: 700; text-align: center; }
+#timer-display { width: 75px; }
+#stopwatch-display { width: 100px; }
+.seating-live-group { display: flex; gap: 12px; }
+.seating-live-btn { height: 50px; padding: 0 24px; font-weight: 700; font-size: 15px; display: flex; align-items: center; justify-content: center; cursor: pointer; border-radius: 99px; }
+
+/* iPad quer und schmaler: untere Leiste kompakt, damit sie in eine (oder zwei) Zeilen passt */
+@container seating (max-width: 1000px) {
+  .seating-tools-bar { gap: 10px 16px; }
+  .tool-widget { gap: 8px; padding: 6px 12px; }
+  .tool-icon { display: none; }
+  .tool-display { font-size: 20px; }
+  #timer-display { width: 62px; }
+  #stopwatch-display { width: 84px; }
+  .seating-live-group { gap: 10px; }
+  .seating-live-btn { height: 44px; padding: 0 18px; }
+}
+
+/* iPad hochkant: obere Leiste würde den Titel überdecken → Titel weg, Leiste in den Fluss */
+@container seating (max-width: 820px) {
+  .seating-header h1 { display: none; }
+  .seating-toolbar { position: static; transform: none; max-width: 100%; margin: 0 auto; }
+}
+
+/* Handy: Datums-Chips in eigene Zeile, Knöpfe unten kleiner */
+@container seating (max-width: 520px) {
+  .seating-header { height: auto; min-height: 68px; padding: 8px 10px; }
+  .seating-toolbar { flex-wrap: wrap; border-radius: 20px; row-gap: 6px; }
+  .seating-toolbar-sep { display: none; }
+  #seating-date-strip { order: 10; flex-basis: 100%; justify-content: center; }
+  .seating-tools-bar { padding: 8px 10px; gap: 8px 10px; }
+  .seating-live-btn { height: 40px; padding: 0 14px; font-size: 14px; }
 }

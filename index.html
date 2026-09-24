@@ -38,7 +38,7 @@
       }
     } catch(e) {}
   </script>
-  <link rel="stylesheet" href="style.css?v=197" />
+  <link rel="stylesheet" href="style.css?v=202" />
   <script>
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
@@ -198,9 +198,9 @@
 
     <!-- SEATING PLAN -->
     <div id="view-seating" class="view">
-      <div class="view-header" style="position:relative; justify-content:flex-start;">
+      <div class="view-header seating-header">
         <h1>Sitzplan</h1>
-        <div style="position:absolute; left:50%; transform:translateX(-50%); display:flex; align-items:center; gap:8px; background: var(--bg-card); padding: 4px 8px; border-radius: 99px; border: 1px solid var(--border); white-space:nowrap; max-width: 90%; justify-content: center;">
+        <div class="seating-toolbar">
           <!-- Klassen-Auswahl -->
           <div class="custom-dropdown" style="position:relative; display:inline-block; flex-shrink:0;">
             <button id="seating-group-trigger" class="btn-secondary" style="font-size:13px; padding:4px 12px; min-width:80px; max-width:140px; font-weight:600; border-radius:99px; height:34px; display:flex; align-items:center; justify-content:center; gap:6px; cursor:pointer;" onclick="toggleCustomGroupDropdown(event)">
@@ -211,9 +211,9 @@
             </div>
           </div>
           <!-- Trennstrich -->
-          <div style="width:1px; height:20px; background:var(--border); flex-shrink:0;"></div>
+          <div class="seating-toolbar-sep"></div>
           <!-- Datum-Chips -->
-          <div id="seating-date-strip" class="scroll-chips-container" style="overflow: visible; flex-shrink: 0;"></div>
+          <div id="seating-date-strip" class="scroll-chips-container"></div>
           <!-- Kalender-Picker -->
           <div style="position:relative; width:34px; height:34px; flex-shrink:0;">
             <button class="btn-icon" style="width:100%; height:100%; pointer-events:none;" aria-hidden="true" tabindex="-1">
@@ -222,7 +222,7 @@
             <input type="date" id="seating-date-hidden" aria-label="Datum wählen" style="position:absolute; top:0; left:0; width:100%; height:100%; opacity:0; cursor:pointer;" onclick="try{this.showPicker();}catch(e){}" onchange="onHiddenDateChange(this.value)" />
           </div>
           <!-- Trennstrich -->
-          <div style="width:1px; height:20px; background:var(--border); flex-shrink:0;"></div>
+          <div class="seating-toolbar-sep"></div>
           <!-- Grid-Settings -->
           <div style="position:relative; width:34px; height:34px; flex-shrink:0;">
             <button class="btn-icon" style="width:100%; height:100%;" title="Raster-Größe einstellen" onclick="toggleSeatingSettings(event)">
@@ -260,11 +260,11 @@
           </div>
         </div>
       </div>
-      <div class="seating-tools-bar" style="height: 80px; border-top: 1px solid var(--border); background: var(--bg-secondary); display: flex; align-items: center; justify-content: center; gap: 32px; flex-shrink: 0; padding: 0 20px; margin-top: auto; position: sticky; bottom: 0; z-index: 100;">
+      <div class="seating-tools-bar">
         <!-- Timer -->
-        <div class="tool-widget" style="display: flex; align-items: center; gap: 12px; background: var(--bg-elevated); padding: 8px 16px; border-radius: 100px; border: 1px solid var(--border);">
-           <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color:var(--text-secondary);"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
-           <span id="timer-display" style="font-family: monospace; font-size: 24px; font-weight: 700; width: 75px; text-align: center;">05:00</span>
+        <div class="tool-widget">
+           <svg class="tool-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+           <span id="timer-display" class="tool-display">05:00</span>
            <button class="btn-icon" onclick="adjustTimer(-1)" title="-1 Min">-</button>
            <button class="btn-icon" onclick="adjustTimer(1)" title="+1 Min">+</button>
            <button class="btn-icon" onclick="toggleTimer()" id="btn-timer-toggle" aria-label="Timer starten" style="background:var(--accent-soft); color:var(--text-accent); border-radius:50%; width:32px; height:32px; display:flex; align-items:center; justify-content:center;">
@@ -275,9 +275,9 @@
            </button>
         </div>
         <!-- Stopwatch -->
-        <div class="tool-widget" style="display: flex; align-items: center; gap: 12px; background: var(--bg-elevated); padding: 8px 16px; border-radius: 100px; border: 1px solid var(--border);">
-           <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color:var(--text-secondary);"><circle cx="12" cy="12" r="10"></circle><path d="M12 2v4"></path><path d="M12 14 16 10"></path></svg>
-           <span id="stopwatch-display" style="font-family: monospace; font-size: 24px; font-weight: 700; width: 100px; text-align: center;">00:00.0</span>
+        <div class="tool-widget">
+           <svg class="tool-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><path d="M12 2v4"></path><path d="M12 14 16 10"></path></svg>
+           <span id="stopwatch-display" class="tool-display">00:00.0</span>
            <button class="btn-icon" onclick="toggleStopwatch()" id="btn-stopwatch-toggle" aria-label="Stoppuhr starten" style="background:var(--accent-soft); color:var(--text-accent); border-radius:50%; width:32px; height:32px; display:flex; align-items:center; justify-content:center;">
              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="margin-left:2px;"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
            </button>
@@ -285,13 +285,15 @@
              <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><rect x="5" y="5" width="14" height="14" rx="2"></rect></svg>
            </button>
         </div>
-        <!-- Live Buttons -->
-        <button class="btn-secondary" onclick="startSeatingRandomizer()" style="height: 50px; padding: 0 24px; font-weight: 700; font-size: 15px; display: flex; align-items: center; justify-content: center; cursor: pointer; border-radius: 99px;">
-          Zufall
-        </button>
-        <button class="btn-secondary" onclick="openSeatingGroupModal()" style="height: 50px; padding: 0 24px; font-weight: 700; font-size: 15px; display: flex; align-items: center; justify-content: center; cursor: pointer; border-radius: 99px;">
-          Gruppen
-        </button>
+        <!-- Live Buttons (brechen gemeinsam um) -->
+        <div class="seating-live-group">
+          <button class="btn-secondary seating-live-btn" onclick="startSeatingRandomizer()">
+            Zufall
+          </button>
+          <button class="btn-secondary seating-live-btn" onclick="openSeatingGroupModal()">
+            Gruppen
+          </button>
+        </div>
       </div>
     </div>
 
@@ -1139,12 +1141,12 @@
   </div>
 
   <script src="lib/crypto-js.min.js"></script>
-  <script src="crypto-helper.js?v=197"></script>
+  <script src="crypto-helper.js?v=202"></script>
   <script src="lib/firebase-app-compat.js"></script>
   <script src="lib/firebase-auth-compat.js"></script>
   <script src="lib/firebase-firestore-compat.js"></script>
-  <script src="firebase-config.js?v=197"></script>
-  <script src="sync-manager.js?v=197"></script>
-  <script src="app.js?v=197"></script>
+  <script src="firebase-config.js?v=202"></script>
+  <script src="sync-manager.js?v=202"></script>
+  <script src="app.js?v=202"></script>
 </body>
 </html>

@@ -3226,6 +3226,7 @@ function renderSeatingPlan() {
   const cellHeight = cellSize;
 
   const isCompact = cellSize < 100;
+  const isTiny = cellSize < 64;   // Handy: Namen kürzen statt mitten im Wort trennen (BUGS H13)
   const gridWidth = cols * cellWidth;
   const gridHeight = rows * cellHeight;
 
@@ -3320,6 +3321,7 @@ function renderSeatingPlan() {
     card.style.height = cardSize + 'px';
 
     if (isCompact) card.classList.add('compact');
+    if (isTiny) card.classList.add('tiny');
 
     let partHtml = '';
     if (participation) {
@@ -3328,7 +3330,7 @@ function renderSeatingPlan() {
     }
 
     card.innerHTML = `
-      <div class="sc-name" style="font-size:13px; margin-top:2px;">${escHtml(s.firstName)}</div>
+      <div class="sc-name" title="${escHtml(s.firstName)}">${escHtml(s.firstName)}</div>
       ${seatingShowGrades ? `<div class="sc-gpa" style="color:${gradeColor(rawAvg, scale)}">${avg}</div>` : ''}
       ${late ? '<div class="sc-late-note">Zu spät</div>' : ''}
       ${forgotHw ? '<div class="sc-hw-note">Keine HA</div>' : ''}
