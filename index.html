@@ -38,7 +38,7 @@
       }
     } catch(e) {}
   </script>
-  <link rel="stylesheet" href="style.css?v=177" />
+  <link rel="stylesheet" href="style.css?v=178" />
   <script>
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
@@ -636,7 +636,7 @@
       </div>
       <div style="margin: 16px 0; border-bottom: 1px solid var(--border);"></div>
       <div class="form-group">
-        <label>Oder Namen einfügen (ein Name pro Zeile):</label>
+        <label>Oder Namen einfügen (ein Name pro Zeile, „Vorname Nachname“ oder aus Excel zwei Spalten Vorname | Nachname):</label>
         <textarea id="import-text" class="form-input" style="height: 120px;" placeholder="Max Mustermann&#10;Anna Schmidt&#10;..."></textarea>
       </div>
       <div class="form-group" style="margin-top: 12px; margin-bottom: 12px;">
@@ -807,18 +807,18 @@
         <h3 style="margin-bottom:12px;font-size:14px;">Warnungs-Schwellenwerte (Dashboard)</h3>
         <div class="form-row">
           <div class="form-group">
-            <label>Unentsch. Fehlzeiten</label>
-            <input type="number" id="settings-warn-absences" class="form-input" min="1" max="50" placeholder="z.B. 3" />
+            <label>Unentsch. Fehlzeiten (0 = aus)</label>
+            <input type="number" id="settings-warn-absences" class="form-input" min="0" max="50" placeholder="z.B. 3" />
           </div>
           <div class="form-group">
-            <label>Vergessene HA</label>
-            <input type="number" id="settings-warn-homework" class="form-input" min="1" max="50" placeholder="z.B. 3" />
+            <label>Vergessene HA (0 = aus)</label>
+            <input type="number" id="settings-warn-homework" class="form-input" min="0" max="50" placeholder="z.B. 3" />
           </div>
         </div>
         <div class="form-row">
           <div class="form-group">
-            <label>Notenschnitt schlechter als</label>
-            <input type="number" id="settings-warn-grade" class="form-input" step="0.1" min="1" max="6" placeholder="z.B. 4.5" />
+            <label>Notenschnitt schlechter als (0 = aus)</label>
+            <input type="number" id="settings-warn-grade" class="form-input" step="0.1" min="0" max="6" placeholder="z.B. 4.5" />
           </div>
         </div>
       </div>
@@ -1126,6 +1126,6 @@
   <script src="lib/firebase-firestore-compat.js"></script>
   <script src="firebase-config.js"></script>
   <script src="sync-manager.js"></script>
-  <script src="app.js?v=177"></script>
+  <script src="app.js?v=178"></script>
 </body>
 </html>

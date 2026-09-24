@@ -36,16 +36,18 @@ Priorität: 🔴 Datenverlust / App kaputt · 🟠 falsche Anzeige / nervig · �
 
 ## C. Schüler & Klassen
 
-- [ ] **C1** 🔴 Löschen trifft den falschen Eintrag bei Anmerkungen/Anwesenheit/Mitarbeit (~Z. 1987, 2016, 2060): Index aus sortierter Kopie wird auf das unsortierte Original angewendet.
-- [ ] **C2** 🔴 Schüler mit nur einem Namen (Import „Max“) → `AVATAR_COLORS[NaN]` → ganze Schülerliste stürzt ab (~Z. 1665, 1831). Import trennt außerdem nicht an Tabs (Excel).
-- [ ] **C3** 🟠 `renderClasses()` existiert nicht (~Z. 1138) → ReferenceError nach jedem Speichern einer Klasse.
-- [ ] **C4** 🟠 Klasse löschen: zugehörige Stunden bleiben verwaist, Ansicht bleibt auf gelöschter Klasse stehen (`deleteGroup`).
-- [ ] **C5** 🟠 Hausaufgaben-Spalte umbenennen entkoppelt alle Einträge (~Z. 1605: nur `date` geändert, nicht `note`).
-- [ ] **C6** 🟠 Schülerakten-Export schreibt „undefined“ (~~`g.label`~~ in Block B erledigt, `a.label`, `n.label`) und stürzt bei Einträgen ohne `date` ab (~Z. 2152–2191).
-- [ ] **C7** 🟢 Zähler in der Schülerliste veralten nach `deleteAttendance`/`deleteParticipation`.
-- [ ] **C8** 🟢 „zu spät“ erscheint in der Übersicht als leere Zelle; „F“ tippen überschreibt es (~Z. 1476).
-- [ ] **C9** 🟢 Warnschwellen lassen sich nicht auf 0 setzen (`parseInt(...) || 3`, ~Z. 2369).
-- [ ] **C10** 🟢 Dashboard-Warnung „Hausaufgaben“ öffnet Tab `notes` statt `homework` (~Z. 3902).
+> Behoben. Tests: `tests/students.test.js`. Klasse löschen entfernt jetzt auch ihre Stunden im Stundenplan (die Rückfrage nennt die Anzahl). Warnschwelle 0 = Warnung aus. Übersicht Anwesenheit: F / E / Z (zu spät). Import aus Excel: Spalten Vorname | Nachname.
+
+- [x] **C1** 🔴 Löschen trifft den falschen Eintrag bei Anmerkungen/Anwesenheit/Mitarbeit (~Z. 1987, 2016, 2060): Index aus sortierter Kopie wird auf das unsortierte Original angewendet.
+- [x] **C2** 🔴 Schüler mit nur einem Namen (Import „Max“) → `AVATAR_COLORS[NaN]` → ganze Schülerliste stürzt ab (~Z. 1665, 1831). Import trennt außerdem nicht an Tabs (Excel).
+- [x] **C3** 🟠 `renderClasses()` existiert nicht (~Z. 1138) → ReferenceError nach jedem Speichern einer Klasse.
+- [x] **C4** 🟠 Klasse löschen: zugehörige Stunden bleiben verwaist, Ansicht bleibt auf gelöschter Klasse stehen (`deleteGroup`).
+- [x] **C5** 🟠 Hausaufgaben-Spalte umbenennen entkoppelt alle Einträge (~Z. 1605: nur `date` geändert, nicht `note`).
+- [x] **C6** 🟠 Schülerakten-Export schreibt „undefined“ (~~`g.label`~~ in Block B erledigt, `a.label`, `n.label`) und stürzt bei Einträgen ohne `date` ab (~Z. 2152–2191).
+- [x] **C7** 🟢 Zähler in der Schülerliste veralten nach `deleteAttendance`/`deleteParticipation`.
+- [x] **C8** 🟢 „zu spät“ erscheint in der Übersicht als leere Zelle; „F“ tippen überschreibt es (~Z. 1476).
+- [x] **C9** 🟢 Warnschwellen lassen sich nicht auf 0 setzen (`parseInt(...) || 3`, ~Z. 2369).
+- [x] **C10** 🟢 Dashboard-Warnung „Hausaufgaben“ öffnet Tab `notes` statt `homework` (~Z. 3902).
 
 ## D. Stundenplan
 
@@ -109,3 +111,13 @@ Priorität: 🔴 Datenverlust / App kaputt · 🟠 falsche Anzeige / nervig · �
 | B5 | Gewichtung außerhalb 0–100 wird abgelehnt, gespeicherte Werte werden begrenzt (`getSchularbeitWeight`) | Block B |
 | B6 | `migrateDB()`: `label` → `note` (auch bei Import/Cloud); `addGradeEntry`/`deleteGrade` entfernt | Block B |
 | B7 | Sitzplan-Schülerfenster: `g.note \|\| Typ` | Block B |
+| C1 | Anmerkungen/Anwesenheit/Mitarbeit per Objekt-Referenz löschen (`deleteStudentNote`, `deleteAttendance(entry)`, `deleteParticipation(entry)`) | Block C |
+| C2 | Avatar-Farbe mit leeren Namensteilen; Text-Import trennt an Tabs | Block C |
+| C3 | `renderClasses()`-Aufruf entfernt | Block C |
+| C4 | `deleteGroup` löscht Stunden + `lessonData` der Klasse, verlässt die Klassenansicht, Sitzplan-Auswahl zurückgesetzt | Block C |
+| C5 | HA-Spalte umbenennen: Suche nach Datum + Beschriftung, setzt beides | Block C |
+| C6 | Schülerakte: `a.note` statt `a.label`, kein `n.label`, „zu spät“, Einträge ohne Datum | Block C |
+| C7 | Schülerliste nach Löschen von Anwesenheit/Mitarbeit neu gerendert | Block C |
+| C8 | `ATTENDANCE_SHORT`: „Z“ für zu spät in Anzeige und Eingabe | Block C |
+| C9 | `parseWarnThreshold()`: 0 = aus, leer = Standard | Block C |
+| C10 | Dashboard-Warnung öffnet Tab `homework` | Block C |

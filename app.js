@@ -1154,7 +1154,7 @@ function saveSubjectGroup() {
     }
   }
   showToast(editingGroupId ? 'Geändert ✓' : 'Klasse hinzugefügt ✓');
-  editingGroupId = null; renderClasses();
+  editingGroupId = null;
 }
 
 // Teil-Durchschnitte nach Gewichtungs-Kategorie (siehe gradeCategory), jeweils null wenn keine Noten.
@@ -1204,11 +1204,27 @@ function calculateGroupAverage(groupId) {
 }
 
 function deleteGroup(id) {
-  if (!confirm('Klasse und alle Daten löschen?')) return;
-  db.groups = db.groups.filter(g => g.id !== id);
+  const g = db.groups.find(x => x.id === id);
+  if (!g) return;
+  const studentCount = (db.students[id] || []).length;
+  const slotIds = new Set(getGroupSlots(id).map(s => s.id));
+  if (!confirm(`Klasse ${g.className} (${g.subject}) mit ${studentCount} Schüler(n), allen Noten/Einträgen und ${slotIds.size} Stunde(n) im Stundenplan löschen?`)) return;
+  db.groups = db.groups.filter(x => x.id !== id);
   delete db.students[id];
+  // Stunden der Klasse samt ihren Stundendaten (Schlüssel '<slotId>_<Datum>') entfernen
+  db.lessonSlots = db.lessonSlots.filter(s => !slotIds.has(s.id));
+  Object.keys(db.lessonData || {}).forEach(key => {
+    if (slotIds.has(key.slice(0, key.lastIndexOf('_')))) delete db.lessonData[key];
+  });
   saveDB();
-  renderSubjectGroups();
+  if (currentSeatingGroupId === id) currentSeatingGroupId = '';
+  if (currentGroupId === id || currentOverviewGroupId === id) {
+    currentOverviewGroupId = null;
+    goBackToSubjects();
+  } else {
+    renderSubjectGroups();
+  }
+  renderTimetable();
   showToast('Klasse gelöscht');
 }
 
@@ -1396,10 +1412,8 @@ function renderOverviewTable() {
 
       attDates.forEach(ev => {
         const aIdx = (s.attendance||[]).findIndex(x => x.date === ev.date);
-        const status = aIdx !== -1 ? s.attendance[aIdx].type : ''; // 'abwesend', 'entschuldigt'
-        let displayVal = '';
-        if (status === 'abwesend') displayVal = 'F';
-        else if (status === 'entschuldigt') displayVal = 'E';
+        const status = aIdx !== -1 ? s.attendance[aIdx].type : ''; // 'abwesend', 'entschuldigt', 'zuspät'
+        const displayVal = ATTENDANCE_SHORT[status] || '';
 
         html += `<td style="padding:4px;"><input type="text" class="form-input" style="width:100%; text-align:center; padding:6px; font-weight:600; color:${status==='abwesend' ? 'var(--danger)' : 'inherit'}" value="${displayVal}" placeholder="-" onchange="updateInlineAttendance('${s.id}', '${ev.date}', this.value)" /></td>`;
       });
@@ -1438,6 +1452,9 @@ function renderOverviewTable() {
 }
 
 // ─── Inline Updates ────────────────────────────────────────────────────────
+// Kürzel in der Anwesenheits-Tabelle (Eingabe und Anzeige)
+const ATTENDANCE_SHORT = { abwesend: 'F', entschuldigt: 'E', 'zuspät': 'Z' };
+
 function updateInlineGrade(studentId, date, label, value, type = 'test') {
   value = value.trim();
   const s = db.students[currentOverviewGroupId]?.find(x => x.id === studentId);
@@ -1499,9 +1516,7 @@ function updateInlineAttendance(studentId, date, value) {
 
   const idx = s.attendance.findIndex(a => a.date === date);
   
-  let status = null;
-  if (value === 'F') status = 'abwesend';
-  else if (value === 'E') status = 'entschuldigt';
+  const status = Object.keys(ATTENDANCE_SHORT).find(t => ATTENDANCE_SHORT[t] === value) || null;
 
   if (!status) {
     if (idx !== -1) s.attendance.splice(idx, 1);
@@ -1627,8 +1642,8 @@ function saveOverviewColumn() {
         const aIdx = (s.attendance||[]).findIndex(a => a.date === oldDate);
         if (aIdx !== -1) { s.attendance[aIdx].date = newDate; }
       } else if (currentOverviewTab === 'homework') {
-        const hIdx = (s.homework||[]).findIndex(h => h.date === oldDate);
-        if (hIdx !== -1) { s.homework[hIdx].date = newDate; }
+        const hIdx = (s.homework||[]).findIndex(h => h.date === oldDate && (h.note||'') === (oldLabel||''));
+        if (hIdx !== -1) { s.homework[hIdx].date = newDate; s.homework[hIdx].note = newLabel; }
       }
     });
   }
@@ -1685,8 +1700,10 @@ function renderStudents() {
   container.innerHTML = '';
   sortStudents(students).forEach(s => {
     const avg = calculateStudentAverage(s, currentGroupId);
-    const initials = (s.firstName[0]||'') + (s.lastName[0]||'');
-    const avatarIdx = (s.firstName.charCodeAt(0)+s.lastName.charCodeAt(0)) % AVATAR_COLORS.length;
+    const first = s.firstName || '', last = s.lastName || '';
+    const initials = (first[0]||'') + (last[0]||'');
+    // Schüler können nur einen Namen haben (Import „Max“) → leere Teile zählen als 0
+    const avatarIdx = ((first.charCodeAt(0)||0) + (last.charCodeAt(0)||0)) % AVATAR_COLORS.length;
     const [fg,bg] = AVATAR_COLORS[avatarIdx];
     const attUnexcused = (s.attendance||[]).filter(a => a.type==='abwesend').length;
     const attExcused = (s.attendance||[]).filter(a => a.type==='entschuldigt').length;
@@ -1852,9 +1869,17 @@ function importStudentsFromText() {
   
   let count = 0;
   lines.forEach(line => {
-    const parts = line.split(' ');
-    const lastName = parts.pop();
-    const firstName = parts.join(' ');
+    // Aus Excel kopiert: Spalten sind durch Tabs getrennt (Vorname | Nachname), sonst letztes Wort = Nachname
+    let firstName, lastName;
+    if (line.includes('\t')) {
+      const cols = line.split('\t').map(c => c.trim()).filter(c => c);
+      lastName = cols.pop();
+      firstName = cols.join(' ');
+    } else {
+      const parts = line.split(/\s+/);
+      lastName = parts.pop();
+      firstName = parts.join(' ');
+    }
     if (lastName) {
       if (skipDups) {
         const exists = db.students[currentGroupId].some(existing => 
@@ -1993,9 +2018,18 @@ function renderStudentNotesList(s) {
   const list  = document.getElementById('student-notes-list');
   list.innerHTML = '';
   if (!notes.length) { list.innerHTML='<div style="color:var(--text-muted);font-size:13px;padding:6px 0">Noch keine Anmerkungen.</div>'; return; }
-  [...notes].sort((a,b)=>(b.date||'').localeCompare(a.date||'')).forEach((n,i) => {
-    list.appendChild(createEntryItem(n.text, n.date, () => { s.studentNotes.splice(i,1); saveDB(); renderStudentNotesList(s); }));
+  [...notes].sort((a,b)=>(b.date||'').localeCompare(a.date||'')).forEach(n => {
+    list.appendChild(createEntryItem(n.text, n.date, () => deleteStudentNote(n)));
   });
+}
+
+// Löscht per Objekt-Referenz (die Anzeige ist sortiert, das Original nicht). Nach einem Sync ist die
+// Referenz nicht mehr in der Liste → es wird nichts gelöscht.
+function deleteStudentNote(note) {
+  const s = getCurrentStudent(); if (!s) return;
+  const idx = (s.studentNotes||[]).indexOf(note);
+  if (idx === -1) { renderStudentNotesList(s); return; }
+  s.studentNotes.splice(idx,1); saveDB(); renderStudentNotesList(s);
 }
 
 function addStudentNote() {
@@ -2016,14 +2050,15 @@ function renderAttendanceList(s) {
   list.innerHTML='';
   if (!att.length) { list.innerHTML='<div style="color:var(--text-muted);font-size:13px;padding:6px 0">Keine Einträge.</div>'; return; }
   const typeColors = { abwesend:'var(--danger)', entschuldigt:'var(--warning)', 'zuspät':'var(--text-secondary)' };
-  [...att].sort((a,b)=>(b.date||'').localeCompare(a.date||'')).forEach((a,i) => {
+  [...att].sort((a,b)=>(b.date||'').localeCompare(a.date||'')).forEach(a => {
     const el = document.createElement('div');
     el.className='entry-item';
     el.innerHTML=`
       <span style="color:${typeColors[a.type]||'inherit'};font-weight:600;min-width:86px;font-size:12px">${a.type.charAt(0).toUpperCase()+a.type.slice(1)}</span>
       <span class="entry-item-text">${escHtml(a.note||'')}</span>
       <span class="entry-item-date">${a.date?formatDateShort(a.date):''}</span>
-      <button class="entry-item-delete" onclick="deleteAttendance(${i})">✕</button>`;
+      <button class="entry-item-delete">✕</button>`;
+    el.querySelector('.entry-item-delete').onclick = () => deleteAttendance(a);
     list.appendChild(el);
   });
 }
@@ -2041,13 +2076,14 @@ function addAttendanceEntry() {
   document.getElementById('new-att-note').value='';
 }
 
-function deleteAttendance(idx) {
+function deleteAttendance(a) {
   const s = getCurrentStudent(); if (!s) return;
-  const a = s.attendance[idx];
+  const idx = (s.attendance||[]).indexOf(a);
+  if (idx === -1) { renderAttendanceList(s); return; }
   if (a.type === 'abwesend' && typeof currentOverviewGroupId !== 'undefined' && currentOverviewGroupId) {
     removeNextLessonNote(currentOverviewGroupId, a.date, `${s.firstName} hat letzte Stunde unentschuldigt gefehlt`);
   }
-  s.attendance.splice(idx,1); saveDB(); renderAttendanceList(s);
+  s.attendance.splice(idx,1); saveDB(); renderAttendanceList(s); renderStudents();
 }
 
 function renderStudentParticipationList(s) {
@@ -2059,7 +2095,7 @@ function renderStudentParticipationList(s) {
   const valColors = { 'positive':'var(--success)', 'neutral':'var(--warning)', 'negative':'var(--danger)' };
   const valLabels = { 'positive':'+', 'neutral':'=', 'negative':'-' };
   const textLabels = { 'positive':'Hervorragende Mitarbeit', 'neutral':'Moderate Mitarbeit', 'negative':'Schlechte Mitarbeit' };
-  [...pList].sort((a,b) => (b.date||'').localeCompare(a.date||'')).forEach((p, i) => {
+  [...pList].sort((a,b) => (b.date||'').localeCompare(a.date||'')).forEach(p => {
     const el = document.createElement('div');
     el.className = 'entry-item';
     const desc = p.label || textLabels[p.value] || 'Mitarbeit';
@@ -2067,14 +2103,17 @@ function renderStudentParticipationList(s) {
       <span style="color:${valColors[p.value]||'inherit'};font-weight:800;font-size:16px;min-width:30px;text-align:center;">${valLabels[p.value]||p.value}</span>
       <span class="entry-item-text">${desc}</span>
       <span class="entry-item-date">${p.date ? formatDateShort(p.date) : ''}</span>
-      <button class="entry-item-delete" onclick="deleteParticipation(${i})">×</button>`;
+      <button class="entry-item-delete">×</button>`;
+    el.querySelector('.entry-item-delete').onclick = () => deleteParticipation(p);
     list.appendChild(el);
   });
 }
 
-function deleteParticipation(idx) {
+function deleteParticipation(p) {
   const s = getCurrentStudent(); if (!s) return;
-  s.participation.splice(idx, 1); saveDB(); renderStudentParticipationList(s);
+  const idx = (s.participation||[]).indexOf(p);
+  if (idx === -1) { renderStudentParticipationList(s); return; }
+  s.participation.splice(idx, 1); saveDB(); renderStudentParticipationList(s); renderStudents();
 }
 
 function renderStudentHomeworkList(s) {
@@ -2156,12 +2195,16 @@ function exportCurrentStudent() {
     txt += `=== ALLGEMEINE NOTIZEN ===\n${s.notes}\n\n`;
   }
   
+  // Einträge ohne Datum (Altdaten) dürfen den Export nicht abbrechen
+  const byDate = (a,b) => (a.date||'').localeCompare(b.date||'');
+  const dateStr = d => d ? formatDateLong(d) : 'ohne Datum';
+
   const avg = calculateStudentAverage(s, currentOverviewGroupId);
   txt += `=== NOTEN (Aktueller Schnitt: ${avg !== null ? avg.toFixed(2) : '-'}) ===\n`;
   if (s.grades && s.grades.length > 0) {
-    const sortedGrades = [...s.grades].sort((a,b) => a.date.localeCompare(b.date));
+    const sortedGrades = [...s.grades].sort(byDate);
     sortedGrades.forEach(g => {
-      txt += `${formatDateLong(g.date)} | ${g.note || gradeTypeLabel(g.type)} | ${gradeCategory(g.type) === 'schularbeit' ? 'Klassenarbeit' : 'Sonstige Leistung'} | Note: ${g.value}\n`;
+      txt += `${dateStr(g.date)} | ${g.note || gradeTypeLabel(g.type)} | ${gradeCategory(g.type) === 'schularbeit' ? 'Klassenarbeit' : 'Sonstige Leistung'} | Note: ${g.value}\n`;
     });
   } else {
     txt += `Keine Noten eingetragen.\n`;
@@ -2171,11 +2214,11 @@ function exportCurrentStudent() {
   txt += `=== MITARBEIT ===\n`;
   if (s.participation && s.participation.length > 0) {
     const textLabels = { 'positive':'Hervorragende Mitarbeit', 'neutral':'Moderate Mitarbeit', 'negative':'Schlechte Mitarbeit' };
-    const sortedPart = [...s.participation].sort((a,b) => a.date.localeCompare(b.date));
+    const sortedPart = [...s.participation].sort(byDate);
     sortedPart.forEach(p => {
       let valStr = p.value === 'positive' ? '(+)' : (p.value === 'negative' ? '(-)' : '(o)');
       let desc = p.label || textLabels[p.value] || 'Mitarbeit';
-      txt += `${formatDateLong(p.date)} | ${desc} | ${valStr}\n`;
+      txt += `${dateStr(p.date)} | ${desc} | ${valStr}\n`;
     });
   } else {
     txt += `Keine Mitarbeit eingetragen.\n`;
@@ -2184,10 +2227,11 @@ function exportCurrentStudent() {
   
   txt += `=== ANWESENHEIT ===\n`;
   if (s.attendance && s.attendance.length > 0) {
-    const sortedAtt = [...s.attendance].sort((a,b) => a.date.localeCompare(b.date));
+    const attLabels = { abwesend: 'Unentschuldigt', entschuldigt: 'Entschuldigt', 'zuspät': 'Zu spät' };
+    const sortedAtt = [...s.attendance].sort(byDate);
     sortedAtt.forEach(a => {
-      let valStr = a.type === 'abwesend' ? 'Unentschuldigt' : 'Entschuldigt';
-      txt += `${formatDateLong(a.date)} | ${a.label} | ${valStr}\n`;
+      const valStr = attLabels[a.type] || a.type || '';
+      txt += `${dateStr(a.date)} | ${valStr}${a.note ? ' | ' + a.note : ''}\n`;
     });
   } else {
     txt += `Keine Fehltage eingetragen.\n`;
@@ -2196,9 +2240,9 @@ function exportCurrentStudent() {
   
   txt += `=== VERHALTENSNOTIZEN ===\n`;
   if (s.studentNotes && s.studentNotes.length > 0) {
-    const sortedNotes = [...s.studentNotes].sort((a,b) => a.date.localeCompare(b.date));
+    const sortedNotes = [...s.studentNotes].sort(byDate);
     sortedNotes.forEach(n => {
-      txt += `${formatDateLong(n.date)} | ${n.label}:\n${n.text}\n---\n`;
+      txt += `${dateStr(n.date)}:\n${n.text || ''}\n---\n`;
     });
   } else {
     txt += `Keine Verhaltensnotizen eingetragen.\n`;
@@ -2372,13 +2416,19 @@ function deleteBlockRow(idx) {
   renderBlocksEditor();
 }
 
+// Warnschwelle aus einem Einstellungsfeld: leer/ungültig → Standard, 0 = Warnung aus
+function parseWarnThreshold(inputId, fallback) {
+  const v = parseFloat(document.getElementById(inputId).value.replace(',', '.'));
+  return isNaN(v) || v < 0 ? fallback : v;
+}
+
 function saveSettings() {
   db.settings.teacherName = document.getElementById('settings-teacher-name').value.trim();
   db.settings.school      = document.getElementById('settings-school').value.trim();
   db.settings.seatingBufferMins = parseInt(document.getElementById('settings-seating-buffer').value) || 0;
-  db.settings.warnAbsences = parseInt(document.getElementById('settings-warn-absences').value) || 3;
-  db.settings.warnHomework = parseInt(document.getElementById('settings-warn-homework').value) || 3;
-  db.settings.warnGrade = parseFloat(document.getElementById('settings-warn-grade').value) || 4.5;
+  db.settings.warnAbsences = parseWarnThreshold('settings-warn-absences', 3);
+  db.settings.warnHomework = parseWarnThreshold('settings-warn-homework', 3);
+  db.settings.warnGrade    = parseWarnThreshold('settings-warn-grade', 4.5);
   db.settings.theme       = currentThemeMode;
   db.settings.themeBg     = currentThemeBg;
   db.settings.themeCard   = currentThemeCard;
@@ -3841,7 +3891,7 @@ function renderDashboard() {
     students.forEach(s => {
       // 1. Absences
       const unexcused = (s.attendance || []).filter(a => a.type === 'abwesend').length;
-      if (unexcused >= warnAbsences && unexcused > (db.acknowledgedWarnings[`${s.id}_absences`] || 0)) {
+      if (warnAbsences > 0 && unexcused >= warnAbsences && unexcused > (db.acknowledgedWarnings[`${s.id}_absences`] || 0)) {
         warnings.push({
           student: s,
           group: group,
@@ -3854,7 +3904,7 @@ function renderDashboard() {
 
       // 2. Homework
       const hwCount = (s.homework || []).length;
-      if (hwCount >= warnHomework && hwCount > (db.acknowledgedWarnings[`${s.id}_homework`] || 0)) {
+      if (warnHomework > 0 && hwCount >= warnHomework && hwCount > (db.acknowledgedWarnings[`${s.id}_homework`] || 0)) {
         warnings.push({
           student: s,
           group: group,
@@ -3869,7 +3919,7 @@ function renderDashboard() {
       const grades = s.grades || [];
       if (grades.length > 0) {
         const avg = calculateStudentAverage(s, group.id);
-        if (avg !== null && avg >= warnGrade && grades.length > (db.acknowledgedWarnings[`${s.id}_grade`] || 0)) {
+        if (warnGrade > 0 && avg !== null && avg >= warnGrade && grades.length > (db.acknowledgedWarnings[`${s.id}_grade`] || 0)) {
           warnings.push({
             student: s,
             group: group,
@@ -3942,7 +3992,7 @@ window.openStudentDetailFromDashboard = function(studentId, groupId, type) {
   } else if (type === 'grade') {
     switchStudentTab('grades');
   } else if (type === 'homework') {
-    switchStudentTab('notes');
+    switchStudentTab('homework');
   }
 };
 

@@ -77,7 +77,9 @@ Datumswerte sind Strings `YYYY-MM-DD` in **lokaler** Zeit (`formatDate()`). Nie 
 6. **Jede aufgerufene Funktion und jede `getElementById`-ID muss existieren.** Nach Umbauen mit grep gegenprüfen.
 7. **Keine stillen Fallbacks auf leere Daten.** Lieber Fehler anzeigen als echte Daten überschreiben.
 8. **Formulare merken sich den bearbeiteten Eintrag per Objekt-Referenz, nicht per Index.** Zwischen Öffnen und Speichern kann sich die Liste ändern (Sync, andere Ansicht).
-9. **Kleine Schritte.** Pro Änderung ein Thema; kein „nebenbei noch schnell“ in anderen Bereichen.
+9. **Listen-Einträge in Render-Funktionen nicht über `onclick="f(${i})"` löschen**, sondern per Closure mit dem Objekt (`el.querySelector(…).onclick = () => f(entry)`), und in `f` mit `indexOf(entry)` suchen; `-1` (z. B. nach Sync) heißt: nichts löschen.
+10. **Wer etwas löscht, räumt Abhängiges mit auf** (Klasse → Stunden → `lessonData`) und prüft, ob die aktuelle Ansicht/Auswahl (`currentGroupId`, `currentOverviewGroupId`, `currentSeatingGroupId`) noch gültig ist.
+11. **Kleine Schritte.** Pro Änderung ein Thema; kein „nebenbei noch schnell“ in anderen Bereichen.
 
 ## Arbeitsablauf
 
