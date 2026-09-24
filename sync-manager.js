@@ -22,6 +22,26 @@ class CloudChangedError extends Error {
   }
 }
 
+// Wird geworfen, wenn die verschlüsselten Daten nicht mehr in ein Firestore-Dokument passen (max. 1 MiB).
+class CloudTooLargeError extends Error {
+  constructor(bytes) {
+    super('Deine Daten sind zu groß für die Cloud (' + Math.round(bytes / 1024) + ' KB, erlaubt sind '
+      + Math.round(CLOUD_MAX_BYTES / 1024) + ' KB). Auf diesem Gerät ist alles gespeichert, '
+      + 'nur die Cloud-Sicherung ist nicht aktuell. Bitte exportiere eine Sicherung und lösche nicht mehr benötigte Klassen.');
+    this.name = 'CloudTooLargeError';
+    this.bytes = bytes;
+  }
+}
+
+// Firestore erlaubt 1 MiB pro Dokument; etwas Luft für Feldnamen und Verwaltungsdaten.
+const CLOUD_MAX_BYTES = 1000000;
+// Ab hier wird gewarnt, damit der Nutzer rechtzeitig aufräumen kann.
+const CLOUD_WARN_BYTES = 750000;
+
+function cloudDocSize(doc) {
+  return Object.entries(doc).reduce((n, [k, v]) => n + k.length + 1 + (typeof v === 'string' ? v.length + 1 : 8), 32);
+}
+
 /**
  * Reine Entscheidungslogik (ohne Netzwerk, dadurch testbar).
  * @param {Object} s
@@ -163,12 +183,39 @@ const SyncManager = {
   /**
    * Entschlüsselt einen Cloud-Datensatz; wirft WrongPasswordError bei falschem Passwort.
    */
-  decryptPayload(cloudPayload) {
+  async decryptPayload(cloudPayload) {
     try {
-      return CryptoHelper.decrypt(cloudPayload.encryptedData, this.masterPassword);
+      return await CryptoHelper.decryptPayload(cloudPayload, this.masterPassword);
     } catch (e) {
+      if (e.name === 'UnsupportedFormatError') throw e;
       throw new WrongPasswordError();
     }
+  },
+
+  /**
+   * Verschlüsselt und prüft die Größe, bevor irgendetwas geschrieben wird.
+   * @returns {Object} Dokumentfelder ohne lastModified
+   */
+  async _buildDoc(rawDataString) {
+    const doc = await CryptoHelper.encryptPayload(rawDataString, this.masterPassword);
+    const size = cloudDocSize(doc);
+    if (size > CLOUD_MAX_BYTES) throw new CloudTooLargeError(size);
+    this.lastUploadSize = size;
+    return doc;
+  },
+
+  /**
+   * Schreibt einen Cloud-Stand im alten Format (v1) unverändert im neuen Format zurück.
+   * Inhalt und Versionskennung bleiben gleich – andere Geräte merken davon nichts.
+   */
+  async upgradeCloudFormat(cloudData, cloudTimestamp) {
+    const doc = await this._buildDoc(cloudData);
+    const docRef = this._docRef();
+    await this.db.runTransaction(async (tx) => {
+      const snap = await tx.get(docRef);
+      if (!snap.exists || snap.data().lastModified !== cloudTimestamp) throw new CloudChangedError();
+      tx.set(docRef, { ...doc, lastModified: cloudTimestamp });
+    });
   },
 
   /**
@@ -184,7 +231,7 @@ const SyncManager = {
       throw new Error("Master-Passwort fehlt. Verschlüsselung nicht möglich.");
     }
 
-    const encrypted = CryptoHelper.encrypt(rawDataString, this.masterPassword);
+    const doc = await this._buildDoc(rawDataString);
     const docRef = this._docRef();
 
     return this.db.runTransaction(async (tx) => {
@@ -196,7 +243,7 @@ const SyncManager = {
       let newTimestamp = Date.now();
       if (typeof current === 'number' && newTimestamp <= current) newTimestamp = current + 1;
 
-      tx.set(docRef, { encryptedData: encrypted, lastModified: newTimestamp });
+      tx.set(docRef, { ...doc, lastModified: newTimestamp });
       return newTimestamp;
     });
   },
@@ -210,9 +257,11 @@ const SyncManager = {
    * @param {boolean} local.localChanged
    * @param {boolean} local.localIsEmpty
    * @param {*} local.lastSyncedCloudTimestamp
+   * @param {Function} [local.sameAsLocal] - (cloudDataString) => true, wenn die Cloud inhaltlich dem lokalen Stand entspricht.
+   *        Dann gibt es keinen Konflikt, obwohl beide Seiten als „geändert“ gelten (z. B. Altdaten nach dem Update).
    * @returns {Object} { status: 'uploaded'|'pulled'|'conflict'|'no_change'|'offline'|'no_user', ... }
    */
-  async sync(localDataString, { localChanged, localIsEmpty, lastSyncedCloudTimestamp }) {
+  async sync(localDataString, { localChanged, localIsEmpty, lastSyncedCloudTimestamp, sameAsLocal }) {
     if (!this.isInitialized || !this.currentUser) {
       return { status: 'no_user' };
     }
@@ -228,9 +277,23 @@ const SyncManager = {
       const cloudTimestamp = hasCloud ? cloudPayload.lastModified : null;
 
       // Passwort-Probe: Ohne erfolgreiche Entschlüsselung geht nichts weiter.
-      const cloudData = hasCloud ? this.decryptPayload(cloudPayload) : null;
+      const cloudData = hasCloud ? await this.decryptPayload(cloudPayload) : null;
 
-      const action = decideSync({ hasCloud, cloudTimestamp, lastSyncedCloudTimestamp, localChanged, localIsEmpty });
+      let action = decideSync({ hasCloud, cloudTimestamp, lastSyncedCloudTimestamp, localChanged, localIsEmpty });
+      if (action === 'conflict' && sameAsLocal && sameAsLocal(cloudData)) {
+        this.updateStatus('synced');
+        return { status: 'no_change', cloudTimestamp };
+      }
+
+      // Alte Verschlüsselung (v1) in der Cloud: still ins neue Format umschreiben.
+      // Beim Hochladen passiert das ohnehin; ein Fehlschlag hier ist harmlos (nächster Sync versucht es erneut).
+      if (hasCloud && cloudPayload.format === undefined && action !== 'upload') {
+        try {
+          await this.upgradeCloudFormat(cloudData, cloudTimestamp);
+        } catch (e) {
+          console.warn('SyncManager: Umstellung auf das neue Cloud-Format verschoben:', e.message);
+        }
+      }
 
       if (action === 'upload') {
         const newTimestamp = await this.saveToCloud(localDataString, cloudTimestamp);

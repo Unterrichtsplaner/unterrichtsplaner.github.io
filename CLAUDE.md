@@ -66,7 +66,9 @@ db = {
 - „Cloud geändert“ = `cloudTimestamp !== lastSyncedCloudTimestamp`, „lokal geändert“ = `lastModified !== syncedLocalModified` (`isLocalDBChanged()`). **Nur Gleichheit, nie größer/kleiner**, denn die Uhren verschiedener Geräte sind nicht vergleichbar.
 - Die Entscheidung trifft `decideSync()` in `sync-manager.js`. Das ist eine reine Funktion mit Tabellen-Test. Ein leeres Gerät lädt nie hoch.
 - Vor jeder Aktion werden die Cloud-Daten mit dem Master-Passwort entschlüsselt (Passwort-Probe). Hochgeladen wird per Firestore-Transaktion, nur wenn die Cloud noch auf dem erwarteten Stand ist (`CloudChangedError`).
-- Firestore-Limit: 1 MB pro Dokument, die ganze DB liegt in einem Dokument (siehe BUGS A9).
+- Cloud-Format steht im Dokument (`format`): fehlt = v1 (CryptoJS, nur noch lesen), `2` = gzip + AES-GCM, PBKDF2-Schlüssel (`salt`, `iv`, `iterations`, `compression`). Ver-/Entschlüsselung ist **async** (`CryptoHelper.encryptPayload`/`decryptPayload`). Ein neues Format braucht eine neue Nummer; alte Versionen melden dann „neuere App-Version“ statt „falsches Passwort“.
+- Firestore-Limit: 1 MiB pro Dokument, die ganze DB liegt in einem Dokument. `_buildDoc()` prüft die Größe vor jedem Schreiben (`CLOUD_MAX_BYTES`), ab `CLOUD_WARN_BYTES` wird gewarnt.
+- Ist ein Stand beidseitig „geändert“, aber inhaltlich gleich (`cloudMatchesLocal`), gibt es keinen Konflikt.
 - In app.js läuft immer nur ein Sync gleichzeitig (`syncRunning`/`syncQueued`). Ist ein Konflikt offen (`window.currentConflict`), pausiert der Auto-Sync.
 
 Datumswerte sind Strings `YYYY-MM-DD` in **lokaler** Zeit (`formatDate()`). Nie `toISOString()` für Datumsstrings verwenden, und `new Date('YYYY-MM-DD')` nur mit `+ 'T12:00:00'`.
@@ -87,6 +89,7 @@ Datumswerte sind Strings `YYYY-MM-DD` in **lokaler** Zeit (`formatDate()`). Nie 
 12. **Block-Nummern (`blocks[].num`) sind Kennungen, auf die Stunden verweisen.** Nie umnummerieren; Blöcke mit Stunden nicht löschen.
 13. **`lessonData`-Schlüssel hängen am Datum** (`slotId_YYYY-MM-DD`). Wer Tag/Datum einer Stunde ändert, verschiebt sie mit (`moveLessonData`).
 14. **Datumsstrings mit `parseDate()` lesen** (lokal, mittags), rechnen mit `addDays`/`mondayOf`.
+15. **Cloud-Daten, die andere Geräte schreiben, immer abwärtskompatibel lesen.** Andere Lehrkräfte haben evtl. noch eine alte App-Version; Formatwechsel nur mit Kennung im Dokument, altes Format weiter lesen, und nie „kann ich nicht lesen“ als „falsches Passwort“ behandeln.
 
 ## Arbeitsablauf
 

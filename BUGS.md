@@ -10,7 +10,7 @@ Priorität: 🔴 Datenverlust / App kaputt · 🟠 falsche Anzeige / nervig · �
 
 ## A. Cloud-Sync
 
-> Behoben bis auf A7, A9, A10. A7 + A9 gemeinsam angehen (ein neues Cloud-Format statt zwei Migrationen), A10 gleich mit. **Die App wird bereits von anderen Lehrkräften genutzt**: Das Update muss ohne Handgriffe der Nutzer funktionieren, alte Cloud-Daten müssen lesbar bleiben. Tests: `tests/sync.test.js`. Einmaliger Effekt nach dem Update: Geräte mit altem Sync-Stand melden beim ersten Sync evtl. einmal einen Konflikt (alte Daten kennen `syncedLocalModified` noch nicht).
+> Behoben. Tests: `tests/sync.test.js`. Cloud-Format v2 (Feld `format: 2`): gzip → AES-256-GCM, Schlüssel per PBKDF2-SHA256 (300 000 Runden). Alte Cloud-Daten (v1, CryptoJS) bleiben lesbar und werden beim ersten Sync still umgeschrieben (gleicher Inhalt, gleiche Versionskennung → andere Geräte merken nichts). Geräte mit **alter App-Version** können v2 nicht lesen (Fehlermeldung, kein Datenverlust), bis sich die App aktualisiert hat. Cloud-Dokument über 1 000 000 Byte → nichts wird hochgeladen, Hinweis; ab 75 % Warnung. Konflikt-Dialog nur noch, wenn sich die Inhalte wirklich unterscheiden.
 
 - [x] **A1** 🔴 `saveDB(true)` setzt `lastModified` neu, auch direkt nach Upload/Pull/„no_change“ (`saveDB`, `triggerSyncInternal`, `resolveConflict`). Folge: Gerät gilt immer als „lokal geändert“ → falsche Konflikte, sobald ein zweites Gerät synct.
 - [x] **A2** 🔴 Neues Gerät (leere DB, `lastSynced = 0`) → immer Konflikt, leere lokale Version wird als „(aktueller)“ angezeigt. „Hochladen“ überschreibt die Cloud mit nichts. (`triggerSyncInternal`, Konflikt-Modal ~Z. 4067)
@@ -18,9 +18,9 @@ Priorität: 🔴 Datenverlust / App kaputt · 🟠 falsche Anzeige / nervig · �
 - [x] **A4** 🔴 Keine Sperre gegen parallele Syncs; ein Pull überschreibt `db` ohne zu prüfen, ob während des `await` lokal etwas eingetragen wurde → Eingaben gehen verloren.
 - [x] **A5** 🔴 `clearAllData()` (~Z. 2459): Reste von Export-Code (`a`, `url` undefiniert) → ReferenceError. Leere DB geht beim nächsten Speichern als „neuester Stand“ in die Cloud.
 - [x] **A6** 🟠 Konflikt-Modal öffnet sich bei jeder Eingabe neu (Autosave läuft weiter, während ein Konflikt offen ist).
-- [ ] **A7** 🟠 Schwache Verschlüsselung: CryptoJS-Passphrase-Modus = MD5, 1 Iteration (`crypto-helper.js`). Ersetzen durch WebCrypto (PBKDF2 ≥ 200k + AES-GCM) – mit Migration der bestehenden Cloud-Daten!
-- [ ] **A9** 🔴 Firestore-Dokumente dürfen max. 1 MB groß sein; die ganze DB liegt verschlüsselt (≈ +37 %) in EINEM Dokument. Schätzung für 8 Klassen × 25 Schüler × 1 Schuljahr: ≈ 1,9 MB → Sync scheitert im Laufe des Schuljahres. Fix: vor dem Verschlüsseln komprimieren (`CompressionStream('gzip')`, ~10×), zusammen mit A7 als neues Format v2 (Kennung im Dokument, alte Daten weiter lesbar). Zusätzlich Größe vor dem Upload prüfen und verständlich warnen.
-- [ ] **A10** 🔴 **Vor dem Live-Gang:** Andere Lehrkräfte nutzen die App bereits. Nach dem Update fehlt deren Daten `syncSettings.syncedLocalModified` → jedes Gerät zeigt einmal den Konflikt-Dialog, und Fremdnutzer wissen nicht, was sie wählen sollen. Übernahme in `migrateDB()`: Alt-Stand gilt als synchron, wenn `lastModified === lastSyncedCloudTimestamp` (Gerät hat zuletzt heruntergeladen) oder `0 ≤ lastModified − lastSyncedCloudTimestamp < 10 s` (altes `saveDB(true)` direkt nach dem Upload). Sonst bleibt „lokal geändert“ (sicherer Fall). Mit Tests für beide Fälle.
+- [x] **A7** 🟠 Schwache Verschlüsselung: CryptoJS-Passphrase-Modus = MD5, 1 Iteration (`crypto-helper.js`). Ersetzen durch WebCrypto (PBKDF2 ≥ 200k + AES-GCM) – mit Migration der bestehenden Cloud-Daten!
+- [x] **A9** 🔴 Firestore-Dokumente dürfen max. 1 MB groß sein; die ganze DB liegt verschlüsselt (≈ +37 %) in EINEM Dokument. Schätzung für 8 Klassen × 25 Schüler × 1 Schuljahr: ≈ 1,9 MB → Sync scheitert im Laufe des Schuljahres. Fix: vor dem Verschlüsseln komprimieren (`CompressionStream('gzip')`, ~10×), zusammen mit A7 als neues Format v2 (Kennung im Dokument, alte Daten weiter lesbar). Zusätzlich Größe vor dem Upload prüfen und verständlich warnen.
+- [x] **A10** 🔴 **Vor dem Live-Gang:** Andere Lehrkräfte nutzen die App bereits. Nach dem Update fehlt deren Daten `syncSettings.syncedLocalModified` → jedes Gerät zeigt einmal den Konflikt-Dialog, und Fremdnutzer wissen nicht, was sie wählen sollen. Übernahme in `migrateDB()`: Alt-Stand gilt als synchron, wenn `lastModified === lastSyncedCloudTimestamp` (Gerät hat zuletzt heruntergeladen) oder `0 ≤ lastModified − lastSyncedCloudTimestamp < 10 s` (altes `saveDB(true)` direkt nach dem Upload). Sonst bleibt „lokal geändert“ (sicherer Fall). Mit Tests für beide Fälle.
 - [x] **A8** 🟠 Konflikterkennung vergleicht Uhrzeiten verschiedener Geräte (`Date.now()`); Firestore-Schreiben ohne Transaktion.
 
 ## B. Noten
@@ -107,6 +107,9 @@ Priorität: 🔴 Datenverlust / App kaputt · 🟠 falsche Anzeige / nervig · �
 | A5 | `clearAllData` repariert, Hinweis auf Cloud | Block A |
 | A6 | Kein Auto-Sync, solange Konflikt offen | Block A |
 | A8 | Nur Gleichheitsvergleich der Versionskennung; Upload per Firestore-Transaktion | Block A |
+| A7 | Format v2 (`CryptoHelper.encryptPayload`/`decryptPayload`, WebCrypto PBKDF2 + AES-GCM); v1 lesbar, still umgeschrieben (`upgradeCloudFormat`); unbekanntes Format ≠ falsches Passwort | Block A |
+| A9 | gzip vor dem Verschlüsseln; `CloudTooLargeError` vor dem Schreiben, Warnung ab 75 % | Block A |
+| A10 | `migrateDB()` übernimmt alten Sync-Stand; inhaltsgleiche Stände sind kein Konflikt (`cloudMatchesLocal`) | Block A |
 | B1 | Notenformular merkt sich die Note per Referenz; `refreshGradeViews()` statt `#view-overview` | Block B |
 | B2 | `parseGradeInput()` (Komma, Tendenz, 1–6) für Formular und Tabelle; `gradeNumber()` zum Lesen | Block B |
 | B3 | Klassenkarte, Schülerdetail, Sitzplan über `calculateStudentAverage` / `calculateGroupAverage` | Block B |

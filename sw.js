@@ -1,9 +1,9 @@
-const CACHE_NAME = 'lehrer-app-v179';
+const CACHE_NAME = 'lehrer-app-v180';
 const ASSETS = [
   './',
   './index.html',
-  './app.js?v=179',
-  './style.css?v=179',
+  './app.js?v=180',
+  './style.css?v=180',
   './manifest.json',
   './icon.svg',
   './lib/crypto-js.min.js',

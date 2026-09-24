@@ -78,6 +78,15 @@ function migrateDB(data) {
       && !(data.lessonSlots || []).some(slot => slot.block === 5)) {
     data.settings.blocks = DEFAULT_BLOCKS.map(x => ({ ...x }));
   }
+  // Sync-Stand alter App-Versionen (ohne `syncedLocalModified`): gilt als synchron, wenn der Stand direkt
+  // aus der Cloud kam (gleiche Kennung) oder das alte `saveDB(true)` ihn kurz nach dem Upload neu gestempelt hat.
+  // Sonst bleibt er „lokal geändert“ – das ist der sichere Fall.
+  const ss = data.syncSettings;
+  if (ss && !('syncedLocalModified' in ss) && typeof ss.lastSyncedCloudTimestamp === 'number'
+      && data.settings && typeof data.settings.lastModified === 'number') {
+    const diff = data.settings.lastModified - ss.lastSyncedCloudTimestamp;
+    if (diff >= 0 && diff < 10000) ss.syncedLocalModified = data.settings.lastModified;
+  }
   return data;
 }
 // Für jede Änderung durch den Nutzer: markiert die Daten als geändert und stößt den Cloud-Sync an.
@@ -4369,6 +4378,41 @@ function markSynced(cloudTimestamp, localModified) {
   persistDB();
 }
 
+// Vergleichbarer Inhalt eines Stands: ohne Änderungszeitpunkt und Sync-Metadaten.
+function comparableContent(data) {
+  const copy = migrateDB(JSON.parse(JSON.stringify(data)));
+  delete copy.syncSettings;
+  if (copy.settings) delete copy.settings.lastModified;
+  return JSON.stringify(copy);
+}
+
+// Stimmt der Cloud-Stand inhaltlich mit dem lokalen überein? Dann ist ein „Konflikt“ keiner.
+function cloudMatchesLocal(cloudDataString, localDataString) {
+  try {
+    return comparableContent(JSON.parse(cloudDataString)) === comparableContent(JSON.parse(localDataString));
+  } catch (e) {
+    return false;
+  }
+}
+
+// Warnt, wenn die Cloud-Sicherung sich dem Firestore-Limit nähert (höchstens einmal pro Sitzung).
+let cloudSizeWarned = false;
+function warnIfCloudNearlyFull() {
+  const size = SyncManager.lastUploadSize;
+  if (cloudSizeWarned || !size || size < CLOUD_WARN_BYTES) return;
+  cloudSizeWarned = true;
+  alert(`⚠️ Die Cloud-Sicherung ist zu ${Math.round(size / CLOUD_MAX_BYTES * 100)} % voll.\n\nAb 100 % werden Änderungen nicht mehr in die Cloud übertragen. Bitte bald eine Sicherung exportieren und nicht mehr benötigte Klassen löschen.`);
+}
+
+// Fehler, die der Nutzer selbst beheben muss (Cloud voll, App veraltet): als Hinweisfenster,
+// beim automatischen Sync aber nur einmal pro Sitzung, sonst käme es nach jeder Eingabe.
+let syncProblemShown = false;
+function showSyncProblem(error, manual) {
+  if (!manual && syncProblemShown) return;
+  syncProblemShown = true;
+  alert('❌ ' + error.message);
+}
+
 // Übernimmt einen entschlüsselten Cloud-Stand komplett als lokale Daten.
 function applyCloudData(dataString, cloudTimestamp) {
   const parsed = JSON.parse(dataString);
@@ -4414,6 +4458,7 @@ async function triggerSyncInternal({ manual = false } = {}) {
       localChanged: isLocalDBChanged(),
       localIsEmpty: isLocalDBEmpty(),
       lastSyncedCloudTimestamp: db.syncSettings ? db.syncSettings.lastSyncedCloudTimestamp : undefined,
+      sameAsLocal: cloudData => cloudMatchesLocal(cloudData, localDataString),
     }), SYNC_TIMEOUT_MS);
 
     if (result.status === 'pulled') {
@@ -4430,8 +4475,11 @@ async function triggerSyncInternal({ manual = false } = {}) {
       // bleiben „geändert“ und gehen mit dem nächsten Sync hoch.
       markSynced(result.cloudTimestamp, localModified);
       if (manual) showToast('Daten erfolgreich in die Cloud geladen! ✓');
+      warnIfCloudNearlyFull();
       updateSyncUI();
     } else if (result.status === 'no_change') {
+      // Beide Seiten inhaltsgleich – auch wenn die Kennungen abweichen (siehe cloudMatchesLocal)
+      if (db.settings.lastModified === localModified) markSynced(result.cloudTimestamp, localModified);
       if (manual) showToast('Daten bereits auf dem neuesten Stand.');
       updateSyncUI();
     } else if (result.status === 'offline') {
@@ -4445,6 +4493,8 @@ async function triggerSyncInternal({ manual = false } = {}) {
     } else if (error.name === 'CloudChangedError') {
       // Ein anderes Gerät war schneller – einfach neu prüfen.
       syncQueued = true;
+    } else if (error.name === 'CloudTooLargeError' || error.name === 'UnsupportedFormatError') {
+      showSyncProblem(error, manual);
     } else {
       showToast('❌ Sync-Fehler: ' + error.message, 'error');
     }
@@ -4484,6 +4534,7 @@ async function resolveConflict(decision) {
       const newTimestamp = await SyncManager.saveToCloud(JSON.stringify(db), conflict.cloudTimestamp);
       markSynced(newTimestamp, localModified);
       showToast('Cloud-Version erfolgreich mit lokalem Stand überschrieben.');
+      warnIfCloudNearlyFull();
       updateSyncUI();
 
     } else if (decision === 'backup') {
@@ -4495,6 +4546,8 @@ async function resolveConflict(decision) {
     if (e.name === 'CloudChangedError') {
       alert('In der Zwischenzeit hat ein anderes Gerät neue Daten hochgeladen. Es wird neu geprüft.');
       triggerSyncInternal({ manual: true });
+    } else if (e.name === 'CloudTooLargeError') {
+      showSyncProblem(e, true);
     } else {
       alert('Fehler bei der Konfliktlösung: ' + e.message);
     }
