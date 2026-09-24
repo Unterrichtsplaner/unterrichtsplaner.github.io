@@ -70,6 +70,8 @@ function fillIcons(root) {
 fillIcons(document);
 
 // ─── State ───────────────────────────────────────────────────────────────
+// Gespeicherte Daten, die sich nicht lesen ließen (G12): Rohtext bleibt erhalten, statt beim nächsten Speichern überschrieben zu werden.
+let dbLoadFailure = null; // { raw, key /*Kopie in localStorage, null = Kopie gescheitert*/, error }
 let db = loadDB();
 let currentWeekOffset = 0;
 let activeLessonId    = null;
@@ -86,10 +88,20 @@ let selectedGroupColor  = APP_COLORS[0];
 
 // ─── DB ──────────────────────────────────────────────────────────────────
 function loadDB() {
+  let raw = null;
   try {
-    const raw = localStorage.getItem('lehrerapp_v3');
-    if (raw) return migrateDB(JSON.parse(raw));
-  } catch(e) {}
+    raw = localStorage.getItem('lehrerapp_v3');
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) throw new Error('Keine gültige Datenbank');
+      return migrateDB(parsed);
+    }
+  } catch(e) {
+    if (raw) rescueUnreadableDB(raw, e);
+  }
+  return emptyDB();
+}
+function emptyDB() {
   return {
     settings: { teacherName:'', school:'', blocks: null },
     lessonSlots: [],
@@ -97,6 +109,34 @@ function loadDB() {
     groups: [],
     students: {},
   };
+}
+// Unlesbaren Speicherstand unter eigenem Schlüssel sichern. Klappt das nicht (Speicher voll),
+// wird der alte Schlüssel nicht mehr überschrieben, bis der Nutzer die Datei heruntergeladen hat.
+function rescueUnreadableDB(raw, error) {
+  let key = 'lehrerapp_v3_defekt_' + Date.now();
+  try { localStorage.setItem(key, raw); } catch(e) { key = null; }
+  dbLoadFailure = { raw, key, error: String(error && error.message || error) };
+  setTimeout(showDBLoadFailure, 0);
+}
+function showDBLoadFailure() {
+  if (!dbLoadFailure) return;
+  const where = dbLoadFailure.key
+    ? 'Eine Kopie liegt weiterhin auf diesem Gerät.'
+    : 'Der Speicher ist voll, deshalb konnte keine Kopie angelegt werden. Bis du die Datei heruntergeladen hast, wird auf diesem Gerät nichts gespeichert.';
+  if (confirm('⚠️ Die gespeicherten Daten auf diesem Gerät konnten nicht gelesen werden.\n\n'
+    + 'Die App startet deshalb leer. Deine alten Daten wurden NICHT gelöscht. ' + where + '\n\n'
+    + 'Falls Cloud-Sync aktiv ist, kommen deine Daten beim nächsten Sync aus der Cloud zurück. Sonst: Sicherung importieren.\n\n'
+    + 'Die unlesbaren Daten jetzt als Datei herunterladen (zur Rettung)?')) {
+    downloadUnreadableDB();
+  }
+}
+function downloadUnreadableDB() {
+  if (!dbLoadFailure) return;
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([dbLoadFailure.raw], { type: 'text/plain;charset=utf-8;' }));
+  a.download = `Unterrichtsplaner_unlesbar_${formatDate(new Date())}.txt`;
+  a.click();
+  if (!dbLoadFailure.key) dbLoadFailure = null; // gerettet → Speichern wieder erlaubt
 }
 // Altdaten angleichen. Muss beliebig oft laufen dürfen; gespeichert wird beim nächsten persistDB/saveDB.
 function migrateDB(data) {
@@ -151,6 +191,10 @@ function saveDB() {
 }
 // Nur speichern, ohne die Daten als „geändert“ zu markieren (z. B. Sync-Metadaten).
 function persistDB() {
+  if (dbLoadFailure && !dbLoadFailure.key) {
+    showToast('Nicht gespeichert: alte Daten zuerst herunterladen', 'error');
+    return;
+  }
   localStorage.setItem('lehrerapp_v3', JSON.stringify(db));
 }
 function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2,6); }

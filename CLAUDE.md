@@ -100,6 +100,7 @@ Datumswerte sind Strings `YYYY-MM-DD` in **lokaler** Zeit (`formatDate()`). Nie 
 20. **Stundenplan hat zwei Modi:** unter 700 px (`isTimetableDayView()`) die Tagesansicht (`timetableDay`), sonst die Woche (`currentWeekOffset`). Wer das Datum ändert, geht über `setTimetableDay`/`navigateWeek`/`jumpToDate`, damit beide zusammenpassen. Zellen nur über `buildTimetableCell` bauen. Im Test Breite per `window.innerWidth = 400` setzen.
 21. **Zeitabhängige Anzeigen (laufende/nächste Stunde) bekommen die Uhrzeit als Parameter** (`timetableClock(now)`, `findNextLesson(now)`) und werden per Timer neu gezeichnet (`refreshTimetableClock`). Im Test `vi.useFakeTimers({ toFake: ['Date'] })` + `vi.setSystemTime(…)`.
 22. **Symbole nur als Linien-Icons aus `ICONS` (app.js):** in app.js `icon('name')`, in index.html `<i data-icon="name"></i>` (ersetzt `fillIcons()` beim Start). Keine Emojis in Knöpfen, Reitern, Überschriften; Ausnahme 😊😐☹️ bei der Mitarbeit. Texte in `alert`/`confirm`/Toasts sind davon ausgenommen (können kein SVG). `tests/icons.test.js` prüft das.
+23. **Unlesbare gespeicherte Daten nie überschreiben.** `loadDB()` legt sie als `lehrerapp_v3_defekt_<Zeit>` ab und meldet das (`dbLoadFailure`); klappt die Kopie nicht, blockiert `persistDB()`, bis der Nutzer die Datei heruntergeladen hat.
 
 ## Arbeitsablauf
 

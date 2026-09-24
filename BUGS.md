@@ -91,7 +91,7 @@ Priorität: 🔴 Datenverlust / App kaputt · 🟠 falsche Anzeige / nervig · �
 - [x] **G9** 🟠 (in der Generalprobe aufgefallen: endloser Lade-Kreisel, DevTools-„Offline“ wirkungslos) SW-`fetch` fängt auch POST/Fremd-Domains ab; `forceAppUpdate` wartet nicht auf `caches.delete`.
 - [ ] **G10** 🟢 Kommentar „HIER BITTE DEINE E-MAIL-ADRESSE EINTRAGEN“ in index.html ~Z. 949.
 - [ ] **G11** 🟢 `server.js`: Pfadprüfung per `startsWith` unsauber, liefert `.git/` aus (nur Dev-Server).
-- [ ] **G12** 🟢 `loadDB()` verschluckt JSON-Fehler und startet mit leerer DB → nächstes Speichern überschreibt die kaputten (evtl. rettbaren) Daten.
+- [x] **G12** 🔴 `loadDB()` verschluckt JSON-Fehler und startet mit leerer DB → nächstes Speichern überschreibt die kaputten (evtl. rettbaren) Daten.
 
 ## H. Design & Funktionen (Review mit Beispieldaten, 24.09.2026)
 
