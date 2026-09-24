@@ -1980,6 +1980,7 @@ function goBackToSubjects() {
 }
 
 function renderStudents() {
+  hideCounterHint();  // ihr Zähler wird gleich neu gezeichnet
   const container = document.getElementById('students-container');
   const students  = db.students[currentGroupId] || [];
   if (!students.length) {
@@ -2004,6 +2005,11 @@ function renderStudents() {
     const partPos = (s.participation||[]).filter(p => p.value==='positive').length;
     const partNeutral = (s.participation||[]).filter(p => p.value==='neutral').length;
     const partNeg = (s.participation||[]).filter(p => p.value==='negative').length;
+    const hints = {
+      participation: { title: 'Mitarbeit', lines: [[partPos, 'positiv', 'success'], [partNeutral, 'neutral', 'warning'], [partNeg, 'negativ', 'danger']] },
+      attendance: { title: 'Fehltage', lines: [[attUnexcused, 'unentschuldigt', 'danger'], [attExcused, 'entschuldigt', 'success']] },
+    };
+    const hintText = kind => `${hints[kind].title}: ` + hints[kind].lines.map(([n, label]) => `${n} ${label}`).join(', ');
 
     const grades = s.grades || [];
     const row = document.createElement('div');
@@ -2016,19 +2022,19 @@ function renderStudents() {
         <div class="student-quick-notes">${s.notes ? escHtml(s.notes) : grades.length+' Note'+(grades.length!==1?'n':'')}</div>
       </div>
       <div style="display:flex; flex-direction:row; align-items:center; font-size:12px; color:var(--text-muted); gap: 12px; margin-right: 8px;">
-        <div title="Mitarbeit (Positiv : Neutral : Negativ)" onclick="event.stopPropagation(); openStudentDetail('${s.id}', 'participation')" style="background:var(--bg-elevated); padding:4px 8px; border-radius:6px; display:flex; gap:4px; align-items:center; cursor:pointer; transition:background 0.2s;" onmouseover="this.style.background='var(--bg-card-hover)'" onmouseout="this.style.background='var(--bg-elevated)'">
-          <span style="font-size:11px; text-transform:uppercase; letter-spacing:0.5px; opacity:0.7; margin-right:4px;">Mitarbeit</span>
+        <div class="student-counter" data-kind="participation" role="button" tabindex="0" title="${hintText('participation')}" aria-label="${hintText('participation')}">
+          <span class="student-counter-label">Mitarbeit</span>
           <span style="color:var(--success); font-weight:700;">${partPos}</span>
           <span style="opacity:0.5">:</span>
           <span style="color:var(--warning); font-weight:700;">${partNeutral}</span>
           <span style="opacity:0.5">:</span>
           <span style="color:var(--danger); font-weight:700;">${partNeg}</span>
         </div>
-        <div title="Fehltage (Unentschuldigt / Entschuldigt)" onclick="event.stopPropagation(); openStudentDetail('${s.id}', 'attendance')" style="background:var(--bg-elevated); padding:4px 8px; border-radius:6px; display:flex; gap:4px; align-items:center; cursor:pointer; transition:background 0.2s;" onmouseover="this.style.background='var(--bg-card-hover)'" onmouseout="this.style.background='var(--bg-elevated)'">
-          <span style="font-size:11px; text-transform:uppercase; letter-spacing:0.5px; opacity:0.7; margin-right:4px;">Fehlt</span>
-          <span style="color:var(--danger); font-weight:700;" title="Unentschuldigt">${attUnexcused}</span>
+        <div class="student-counter" data-kind="attendance" role="button" tabindex="0" title="${hintText('attendance')}" aria-label="${hintText('attendance')}">
+          <span class="student-counter-label">Fehlt</span>
+          <span style="color:var(--danger); font-weight:700;">${attUnexcused}</span>
           <span style="opacity:0.5">/</span>
-          <span style="color:var(--success); font-weight:700;" title="Entschuldigt">${attExcused}</span>
+          <span style="color:var(--success); font-weight:700;">${attExcused}</span>
         </div>
       </div>
       ${avg!==null
@@ -2036,10 +2042,70 @@ function renderStudents() {
         : `<div class="student-grade-badge" style="background:var(--bg-elevated);color:var(--text-muted)">–</div>`}
     `;
     row.addEventListener('click', () => openStudentDetail(s.id));
+    row.querySelectorAll('.student-counter').forEach(el => {
+      el.addEventListener('click', e => { e.stopPropagation(); onStudentCounterTap(el, s.id, hints); });
+      el.addEventListener('keydown', e => {
+        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); openStudentDetail(s.id, el.dataset.kind); }
+      });
+    });
     container.appendChild(row);
   });
   updateMassDeleteBar();
 }
+
+// ─── Zähler-Erklärung in der Schülerliste (BUGS H11) ─────────────────────
+// Mit Maus steht die Erklärung schon im Tooltip (title) → Klick öffnet direkt die Schülerakte.
+// Auf dem iPad gibt es kein Darüberfahren → erstes Antippen zeigt eine kleine Erklärung mit Weiter-Knopf.
+let counterHintAnchor = null;
+
+function canHover() {
+  return !!(window.matchMedia && window.matchMedia('(hover: hover)').matches);
+}
+
+function onStudentCounterTap(el, studentId, hints) {
+  const kind = el.dataset.kind;
+  if (canHover()) { hideCounterHint(); openStudentDetail(studentId, kind); return; }
+  if (counterHintAnchor === el) { hideCounterHint(); return; }
+  showCounterHint(el, hints[kind], () => { hideCounterHint(); openStudentDetail(studentId, kind); });
+}
+
+function showCounterHint(anchor, { title, lines }, onOpen) {
+  let hint = document.getElementById('counter-hint');
+  if (!hint) {
+    hint = document.createElement('div');
+    hint.id = 'counter-hint';
+    hint.className = 'counter-hint hidden';
+    hint.setAttribute('role', 'tooltip');
+    hint.addEventListener('click', e => e.stopPropagation());
+    document.body.appendChild(hint);
+  }
+  // Gleiche Farben wie im Zähler, damit man die Zuordnung sieht
+  hint.innerHTML = `<div class="counter-hint-title">${escHtml(title)}</div>
+    <div class="counter-hint-text">${lines.map(([n, label, color]) =>
+      `<div><b style="color:var(--${color})">${n}</b> ${escHtml(label)}</div>`).join('')}</div>
+    <button class="btn-secondary counter-hint-open">Einträge ansehen</button>`;
+  hint.querySelector('button').onclick = onOpen;
+  hint.classList.remove('hidden');
+  counterHintAnchor = anchor;
+  // Unter dem Zähler, aber im Fenster bleiben
+  const r = anchor.getBoundingClientRect();
+  const w = hint.offsetWidth || 200, h = hint.offsetHeight || 100;
+  const left = Math.max(8, Math.min(r.left + r.width / 2 - w / 2, window.innerWidth - w - 8));
+  const top = (r.bottom + 6 + h > window.innerHeight) ? Math.max(8, r.top - h - 6) : r.bottom + 6;
+  hint.style.left = left + 'px';
+  hint.style.top = top + 'px';
+}
+
+function hideCounterHint() {
+  counterHintAnchor = null;
+  const hint = document.getElementById('counter-hint');
+  if (hint) hint.classList.add('hidden');
+}
+
+// Tippen woanders, Scrollen oder Escape schließt die Erklärung
+document.addEventListener('click', hideCounterHint);
+document.addEventListener('scroll', hideCounterHint, true);
+document.addEventListener('keydown', e => { if (e.key === 'Escape') hideCounterHint(); });
 
 function openStudentActionsModal() {
   openModal('modal-student-actions');

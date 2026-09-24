@@ -109,7 +109,8 @@ Priorität: 🔴 Datenverlust / App kaputt · 🟠 falsche Anzeige / nervig · �
 - [x] **H8** 🟢 **„Zu spät“ in der Schnellbewertung** im Sitzplan (gibt es bisher nur in der Schülerakte).
 - [x] **H9** 🟢 **Keine Wochenenden:** Die Datumsleiste im Sitzplan zeigt Samstag/Sonntag. Überall nur Mo–Fr (Datumsleiste, Sprünge „nächster Tag“).
 - [x] **H10** 🟢 **Symbole vereinheitlichen.** Emojis (🎓📅🙋…) sind heute mit Linien-Icons gemischt. Vorschlag: überall die Linien-Icons wie im Menü, keine Emojis in Knöpfen/Reitern; Ausnahme 😊😐☹️ bei der Mitarbeit, weil sie dort die Information selbst sind.
-- [ ] **H11** 🟢 Schülerliste: Zähler „MITARBEIT 1 0 0 · FEHLT 3 0“ sind nur über die Farben verständlich. Kleine Erklärung beim Antippen/Darüberfahren (niedrige Priorität, Farben bleiben).
+- [x] **H11** 🟢 Schülerliste: Zähler „MITARBEIT 1 0 0 · FEHLT 3 0“ sind nur über die Farben verständlich. Kleine Erklärung beim Antippen/Darüberfahren (niedrige Priorität, Farben bleiben).
+- [ ] **H12** 🟠 (bei H11 aufgefallen) Schülerliste: Die Zeile bricht nicht um. Auf dem iPad hochkant (768 px) liegen „Fehlt“-Zähler und Notenschnitt rechts außerhalb des Bildes (Zähler endet bei ~860 px), auf dem Handy auch „Mitarbeit“. Zähler/Schnitt unter den Namen umbrechen oder verkleinern.
 
 ---
 
@@ -181,3 +182,4 @@ Priorität: 🔴 Datenverlust / App kaputt · 🟠 falsche Anzeige / nervig · �
 | G10 | Kommentar entfernt | Block G |
 | G11 | `server.js`: Pfad dekodiert + `path.relative`-Prüfung, keine versteckten Dateien (`.git`); `createServer()` testbar, Port per `PORT` | Block G |
 | G13 | Tippen neben ein Fenster nimmt denselben Weg wie Escape und der Schließen-Knopf (`closeModalLikeButton`): Stunden-Fenster speichert Notizen, Notenformular kehrt zurück | Block G |
+| H11 | Zähler in der Schülerliste: Tooltip/`aria-label` mit den echten Zahlen („Fehltage: 3 unentschuldigt, 1 entschuldigt“); ohne Maus (`(hover: hover)`) zeigt Antippen eine Erklärung in den Zählerfarben mit „Einträge ansehen“, mit Maus öffnet Klick wie bisher die Schülerakte | Block H |
