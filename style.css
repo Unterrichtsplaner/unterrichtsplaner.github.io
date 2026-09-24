@@ -626,3 +626,54 @@ select option{background:var(--bg-secondary);}
   0%, 100% { transform: translateY(0); }
   50% { transform: translateY(-10px); }
 }
+
+/* ═══ Dashboard „Heute“ (H3) ═══ */
+.dash-section{margin-bottom:28px;}
+.dash-heading{font-size:18px;font-weight:700;margin-bottom:12px;color:var(--text-primary);}
+.dash-heading-sub{font-size:14px;font-weight:500;color:var(--text-secondary);margin-left:6px;}
+.dash-empty{color:var(--text-muted);font-size:14px;padding:8px 0;}
+.dash-lessons{display:flex;flex-direction:column;gap:8px;}
+.dash-lesson{display:flex;align-items:center;gap:14px;padding:10px 14px;background:var(--bg-elevated);border-left:4px solid var(--lesson-color);border-radius:var(--radius-sm);cursor:pointer;transition:background var(--transition);}
+.dash-lesson:hover{background:var(--bg-card-hover);}
+.dash-lesson-time{font-weight:700;font-size:15px;min-width:56px;display:flex;flex-direction:column;color:var(--text-primary);}
+.dash-lesson-time small{font-size:11px;font-weight:500;color:var(--text-muted);}
+.dash-lesson-main{flex:1;min-width:0;}
+.dash-lesson-title{font-weight:700;font-size:15px;color:var(--text-primary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.dash-lesson-title span{font-weight:500;color:var(--text-secondary);}
+.dash-lesson-room{font-size:12px;color:var(--text-muted);}
+.dash-lesson-badges{display:flex;gap:4px;flex-wrap:wrap;}
+.dash-badge{font-size:11px;font-weight:600;padding:2px 6px;border-radius:4px;}
+.dash-badge.hw{background:rgba(245,158,11,.18);color:#f59e0b;}
+.dash-badge.test{background:rgba(239,68,68,.18);color:#ef4444;}
+.dash-badge.note{background:rgba(100,116,139,.2);color:#94a3b8;}
+.dash-lesson-status{font-size:12px;font-weight:600;color:var(--text-secondary);white-space:nowrap;}
+.dash-lesson.past{opacity:.5;}
+.dash-lesson.ausfall{opacity:.4;text-decoration:line-through;}
+.dash-lesson.running{box-shadow:inset 0 0 0 2px var(--lesson-color);}
+.dash-lesson.running .dash-lesson-status{color:var(--lesson-color);}
+.dash-lesson.next .dash-lesson-status{color:var(--text-accent);}
+.dash-next{padding:16px 18px;background:var(--bg-elevated);border-radius:var(--radius-md);border-top:4px solid var(--lesson-color);cursor:pointer;}
+.dash-next:hover{background:var(--bg-card-hover);}
+.dash-next-label{font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.4px;color:var(--text-secondary);margin-bottom:4px;}
+.dash-next-title{font-size:20px;font-weight:800;color:var(--text-primary);margin-bottom:10px;}
+.dash-next-title span{font-size:15px;font-weight:500;color:var(--text-secondary);}
+.dash-next-notes{white-space:pre-line;font-size:14px;line-height:1.5;color:var(--text-primary);background:var(--bg-secondary);padding:10px 12px;border-radius:var(--radius-sm);margin-bottom:8px;}
+.dash-next-items{font-size:14px;margin-top:6px;color:var(--text-primary);}
+.dash-next-items strong{font-size:12px;}
+.dash-next-items.hw strong{color:#f59e0b;}
+.dash-next-items.test strong{color:#ef4444;}
+.dash-next-items ul{margin:2px 0 0 18px;}
+.dash-warn-group{background:var(--bg-elevated);border-radius:var(--radius-md);margin-bottom:8px;overflow:hidden;}
+.dash-warn-group summary{padding:12px 16px;cursor:pointer;display:flex;align-items:center;gap:8px;font-size:15px;list-style:none;}
+.dash-warn-group summary::-webkit-details-marker{display:none;}
+.dash-warn-group summary::before{content:'▸';color:var(--text-muted);transition:transform var(--transition);}
+.dash-warn-group[open] summary::before{transform:rotate(90deg);}
+.dash-warn-class{font-weight:700;color:var(--text-primary);}
+.dash-warn-subject{color:var(--text-secondary);flex:1;}
+.dash-warn-count{background:var(--danger-soft);color:var(--danger);font-weight:700;font-size:12px;padding:2px 8px;border-radius:99px;}
+.dash-warn-list{display:flex;flex-direction:column;gap:8px;padding:0 12px 12px;}
+.dash-warn{display:flex;align-items:center;gap:12px;padding:10px 12px;background:var(--bg-card);border-left:4px solid;border-radius:var(--radius-sm);}
+.dash-warn-text{flex:1;cursor:pointer;}
+.dash-warn-title{font-weight:600;font-size:14px;color:var(--text-primary);margin-bottom:2px;}
+.dash-warn-desc{font-size:13px;color:var(--text-secondary);}
+@media (max-width:600px){.dash-lesson{flex-wrap:wrap;}.dash-lesson-status{width:100%;}}

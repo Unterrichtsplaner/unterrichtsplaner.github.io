@@ -4008,105 +4008,210 @@ const mainContentObserver = new ResizeObserver(() => {
 const mainContentNode = document.getElementById('main-content');
 if (mainContentNode) mainContentObserver.observe(mainContentNode);
 
-// ─── Dashboard & Warnungen ─────────────────────────────────────────────
-function renderDashboard() {
-  const container = document.getElementById('dashboard-content');
-  if (!container) return;
+// ─── Dashboard „Heute“ & Warnungen ─────────────────────────────────────
+// Offene Warn-Gruppen (Klassen-IDs). Nur für diese Sitzung, wird nie gespeichert.
+const dashboardOpenGroups = new Set();
 
-  if (!db.acknowledgedWarnings) db.acknowledgedWarnings = {};
+function timeToMins(t) {
+  const [h, m] = String(t || '').split(':').map(Number);
+  return isNaN(h) ? null : h * 60 + (m || 0);
+}
+// Beginn/Ende einer Stunde in Minuten; halbe Blöcke teilen den Block in der Mitte
+function lessonTimeRange(block, part) {
+  const start = timeToMins(block.start), end = timeToMins(block.end);
+  if (start === null || end === null) return null;
+  const mid = Math.round((start + end) / 2);
+  if (part === 'first')  return { start, end: mid };
+  if (part === 'second') return { start: mid, end };
+  return { start, end };
+}
+function minsToTime(m) { return `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`; }
 
+// Alle Stunden eines Tages in zeitlicher Reihenfolge: [{ slot, block, dateStr, range, ausfall }]
+function lessonsOnDate(dateStr) {
+  const partOrder = { first: 0, full: 0, second: 1 };
+  const result = [];
+  getBlocks().forEach(block => {
+    lessonsAt(dateStr, block.num)
+      .sort((a, b) => partOrder[a.part || 'full'] - partOrder[b.part || 'full'])
+      .forEach(slot => result.push({
+        slot, block, dateStr,
+        range: lessonTimeRange(block, slot.part),
+        ausfall: !!(db.lessonData[slot.id + '_' + dateStr] || {}).ausfall,
+      }));
+  });
+  return result;
+}
+
+// Hausaufgaben/Tests, die zu dieser Stunde fällig sind (aus anderen Stunden der Klasse oder dieser selbst)
+function dueItemsFor(slotId, dateStr) {
+  const incoming = getIncomingItems(slotId, dateStr);
+  const own = db.lessonData[slotId + '_' + dateStr] || {};
+  const onDate = items => (items || []).filter(i => i.targetDate === dateStr);
+  return { hw: [...incoming.hw, ...onDate(own.hwItems)], tests: [...incoming.tests, ...onDate(own.testItems)] };
+}
+
+// Nächste Stunde, die noch nicht begonnen hat und nicht ausfällt (bis zu 3 Wochen voraus)
+function findNextLesson(now) {
+  const nowMins = now.getHours() * 60 + now.getMinutes();
+  const todayStr = formatDate(now);
+  let d = parseDate(todayStr);
+  for (let i = 0; i < 21; i++, d = addDays(d, 1)) {
+    if (!isSchoolDay(d)) continue;
+    const dateStr = formatDate(d);
+    const hit = lessonsOnDate(dateStr).find(l =>
+      !l.ausfall && (dateStr !== todayStr || (l.range && l.range.start > nowMins)));
+    if (hit) return hit;
+  }
+  return null;
+}
+
+function lessonTitle(slot) {
+  const group = slot.groupId && db.groups.find(g => g.id === slot.groupId);
+  return group ? { main: group.className, sub: group.subject } : { main: slot.subject || '', sub: '' };
+}
+
+function collectWarnings() {
+  const ack = db.acknowledgedWarnings || {};
   const warnAbsences = db.settings.warnAbsences !== undefined ? db.settings.warnAbsences : 3;
   const warnHomework = db.settings.warnHomework !== undefined ? db.settings.warnHomework : 3;
   const warnGrade    = db.settings.warnGrade !== undefined ? db.settings.warnGrade : 4.5;
-
-  let warnings = [];
+  const warnings = [];
 
   db.groups.forEach(group => {
-    const students = db.students[group.id] || [];
-    students.forEach(s => {
-      // 1. Absences
+    (db.students[group.id] || []).forEach(s => {
+      const name = `${escHtml(s.firstName)} ${escHtml(s.lastName)}`;
       const unexcused = (s.attendance || []).filter(a => a.type === 'abwesend').length;
-      if (warnAbsences > 0 && unexcused >= warnAbsences && unexcused > (db.acknowledgedWarnings[`${s.id}_absences`] || 0)) {
-        warnings.push({
-          student: s,
-          group: group,
-          type: 'absences',
-          title: 'Zu viele unentschuldigte Fehlzeiten',
-          desc: `${escHtml(s.firstName)} ${escHtml(s.lastName)} hat ${unexcused} unentschuldigte Fehlzeiten.`,
-          count: unexcused
-        });
+      if (warnAbsences > 0 && unexcused >= warnAbsences && unexcused > (ack[`${s.id}_absences`] || 0)) {
+        warnings.push({ student: s, group, type: 'absences', count: unexcused,
+          title: 'Zu viele unentschuldigte Fehlzeiten', desc: `${name} hat ${unexcused} unentschuldigte Fehlzeiten.` });
       }
-
-      // 2. Homework
       const hwCount = (s.homework || []).length;
-      if (warnHomework > 0 && hwCount >= warnHomework && hwCount > (db.acknowledgedWarnings[`${s.id}_homework`] || 0)) {
-        warnings.push({
-          student: s,
-          group: group,
-          type: 'homework',
-          title: 'Oft Hausaufgaben vergessen',
-          desc: `${escHtml(s.firstName)} ${escHtml(s.lastName)} hat ${hwCount}-mal die Hausaufgaben vergessen.`,
-          count: hwCount
-        });
+      if (warnHomework > 0 && hwCount >= warnHomework && hwCount > (ack[`${s.id}_homework`] || 0)) {
+        warnings.push({ student: s, group, type: 'homework', count: hwCount,
+          title: 'Oft Hausaufgaben vergessen', desc: `${name} hat ${hwCount}-mal die Hausaufgaben vergessen.` });
       }
-
-      // 3. Grades
       const grades = s.grades || [];
       if (grades.length > 0) {
         const avg = calculateStudentAverage(s, group.id);
-        if (warnGrade > 0 && avg !== null && avg >= warnGrade && grades.length > (db.acknowledgedWarnings[`${s.id}_grade`] || 0)) {
-          warnings.push({
-            student: s,
-            group: group,
-            type: 'grade',
-            title: 'Kritischer Notenstand',
-            desc: `${escHtml(s.firstName)} ${escHtml(s.lastName)} steht aktuell auf ${avg.toFixed(2)}.`,
-            count: grades.length
-          });
+        if (warnGrade > 0 && avg !== null && avg >= warnGrade && grades.length > (ack[`${s.id}_grade`] || 0)) {
+          warnings.push({ student: s, group, type: 'grade', count: grades.length,
+            title: 'Kritischer Notenstand', desc: `${name} steht aktuell auf ${avg.toFixed(2)}.` });
         }
       }
     });
   });
+  return warnings;
+}
 
-  if (warnings.length === 0) {
-    container.innerHTML = `
-      <div style="text-align:center; padding: 40px; color:var(--text-muted);">
-        <div style="font-size:48px; margin-bottom:16px;">🎉</div>
-        <h3 style="margin-bottom:8px; font-weight:600; color:var(--text-primary);">Alles im grünen Bereich!</h3>
-        <p>Aktuell gibt es keine aktiven Warnungen.</p>
-      </div>`;
-    return;
-  }
-
-  // Render warnings
-  let html = `<h2 style="margin-bottom:20px;">Aktuelle Warnungen (${warnings.length})</h2><div style="display:flex; flex-direction:column; gap:16px;">`;
-  warnings.forEach(w => {
-    let icon = '⚠️';
-    let color = 'var(--warning)';
-    if (w.type === 'absences') { icon = '🛑'; color = 'var(--danger)'; }
-    else if (w.type === 'grade') { icon = '📉'; color = 'var(--danger)'; }
-    else if (w.type === 'homework') { icon = '📝'; color = 'var(--warning)'; }
-
-    html += `
-      <div style="background:var(--bg-elevated); border-left: 4px solid ${color}; padding:16px; border-radius:var(--radius); display:flex; justify-content:space-between; align-items:center; gap: 16px; transition: background 0.2s;" onmouseover="this.style.background='var(--bg-card-hover)'" onmouseout="this.style.background='var(--bg-elevated)'">
-        <div style="flex:1; cursor:pointer;" onclick="openStudentDetailFromDashboard('${w.student.id}', '${w.group.id}', '${w.type}')" title="Zum Schülerprofil springen">
-          <div style="display:flex; align-items:center; gap:8px; margin-bottom:4px;">
-            <span style="font-size:20px;">${icon}</span>
-            <span style="font-weight:600; color:var(--text-primary); font-size:15px;">${w.title}</span>
-            <span style="font-size:12px; background:var(--bg-secondary); padding:2px 6px; border-radius:4px; color:var(--text-secondary); white-space:nowrap;">${escHtml(w.group.className)} - ${escHtml(w.group.subject)}</span>
-          </div>
-          <div style="color:var(--text-secondary); font-size:14px; margin-left:36px; line-height:1.4;">
-            ${w.desc}
-          </div>
-        </div>
-        <div>
-          <button class="btn-secondary" onclick="acknowledgeWarning('${w.student.id}', '${w.type}', ${w.count})" style="font-size:13px; padding:6px 12px; min-width:80px;">Erledigt</button>
-        </div>
-      </div>
-    `;
+function renderDashboard() {
+  const container = document.getElementById('dashboard-content');
+  if (!container) return;
+  container.innerHTML = renderDashboardToday() + renderDashboardWarnings();
+  container.querySelectorAll('details.dash-warn-group').forEach(el => {
+    el.addEventListener('toggle', () => {
+      if (el.open) dashboardOpenGroups.add(el.dataset.group);
+      else dashboardOpenGroups.delete(el.dataset.group);
+    });
   });
-  html += `</div>`;
-  container.innerHTML = html;
+}
+
+function renderDashboardToday() {
+  const now = new Date();
+  const todayStr = formatDate(now);
+  const nowMins = now.getHours() * 60 + now.getMinutes();
+  const dayDate = nextSchoolDay(parseDate(todayStr));
+  const dayStr = formatDate(dayDate);
+  const isTodayShown = dayStr === todayStr;
+  const lessons = lessonsOnDate(dayStr);
+  const next = findNextLesson(now);
+  const dayLabel = dayDate.toLocaleDateString('de-DE', { weekday: 'long', day: '2-digit', month: '2-digit' });
+
+  let html = `<section class="dash-section">
+    <h2 class="dash-heading">${isTodayShown ? 'Heute' : 'Nächster Schultag'} <span class="dash-heading-sub">${escHtml(dayLabel)}</span></h2>`;
+
+  if (!lessons.length) {
+    html += `<div class="dash-empty">${isTodayShown ? 'Heute kein Unterricht.' : 'Kein Unterricht eingetragen.'}</div>`;
+  } else {
+    html += `<div class="dash-lessons">`;
+    lessons.forEach(l => {
+      const t = lessonTitle(l.slot);
+      const due = dueItemsFor(l.slot.id, dayStr);
+      const data = db.lessonData[l.slot.id + '_' + dayStr] || {};
+      const isNext = next && next.slot.id === l.slot.id && next.dateStr === dayStr;
+      let state = '', status = '';
+      if (l.ausfall) { state = 'ausfall'; status = 'Entfällt'; }
+      else if (isTodayShown && l.range && l.range.end <= nowMins) { state = 'past'; status = 'vorbei'; }
+      else if (isTodayShown && l.range && l.range.start <= nowMins) { state = 'running'; status = `läuft noch ${l.range.end - nowMins} min`; }
+      else if (isNext) { state = 'next'; status = 'nächste Stunde'; }
+      const badges = [];
+      if (due.hw.length)    badges.push(`<span class="dash-badge hw">HA ${due.hw.length}</span>`);
+      if (due.tests.length) badges.push(`<span class="dash-badge test">Test ${due.tests.length}</span>`);
+      if (data.notes)       badges.push(`<span class="dash-badge note">Notiz</span>`);
+      html += `<div class="dash-lesson ${state}" data-slot="${escHtml(l.slot.id)}" style="--lesson-color:${escHtml(l.slot.color || '#6366f1')}"
+                    onclick="openLessonDetail('${escHtml(l.slot.id)}','${dayStr}')">
+          <div class="dash-lesson-time">${l.range ? minsToTime(l.range.start) : ''}<small>${escHtml(l.block.label)}</small></div>
+          <div class="dash-lesson-main">
+            <div class="dash-lesson-title">${escHtml(t.main)}${t.sub ? ` <span>${escHtml(t.sub)}</span>` : ''}</div>
+            ${l.slot.room ? `<div class="dash-lesson-room">${escHtml(l.slot.room)}</div>` : ''}
+          </div>
+          <div class="dash-lesson-badges">${badges.join('')}</div>
+          ${status ? `<div class="dash-lesson-status">${status}</div>` : ''}
+        </div>`;
+    });
+    html += `</div>`;
+  }
+  html += `</section>`;
+
+  if (next) {
+    const t = lessonTitle(next.slot);
+    const data = db.lessonData[next.slot.id + '_' + next.dateStr] || {};
+    const due = dueItemsFor(next.slot.id, next.dateStr);
+    const when = next.dateStr === todayStr
+      ? minsToTime(next.range.start)
+      : parseDate(next.dateStr).toLocaleDateString('de-DE', { weekday: 'short', day: '2-digit', month: '2-digit' }) + (next.range ? ', ' + minsToTime(next.range.start) : '');
+    const itemList = (label, cls, items) => items.length ? `<div class="dash-next-items ${cls}"><strong>${label}</strong><ul>${
+      items.map(i => `<li>${escHtml(i.text)}</li>`).join('')}</ul></div>` : '';
+    const body = (data.notes ? `<div class="dash-next-notes">${escHtml(data.notes)}</div>` : '')
+      + itemList('Hausaufgaben fällig', 'hw', due.hw) + itemList('Test', 'test', due.tests);
+    html += `<section class="dash-section">
+      <div class="dash-next" style="--lesson-color:${escHtml(next.slot.color || '#6366f1')}" onclick="openLessonDetail('${escHtml(next.slot.id)}','${next.dateStr}')">
+        <div class="dash-next-label">Nächste Stunde · ${escHtml(when)} · ${escHtml(next.block.label)}</div>
+        <div class="dash-next-title">${escHtml(t.main)}${t.sub ? ` <span>${escHtml(t.sub)}</span>` : ''}${next.slot.room ? ` <span>· ${escHtml(next.slot.room)}</span>` : ''}</div>
+        ${body || '<div class="dash-empty">Keine Notizen, nichts fällig.</div>'}
+      </div>
+    </section>`;
+  }
+  return html;
+}
+
+function renderDashboardWarnings() {
+  const warnings = collectWarnings();
+  let html = `<section class="dash-section"><h2 class="dash-heading">Warnungen${warnings.length ? ` <span class="dash-heading-sub">${warnings.length}</span>` : ''}</h2>`;
+  if (!warnings.length) {
+    return html + `<div class="dash-empty">Keine offenen Warnungen – alles im grünen Bereich.</div></section>`;
+  }
+  const icons = { absences: '🛑', grade: '📉', homework: '📝' };
+  const colors = { absences: 'var(--danger)', grade: 'var(--danger)', homework: 'var(--warning)' };
+  db.groups.forEach(group => {
+    const list = warnings.filter(w => w.group === group);
+    if (!list.length) return;
+    html += `<details class="dash-warn-group" data-group="${escHtml(group.id)}"${dashboardOpenGroups.has(group.id) ? ' open' : ''}>
+      <summary><span class="dash-warn-class">${escHtml(group.className)}</span> <span class="dash-warn-subject">${escHtml(group.subject)}</span>
+        <span class="dash-warn-count">${list.length}</span></summary>
+      <div class="dash-warn-list">`;
+    list.forEach(w => {
+      html += `<div class="dash-warn" style="border-left-color:${colors[w.type]}">
+          <div class="dash-warn-text" onclick="openStudentDetailFromDashboard('${escHtml(w.student.id)}', '${escHtml(group.id)}', '${w.type}')" title="Zum Schülerprofil springen">
+            <div class="dash-warn-title">${icons[w.type]} ${w.title}</div>
+            <div class="dash-warn-desc">${w.desc}</div>
+          </div>
+          <button class="btn-secondary" onclick="acknowledgeWarning('${escHtml(w.student.id)}', '${w.type}', ${w.count})">Erledigt</button>
+        </div>`;
+    });
+    html += `</div></details>`;
+  });
+  return html + `</section>`;
 }
 
 window.acknowledgeWarning = function(studentId, type, count) {
