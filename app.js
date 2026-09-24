@@ -1220,7 +1220,8 @@ function renderSubjectGroups() {
       const students = db.students[g.id] || [];
       const gradeCount = students.flatMap(s => s.grades||[]).filter(gr => !isNaN(gradeNumber(gr.value))).length;
       const groupAvg = calculateGroupAverage(g.id);
-      const avg = groupAvg !== null ? groupAvg.toFixed(1) : '–';
+      const avg = formatGradeAverage(groupAvg);
+      const scale = gradeScale(g);
 
       // Linked timetable slots → show which days this class meets
       const linkedSlots = db.lessonSlots.filter(s => s.groupId === g.id && s.recurring);
@@ -1242,7 +1243,7 @@ function renderSubjectGroups() {
         <div class="sgc-days">${dayBadges || '<span class="sgc-no-schedule">Kein Stundenplan verknüpft</span>'}</div>
         <div class="sgc-stats">
           <div class="sgc-stat"><div class="sgc-stat-value">${students.length}</div><div class="sgc-stat-label">Schüler</div></div>
-          <div class="sgc-stat"><div class="sgc-stat-value" style="color:${gradeColor(parseFloat(avg))}">${avg}</div><div class="sgc-stat-label">Ø Note</div></div>
+          <div class="sgc-stat"><div class="sgc-stat-value" style="color:${gradeColor(groupAvg, scale)}">${avg}</div><div class="sgc-stat-label">${scale.higherIsBetter ? 'Ø Punkte' : 'Ø Note'}</div></div>
           <div class="sgc-stat"><div class="sgc-stat-value">${gradeCount}</div><div class="sgc-stat-label">Noten</div></div>
         </div>
         <div style="margin-top:12px; display:flex; gap:8px;">
@@ -1262,6 +1263,7 @@ function openAddSubjectGroup() {
   document.getElementById('group-modal-title').textContent = 'Klasse + Fach hinzufügen';
   ['new-group-class','new-group-subject','new-group-year'].forEach(id => document.getElementById(id).value = '');
   document.getElementById('weight-schularbeit').value = '50';
+  document.getElementById('new-group-scale').value = '1-6';
   selectedGroupColor = APP_COLORS[0];
   renderColorPicker('group-color-picker', APP_COLORS, v => { selectedGroupColor = v; });
 
@@ -1284,6 +1286,7 @@ function openEditGroup(id) {
   document.getElementById('new-group-year').value = g.year || '';
   
   document.getElementById('weight-schularbeit').value = g.schularbeitWeight !== undefined ? g.schularbeitWeight : 50;
+  document.getElementById('new-group-scale').value = gradeScale(g).id;
   
   selectedGroupColor = g.color || APP_COLORS[0];
   renderColorPicker('group-color-picker', APP_COLORS, v => { selectedGroupColor = v; });
@@ -1315,10 +1318,18 @@ function saveSubjectGroup() {
   if (isNaN(finalSchularbeitWeight) || finalSchularbeitWeight < 0 || finalSchularbeitWeight > 100) {
     showToast('Gewichtung muss zwischen 0 und 100 % liegen', 'error'); return;
   }
+  const gradeScaleId = gradeScale({ gradeScale: document.getElementById('new-group-scale').value }).id;
   if (editingGroupId) {
     const g = db.groups.find(x => x.id === editingGroupId);
     if (g) {
+      // Skalenwechsel: vorhandene Noten bleiben, wie sie sind (keine Umrechnung) – nur nach Rückfrage
+      const hasGrades = (db.students[g.id] || []).some(st => (st.grades || []).length > 0);
+      if (gradeScaleId !== gradeScale(g).id && hasGrades &&
+          !confirm(`Notenskala auf „${GRADE_SCALES[gradeScaleId].label}“ umstellen?\n\nDie vorhandenen Noten werden nicht umgerechnet. Schnitte und Warnungen dieser Klasse stimmen erst wieder, wenn du die Noten selbst anpasst.`)) {
+        return;
+      }
       Object.assign(g, { className, subject, year, color: selectedGroupColor, schularbeitWeight: finalSchularbeitWeight });
+      if (gradeScaleId !== gradeScale(g).id) g.gradeScale = gradeScaleId;
       // Farbe und Fach auf alle verknüpften Stunden übertragen
       db.lessonSlots.filter(s => s.groupId === g.id).forEach(s => {
         s.color = selectedGroupColor;
@@ -1327,7 +1338,7 @@ function saveSubjectGroup() {
     }
   } else {
     const id = uid();
-    db.groups.push({ id, className, subject, year, color: selectedGroupColor, schularbeitWeight: finalSchularbeitWeight });
+    db.groups.push({ id, className, subject, year, color: selectedGroupColor, schularbeitWeight: finalSchularbeitWeight, gradeScale: gradeScaleId });
     db.students[id] = [];
   }
   saveDB();
@@ -1339,6 +1350,7 @@ function saveSubjectGroup() {
     if (g) {
       document.getElementById('student-view-title').textContent = g.subject;
       document.getElementById('student-view-subtitle').textContent = `Klasse ${g.className}${g.year?' · '+g.year:''}`;
+      renderStudents(); // Schnitte/Farben nach Gewichtung oder Skala
     }
   }
   showToast(editingGroupId ? 'Geändert ✓' : 'Klasse hinzugefügt ✓');
@@ -1501,19 +1513,20 @@ function renderOverviewTable() {
     });
     html += '</tr></thead><tbody>';
 
+    const scale = gradeScale(currentOverviewGroupId);
     sortedStudents.forEach(s => {
       const rawAvg = calculateStudentAverage(s, currentOverviewGroupId);
-      const avg = rawAvg !== null ? rawAvg.toFixed(1) : '–';
+      const avg = formatGradeAverage(rawAvg);
       
       const nameDisplay = (db.settings.studentSortOrder==='lastName') ? escHtml(s.lastName)+', '+escHtml(s.firstName) : escHtml(s.firstName)+' '+escHtml(s.lastName);
       html += `<tr><td style="position:sticky;left:0;background:var(--bg-card);font-weight:500;cursor:pointer;color:var(--accent);" onclick="openSeatingStudentModal('${s.id}', '${currentOverviewGroupId}', '${formatDate(new Date())}')">${nameDisplay}</td>`;
-      html += `<td style="font-weight:700;color:${gradeColor(parseFloat(avg))};text-align:center;">${avg}</td>`;
+      html += `<td style="font-weight:700;color:${gradeColor(rawAvg, scale)};text-align:center;">${avg}</td>`;
       
       gradeEvents.forEach(ev => {
         const matchingGradeIdx = (s.grades||[]).findIndex(g => g.date === ev.date && (g.note ?? gradeTypeLabel(g.type)) === ev.label);
         const val = matchingGradeIdx !== -1 ? s.grades[matchingGradeIdx].value : '';
         const evType = ev.type || 'test';
-        html += `<td style="padding:4px;"><input type="text" class="form-input" style="width:100%; text-align:center; padding:6px; font-weight:600; color:${val ? gradeColor(gradeNumber(val)) : 'inherit'}" value="${val}" placeholder="-" onchange="updateInlineGrade('${s.id}', '${ev.date}', '${escHtml(ev.label)}', this.value, '${evType}')" /></td>`;
+        html += `<td style="padding:4px;"><input type="text" class="form-input" style="width:100%; text-align:center; padding:6px; font-weight:600; color:${val ? gradeColor(gradeNumber(val), scale) : 'inherit'}" value="${val}" placeholder="-" onchange="updateInlineGrade('${s.id}', '${ev.date}', '${escHtml(ev.label)}', this.value, '${evType}')" /></td>`;
       });
       html += `</tr>`;
     });
@@ -1521,8 +1534,7 @@ function renderOverviewTable() {
     // Bottom average row
     html += '<tr><td style="position:sticky;left:0;background:var(--bg-card);font-weight:700;">Durchschnitt</td>';
     const groupAvg = calculateGroupAverage(currentOverviewGroupId);
-    const totalAvg = groupAvg !== null ? groupAvg.toFixed(1) : '–';
-    html += `<td style="font-weight:700;color:${gradeColor(parseFloat(totalAvg))};text-align:center;">${totalAvg}</td>`;
+    html += `<td style="font-weight:700;color:${gradeColor(groupAvg, scale)};text-align:center;">${formatGradeAverage(groupAvg)}</td>`;
 
     gradeEvents.forEach(ev => {
       let sum = 0, count = 0;
@@ -1533,8 +1545,8 @@ function renderOverviewTable() {
           if (!isNaN(val)) { sum += val; count++; }
         }
       });
-      const avg = count > 0 ? (sum / count).toFixed(1) : '–';
-      html += `<td style="font-weight:700;color:${gradeColor(parseFloat(avg))};text-align:center;">${avg}</td>`;
+      const colAvg = count > 0 ? sum / count : null;
+      html += `<td style="font-weight:700;color:${gradeColor(colAvg, scale)};text-align:center;">${formatGradeAverage(colAvg)}</td>`;
     });
     html += `</tr>`;
     
@@ -1660,9 +1672,10 @@ function updateInlineGrade(studentId, date, label, value, type = 'test') {
   if (!value) {
     if (idx !== -1) s.grades.splice(idx, 1);
   } else {
-    const parsed = parseGradeInput(value);
+    const scale = gradeScale(currentOverviewGroupId);
+    const parsed = parseGradeInput(value, scale);
     if (!parsed || parsed.number === null) {
-      showToast('Bitte eine Note zwischen 1 und 6 eingeben (z. B. 2, 2,5 oder 2-)', 'error');
+      showToast(scale.inputError, 'error');
       renderOverviewTable(); // Reset input
       return;
     }
@@ -1892,6 +1905,7 @@ function renderStudents() {
     return;
   }
   container.innerHTML = '';
+  const scale = gradeScale(currentGroupId);
   sortStudents(students).forEach(s => {
     const avg = calculateStudentAverage(s, currentGroupId);
     const first = s.firstName || '', last = s.lastName || '';
@@ -1932,7 +1946,7 @@ function renderStudents() {
         </div>
       </div>
       ${avg!==null
-        ? `<div class="student-grade-badge" style="background:${hexToRgba(gradeColor(avg),0.15)};color:${gradeColor(avg)}">${avg.toFixed(1)}</div>`
+        ? `<div class="student-grade-badge" style="background:${hexToRgba(gradeColor(avg, scale),0.15)};color:${gradeColor(avg, scale)}">${avg.toFixed(1)}</div>`
         : `<div class="student-grade-badge" style="background:var(--bg-elevated);color:var(--text-muted)">–</div>`}
     `;
     row.addEventListener('click', () => openStudentDetail(s.id));
@@ -2159,6 +2173,7 @@ function getCurrentStudent() { return (db.students[currentGroupId]||[]).find(x =
 
 function renderGradesList(s) {
   const grades = s.grades||[];
+  const scale = gradeScale(currentGroupId);
   const summary = document.getElementById('grades-summary');
   if (!grades.length) {
     summary.innerHTML = '<span style="color:var(--text-muted);font-size:13px">Noch keine Noten.</span>';
@@ -2171,16 +2186,15 @@ function renderGradesList(s) {
       byType[g.type].push(v);
     });
     const rawAvg = calculateStudentAverage(s, currentGroupId);
-    const avg = rawAvg !== null ? rawAvg.toFixed(1) : '–';
     summary.innerHTML = `
       <div class="grade-summary-item" style="margin-right:16px">
-        <div class="grade-avg-display" style="color:${gradeColor(parseFloat(avg))}">${avg}</div>
-        <div class="grade-avg-label">Ø Gesamt</div>
+        <div class="grade-avg-display" style="color:${gradeColor(rawAvg, scale)}">${formatGradeAverage(rawAvg)}</div>
+        <div class="grade-avg-label">${scale.higherIsBetter ? 'Ø Punkte' : 'Ø Gesamt'}</div>
       </div>
       ${Object.entries(byType).map(([type,vals]) => {
-        const ta = (vals.reduce((a,b)=>a+b,0)/vals.length).toFixed(1);
+        const ta = vals.reduce((a,b)=>a+b,0)/vals.length;
         return `<div class="grade-summary-item">
-          <div style="font-size:15px;font-weight:700;color:${gradeColor(parseFloat(ta))}">${ta}</div>
+          <div style="font-size:15px;font-weight:700;color:${gradeColor(ta, scale)}">${formatGradeAverage(ta)}</div>
           <div class="grade-avg-label">${gradeTypeLabel(type)} (${vals.length})</div>
         </div>`;
       }).join('')}`;
@@ -2190,7 +2204,7 @@ function renderGradesList(s) {
   if (!grades.length) { list.innerHTML='<div style="color:var(--text-muted);font-size:13px;padding:6px 0">Noten erscheinen hier.</div>'; return; }
   [...grades].sort((a,b)=>(b.date||'').localeCompare(a.date||'')).forEach((g,i) => {
     const originalIdx = s.grades.indexOf(g);
-    const color = gradeColor(gradeNumber(g.value));
+    const color = gradeColor(gradeNumber(g.value), scale);
     const el = document.createElement('div');
     el.className = 'grade-item';
     el.style.cursor = 'pointer';
@@ -2394,7 +2408,8 @@ function exportCurrentStudent() {
   const dateStr = d => d ? formatDateLong(d) : 'ohne Datum';
 
   const avg = calculateStudentAverage(s, currentOverviewGroupId);
-  txt += `=== NOTEN (Aktueller Schnitt: ${avg !== null ? avg.toFixed(2) : '-'}) ===\n`;
+  const avgText = avg === null ? '-' : gradeScale(group).higherIsBetter ? avg.toFixed(1) + ' Punkte' : avg.toFixed(2);
+  txt += `=== NOTEN (Aktueller Schnitt: ${avgText}) ===\n`;
   if (s.grades && s.grades.length > 0) {
     const sortedGrades = [...s.grades].sort(byDate);
     sortedGrades.forEach(g => {
@@ -2496,6 +2511,7 @@ function openSettings() {
   document.getElementById('settings-warn-absences').value = db.settings.warnAbsences !== undefined ? db.settings.warnAbsences : 3;
   document.getElementById('settings-warn-homework').value = db.settings.warnHomework !== undefined ? db.settings.warnHomework : 3;
   document.getElementById('settings-warn-grade').value = db.settings.warnGrade !== undefined ? db.settings.warnGrade : 4.5;
+  document.getElementById('settings-warn-points').value = db.settings.warnPoints !== undefined ? db.settings.warnPoints : 5;
   
   currentThemeAccent = db.settings.themeAccent || '#6366f1';
   document.querySelectorAll('.settings-swatch-accent').forEach(s => {
@@ -2640,6 +2656,7 @@ function saveSettings() {
   db.settings.warnAbsences = parseWarnThreshold('settings-warn-absences', 3);
   db.settings.warnHomework = parseWarnThreshold('settings-warn-homework', 3);
   db.settings.warnGrade    = parseWarnThreshold('settings-warn-grade', 4.5);
+  db.settings.warnPoints   = parseWarnThreshold('settings-warn-points', 5);
   db.settings.theme       = currentThemeMode;
   db.settings.themeBg     = currentThemeBg;
   db.settings.themeCard   = currentThemeCard;
@@ -2662,8 +2679,10 @@ function exportGradesCSV() {
   if (!g) return;
   
   const students = db.students[g.id] || [];
-  let csvContent = "\uFEFFNachname;Vorname;Klassenarbeiten;Sonstige;Gesamtnote\n"; // \uFEFF is BOM for Excel to read UTF-8 correctly
-  const fmt = v => v !== null ? v.toFixed(2).replace('.', ',') : '';
+  const points = gradeScale(g).higherIsBetter;
+  const header = points ? 'Klassenarbeiten (Punkte);Sonstige (Punkte);Gesamt (Punkte)' : 'Klassenarbeiten;Sonstige;Gesamtnote';
+  let csvContent = `\uFEFFNachname;Vorname;${header}\n`; // \uFEFF is BOM for Excel to read UTF-8 correctly
+  const fmt = v => v !== null ? v.toFixed(points ? 1 : 2).replace('.', ',') : '';
   
   sortStudents(students).forEach(s => {
     // Spalten wie die Gewichtung der Klasse (gradeCategory), damit sich die Gesamtnote daraus ergibt
@@ -3066,9 +3085,10 @@ function renderSeatingPlan() {
     }
   });
 
+  const scale = gradeScale(groupId);
   students.forEach((s) => {
     const rawAvg = calculateStudentAverage(s, groupId);
-    const avg = rawAvg !== null ? rawAvg.toFixed(1) : '–';
+    const avg = formatGradeAverage(rawAvg);
     
     // check absence, hw and participation
     const absence = (s.attendance||[]).find(a => a.date === dateStr && (a.type === 'abwesend' || a.type === 'entschuldigt'));
@@ -3134,7 +3154,7 @@ function renderSeatingPlan() {
 
     card.innerHTML = `
       <div class="sc-name" style="font-size:13px; margin-top:2px;">${escHtml(s.firstName)}</div>
-      ${seatingShowGrades ? `<div class="sc-gpa" style="color:${gradeColor(rawAvg ?? NaN)}">${avg}</div>` : ''}
+      ${seatingShowGrades ? `<div class="sc-gpa" style="color:${gradeColor(rawAvg, scale)}">${avg}</div>` : ''}
       ${late ? '<div class="sc-late-note">Zu spät</div>' : ''}
       ${forgotHw ? '<div class="sc-hw-note">Keine HA</div>' : ''}
       ${partHtml}
@@ -3658,7 +3678,7 @@ function renderSeatingStudentGrades(show) {
   sortedGrades.forEach(g => {
     const el = document.createElement('div');
     el.style.cssText = 'display:flex; justify-content:space-between; align-items:center; background:var(--bg-secondary); padding:8px 12px; border-radius:8px; font-size:13px;';
-    const valColor = gradeColor(gradeNumber(g.value));
+    const valColor = gradeColor(gradeNumber(g.value), gradeScale(groupId));
     el.innerHTML = `
       <div style="display:flex; flex-direction:column; flex:1;">
         <span style="font-weight:600; color:var(--text-primary)">${escHtml(g.note || gradeTypeLabel(g.type))}</span>
@@ -3704,6 +3724,10 @@ function openGradeForm(studentId, groupId, gradeIdx, defaultDateStr = '', defaul
     detailModal.classList.add('hidden');
     currentGradeFormCtx.wasDetailModalOpen = true;
   }
+
+  const scale = gradeScale(groupId);
+  document.getElementById('gf-value-label').textContent = scale.inputLabel;
+  document.getElementById('gf-value').placeholder = scale.placeholder;
 
   const btnDelete = document.getElementById('gf-btn-delete');
   if (currentGradeFormCtx.grade) {
@@ -3762,8 +3786,9 @@ function saveGradeFromForm() {
   const label = document.getElementById('gf-label').value.trim();
 
   if (!value) { showToast('Bitte einen Wert eingeben', 'error'); return; }
-  const parsed = parseGradeInput(value);
-  if (!parsed) { showToast('Bitte eine Note zwischen 1 und 6 eingeben (z. B. 2, 2,5 oder 2-)', 'error'); return; }
+  const scale = gradeScale(groupId);
+  const parsed = parseGradeInput(value, scale);
+  if (!parsed) { showToast(scale.inputError, 'error'); return; }
 
   if (!s.grades) s.grades = [];
   const entry = { type, value: parsed.value, date: dateStr, note: label };
@@ -3907,8 +3932,35 @@ function formatDateShort(dateStr) {
   return new Date(dateStr+'T00:00:00').toLocaleDateString('de-AT',{day:'2-digit',month:'2-digit',year:'numeric'});
 }
 
-function gradeColor(val) {
-  if (isNaN(val)) return 'var(--text-muted)';
+// ─── Notenskala pro Klasse (BUGS H7) ─────────────────────────────────────
+// group.gradeScale: fehlt/unbekannt = '1-6' (auch alle bestehenden Klassen), '0-15' = Punkte (Oberstufe).
+// Bei Punkten gilt „höher = besser“. Alles, was Noten prüft, färbt oder bewertet, fragt die Skala der Klasse.
+const GRADE_SCALES = {
+  '1-6':  { id: '1-6',  min: 1, max: 6,  higherIsBetter: false, integer: false, unit: '',       label: 'Noten 1–6',
+            inputLabel: 'Note / Wert (z.B. 1, 2.5, 2-, +)', placeholder: 'z.B. 1 oder +',
+            inputError: 'Bitte eine Note zwischen 1 und 6 eingeben (z. B. 2, 2,5 oder 2-)' },
+  '0-15': { id: '0-15', min: 0, max: 15, higherIsBetter: true,  integer: true,  unit: 'Punkte', label: 'Punkte 0–15 (Oberstufe)',
+            inputLabel: 'Punkte (0–15) oder Text wie +', placeholder: 'z.B. 11',
+            inputError: 'Bitte ganze Punkte zwischen 0 und 15 eingeben (z. B. 11)' },
+};
+// Skala zu einer Klasse (Objekt oder ID)
+function gradeScale(groupOrId) {
+  const g = typeof groupOrId === 'string' ? db.groups.find(x => x.id === groupOrId) : groupOrId;
+  return GRADE_SCALES[g && g.gradeScale] || GRADE_SCALES['1-6'];
+}
+// Schnitt zur Anzeige ('–' ohne Noten); Punkte und Noten mit 1 Nachkomma
+function formatGradeAverage(avg, digits = 1) {
+  return avg === null || avg === undefined || isNaN(avg) ? '–' : avg.toFixed(digits);
+}
+
+function gradeColor(val, scale = GRADE_SCALES['1-6']) {
+  if (val === null || val === undefined || isNaN(val)) return 'var(--text-muted)';
+  if (scale.higherIsBetter) {
+    // 15–13 = sehr gut … unter 5 Punkten = Unterkurs
+    if (val>=12.5) return 'var(--grade-1)'; if (val>=9.5) return 'var(--grade-2)';
+    if (val>=6.5) return 'var(--grade-3)'; if (val>=5) return 'var(--grade-4)';
+    return 'var(--grade-5)';
+  }
   if (val<=1.5) return 'var(--grade-1)'; if (val<=2.5) return 'var(--grade-2)';
   if (val<=3.5) return 'var(--grade-3)'; if (val<=4.5) return 'var(--grade-4)';
   return 'var(--grade-5)';
@@ -3940,14 +3992,16 @@ function gradeNumber(value) {
 }
 
 // Nutzereingabe → { value (zu speichern), number (zählt im Schnitt, sonst null) } oder null = ungültig.
-// '2,5' → '2.5'; '2-'/'2+' bleiben als Tendenz stehen und zählen als 2; Text wie '+' zählt nicht.
-function parseGradeInput(input) {
+// 1–6: '2,5' → '2.5'; '2-'/'2+' bleiben als Tendenz stehen und zählen als 2; Text wie '+' zählt nicht.
+// Punkte: nur ganze Zahlen 0–15, keine Tendenzen.
+function parseGradeInput(input, scale = GRADE_SCALES['1-6']) {
   const s = String(input ?? '').trim();
   if (!s) return null;
   const m = s.match(GRADE_INPUT_RE);
   if (!m) return /\d/.test(s) ? null : { value: s, number: null };
   const number = parseFloat(m[1].replace(',', '.'));
-  if (number < 1 || number > 6) return null;
+  if (number < scale.min || number > scale.max) return null;
+  if (scale.integer) return (m[2] || !Number.isInteger(number)) ? null : { value: String(number), number };
   const tendency = m[2];
   const value = tendency ? String(Math.round(number * 10) / 10) + tendency : number.toFixed(1);
   return { value, number };
@@ -4208,6 +4262,7 @@ function collectWarnings() {
   const warnAbsences = db.settings.warnAbsences !== undefined ? db.settings.warnAbsences : 3;
   const warnHomework = db.settings.warnHomework !== undefined ? db.settings.warnHomework : 3;
   const warnGrade    = db.settings.warnGrade !== undefined ? db.settings.warnGrade : 4.5;
+  const warnPoints   = db.settings.warnPoints !== undefined ? db.settings.warnPoints : 5; // Oberstufe: unter x Punkten
   const warnings = [];
 
   db.groups.forEach(group => {
@@ -4226,9 +4281,12 @@ function collectWarnings() {
       const grades = s.grades || [];
       if (grades.length > 0) {
         const avg = calculateStudentAverage(s, group.id);
-        if (warnGrade > 0 && avg !== null && avg >= warnGrade && grades.length > (ack[`${s.id}_grade`] || 0)) {
+        const points = gradeScale(group).higherIsBetter;
+        const critical = avg !== null && (points ? warnPoints > 0 && avg < warnPoints : warnGrade > 0 && avg >= warnGrade);
+        if (critical && grades.length > (ack[`${s.id}_grade`] || 0)) {
           warnings.push({ student: s, group, type: 'grade', count: grades.length,
-            title: 'Kritischer Notenstand', desc: `${name} steht aktuell auf ${avg.toFixed(2)}.` });
+            title: 'Kritischer Notenstand',
+            desc: `${name} steht aktuell auf ${points ? avg.toFixed(1) + ' Punkte' : avg.toFixed(2)}.` });
         }
       }
     });

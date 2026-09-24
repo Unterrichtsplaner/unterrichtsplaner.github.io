@@ -39,7 +39,7 @@ Eine einzige globale Variable `db`, gespeichert als JSON in `localStorage['lehre
 
 ```js
 db = {
-  settings: { teacherName, school, blocks, lastModified, theme*, warnAbsences, warnGrade, warnHomework,
+  settings: { teacherName, school, blocks, lastModified, theme*, warnAbsences, warnGrade, warnPoints, warnHomework,
               studentSortOrder, seatingBufferMins, lastBackupTimestamp, … },
   lessonSlots: [{ id, day /*0=Mo…4=Fr*/, block /*=blocks[].num, feste Kennung*/, part /*'first'|'second'|'full'*/,
                   subject, room, color, groupId,
@@ -47,7 +47,7 @@ db = {
                   startDate /*biweekly: Datum in einer A-Woche*/, startWeek /*veraltet, nur für alte App-Versionen*/,
                   specificDate /*einmalig, liegt immer auf `day`*/ }],
   lessonData: { '<slotId>_<YYYY-MM-DD>': { done, notes, ausfall, hwEnabled, testEnabled, … } },
-  groups: [{ id, subject, className, year, color, schularbeitWeight /*0–100*/,
+  groups: [{ id, subject, className, year, color, schularbeitWeight /*0–100*/, gradeScale /*'1-6' (Standard, fehlt bei Altdaten) | '0-15'*/,
              seatingRows, seatingCols, teacherDeskX, teacherDeskY, seatingPlan: [{ studentId, … }],
              gradeEvents, attendanceEvents, participationEvents, homeworkEvents }],
   students: { '<groupId>': [{ id, firstName, lastName,
@@ -78,6 +78,7 @@ Datumswerte sind Strings `YYYY-MM-DD` in **lokaler** Zeit (`formatDate()`). Nie 
 ## Regeln (aus Fehlern gelernt)
 
 1. **Notendurchschnitt nur über `calculateStudentAverage(student, groupId)`** (Klassenschnitt: `calculateGroupAverage`). Keine eigenen Rechnungen in Views. Notenwerte nie mit `parseFloat` lesen, sondern mit `gradeNumber()` (versteht „2-“); Eingaben über `parseGradeInput()`; Schularbeit vs. Sonstige nur über `gradeCategory()`.
+   **Jede Klasse hat ihre Notenskala** (`gradeScale(group)`: 1–6 oder 0–15 Punkte, höher = besser). Eingabe, Farbe und Warnung immer mit der Skala der Klasse: `parseGradeInput(v, scale)`, `gradeColor(v, scale)`. Nie „kleiner = besser“ annehmen.
 2. **`lastModified` bedeutet „Nutzer hat Daten geändert“.** Nutzeränderungen → `saveDB()`. Alles andere (Sync-Metadaten, Migrationen) → `persistDB()`. `saveDB()` nie in Render-Funktionen aufrufen.
 3. **Alles, was in `innerHTML` oder in `onclick="…"` landet und vom Nutzer stammt, geht durch `escHtml()`.** Namen, Spaltentitel, Notenwerte, Notizen.
 4. **Einträge nie per Index aus einer sortierten Kopie löschen.** Immer per `id` oder Objekt-Referenz.
