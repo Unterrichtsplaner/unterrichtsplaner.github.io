@@ -107,6 +107,7 @@ Datumswerte sind Strings `YYYY-MM-DD` in **lokaler** Zeit (`formatDate()`). Nie 
 27. **Escape und Tippen neben ein Fenster schließen es wie sein Schließen-Knopf** (`closeModalLikeButton`; Escape nur das oberste, `closeTopModal`). Neue Fenster: Overlay mit `onclick="closeModalOnOverlay(event,'modal-…')"` und sonst nichts. Braucht ein Fenster beim Schließen mehr als `closeModal` (speichern, Kontext zurücksetzen) oder darf es nicht weggedrückt werden, in `MODAL_CLOSE_ACTIONS` eintragen. Schließen darf nie eingetippte Daten verwerfen. Knöpfe ohne Text bekommen ein `aria-label` (`tests/accessibility.test.js`).
 28. **Laufende Zeiten (Timer, Stoppuhr, Countdowns) über `Date.now()` rechnen, nie Ticks zählen.** Intervalle stehen still, solange das iPad gesperrt ist.
 29. **CSS-Variablen nur verwenden, wenn sie in `style.css` definiert sind** (`tests/css-vars.test.js`). Bei Farbe mit Transparenz eine fertige Variable (`--accent-glow`, `--danger-soft` …) nehmen, keine `rgba(var(--…-rgb))`.
+30. **`#main-content` hat 800 px Mindestbreite, außer für die Ansichten in der `:has`-Ausnahme** (Stundenplan, Dashboard, Klassen, Klassenansicht; `style.css`). Eine neue oder umgebaute Ansicht bei 375, 640 und 768 px im Browser nachmessen (`document.getElementById('app').scrollWidth` ≤ Breite) und dann in die Ausnahme aufnehmen. Vorsicht: Die Mindestbreite versteckt Layoutfehler, z. B. `margin:0 auto` in einer Flex-Spalte ohne `width:100%`. Zum Nachmessen vorher `npm run bump`, sonst liefert der Service Worker alten Code.
 
 ## Arbeitsablauf
 

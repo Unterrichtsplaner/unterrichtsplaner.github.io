@@ -2021,7 +2021,7 @@ function renderStudents() {
         <div class="student-name">${(db.settings.studentSortOrder==='lastName') ? escHtml(s.lastName)+', '+escHtml(s.firstName) : escHtml(s.firstName)+' '+escHtml(s.lastName)}</div>
         <div class="student-quick-notes">${s.notes ? escHtml(s.notes) : grades.length+' Note'+(grades.length!==1?'n':'')}</div>
       </div>
-      <div style="display:flex; flex-direction:row; align-items:center; font-size:12px; color:var(--text-muted); gap: 12px; margin-right: 8px;">
+      <div class="student-counters">
         <div class="student-counter" data-kind="participation" role="button" tabindex="0" title="${hintText('participation')}" aria-label="${hintText('participation')}">
           <span class="student-counter-label">Mitarbeit</span>
           <span style="color:var(--success); font-weight:700;">${partPos}</span>

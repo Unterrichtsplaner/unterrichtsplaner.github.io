@@ -110,7 +110,8 @@ Priorität: 🔴 Datenverlust / App kaputt · 🟠 falsche Anzeige / nervig · �
 - [x] **H9** 🟢 **Keine Wochenenden:** Die Datumsleiste im Sitzplan zeigt Samstag/Sonntag. Überall nur Mo–Fr (Datumsleiste, Sprünge „nächster Tag“).
 - [x] **H10** 🟢 **Symbole vereinheitlichen.** Emojis (🎓📅🙋…) sind heute mit Linien-Icons gemischt. Vorschlag: überall die Linien-Icons wie im Menü, keine Emojis in Knöpfen/Reitern; Ausnahme 😊😐☹️ bei der Mitarbeit, weil sie dort die Information selbst sind.
 - [x] **H11** 🟢 Schülerliste: Zähler „MITARBEIT 1 0 0 · FEHLT 3 0“ sind nur über die Farben verständlich. Kleine Erklärung beim Antippen/Darüberfahren (niedrige Priorität, Farben bleiben).
-- [ ] **H12** 🟠 (bei H11 aufgefallen) Schülerliste: Die Zeile bricht nicht um. Auf dem iPad hochkant (768 px) liegen „Fehlt“-Zähler und Notenschnitt rechts außerhalb des Bildes (Zähler endet bei ~860 px), auf dem Handy auch „Mitarbeit“. Zähler/Schnitt unter den Namen umbrechen oder verkleinern.
+- [x] **H12** 🟠 (bei H11 aufgefallen) Schülerliste: Die Zeile bricht nicht um. Auf dem iPad hochkant (768 px) liegen „Fehlt“-Zähler und Notenschnitt rechts außerhalb des Bildes (Zähler endet bei ~860 px), auf dem Handy auch „Mitarbeit“. Zähler/Schnitt unter den Namen umbrechen oder verkleinern.
+- [ ] **H13** 🟢 (bei H12 aufgefallen) Sitzplan auf schmalen Bildschirmen: `#main-content` behält dort die 800 px Mindestbreite, weil die Werkzeugleiste (Timer, Stoppuhr, Zufall, Gruppen) nicht umbricht; auf dem iPad hochkant muss man seitlich schieben. Werkzeugleiste umbrechen lassen, dann `#view-seating` in die `:has`-Ausnahme aufnehmen.
 
 ---
 
@@ -183,3 +184,4 @@ Priorität: 🔴 Datenverlust / App kaputt · 🟠 falsche Anzeige / nervig · �
 | G11 | `server.js`: Pfad dekodiert + `path.relative`-Prüfung, keine versteckten Dateien (`.git`); `createServer()` testbar, Port per `PORT` | Block G |
 | G13 | Tippen neben ein Fenster nimmt denselben Weg wie Escape und der Schließen-Knopf (`closeModalLikeButton`): Stunden-Fenster speichert Notizen, Notenformular kehrt zurück | Block G |
 | H11 | Zähler in der Schülerliste: Tooltip/`aria-label` mit den echten Zahlen („Fehltage: 3 unentschuldigt, 1 entschuldigt“); ohne Maus (`(hover: hover)`) zeigt Antippen eine Erklärung in den Zählerfarben mit „Einträge ansehen“, mit Maus öffnet Klick wie bisher die Schülerakte | Block H |
+| H12 | Ursache: `#main-content{min-width:800px}` (war nur für den Stundenplan aufgehoben). Jetzt auch für Dashboard, Klassen und Klassenansicht aufgehoben; Schülerzeile bricht bei schmaler Liste um (Container-Query 520 px, Rückfall Media-Query 600 px), lange Namen mit „…“; Kopf der Klassenansicht bricht um; Dashboard füllt die Breite (`width:100%`). Nachgemessen bei 375/640/768 px | Block H |
