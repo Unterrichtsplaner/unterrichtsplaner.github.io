@@ -65,6 +65,40 @@ describe('H1: Noten im Sitzplan standardmäßig verborgen', () => {
   });
 });
 
+describe('H1: auch das Schüler-Fenster im Sitzplan verbirgt die Noten', () => {
+  const gradesText = () => document.getElementById('seating-student-grades').textContent;
+
+  it('Antippen eines Schülers zeigt keine Einzelnoten, solange Noten verborgen sind', () => {
+    app('seatingShowGrades = false');
+    app('openSeatingStudentModal("s1", "g1", "2026-09-10")');
+    expect(gradesText()).not.toContain('2.0');
+    expect(gradesText()).toContain('verborgen');
+  });
+
+  it('„Anzeigen“ im Fenster blendet die Noten nur für diesen Schüler ein', () => {
+    app('seatingShowGrades = false');
+    app('openSeatingStudentModal("s1", "g1", "2026-09-10")');
+    app('revealSeatingStudentGrades()');
+    expect(gradesText()).toContain('2.0');
+    expect(app('seatingShowGrades')).toBe(false); // Kacheln bleiben verborgen
+  });
+
+  it('mit eingeblendeten Noten (Augen-Knopf) sind sie auch im Fenster direkt sichtbar', () => {
+    app('seatingShowGrades = true');
+    app('openSeatingStudentModal("s1", "g1", "2026-09-10")');
+    expect(gradesText()).toContain('2.0');
+    app('seatingShowGrades = false');
+  });
+
+  it('Noten ohne Datum (Altdaten) bringen das Fenster nicht zum Absturz', () => {
+    app('db.students.g1[0].grades.push({ type: "test", value: "3.0", note: "alt" })');
+    app('seatingShowGrades = true');
+    expect(() => app('openSeatingStudentModal("s1", "g1", "2026-09-10")')).not.toThrow();
+    app('seatingShowGrades = false');
+  });
+});
+
+
 describe('H8: „Zu spät“ in der Schnellbewertung', () => {
   it('trägt „zuspät“ ein, zweiter Klick nimmt es wieder heraus', () => {
     app('openSeatingStudentModal("s1", "g1", "2026-09-10")');

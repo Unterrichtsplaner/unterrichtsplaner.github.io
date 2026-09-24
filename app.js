@@ -3499,35 +3499,54 @@ function openSeatingStudentModal(studentId, groupId, dateStr) {
     <span style="color:var(--danger)">${partNeg}</span>
   `;
 
-  // Render grades
+  renderSeatingStudentGrades(seatingShowGrades);
+
+  openModal('modal-seating-student');
+}
+
+// Notenliste im Schüler-Fenster des Sitzplans. Datenschutz (BUGS H1): Solange die Noten im Sitzplan
+// verborgen sind, erst nach „Anzeigen“ – und dann nur für diesen einen Schüler.
+function revealSeatingStudentGrades() { renderSeatingStudentGrades(true); }
+
+function renderSeatingStudentGrades(show) {
+  if (!window.currentSeatingStudent) return;
+  const { studentId, groupId } = window.currentSeatingStudent;
+  const s = (db.students[groupId] || []).find(x => x.id === studentId);
   const gradesContainer = document.getElementById('seating-student-grades');
+  if (!s || !gradesContainer) return;
   gradesContainer.innerHTML = '';
   if (!s.grades || !s.grades.length) {
     gradesContainer.innerHTML = '<div style="font-size:12px;color:var(--text-muted);text-align:center;padding:10px;">Keine Noten vorhanden</div>';
-  } else {
-    // Sort chronologically (descending)
-    const sortedGrades = s.grades.map((g, idx) => ({...g, _origIdx: idx})).sort((a,b) => b.date.localeCompare(a.date));
-    sortedGrades.forEach(g => {
-      const el = document.createElement('div');
-      el.style.cssText = 'display:flex; justify-content:space-between; align-items:center; background:var(--bg-secondary); padding:8px 12px; border-radius:8px; font-size:13px;';
-      const valColor = gradeColor(gradeNumber(g.value));
-      el.innerHTML = `
-        <div style="display:flex; flex-direction:column; flex:1;">
-          <span style="font-weight:600; color:var(--text-primary)">${escHtml(g.note || gradeTypeLabel(g.type))}</span>
-          <span style="font-size:11px; color:var(--text-muted)">${formatDateShort(g.date)}</span>
-        </div>
-        <div style="display:flex; align-items:center; gap:12px;">
-          <div style="font-weight:800; font-size:15px; color:${valColor}">${g.value}</div>
-          <button class="btn-icon" style="padding:4px;" onclick="openGradeForm('${studentId}', '${groupId}', ${g._origIdx})">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-          </button>
-        </div>
-      `;
-      gradesContainer.appendChild(el);
-    });
+    return;
   }
-
-  openModal('modal-seating-student');
+  if (!show) {
+    gradesContainer.innerHTML = `
+      <div style="display:flex; justify-content:space-between; align-items:center; font-size:12px; color:var(--text-muted); padding:8px 12px; background:var(--bg-secondary); border-radius:8px;">
+        <span>${s.grades.length} Note(n) – verborgen</span>
+        <button class="btn-secondary" style="padding:4px 10px; font-size:12px;" onclick="revealSeatingStudentGrades()">Anzeigen</button>
+      </div>`;
+    return;
+  }
+  // Sort chronologically (descending)
+  const sortedGrades = s.grades.map((g, idx) => ({...g, _origIdx: idx})).sort((a,b) => (b.date||'').localeCompare(a.date||''));
+  sortedGrades.forEach(g => {
+    const el = document.createElement('div');
+    el.style.cssText = 'display:flex; justify-content:space-between; align-items:center; background:var(--bg-secondary); padding:8px 12px; border-radius:8px; font-size:13px;';
+    const valColor = gradeColor(gradeNumber(g.value));
+    el.innerHTML = `
+      <div style="display:flex; flex-direction:column; flex:1;">
+        <span style="font-weight:600; color:var(--text-primary)">${escHtml(g.note || gradeTypeLabel(g.type))}</span>
+        <span style="font-size:11px; color:var(--text-muted)">${g.date ? formatDateShort(g.date) : ''}</span>
+      </div>
+      <div style="display:flex; align-items:center; gap:12px;">
+        <div style="font-weight:800; font-size:15px; color:${valColor}">${escHtml(g.value)}</div>
+        <button class="btn-icon" style="padding:4px;" onclick="openGradeForm('${studentId}', '${groupId}', ${g._origIdx})">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+        </button>
+      </div>
+    `;
+    gradesContainer.appendChild(el);
+  });
 }
 
 function openGradeFormForCurrentStudent() {

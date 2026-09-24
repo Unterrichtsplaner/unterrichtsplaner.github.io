@@ -154,7 +154,7 @@ Priorität: 🔴 Datenverlust / App kaputt · 🟠 falsche Anzeige / nervig · �
 | D8 | Plan scrollt, wenn er nicht passt | Block D |
 | D9 | Nicht übernommene HA/Test-Eingaben werden beim Speichern übernommen | Block D |
 | D10 | `parseDate()` in `jumpToDate` und Sitzplan-Datumsleiste | Block D |
-| H1 | Sitzplan: Noten standardmäßig verborgen, Augen-Knopf (nicht gespeichert) | Block H |
+| H1 | Sitzplan: Noten standardmäßig verborgen, Augen-Knopf (nicht gespeichert); Nachtrag: auch das Schüler-Fenster zeigt Einzelnoten erst nach „Anzeigen“ | Block H |
 | H6 | „Klassenarbeit“ statt „Schularbeit“ in Oberfläche und CSV-Export | Block H |
 | H8 | „Zu spät“ in der Sitzplan-Schnellbewertung | Block H |
 | H9 | Sitzplan-Datumsleiste und Datumswahl nur Mo–Fr | Block H |
