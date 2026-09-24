@@ -316,3 +316,85 @@ describe('D10: Datumsstrings werden als lokale Zeit gelesen', () => {
     }
   });
 });
+
+describe('H2: Tagesansicht auf dem Handy', () => {
+  const setWidth = w => { window.innerWidth = w; };
+  const grid = () => document.getElementById('timetable-grid');
+  const label = () => document.getElementById('week-label').textContent;
+  afterEach(() => { setWidth(1024); app('timetableDay = null'); });
+
+  it('unter 700 px nur ein Tag, mit Datum und KW', () => {
+    setWidth(400);
+    app('jumpToDate("2026-10-05")');
+    expect(grid().classList.contains('day-view')).toBe(true);
+    const blocks = app('getBlocks()').length;
+    expect(grid().querySelectorAll('.tt-cell').length).toBe(blocks);
+    expect(grid().querySelector('.tt-day-header').textContent).toBe('Montag, 05.10.');
+    expect(label()).toContain('Mo 05.10.');
+    expect(label()).toContain('KW 41');
+    expect(grid().textContent).toContain('Mathe');
+    expect(grid().querySelector('.tt-lesson').getAttribute('onclick')).toContain("'2026-10-05'");
+  });
+
+  it('breit: weiter 5-Tage-Raster', () => {
+    app('jumpToDate("2026-10-05")');
+    expect(grid().classList.contains('day-view')).toBe(false);
+    expect(grid().querySelectorAll('.tt-day-header').length).toBe(5);
+  });
+
+  it('Pfeile blättern Schultage, Wochenende wird übersprungen', () => {
+    setWidth(400);
+    app('jumpToDate("2026-10-09")'); // Freitag
+    app('navigateWeek(1)');
+    expect(label()).toContain('Mo 12.10.');
+    app('navigateWeek(-1)');
+    expect(label()).toContain('Fr 09.10.');
+    expect(document.querySelector('button[onclick="navigateWeek(1)"]').title).toBe('Nächster Tag');
+  });
+
+  it('Woche läuft mit: zurück auf breit zeigt die Woche des Tages', () => {
+    setWidth(400);
+    app('jumpToDate("2026-10-09")');
+    app('navigateWeek(1)');
+    setWidth(1024);
+    app('renderTimetable()');
+    expect(label()).toContain('12.10. – 16.10.');
+    expect(document.querySelector('button[onclick="navigateWeek(1)"]').title).toBe('Nächste Woche');
+  });
+
+  it('„Heute“ springt auf heute (Wochenende: Montag)', () => {
+    setWidth(400);
+    app('jumpToDate("2026-10-09")');
+    app('goToCurrentWeek()');
+    const d = app('todaySchoolDay()');
+    expect(label()).toContain(app(`formatDateDE(todaySchoolDay())`));
+    expect([1, 2, 3, 4, 5]).toContain(d.getDay());
+    expect(document.getElementById('week-label').classList.contains('active')).toBe(true);
+  });
+
+  it('Wischen nach links = nächster Tag, kurze oder senkrechte Bewegung nicht', () => {
+    setWidth(400);
+    app('jumpToDate("2026-10-05")');
+    app('handleTimetableSwipe(-20, 0)');
+    app('handleTimetableSwipe(-100, 150)');
+    expect(label()).toContain('Mo 05.10.');
+    const wrapper = document.querySelector('.timetable-grid-wrapper');
+    const touch = (type, x, y) => {
+      const ev = new Event(type);
+      ev.touches = [{ clientX: x, clientY: y }];
+      ev.changedTouches = [{ clientX: x, clientY: y }];
+      wrapper.dispatchEvent(ev);
+    };
+    touch('touchstart', 300, 200);
+    touch('touchend', 150, 210);
+    expect(label()).toContain('Di 06.10.');
+    app('handleTimetableSwipe(120, 0)');
+    expect(label()).toContain('Mo 05.10.');
+  });
+
+  it('Wischen in der Wochenansicht tut nichts', () => {
+    app('jumpToDate("2026-10-05")');
+    app('handleTimetableSwipe(-120, 0)');
+    expect(label()).toContain('05.10. – 09.10.');
+  });
+});

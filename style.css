@@ -105,6 +105,18 @@ input[type="date"] { min-height: 1.2em; } /* Fix iOS Safari date input collapse 
 /* ─── Timetable ──────────────────────── */
 .timetable-grid-wrapper{flex:1;overflow:auto;padding:24px 24px;display:flex;flex-direction:column;}
 .timetable-grid{display:grid;gap:12px;min-width:650px;flex:1;}
+.timetable-grid.day-view{min-width:0;align-content:start;}
+.timetable-grid.day-view .tt-day-header{font-size:15px;text-align:left;padding:4px 2px 8px;}
+.timetable-grid.day-view .tt-time-label{padding:0 4px 0 0;}
+/* Handy: Tagesansicht ohne seitliches Scrollen (BUGS H2) */
+@media(max-width:699px){
+  #main-content:has(#view-timetable.active){min-width:0;}
+  #view-timetable .view-header{padding:0 12px;}
+  #view-timetable .view-header h1{display:none;}
+  #view-timetable .header-actions{margin-left:0 !important;gap:8px !important;min-width:0;}
+  #view-timetable .week-label{min-width:0;white-space:nowrap;padding:8px 10px;}
+  .timetable-grid-wrapper{padding:12px;}
+}
 .tt-day-header{padding:12px 6px;text-align:center;font-size:13px;font-weight:700;color:var(--text-secondary);letter-spacing:.4px;text-transform:uppercase;}
 .tt-day-header.today{color:var(--accent);}
 .tt-time-label{display:flex;flex-direction:column;align-items:flex-end;justify-content:center;padding:0 14px 0 0;text-align:right;}
@@ -299,6 +311,9 @@ input[type="date"] { min-height: 1.2em; } /* Fix iOS Safari date input collapse 
 .overview-table tr:hover td{background:var(--bg-card-hover);}
 .overview-table th:last-child, .overview-table td:last-child{border-right:none;}
 .overview-table tr:last-child td{border-bottom:none;}
+.overview-table .col-type{display:inline-block;font-size:10px;font-weight:700;padding:1px 6px;margin-bottom:3px;border-radius:99px;background:var(--bg-card);color:var(--text-muted);border:1px solid var(--border);letter-spacing:.3px;}
+.overview-table .col-type.weighted{background:var(--accent-soft);color:var(--text-accent);border-color:var(--border-active);}
+.overview-table .col-title{font-weight:400;font-size:11px;}
 
 .modal-body{flex:1;overflow-y:auto;padding:14px 18px;min-height:0;}
 .modal-footer{display:flex;justify-content:flex-end;gap:8px;padding:11px 18px;border-top:1px solid var(--border);flex-shrink:0;}

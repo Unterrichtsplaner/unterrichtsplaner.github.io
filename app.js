@@ -259,8 +259,30 @@ function getWeekNumber(d) {
   const yearStart = new Date(Date.UTC(date.getUTCFullYear(),0,1));
   return Math.ceil((((date-yearStart)/86400000)+1)/7);
 }
-function navigateWeek(dir) { currentWeekOffset += dir; renderTimetable(); }
-function goToCurrentWeek()  { currentWeekOffset = 0;   renderTimetable(); }
+// ─── Tagesansicht (Handy, BUGS H2) ──────────────────────────────────────
+// Schmaler als DAY_VIEW_MAX_WIDTH zeigt der Stundenplan einen Tag statt der Woche.
+// timetableDay: angezeigter Tag ('YYYY-MM-DD'); null = folgt currentWeekOffset (aktuelle Woche → heute).
+const DAY_VIEW_MAX_WIDTH = 700;
+let timetableDay = null;
+function isTimetableDayView() { return window.innerWidth < DAY_VIEW_MAX_WIDTH; }
+function todaySchoolDay() { return nextSchoolDay(parseDate(formatDate(new Date()))); }
+function timetableDayDate() {
+  if (timetableDay) return parseDate(timetableDay);
+  return currentWeekOffset === 0 ? todaySchoolDay() : parseDate(formatDate(getWeekDates(currentWeekOffset)[0]));
+}
+// Tag anzeigen; die Woche läuft mit, damit die Wochenansicht (z. B. nach Drehen) dieselbe Woche zeigt
+function setTimetableDay(d) {
+  const day = nextSchoolDay(d);
+  timetableDay = formatDate(day);
+  currentWeekOffset = Math.round((mondayOf(day) - getWeekDates(0)[0]) / 86400000 / 7);
+}
+
+function navigateWeek(dir) {
+  if (isTimetableDayView()) setTimetableDay(addSchoolDays(timetableDayDate(), dir));
+  else { currentWeekOffset += dir; timetableDay = null; }
+  renderTimetable();
+}
+function goToCurrentWeek()  { currentWeekOffset = 0; timetableDay = null; renderTimetable(); }
 function jumpToDate(dateStr) {
   if (!dateStr) return;
   const targetDate = parseDate(dateStr);
@@ -279,13 +301,26 @@ function jumpToDate(dateStr) {
   mondayTarget.setDate(mondayTarget.getDate() - ((mondayTarget.getDay() + 6) % 7));
   mondayTarget.setHours(0,0,0,0);
   currentWeekOffset = Math.round((mondayTarget - mondayNow) / 86400000 / 7);
+  if (isSchoolDay(targetDate)) timetableDay = formatDate(targetDate);
+  else timetableDay = null;
   renderTimetable();
 }
 
 // ─── Timetable Render ────────────────────────────────────────────────────
 function renderTimetable() {
-  const dates = getWeekDates(currentWeekOffset);
   const grid  = document.getElementById('timetable-grid');
+  const dayView = isTimetableDayView();
+  grid.classList.toggle('day-view', dayView);
+  const prevBtn = document.querySelector('button[onclick="navigateWeek(-1)"]');
+  const nextBtn = document.querySelector('button[onclick="navigateWeek(1)"]');
+  if (prevBtn) prevBtn.title = dayView ? 'Vorheriger Tag' : 'Vorherige Woche';
+  if (nextBtn) nextBtn.title = dayView ? 'Nächster Tag' : 'Nächste Woche';
+  if (dayView) renderTimetableDay(grid);
+  else renderTimetableWeek(grid);
+}
+
+function renderTimetableWeek(grid) {
+  const dates = getWeekDates(currentWeekOffset);
   const blocks = getBlocks();
 
   const weekNo = getWeekNumber(dates[0]);
@@ -346,83 +381,155 @@ function renderTimetable() {
 
   // Block rows
   blocks.forEach(block => {
-    const timeEl = document.createElement('div');
-    timeEl.className = 'tt-time-label';
-    timeEl.innerHTML = `<div class="tt-time-block-name">${escHtml(block.label)}</div>
-      <div class="tt-time-block-range">${escHtml(block.start)}<br>${escHtml(block.end)}</div>`;
-    timeEl.style.gridColumn = '1';
-    grid.appendChild(timeEl);
-
+    grid.appendChild(buildTimeLabel(block));
     dates.forEach((d, dayIdx) => {
-      const dateStr = formatDate(d);
-      const cell = document.createElement('div');
-      cell.className = 'tt-cell';
+      const cell = buildTimetableCell(d, dayIdx, block);
       cell.style.gridColumn = (3 + dayIdx * 2).toString();
-
-      const lessons = lessonsAt(dateStr, block.num);
-
-      const renderLessonHTML = (lesson, extraClasses = '') => {
-        const key  = lesson.id + '_' + dateStr;
-        const data = db.lessonData[key] || {};
-        const isAusfall = !!data.ausfall;
-        const incoming = getIncomingItems(lesson.id, dateStr);
-        const activeHW   = (data.hwItems||[]).filter(i => !i.targetDate || i.targetDate === dateStr);
-        const hasHW      = (data.hwEnabled && activeHW.length > 0) || incoming.hw.length > 0;
-        const activeTest = (data.testItems||[]).filter(i => !i.targetDate || i.targetDate === dateStr);
-        const hasTest    = (data.testEnabled && activeTest.length > 0) || incoming.tests.length > 0;
-
-        const indicators = [];
-        if (hasHW)   indicators.push({ label:'HA',   color:'#f59e0b' });
-        if (hasTest) indicators.push({ label:'Test',  color:'#ef4444' });
-        if (data.notes) indicators.push({ label:'Notiz', color:'#64748b' });
-
-        let displayMain, displaySub;
-        if (lesson.groupId) {
-          const group = db.groups.find(g => g.id === lesson.groupId);
-          if (group) { displayMain = group.subject; displaySub  = group.className; }
-          else { displayMain = lesson.subject; displaySub  = null; }
-        } else { displayMain = lesson.subject; displaySub  = null; }
-
-        return `<div class="tt-lesson${isAusfall?' ausfall-lesson':''} ${extraClasses}"
-               style="background:${hexToRgba(lesson.color,0.15)};color:${lesson.color}"
-               onclick="openLessonDetail('${lesson.id}','${dateStr}')">
-            <div>
-              ${displaySub ? `<div class="tt-lesson-class">${escHtml(displaySub)}</div>` : ''}
-              <div class="tt-lesson-name">${escHtml(displayMain)}</div>
-              ${lesson.room?`<div class="tt-lesson-room">${escHtml(lesson.room)}</div>`:''}
-            </div>
-            <div class="tt-lesson-indicators">
-              ${indicators.map(ind =>
-                `<span class="tt-indicator" style="background:${hexToRgba(ind.color,0.2)};color:${ind.color}">${ind.label}</span>`
-              ).join('')}
-            </div>
-          </div>`;
-      };
-
-      const renderEmptyHTML = (part) => {
-        return `<div class="tt-empty-cell" title="${DAYS[dayIdx]}, ${block.label} – Klicken zum Hinzufügen"
-                     onclick="openAddLessonSlot(${dayIdx}, ${block.num}, '${dateStr}', '${part}')">
-                  <span class="tt-add-icon">+</span>
-                </div>`;
-      };
-
-      if (lessons.length === 0) {
-        cell.innerHTML = renderEmptyHTML('full');
-      } else if (lessons.length === 1 && (!lessons[0].part || lessons[0].part === 'full')) {
-        cell.innerHTML = renderLessonHTML(lessons[0]);
-      } else {
-        // Split block
-        const first = lessons.find(l => l.part === 'first');
-        const second = lessons.find(l => l.part === 'second');
-        cell.innerHTML = `<div class="tt-split-container">
-          <div class="tt-split-half">${first ? renderLessonHTML(first) : renderEmptyHTML('first')}</div>
-          <div class="tt-split-half">${second ? renderLessonHTML(second) : renderEmptyHTML('second')}</div>
-        </div>`;
-      }
       grid.appendChild(cell);
     });
   });
 }
+
+function renderTimetableDay(grid) {
+  const d = timetableDayDate();
+  const dayIdx = (d.getDay() + 6) % 7;
+  const blocks = getBlocks();
+  const today = formatDate(d) === formatDate(todaySchoolDay());
+
+  const weekLabel = document.getElementById('week-label');
+  weekLabel.textContent = `${DAY_SHORT[dayIdx]} ${formatDateDE(d)}  ·  KW ${getWeekNumber(d)}`;
+  weekLabel.classList.toggle('active', today);
+  const heuteBtn = document.querySelector('button[onclick="goToCurrentWeek()"]');
+  if (heuteBtn) heuteBtn.classList.toggle('active', today);
+
+  grid.innerHTML = '';
+  grid.parentElement.style.overflow = 'auto';
+  grid.style.margin = '0';
+  grid.style.justifyContent = 'stretch';
+  grid.style.gridTemplateColumns = '64px minmax(0, 1fr)';
+  grid.style.gridTemplateRows = `auto repeat(${blocks.length}, minmax(96px, auto))`;
+  grid.style.rowGap = '10px';
+  grid.style.columnGap = '10px';
+
+  const header = document.createElement('div');
+  header.className = 'tt-day-header' + (isToday(d) ? ' today' : '');
+  header.style.gridColumn = '1 / span 2';
+  header.textContent = `${DAYS[dayIdx]}, ${formatDateDE(d)}`;
+  grid.appendChild(header);
+
+  blocks.forEach(block => {
+    grid.appendChild(buildTimeLabel(block));
+    const cell = buildTimetableCell(d, dayIdx, block);
+    cell.style.gridColumn = '2';
+    grid.appendChild(cell);
+  });
+}
+
+function buildTimeLabel(block) {
+  const timeEl = document.createElement('div');
+  timeEl.className = 'tt-time-label';
+  timeEl.innerHTML = `<div class="tt-time-block-name">${escHtml(block.label)}</div>
+    <div class="tt-time-block-range">${escHtml(block.start)}<br>${escHtml(block.end)}</div>`;
+  timeEl.style.gridColumn = '1';
+  return timeEl;
+}
+
+// Eine Zelle (Tag × Block) mit ihren Stunden bzw. „+“ zum Anlegen
+function buildTimetableCell(d, dayIdx, block) {
+  const dateStr = formatDate(d);
+  const cell = document.createElement('div');
+  cell.className = 'tt-cell';
+
+  const lessons = lessonsAt(dateStr, block.num);
+
+  const renderLessonHTML = (lesson, extraClasses = '') => {
+    const key  = lesson.id + '_' + dateStr;
+    const data = db.lessonData[key] || {};
+    const isAusfall = !!data.ausfall;
+    const incoming = getIncomingItems(lesson.id, dateStr);
+    const activeHW   = (data.hwItems||[]).filter(i => !i.targetDate || i.targetDate === dateStr);
+    const hasHW      = (data.hwEnabled && activeHW.length > 0) || incoming.hw.length > 0;
+    const activeTest = (data.testItems||[]).filter(i => !i.targetDate || i.targetDate === dateStr);
+    const hasTest    = (data.testEnabled && activeTest.length > 0) || incoming.tests.length > 0;
+
+    const indicators = [];
+    if (hasHW)   indicators.push({ label:'HA',   color:'#f59e0b' });
+    if (hasTest) indicators.push({ label:'Test',  color:'#ef4444' });
+    if (data.notes) indicators.push({ label:'Notiz', color:'#64748b' });
+
+    let displayMain, displaySub;
+    if (lesson.groupId) {
+      const group = db.groups.find(g => g.id === lesson.groupId);
+      if (group) { displayMain = group.subject; displaySub  = group.className; }
+      else { displayMain = lesson.subject; displaySub  = null; }
+    } else { displayMain = lesson.subject; displaySub  = null; }
+
+    return `<div class="tt-lesson${isAusfall?' ausfall-lesson':''} ${extraClasses}"
+           style="background:${hexToRgba(lesson.color,0.15)};color:${lesson.color}"
+           onclick="openLessonDetail('${lesson.id}','${dateStr}')">
+        <div>
+          ${displaySub ? `<div class="tt-lesson-class">${escHtml(displaySub)}</div>` : ''}
+          <div class="tt-lesson-name">${escHtml(displayMain)}</div>
+          ${lesson.room?`<div class="tt-lesson-room">${escHtml(lesson.room)}</div>`:''}
+        </div>
+        <div class="tt-lesson-indicators">
+          ${indicators.map(ind =>
+            `<span class="tt-indicator" style="background:${hexToRgba(ind.color,0.2)};color:${ind.color}">${ind.label}</span>`
+          ).join('')}
+        </div>
+      </div>`;
+  };
+
+  const renderEmptyHTML = (part) => {
+    return `<div class="tt-empty-cell" title="${DAYS[dayIdx]}, ${block.label} – Klicken zum Hinzufügen"
+                 onclick="openAddLessonSlot(${dayIdx}, ${block.num}, '${dateStr}', '${part}')">
+              <span class="tt-add-icon">+</span>
+            </div>`;
+  };
+
+  if (lessons.length === 0) {
+    cell.innerHTML = renderEmptyHTML('full');
+  } else if (lessons.length === 1 && (!lessons[0].part || lessons[0].part === 'full')) {
+    cell.innerHTML = renderLessonHTML(lessons[0]);
+  } else {
+    // Split block
+    const first = lessons.find(l => l.part === 'first');
+    const second = lessons.find(l => l.part === 'second');
+    cell.innerHTML = `<div class="tt-split-container">
+      <div class="tt-split-half">${first ? renderLessonHTML(first) : renderEmptyHTML('first')}</div>
+      <div class="tt-split-half">${second ? renderLessonHTML(second) : renderEmptyHTML('second')}</div>
+    </div>`;
+  }
+  return cell;
+}
+
+// Wischen in der Tagesansicht: nach links = nächster Tag, nach rechts = vorheriger
+function handleTimetableSwipe(dx, dy) {
+  if (!isTimetableDayView() || Math.abs(dx) < 60 || Math.abs(dx) < 2 * Math.abs(dy)) return;
+  navigateWeek(dx < 0 ? 1 : -1);
+}
+(function initTimetableGestures() {
+  const wrapper = document.querySelector('.timetable-grid-wrapper');
+  if (!wrapper) return;
+  let start = null;
+  wrapper.addEventListener('touchstart', e => {
+    start = e.touches && e.touches.length === 1 ? { x: e.touches[0].clientX, y: e.touches[0].clientY } : null;
+  }, { passive: true });
+  wrapper.addEventListener('touchend', e => {
+    const t = e.changedTouches && e.changedTouches[0];
+    if (start && t) handleTimetableSwipe(t.clientX - start.x, t.clientY - start.y);
+    start = null;
+  });
+  // Größe/Drehung geändert: neu zeichnen (Kachelgröße, Wechsel Tag ↔ Woche)
+  let resizeTimer = null;
+  window.addEventListener('resize', () => {
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(() => {
+      const view = document.getElementById('view-timetable');
+      if (view && view.classList.contains('active')) renderTimetable();
+    }, 150);
+  });
+})();
 
 function hexToRgba(hex, alpha) {
   const r=parseInt(hex.slice(1,3),16), g=parseInt(hex.slice(3,5),16), b=parseInt(hex.slice(5,7),16);
@@ -1370,8 +1477,14 @@ function renderOverviewTable() {
     const gradeEvents = Array.from(gradeEventsMap.values()).sort((a,b) => a.date.localeCompare(b.date));
     
     html += '<th>Ø</th>';
+    const weight = getSchularbeitWeight(group);
     gradeEvents.forEach(ev => {
-      html += `<th style="cursor:pointer;" title="Klicken zum Bearbeiten" onclick="openEditColumnModal('${ev.date}', '${escHtml(ev.label)}', '${ev.type || 'test'}')"><div>${formatDateShort(ev.date)}</div><div style="font-weight:400;font-size:11px;">${escHtml(ev.label)}</div></th>`;
+      const type = ev.type || 'test';
+      const weighted = gradeCategory(type) === 'schularbeit';
+      const typeTitle = weighted ? `${gradeTypeLabel(type)}: zählt ${weight} % der Note` : `${gradeTypeLabel(type)}: Sonstige, zählt ${100 - weight} % der Note`;
+      html += `<th style="cursor:pointer;" title="Klicken zum Bearbeiten" onclick="openEditColumnModal('${ev.date}', '${escHtml(ev.label)}', '${escHtml(type)}')">`
+        + `<div class="col-type${weighted ? ' weighted' : ''}" title="${escHtml(typeTitle)}">${escHtml(gradeTypeShort(type))}</div>`
+        + `<div>${formatDateShort(ev.date)}</div><div class="col-title">${escHtml(ev.label || gradeTypeLabel(type))}</div></th>`;
     });
     html += '</tr></thead><tbody>';
 
@@ -3791,6 +3904,12 @@ function gradeColor(val) {
 function gradeTypeLabel(type) {
   return {schularbeit:'Klassenarbeit',klausur:'Klausur',test:'Test',muendlich:'Mündlich',mitarbeit:'Mitarbeit',
           projekt:'Projekt',hausaufgabe:'HA',sonstig:'Sonstiges'}[type] || type;
+}
+
+// Kürzel für den Spaltenkopf der Notentabelle
+function gradeTypeShort(type) {
+  return {schularbeit:'KA',klausur:'KL',test:'Test',muendlich:'Mdl',mitarbeit:'MA',
+          projekt:'Proj',hausaufgabe:'HA',sonstig:'Sonst'}[type] || type;
 }
 
 // Zentrale Zuordnung für die Gewichtung (Klasse → schularbeitWeight): diese Typen zählen als

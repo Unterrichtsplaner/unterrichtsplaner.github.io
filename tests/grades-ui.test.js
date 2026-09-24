@@ -255,3 +255,41 @@ describe('H6: „Klassenarbeit“ statt „Schularbeit“ in der Oberfläche', (
     expect(document.querySelector('#gf-type option[value="schularbeit"]')).not.toBeNull();
   });
 });
+
+describe('H5: Spaltentyp im Kopf der Notentabelle', () => {
+  const headers = () => {
+    app('openClassOverview("g1")');
+    app('switchOverviewTab("grades")');
+    return [...document.querySelectorAll('#overview-content thead th')].slice(2);
+  };
+
+  it('Klassenarbeit-Spalte ist als gewichtet markiert, andere nicht', () => {
+    const [ka, t1] = headers();
+    const kaTag = ka.querySelector('.col-type');
+    expect(kaTag.textContent).toBe('KA');
+    expect(kaTag.classList.contains('weighted')).toBe(true);
+    expect(kaTag.getAttribute('title')).toContain('50 %');
+    const tTag = t1.querySelector('.col-type');
+    expect(tTag.textContent).toBe('Test');
+    expect(tTag.classList.contains('weighted')).toBe(false);
+  });
+
+  it('Spalte ohne Titel zeigt den Typ (z. B. Mitarbeit)', () => {
+    anna().grades = [{ type: 'mitarbeit', value: '2.0', date: '2026-09-05', note: '' }];
+    const [col] = headers();
+    expect(col.querySelector('.col-title').textContent).toBe('Mitarbeit');
+    expect(col.querySelector('.col-type').textContent).toBe('MA');
+  });
+
+  it('Kürzel für alle Typen, Altdaten „klausur“ zählt als gewichtet', () => {
+    expect(app('gradeTypeShort("schularbeit")')).toBe('KA');
+    expect(app('gradeTypeShort("klausur")')).toBe('KL');
+    expect(app('gradeTypeShort("unbekannt")')).toBe('unbekannt');
+  });
+
+  it('Titel werden escaped', () => {
+    anna().grades = [{ type: 'test', value: '2.0', date: '2026-09-05', note: '<b>x</b>' }];
+    const [col] = headers();
+    expect(col.querySelector('b')).toBeNull();
+  });
+});
