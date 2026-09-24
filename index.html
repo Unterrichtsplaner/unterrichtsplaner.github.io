@@ -38,7 +38,7 @@
       }
     } catch(e) {}
   </script>
-  <link rel="stylesheet" href="style.css?v=187" />
+  <link rel="stylesheet" href="style.css?v=188" />
   <script>
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
@@ -181,11 +181,11 @@
           </div>
         </div>
         <div class="modal-tabs" style="border-bottom:none; padding:0; width:100%;">
-          <button class="tab-btn active" id="overview-tab-students" onclick="switchClassDashboardTab('students')">🧑‍🎓 Schüler</button>
-          <button class="tab-btn" id="overview-tab-grades" onclick="switchClassDashboardTab('grades')">🎓 Noten</button>
-          <button class="tab-btn" id="overview-tab-participation" onclick="switchClassDashboardTab('participation')">🙋 Mitarbeit</button>
-          <button class="tab-btn" id="overview-tab-attendance" onclick="switchClassDashboardTab('attendance')">📅 Anwesenheit</button>
-          <button class="tab-btn" id="overview-tab-homework" onclick="switchClassDashboardTab('homework')">📚 Hausaufgaben</button>
+          <button class="tab-btn active" id="overview-tab-students" onclick="switchClassDashboardTab('students')"><i data-icon="student"></i>Schüler</button>
+          <button class="tab-btn" id="overview-tab-grades" onclick="switchClassDashboardTab('grades')"><i data-icon="grades"></i>Noten</button>
+          <button class="tab-btn" id="overview-tab-participation" onclick="switchClassDashboardTab('participation')"><i data-icon="participation"></i>Mitarbeit</button>
+          <button class="tab-btn" id="overview-tab-attendance" onclick="switchClassDashboardTab('attendance')"><i data-icon="attendance"></i>Anwesenheit</button>
+          <button class="tab-btn" id="overview-tab-homework" onclick="switchClassDashboardTab('homework')"><i data-icon="homework"></i>Hausaufgaben</button>
         </div>
       </div>
       <div id="mass-delete-bar" class="hidden" style="background:var(--danger-soft); padding: 8px 30px; display:flex; justify-content:space-between; align-items:center;">
@@ -254,7 +254,7 @@
       <div id="seating-canvas-wrapper" style="flex:1; display:flex; align-items:center; justify-content:center; overflow:hidden; padding:20px;">
         <div class="seating-canvas" id="seating-canvas">
           <div id="seating-empty" class="empty-state">
-            <div class="empty-state-icon">🪑</div>
+            <div class="empty-state-icon"><i data-icon="seating"></i></div>
             <div class="empty-state-title">Keine Schüler</div>
             <div class="empty-state-desc">Wähle eine Klasse aus oder füge zuerst Schüler hinzu.</div>
           </div>
@@ -316,7 +316,7 @@
         <span id="lesson-modal-subtitle" class="modal-subtitle"></span>
         <div id="lesson-seating-link-container" class="hidden" style="margin-top: 8px;">
            <button class="btn-secondary" onclick="openSeatingForActiveLesson()">
-             🪑 Sitzplan öffnen
+             <i data-icon="seating"></i>Sitzplan öffnen
            </button>
         </div>
         <!-- Next lesson info -->
@@ -337,14 +337,14 @@
 
     <!-- Quick Access Bar -->
     <div style="background:var(--bg-secondary); padding:10px 14px; border-bottom:1px solid var(--border); display:flex; gap:10px;">
-      <button id="lesson-btn-overview" class="btn-primary" style="flex:1; font-size:13px; font-weight:600; padding:8px;" onclick="openClassOverviewFromLesson()">📊 Notenübersicht</button>
-      <button id="lesson-btn-students" class="btn-secondary" style="flex:1; font-size:13px; font-weight:600; padding:8px;" onclick="openQuickStudentListFromLesson()">🧑‍🎓 Schüler bewerten</button>
+      <button id="lesson-btn-overview" class="btn-primary" style="flex:1; font-size:13px; font-weight:600; padding:8px;" onclick="openClassOverviewFromLesson()"><i data-icon="overview"></i>Notenübersicht</button>
+      <button id="lesson-btn-students" class="btn-secondary" style="flex:1; font-size:13px; font-weight:600; padding:8px;" onclick="openQuickStudentListFromLesson()"><i data-icon="student"></i>Schüler bewerten</button>
     </div>
 
     <!-- Ausfall overlay -->
     <div id="lesson-ausfall-overlay" class="ausfall-overlay hidden">
       <div class="ausfall-overlay-content">
-        <span class="ausfall-icon">❌</span>
+        <span class="ausfall-icon"><i data-icon="x-circle"></i></span>
         <span class="ausfall-text">Diese Stunde fällt aus</span>
         <button class="btn-secondary" onclick="toggleAusfall()">Ausfall aufheben</button>
       </div>
@@ -356,7 +356,7 @@
       <!-- Unterrichtsinhalt -->
       <div class="notes-section">
         <div class="notes-section-header">
-          <span class="notes-section-icon">📖</span>
+          <span class="notes-section-icon"><i data-icon="content"></i></span>
           <span class="notes-section-label">Unterrichtsinhalt</span>
         </div>
         <textarea id="lesson-done-text" placeholder="Was wurde heute behandelt / durchgenommen..." class="notes-textarea" style="margin-top:10px"></textarea>
@@ -365,7 +365,7 @@
       <!-- Hausaufgaben -->
       <div class="notes-section">
         <div class="notes-section-header">
-          <span class="notes-section-icon">📚</span>
+          <span class="notes-section-icon"><i data-icon="homework"></i></span>
           <span class="notes-section-label">Hausaufgaben</span>
           <label class="toggle-switch">
             <input type="checkbox" id="hw-toggle" onchange="toggleSection('hw')">
@@ -400,7 +400,7 @@
       <!-- Test / Prüfung -->
       <div class="notes-section">
         <div class="notes-section-header">
-          <span class="notes-section-icon">✍️</span>
+          <span class="notes-section-icon"><i data-icon="test"></i></span>
           <span class="notes-section-label">Test / Klassenarbeit angekündigt</span>
           <label class="toggle-switch">
             <input type="checkbox" id="test-toggle" onchange="toggleSection('test')">
@@ -424,7 +424,7 @@
       <!-- Notizen & Anmerkungen (merged) -->
       <div class="notes-section">
         <div class="notes-section-header">
-          <span class="notes-section-icon">📝</span>
+          <span class="notes-section-icon"><i data-icon="notes"></i></span>
           <span class="notes-section-label">Notizen & Anmerkungen</span>
         </div>
         <textarea id="lesson-notes-text" placeholder="Allgemeine Notizen, Beobachtungen, Besonderes..." class="notes-textarea notes-textarea-sm" style="margin-top:10px"></textarea>
@@ -672,17 +672,17 @@
     </div>
     <div class="modal-body" style="display:flex; flex-direction:column; gap:12px;">
       <button class="btn-secondary" style="width:100%; text-align:left; justify-content:flex-start;" onclick="closeModal('modal-student-actions'); openAddStudent()">
-        <span style="margin-right:8px; font-size:16px;">🧑‍🎓</span> Einzelnen Schüler hinzufügen
+        <i data-icon="student-add"></i>Einzelnen Schüler hinzufügen
       </button>
       <button class="btn-secondary" style="width:100%; text-align:left; justify-content:flex-start;" onclick="closeModal('modal-student-actions'); openImportStudentsModal()">
-        <span style="margin-right:8px; font-size:16px;">📋</span> Mehrere Schüler hinzufügen
+        <i data-icon="list"></i>Mehrere Schüler hinzufügen
       </button>
       <button class="btn-secondary" style="width:100%; text-align:left; justify-content:flex-start;" onclick="closeModal('modal-student-actions'); exportGradesCSV()">
-        <span style="margin-right:8px; font-size:16px;">📥</span> Notenexport als CSV-Datei
+        <i data-icon="download"></i>Notenexport als CSV-Datei
       </button>
       <div style="border-bottom: 1px solid var(--border); margin: 4px 0;"></div>
       <button class="btn-secondary" style="width:100%; text-align:left; justify-content:flex-start;" onclick="closeModal('modal-student-actions'); toggleStudentEditMode()">
-        <span style="margin-right:8px; font-size:16px;">🗑️</span> Schülerliste bearbeiten / löschen
+        <i data-icon="trash"></i>Schülerliste bearbeiten / löschen
       </button>
     </div>
   </div>
@@ -734,11 +734,11 @@
       </div>
     </div>
     <div class="modal-tabs">
-      <button class="tab-btn active" onclick="switchStudentTab('grades')">🎓 Noten</button>
-      <button class="tab-btn" onclick="switchStudentTab('participation')">🙋 Mitarbeit</button>
-      <button class="tab-btn" onclick="switchStudentTab('attendance')">📅 Anwesenheit</button>
-      <button class="tab-btn" onclick="switchStudentTab('homework')">📚 Hausaufgaben</button>
-      <button class="tab-btn" onclick="switchStudentTab('notes')">📝 Notizen</button>
+      <button class="tab-btn active" onclick="switchStudentTab('grades')"><i data-icon="grades"></i>Noten</button>
+      <button class="tab-btn" onclick="switchStudentTab('participation')"><i data-icon="participation"></i>Mitarbeit</button>
+      <button class="tab-btn" onclick="switchStudentTab('attendance')"><i data-icon="attendance"></i>Anwesenheit</button>
+      <button class="tab-btn" onclick="switchStudentTab('homework')"><i data-icon="homework"></i>Hausaufgaben</button>
+      <button class="tab-btn" onclick="switchStudentTab('notes')"><i data-icon="notes"></i>Notizen</button>
     </div>
     <div class="modal-body">
       <div id="student-tab-grades" class="s-tab active">
@@ -887,7 +887,7 @@
 
       <!-- Cloud-Synchronisierung (E2EE) -->
       <div class="settings-section">
-        <h3>☁️ Cloud-Synchronisierung (E2EE)</h3>
+        <h3><i data-icon="cloud"></i>Cloud-Synchronisierung (E2EE)</h3>
         <p style="font-size:12px;color:var(--text-muted);margin:6px 0 12px">
           Synchronisiere deine Unterrichtsdaten sicher und Ende-zu-Ende-verschlüsselt (E2EE) mit unserem zentralen Firebase-Server.
           Niemand (nicht einmal der Administrator) kann deine verschlüsselten Schülerdaten lesen.
@@ -957,7 +957,7 @@
       <div class="settings-section">
         <h3>App Version</h3>
         <p style="font-size:12px;color:var(--text-muted);margin:6px 0 12px">Die App funktioniert 100% offline. Klicke hier, um manuell nach einer neuen Version auf dem Server zu suchen.</p>
-        <button class="btn-primary" onclick="forceAppUpdate()">🔄 App jetzt aktualisieren</button>
+        <button class="btn-primary" onclick="forceAppUpdate()"><i data-icon="refresh"></i>App jetzt aktualisieren</button>
       </div>
 
       <div class="settings-section">
@@ -965,8 +965,8 @@
         <p style="font-size:12px;color:var(--text-muted);margin:6px 0 12px">Hast du Fragen, Probleme oder Wünsche für neue Funktionen?</p>
         <!-- HIER BITTE DEINE E-MAIL-ADRESSE EINTRAGEN: -->
         <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:8px;">
-          <a href="mailto:ericwinderlich@gmail.com?subject=Feedback zur Lehrer App" class="btn-secondary" style="text-decoration:none; display:inline-flex; align-items:center; gap:8px;">📧 E-Mail schreiben</a>
-          <button class="btn-secondary" style="display:inline-flex; align-items:center; gap:8px;" onclick="navigator.clipboard.writeText('ericwinderlich@gmail.com').then(() => showToast('E-Mail-Adresse kopiert!'))">📋 Adresse kopieren</button>
+          <a href="mailto:ericwinderlich@gmail.com?subject=Feedback zur Lehrer App" class="btn-secondary" style="text-decoration:none; display:inline-flex; align-items:center;"><i data-icon="mail"></i>E-Mail schreiben</a>
+          <button class="btn-secondary" style="display:inline-flex; align-items:center;" onclick="navigator.clipboard.writeText('ericwinderlich@gmail.com').then(() => showToast('E-Mail-Adresse kopiert!'))"><i data-icon="copy"></i>Adresse kopieren</button>
         </div>
       </div>
 
@@ -974,16 +974,16 @@
         <h3>Open Source & Mitmachen</h3>
         <p style="font-size:12px;color:var(--text-muted);margin:6px 0 12px">Der Unterrichtsplaner ist quelloffen! Du kannst die Applikation frei anpassen, neue Funktionen wie "Sportzeug vergessen" hinzufügen oder das Layout ändern.</p>
         <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:8px;">
-          <a href="https://github.com/Unterrichtsplaner/unterrichtsplaner.github.io" target="_blank" class="btn-secondary" style="text-decoration:none; display:inline-flex; align-items:center; gap:8px;">🐙 Quellcode auf GitHub ansehen</a>
+          <a href="https://github.com/Unterrichtsplaner/unterrichtsplaner.github.io" target="_blank" class="btn-secondary" style="text-decoration:none; display:inline-flex; align-items:center;"><i data-icon="code"></i>Quellcode auf GitHub ansehen</a>
         </div>
       </div>
 
       <div class="settings-section">
         <h3>Datenverwaltung</h3>
         <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:8px;">
-          <button class="btn-secondary" onclick="exportData()">📥 Exportieren</button>
-          <button class="btn-secondary" onclick="importDataClick()">📤 Importieren</button>
-          <button class="btn-danger-outline" onclick="clearAllData()">🗑️ Alles löschen</button>
+          <button class="btn-secondary" onclick="exportData()"><i data-icon="download"></i>Exportieren</button>
+          <button class="btn-secondary" onclick="importDataClick()"><i data-icon="upload"></i>Importieren</button>
+          <button class="btn-danger-outline" onclick="clearAllData()"><i data-icon="trash"></i>Alles löschen</button>
         </div>
         <input type="file" id="import-file-input" accept=".json" style="display:none" onchange="importData(event)" />
       </div>
@@ -1039,7 +1039,7 @@
         <button class="modal-close" onclick="closeModal('modal-seating-randomizer')" style="background: transparent; border: none; font-size: 20px;">✕</button>
       </div>
       <div class="modal-body" style="padding: 24px 30px 30px 30px;">
-        <div style="font-size: 48px; margin-bottom: 16px; animation: bounce 1s infinite;">🎲</div>
+        <div style="font-size: 48px; margin-bottom: 16px; animation: bounce 1s infinite; color: var(--accent);"><i data-icon="dice"></i></div>
         <h3 style="font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: var(--text-secondary); margin: 0 0 8px 0;">Zufallsauswahl</h3>
         <h2 id="random-student-name" style="font-size: 28px; font-weight: 800; color: var(--text-primary); margin: 0 0 24px 0; min-height: 38px;">Auswahl läuft...</h2>
       </div>
@@ -1079,12 +1079,12 @@
           </div>
           <div style="display:flex; flex-direction:column; gap:8px; margin-top:16px;">
             <div style="display:flex; gap:8px;">
-              <button class="btn-secondary" style="flex:1; color:var(--danger); border-color:var(--danger);" onclick="setSeatingAbsence('abwesend')">❌ Unentschuldigt</button>
-              <button class="btn-secondary" style="flex:1; color:var(--success); border-color:var(--success);" onclick="setSeatingAbsence('entschuldigt')">✅ Entschuldigt</button>
+              <button class="btn-secondary" style="flex:1; color:var(--danger); border-color:var(--danger);" onclick="setSeatingAbsence('abwesend')"><i data-icon="x-circle"></i>Unentschuldigt</button>
+              <button class="btn-secondary" style="flex:1; color:var(--success); border-color:var(--success);" onclick="setSeatingAbsence('entschuldigt')"><i data-icon="check-circle"></i>Entschuldigt</button>
             </div>
             <div style="display:flex; gap:8px;">
-              <button class="btn-secondary" style="flex:1;" onclick="setSeatingLate()">⏰ Zu spät</button>
-              <button class="btn-secondary" style="flex:1; color:var(--warning); border-color:var(--warning);" onclick="setSeatingHomework()">📝 Hausaufgabe fehlt</button>
+              <button class="btn-secondary" style="flex:1;" onclick="setSeatingLate()"><i data-icon="late"></i>Zu spät</button>
+              <button class="btn-secondary" style="flex:1; color:var(--warning); border-color:var(--warning);" onclick="setSeatingHomework()"><i data-icon="homework"></i>Hausaufgabe fehlt</button>
             </div>
           </div>
         </div>
@@ -1093,7 +1093,7 @@
             <h3 style="font-size:13px; font-weight:600; color:var(--text-secondary); margin:0;">Bisherige Noten</h3>
             <div id="seating-student-participation-summary" style="font-size:11px; font-weight:700; padding:3px 6px; background:var(--bg-elevated); border-radius:4px;" title="Mitarbeit (Positiv : Neutral : Negativ)">0 : 0 : 0</div>
           </div>
-          <button class="btn-secondary" onclick="openGradeFormForCurrentStudent()">➕ Neue Note</button>
+          <button class="btn-secondary" onclick="openGradeFormForCurrentStudent()"><i data-icon="plus"></i>Neue Note</button>
         </div>
         <div id="seating-student-grades" style="max-height:200px; overflow-y:auto; display:flex; flex-direction:column; gap:8px;"></div>
       </div>
@@ -1104,7 +1104,7 @@
   <div id="modal-sync-conflict" class="modal-overlay hidden" onclick="event.stopPropagation()">
     <div class="modal modal-medium" onclick="event.stopPropagation()" style="max-width: 480px;">
       <div class="modal-header">
-        <h2 style="color: var(--danger); display: flex; align-items: center; gap: 8px;">⚠️ Konflikt erkannt</h2>
+        <h2 style="color: var(--danger); display: flex; align-items: center; gap: 8px;"><i data-icon="alert"></i>Konflikt erkannt</h2>
       </div>
       <div class="modal-body" style="padding: 20px;">
         <p style="margin-bottom: 16px; font-size: 13px; line-height: 1.5; color: var(--text-secondary);">
@@ -1127,13 +1127,13 @@
       </div>
       <div class="modal-footer" style="flex-direction: column; gap: 10px; align-items: stretch; display: flex; padding: 16px;">
         <button class="btn-primary" style="background: var(--success); border-color: var(--success); width: 100%;" onclick="resolveConflict('pull')">
-          📥 Cloud-Version laden (Lokale Änderungen VERWERFEN)
+          <i data-icon="cloud-down"></i>Cloud-Version laden (Lokale Änderungen VERWERFEN)
         </button>
         <button class="btn-secondary" style="color: var(--danger); border-color: var(--danger); width: 100%;" onclick="resolveConflict('push')">
-          📤 Lokale Version hochladen (Cloud-Version ÜBERSCHREIBEN)
+          <i data-icon="cloud-up"></i>Lokale Version hochladen (Cloud-Version ÜBERSCHREIBEN)
         </button>
         <button class="btn-secondary" style="width: 100%;" onclick="resolveConflict('backup')">
-          💾 Sicherheitskopie exportieren und Cloud laden
+          <i data-icon="save"></i>Sicherheitskopie exportieren und Cloud laden
         </button>
       </div>
     </div>
@@ -1146,6 +1146,6 @@
   <script src="lib/firebase-firestore-compat.js"></script>
   <script src="firebase-config.js"></script>
   <script src="sync-manager.js"></script>
-  <script src="app.js?v=187"></script>
+  <script src="app.js?v=188"></script>
 </body>
 </html>

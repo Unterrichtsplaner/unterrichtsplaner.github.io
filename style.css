@@ -546,6 +546,12 @@ input[name="new-lesson-part"]:hover:not(:checked) + .duration-btn {
 /* ─── Empty state ────────────────────── */
 .empty-state{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:11px;padding:55px 20px;color:var(--text-muted);text-align:center;}
 .empty-state-icon{font-size:44px;opacity:.45;}
+/* ─── Linien-Icons (icon() in app.js) ─── */
+.ico{width:1.15em;height:1.15em;flex-shrink:0;vertical-align:-.2em;margin-right:.4em;}
+.empty-state-icon .ico,.notes-section-icon .ico,.ausfall-icon .ico,.modal-header h2 .ico,[style*="bounce"] .ico{margin-right:0;}
+.empty-state-icon .ico,.notes-section-icon .ico,.ausfall-icon .ico{display:block;}
+.ausfall-icon{color:var(--danger);}
+.notes-section-icon{color:var(--text-secondary);}
 .empty-state-title{font-size:17px;font-weight:600;color:var(--text-secondary);}
 .empty-state-desc{font-size:13px;max-width:290px;line-height:1.55;}
 
