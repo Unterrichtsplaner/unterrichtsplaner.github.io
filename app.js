@@ -71,6 +71,12 @@ fillIcons(document);
 // Gespeicherte Daten, die sich nicht lesen ließen (G12): Rohtext bleibt erhalten, statt beim nächsten Speichern überschrieben zu werden.
 let dbLoadFailure = null; // { raw, key /*Kopie in localStorage, null = Kopie gescheitert*/, error }
 let lastRescueOffer = 0;   // wann persistDB zuletzt angeboten hat, die unlesbaren Daten herunterzuladen
+// Mehrere Fenster/Tabs derselben App teilen sich den Speicher. Jedes Speichern setzt eine neue Kennung;
+// stimmt sie vor dem Schreiben nicht mehr mit der gemerkten überein, hat ein anderes Fenster gespeichert,
+// und dessen Stand würde sonst still mit dem veralteten dieses Fensters überschrieben (BUGS T1).
+const DB_KEY = 'lehrerapp_v3';
+const DB_REV_KEY = 'lehrerapp_v3_rev';
+let dbRev = null;
 let db = loadDB();
 let currentWeekOffset = 0;
 let activeLessonId    = null;
@@ -91,8 +97,9 @@ let gradeFormSnapshot = null;
 // ─── DB ──────────────────────────────────────────────────────────────────
 function loadDB() {
   let raw = null;
+  dbRev = storedDBRev();
   try {
-    raw = localStorage.getItem('lehrerapp_v3');
+    raw = localStorage.getItem(DB_KEY);
     if (raw) {
       const parsed = JSON.parse(raw);
       if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) throw new Error('Keine gültige Datenbank');
@@ -216,14 +223,88 @@ function persistDB() {
     }
     return false;
   }
+  if (storedDBRev() !== dbRev) {
+    askAboutForeignWrite();
+    return false;
+  }
   try {
-    localStorage.setItem('lehrerapp_v3', JSON.stringify(db));
+    localStorage.setItem(DB_KEY, JSON.stringify(db));
+    markDBWritten();
   } catch (e) {
     reportSaveFailure(e);
     return false;
   }
   return true;
 }
+function storedDBRev() {
+  try { return localStorage.getItem(DB_REV_KEY); } catch (e) { return null; }
+}
+// Neue Kennung nach jedem Schreiben (auch Löschen) des gespeicherten Stands
+function markDBWritten() {
+  const rev = uid();
+  try { localStorage.setItem(DB_REV_KEY, rev); } catch (e) { return; }
+  dbRev = rev;
+}
+
+// Ein anderes Fenster hat gespeichert, seit dieses Fenster seinen Stand geladen hat (BUGS T1). Welcher gilt,
+// kann nur der Nutzer entscheiden: Zusammenführen geht nicht, und still überschreiben verliert Daten.
+let foreignWriteAsking = false;
+async function askAboutForeignWrite() {
+  if (foreignWriteAsking) return;
+  foreignWriteAsking = true;
+  const answer = await askChoice('App in einem anderen Fenster offen',
+    'Die App ist noch in einem anderen Fenster oder Tab geöffnet, und dort wurde inzwischen gespeichert. '
+    + 'Deine letzte Eingabe hier ist deshalb noch NICHT gespeichert.\n\n'
+    + '„Anderes Fenster laden“: Deine letzte Eingabe hier geht verloren.\n'
+    + '„Dieses Fenster speichern“: Was im anderen Fenster eingetragen wurde, geht verloren.\n\n'
+    + 'Am besten danach das andere Fenster schließen.',
+    [{ label: 'Anderes Fenster laden', value: 'load', primary: true },
+     { label: 'Dieses Fenster speichern', value: 'keep', danger: true }]);
+  foreignWriteAsking = false;
+  if (answer === 'load') {
+    adoptStoredDB();
+    showToast('Stand des anderen Fensters geladen');
+  } else if (answer === 'keep') {
+    dbRev = storedDBRev();
+    if (persistDB()) showToast('Gespeichert ✓');
+  }
+  // Abbrechen: nichts gespeichert; das nächste Speichern fragt wieder
+  if (answer) triggerSyncInternal();
+}
+
+// Gespeicherten Stand (vom anderen Fenster) als eigenen übernehmen
+function adoptStoredDB() {
+  replaceDB(loadDB());
+}
+
+// Ganze DB austauschen und alles, was an ihr hängt, neu zeichnen (Cloud-Übernahme, anderes Fenster, Löschen)
+function replaceDB(newDB) {
+  db = newDB;
+  updateAppliedThemeFromDB();
+  // Offene Einstellungen zeigen sonst den alten Stand, und „Speichern“ schriebe ihn samt alter Blöcke zurück (BUGS P2).
+  // Nur, wenn dort nichts eingetippt ist – dann wartet der neue Stand ohnehin bis zum Schließen (BUGS T5).
+  if (!document.getElementById('modal-settings').classList.contains('hidden') && !settingsDirty()) fillSettingsForm();
+  renderTimetable();
+  renderSubjectGroups();
+  resetViewSelection();
+  if (typeof updateSyncUI === 'function') updateSyncUI();
+}
+
+// Anderes Fenster hat gespeichert: gleich übernehmen, außer ein Eingabefenster ist offen – dessen Felder
+// gehören zum alten Stand. Dann nach dem Schließen, bzw. beim Speichern fragt persistDB nach.
+let storageChangedWhileModal = false;
+function onStorageChanged(e) {
+  if (e.key !== null && e.key !== DB_KEY && e.key !== DB_REV_KEY) return;
+  if (storedDBRev() === dbRev) return;
+  if (inputModalOpen()) { storageChangedWhileModal = true; return; }
+  adoptStoredDB();
+}
+function storageAfterModalsClosed() {
+  if (!storageChangedWhileModal || inputModalOpen()) return;
+  storageChangedWhileModal = false;
+  if (storedDBRev() !== dbRev) adoptStoredDB();
+}
+window.addEventListener('storage', onStorageChanged);
 // Speichern ging schief (meist: Speicher des Browsers voll). Nie still weitermachen – nach einem
 // Neustart wäre die Eingabe weg (BUGS K10). Das Fenster kommt einmal pro Sitzung, danach nur Toasts.
 let saveFailureShown = false;
@@ -1495,6 +1576,8 @@ function storeLessonForm() {
     || (form.hwEnabled !== lessonTogglesShown.hwEnabled) || (form.testEnabled !== lessonTogglesShown.testEnabled);
   if (!changed) return;
   Object.assign(ensureLessonData(), form);
+  // Gespeicherter Stand = neuer Vergleichsstand: Das Fenster kann offen bleiben (Verlassen der App, BUGS T3)
+  lessonTogglesShown = { hwEnabled: form.hwEnabled, testEnabled: form.testEnabled };
   saveDB();
   renderScheduleViews();
 }
@@ -3583,14 +3666,18 @@ function importBackup(parsed) {
 }
 function clearAllData() {
   if (!confirm('ACHTUNG: Wirklich alle Daten auf diesem Gerät löschen?\n\nFalls Cloud-Sync aktiv ist, bleiben die Daten in der Cloud erhalten und werden beim nächsten Sync wieder geladen.')) return;
-  localStorage.removeItem('lehrerapp_v3');
+  wipeLocalData();
+  closeModal('modal-settings');
+  showToast('Lokale Daten gelöscht.');
+}
+// Alle Daten dieses Geräts löschen („Alle Daten löschen“, Abmelden auf einem geteilten Gerät)
+function wipeLocalData() {
+  if (window.syncTimeout) { clearTimeout(window.syncTimeout); window.syncTimeout = null; }
+  localStorage.removeItem(DB_KEY);
+  markDBWritten(); // andere Fenster sollen den gelöschten Stand übernehmen, nicht ihren alten zurückschreiben
   // Auch Rettungskopien unlesbarer Stände (G12) enthalten Schülerdaten (BUGS K15)
   rescueCopyKeys().forEach(k => localStorage.removeItem(k));
-  db = loadDB();
-  updateAppliedThemeFromDB();
-  resetViewSelection();
-  renderTimetable(); renderSubjectGroups(); closeModal('modal-settings');
-  showToast('Lokale Daten gelöscht.');
+  replaceDB(loadDB());
 }
 
 // ─── Seating Plan ─────────────────────────────────────────────────────────
@@ -4996,7 +5083,10 @@ function closeModal(id) {
   }
   if (id === 'modal-settings') settingsSnapshot = null;   // gemerkter Stand gilt nur für dieses Öffnen (S7)
   if (id === 'modal-grade-form') gradeFormSnapshot = null;
-  if (wasOpen) syncAfterModalsClosed(); // Cloud-Stand, der auf das Schließen gewartet hat (BUGS P1)
+  if (wasOpen) {
+    storageAfterModalsClosed(); // Stand eines anderen Fensters, der auf das Schließen gewartet hat (BUGS T1)
+    syncAfterModalsClosed();    // Cloud-Stand, der auf das Schließen gewartet hat (BUGS P1)
+  }
 }
 // Fenster als Dialog auszeichnen (Rolle, Titel) – für Screenreader (BUGS O8)
 function labelModals() {
@@ -5822,8 +5912,12 @@ function loadSavedMasterPassword() {
     return '';
   }
 }
+// Ein zweimal eingegebenes neues Master-Passwort gilt auch nach einem Neustart als bestätigt. Sonst wartete der
+// erste Upload in die leere Cloud still auf eine Bestätigung, die längst gegeben war (BUGS T2).
+const MASTER_PASSWORD_CONFIRMED_KEY = 'sync_master_password_confirmed';
 function storeMasterPassword(pwd) {
   try {
+    if (localStorage.getItem(MASTER_PASSWORD_KEY) !== pwd) localStorage.removeItem(MASTER_PASSWORD_CONFIRMED_KEY);
     sessionStorage.removeItem(MASTER_PASSWORD_KEY);
     if (pwd) localStorage.setItem(MASTER_PASSWORD_KEY, pwd);
     else localStorage.removeItem(MASTER_PASSWORD_KEY);
@@ -5862,8 +5956,8 @@ function initSync() {
   // Sonst trägt man morgens auf dem iPad ein, was abends am Laptop geändert wurde → Konflikt (BUGS K6).
   // Beim Verlassen (iPad zuklappen, App wechseln) eine noch wartende Eingabe sofort übertragen: Im Hintergrund
   // läuft der 3-s-Timer nicht, und am nächsten Morgen gäbe es sonst einen Konflikt (BUGS P8).
-  document.addEventListener('visibilitychange', () => { if (document.hidden) flushPendingSync(); else triggerSyncInternal(); });
-  window.addEventListener('pagehide', flushPendingSync);
+  // (Das Verlassen selbst behandelt onAppHidden, auch ohne Cloud-Sync.)
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) triggerSyncInternal(); });
   window.addEventListener('online', () => triggerSyncInternal());
 
   SyncManager.callbacks.onSyncStatusChanged = (status) => {
@@ -5881,6 +5975,10 @@ function initSync() {
       badge.textContent = 'Status: Konflikt!';
       badge.style.background = 'var(--danger-soft)';
       badge.style.color = 'var(--danger)';
+    } else if (status === 'confirm_password') {
+      badge.textContent = 'Status: Wartet auf Bestätigung des Master-Passworts';
+      badge.style.background = 'var(--warning-soft)';
+      badge.style.color = 'var(--warning)';
     } else if (status === 'error') {
       badge.textContent = 'Status: Fehler!';
       badge.style.background = 'var(--danger-soft)';
@@ -5987,17 +6085,33 @@ function loginGoogle() {
     });
 }
 
-// Logout
-function logoutSync() {
-  SyncManager.logout()
-    .then(() => {
-      storeMasterPassword('');
-      SyncManager.setMasterPassword('');
-      updateSyncAttention();
-      const passInput = document.getElementById('sync-master-password');
-      if (passInput) passInput.value = '';
-      showToast('Ausgeloggt.');
-    });
+// Logout. Die Daten bleiben sonst auf dem Gerät; am geteilten PC landeten sie beim nächsten Konto (BUGS T6).
+async function logoutSync() {
+  let answer = 'keep';
+  if (!isLocalDBEmpty()) {
+    const unsynced = isLocalDBChanged();
+    answer = await askChoice('Abmelden',
+      'Sollen deine Daten (Klassen, Schüler, Noten) auf diesem Gerät bleiben?\n\n'
+      + 'Eigenes Gerät: behalten. Geteiltes oder fremdes Gerät: löschen – in der Cloud bleiben sie erhalten.'
+      + (unsynced ? '\n\n⚠️ Die letzten Änderungen sind noch nicht in der Cloud. Beim Löschen gehen sie verloren.' : ''),
+      [{ label: 'Abmelden, Daten behalten', value: 'keep', primary: true },
+       { label: 'Abmelden und Daten von diesem Gerät löschen', value: 'delete', danger: true }]);
+    if (!answer) return;
+    if (answer === 'delete' && unsynced && !confirm('Wirklich löschen? Die letzten Änderungen sind nicht in der Cloud und gehen verloren.\n\nTipp: Vorher „Jetzt synchronisieren“.')) return;
+  }
+  await SyncManager.logout();
+  storeMasterPassword('');
+  SyncManager.setMasterPassword('');
+  foreignAccountAccepted = '';
+  updateSyncAttention();
+  const passInput = document.getElementById('sync-master-password');
+  if (passInput) passInput.value = '';
+  if (answer === 'delete') {
+    wipeLocalData();
+    showToast('Abgemeldet, Daten auf diesem Gerät gelöscht.');
+  } else {
+    showToast('Ausgeloggt.');
+  }
 }
 
 // Master-Passwort übernehmen (onchange, nicht bei jedem Tastendruck).
@@ -6044,8 +6158,20 @@ function confirmNewMasterPassword(pwd) {
     alert('❌ Die beiden Passwörter stimmen nicht überein.\n\nEs wurde nichts hochgeladen. Bitte das Master-Passwort neu festlegen.');
     return;
   }
-  confirmedNewCloudPassword = pwd;
+  rememberNewCloudPasswordConfirmed(pwd);
   triggerSyncInternal({ manual: true });
+}
+function rememberNewCloudPasswordConfirmed(pwd) {
+  confirmedNewCloudPassword = pwd;
+  try { if (localStorage.getItem(MASTER_PASSWORD_KEY) === pwd) localStorage.setItem(MASTER_PASSWORD_CONFIRMED_KEY, '1'); } catch (e) { /* gilt dann bis zum Neustart */ }
+}
+function newCloudPasswordConfirmed() {
+  const pwd = SyncManager.masterPassword;
+  if (!pwd) return false;
+  if (confirmedNewCloudPassword === pwd) return true;
+  try {
+    return localStorage.getItem(MASTER_PASSWORD_CONFIRMED_KEY) === '1' && localStorage.getItem(MASTER_PASSWORD_KEY) === pwd;
+  } catch (e) { return false; }
 }
 
 // ─── Master-Passwort vergessen oder ändern (BUGS P9) ──────────────────────
@@ -6087,12 +6213,13 @@ async function confirmCloudPasswordReset() {
   try {
     const newTimestamp = await SyncManager.overwriteCloud(JSON.stringify(db), pwd);
     storeMasterPassword(pwd);
-    confirmedNewCloudPassword = pwd;
+    rememberNewCloudPasswordConfirmed(pwd);
     cancelNewCloudPassword();
     const passInput = document.getElementById('sync-master-password');
     if (passInput) passInput.value = pwd;
     if (window.currentConflict) { window.currentConflict = null; closeModal('modal-sync-conflict'); }
     if (db === dbAtStart) markSynced(newTimestamp, localModified); // sonst: DB inzwischen ersetzt (Regel 32)
+    SyncManager.updateStatus('synced'); // sonst stand noch „Konflikt!“ da (BUGS T9)
     cancelCloudPasswordReset();
     updateSyncAttention();
     updateSyncUI();
@@ -6132,7 +6259,10 @@ function updateSyncAttention() {
   if (!btn) return;
   const needs = syncNeedsAttention();
   btn.classList.toggle('needs-attention', needs);
-  if (needs) btn.title = 'Cloud-Sync pausiert: Master-Passwort in den Einstellungen eingeben';
+  const confirmGroup = document.getElementById('sync-master-password-confirm-group');
+  if (needs && SyncManager.masterPassword && confirmGroup && !confirmGroup.classList.contains('hidden')) {
+    btn.title = 'Cloud-Sync wartet: Master-Passwort in den Einstellungen bitte noch einmal eingeben';
+  } else if (needs) btn.title = 'Cloud-Sync pausiert: Master-Passwort in den Einstellungen eingeben';
   else btn.removeAttribute('title');
 }
 
@@ -6187,7 +6317,14 @@ function markSynced(cloudTimestamp, localModified) {
   db.syncSettings.syncedLocalModified = localModified;
   db.syncSettings.lastSyncCheck = Date.now();
   if (SyncManager.currentUser) db.syncSettings.uid = SyncManager.currentUser.uid;
+  delete db.syncSettings.pendingUpload;
   persistDB();
+}
+
+// Prüfsumme eines Datenstands (für den versuchten Upload, BUGS T4)
+async function contentHash(text) {
+  const bytes = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
+  return [...new Uint8Array(bytes)].map(b => b.toString(16).padStart(2, '0')).join('');
 }
 
 // Vergleichbarer Inhalt eines Stands: ohne Änderungszeitpunkt und Sync-Metadaten.
@@ -6231,15 +6368,10 @@ function applyCloudData(dataString, cloudTimestamp) {
   if (!parsed || !parsed.settings || !parsed.groups || !parsed.students) {
     throw new Error('Die Cloud-Daten haben ein unerwartetes Format und wurden nicht übernommen.');
   }
-  db = migrateDB(parsed);
+  const newDB = migrateDB(parsed);
+  db = newDB;
   markSynced(cloudTimestamp, db.settings.lastModified);
-  updateAppliedThemeFromDB();
-  // Offene Einstellungen zeigen sonst den alten Stand, und „Speichern“ schriebe ihn samt alter Blöcke zurück (BUGS P2)
-  if (!document.getElementById('modal-settings').classList.contains('hidden')) fillSettingsForm();
-  renderTimetable();
-  renderSubjectGroups();
-  resetViewSelection();
-  updateSyncUI();
+  replaceDB(newDB);
 }
 
 // Immer nur ein Sync gleichzeitig. Wird währenddessen ein weiterer angefordert,
@@ -6259,11 +6391,12 @@ function noticeSlowSync(promise) {
 
 // Offene Fenster, deren Inhalt aus `db` stammt (Stunde, Klasse, Schüler, Note, Rückfrage …). Ein Cloud-Stand, der
 // jetzt `db` ersetzt, passt nicht mehr zu ihren Feldern; beim Schließen würde z. B. das Stunden-Fenster die
-// Notizen des anderen Geräts mit seinen leeren Feldern überschreiben (BUGS P1). Die Einstellungen werden nach
-// dem Pull neu befüllt (applyCloudData), der Konflikt-Dialog ist Teil des Syncs.
+// Notizen des anderen Geräts mit seinen leeren Feldern überschreiben (BUGS P1). Unveränderte Einstellungen werden
+// nach dem Pull neu befüllt (replaceDB), der Konflikt-Dialog ist Teil des Syncs.
+// Einstellungen zählen nur mit, wenn dort etwas eingetippt ist: Sonst ersetzte der Pull die Eingaben still (BUGS T5).
 function inputModalOpen() {
   return [...document.querySelectorAll('.modal-overlay:not(.hidden)')]
-    .some(m => m.id !== 'modal-settings' && m.id !== 'modal-sync-conflict');
+    .some(m => m.id === 'modal-settings' ? settingsDirty() : m.id !== 'modal-sync-conflict');
 }
 function syncAfterModalsClosed() {
   if (!syncAfterModalClose || inputModalOpen()) return;
@@ -6277,6 +6410,49 @@ function flushPendingSync() {
   clearTimeout(window.syncTimeout);
   window.syncTimeout = null;
   triggerSyncInternal();
+}
+
+// App wird verlassen (iPad zuklappen, App wechseln). Beendet iOS die App danach, wäre ein offenes Formular
+// verloren: Eingetipptes im Stunden-Fenster deshalb schon jetzt übernehmen, das Fenster bleibt offen (BUGS T3).
+function onAppHidden() {
+  if (!document.getElementById('modal-lesson').classList.contains('hidden')) storeLessonForm();
+  flushPendingSync();
+}
+document.addEventListener('visibilitychange', () => { if (document.hidden) onAppHidden(); });
+window.addEventListener('pagehide', onAppHidden);
+
+// Auf diesem Gerät liegen Daten, die mit einem anderen Konto synchronisiert wurden (BUGS T6). Vor dem ersten
+// Abgleich fragen: Sonst landen z. B. am geteilten PC die Schüler von Lehrkraft A im Konto von Lehrkraft B.
+let foreignAccountAccepted = '';   // uid, für die der Nutzer „übernehmen“ gewählt hat
+let foreignAccountDeclined = '';   // uid, für die er abgebrochen hat: Autosync schweigt, „Jetzt synchronisieren“ fragt wieder
+let foreignAccountAsking = false;
+function hasForeignAccountData() {
+  const s = db.syncSettings, user = SyncManager.currentUser;
+  return !!(s && s.uid && user && s.uid !== user.uid && !isLocalDBEmpty() && foreignAccountAccepted !== user.uid);
+}
+async function askAboutForeignAccountData() {
+  if (foreignAccountAsking) return;
+  foreignAccountAsking = true;
+  const user = SyncManager.currentUser;
+  const answer = await askChoice('Daten eines anderen Kontos',
+    `Die Daten auf diesem Gerät wurden bisher mit einem anderen Cloud-Konto abgeglichen, nicht mit ${user.email || 'diesem'}.\n\n`
+    + '„In dieses Konto übernehmen“ nur, wenn es deine eigenen Daten sind (z. B. Kontowechsel).\n'
+    + '„Vom Gerät löschen“: Die Daten verschwinden von diesem Gerät, im anderen Konto bleiben sie erhalten. '
+    + 'Danach wird die Cloud dieses Kontos geladen.'
+    + (isLocalDBChanged() ? '\n\n⚠️ Die letzten Änderungen auf diesem Gerät sind noch nicht in der anderen Cloud.' : ''),
+    [{ label: 'In dieses Konto übernehmen', value: 'adopt' },
+     { label: 'Vom Gerät löschen', value: 'discard', danger: true }]);
+  foreignAccountAsking = false;
+  if (SyncManager.currentUser !== user) return; // inzwischen abgemeldet
+  if (answer === 'adopt') {
+    foreignAccountAccepted = user.uid;
+    triggerSyncInternal({ manual: true });
+  } else if (answer === 'discard') {
+    wipeLocalData();
+    triggerSyncInternal({ manual: true });
+  } else {
+    foreignAccountDeclined = user.uid;
+  }
 }
 
 function showSyncConflict(conflictInfo) {
@@ -6294,7 +6470,13 @@ async function triggerSyncInternal({ manual = false } = {}) {
   if (!SyncManager.isInitialized || !SyncManager.currentUser || !SyncManager.masterPassword) return;
   // Offener Konflikt: Nutzer muss erst entscheiden, sonst würde das Modal ständig neu aufgehen.
   if (window.currentConflict) return;
+  // Offene Frage „anderes Fenster“: Der Stand dieses Fensters ist nicht gespeichert und soll nicht in die Cloud (BUGS T1)
+  if (foreignWriteAsking) return;
   if (syncRunning) { syncQueued = true; return; }
+  if (hasForeignAccountData()) {
+    if (manual || foreignAccountDeclined !== SyncManager.currentUser.uid) askAboutForeignAccountData();
+    return;
+  }
   syncRunning = true;
 
   try {
@@ -6310,8 +6492,19 @@ async function triggerSyncInternal({ manual = false } = {}) {
       localIsEmpty: freshEmpty,
       lastSyncedCloudTimestamp: baseline ? baseline.lastSyncedCloudTimestamp : undefined,
       sameAsLocal: cloudData => cloudMatchesLocal(cloudData, localDataString),
-      canCreateCloud: confirmedNewCloudPassword === SyncManager.masterPassword,
+      canCreateCloud: newCloudPasswordConfirmed(),
+      ownUpload: ownPendingUpload(localModified),
+      onBeforeUpload: async () => {
+        // Diesen Upload merken: Kommt er an, die Antwort aber nicht, erkennt der nächste Sync ihn wieder (BUGS T4)
+        const hash = await contentHash(localDataString);
+        if (db !== dbAtStart) return;
+        if (!db.syncSettings) db.syncSettings = {};
+        db.syncSettings.pendingUpload = { hash, localModified, uid: SyncManager.currentUser.uid };
+        persistDB();
+      },
     }));
+    if (result.recovered && db === dbAtStart) markSynced(result.recovered.cloudTimestamp, result.recovered.localModified);
+    if (['uploaded', 'pulled', 'no_change'].includes(result.status)) syncErrorShown = false;
 
     if (db !== dbAtStart) {
       // Während des Syncs wurde die ganze DB ersetzt („Alle Daten löschen“, Import, Cloud-Übernahme).
@@ -6350,20 +6543,27 @@ async function triggerSyncInternal({ manual = false } = {}) {
       if (manual) showToast('Offline – Sync folgt, sobald wieder Internet da ist.', 'error');
     } else if (result.status === 'confirm_password') {
       showNewPasswordConfirm();
-      if (manual) showToast('Neues Master-Passwort: bitte zur Sicherheit noch einmal eingeben', 'error');
+      // Auch beim Autosave einmal sagen: Bis zur Bestätigung geht nichts in die Cloud (BUGS T2)
+      if (manual || !confirmHintShown) showToast('Cloud-Sync wartet: Master-Passwort in den Einstellungen bitte noch einmal eingeben', 'error');
+      confirmHintShown = true;
     }
   } catch (error) {
     console.error("Fehler beim Sync:", error);
     if (error.name === 'WrongPasswordError') {
       rejectMasterPassword();
-      alert('❌ Falsches Master-Passwort.\n\nEs passt nicht zu den Daten in der Cloud. Es wurde nichts hochgeladen. Bitte gib das Passwort erneut ein.');
+      alert('❌ Falsches Master-Passwort.\n\nEs passt nicht zu den Daten in der Cloud. Es wurde nichts hochgeladen. Bitte gib das Passwort erneut ein.\n\n'
+        + 'Wurde das Master-Passwort auf einem anderen Gerät geändert? Dann hier das neue eingeben.');
     } else if (error.name === 'CloudChangedError') {
       // Ein anderes Gerät war schneller – einfach neu prüfen.
       syncQueued = true;
     } else if (error.name === 'CloudTooLargeError' || error.name === 'UnsupportedFormatError') {
       showSyncProblem(error, manual);
-    } else {
-      showToast('❌ Sync-Fehler: ' + error.message, 'error');
+    } else if (manual || !syncErrorShown) {
+      // Automatisch höchstens einmal, bis wieder ein Sync klappt – sonst kam nach jeder Eingabe ein roter Toast (BUGS T7)
+      syncErrorShown = true;
+      showToast(isConnectionError(error)
+        ? '❌ Keine Verbindung zur Cloud – deine Daten sind auf diesem Gerät gespeichert. Sync folgt später.'
+        : '❌ Sync-Fehler: ' + error.message, 'error');
     }
   } finally {
     syncRunning = false;
@@ -6374,10 +6574,30 @@ async function triggerSyncInternal({ manual = false } = {}) {
   }
 }
 
+let syncErrorShown = false;
+let confirmHintShown = false;
+function isConnectionError(error) {
+  return ['unavailable', 'deadline-exceeded', 'auth/network-request-failed'].includes(error && error.code)
+    || /offline|network|failed to fetch|internet/i.test(String(error && error.message));
+}
+
+// Früherer Upload dieses Geräts, dessen Antwort nie ankam (BUGS T4)
+function ownPendingUpload(localModified) {
+  const p = db.syncSettings && db.syncSettings.pendingUpload;
+  const user = SyncManager.currentUser;
+  if (!p || !user || p.uid !== user.uid) return null;
+  return {
+    matches: async cloudData => (await contentHash(cloudData)) === p.hash,
+    localChangedSince: localModified !== p.localModified,
+    localModified: p.localModified,
+  };
+}
+
 // Löst Konflikte
 async function resolveConflict(decision) {
   const conflict = window.currentConflict;
   if (!conflict) return;
+  if (syncRunning) { showToast('Gerade läuft ein Sync – bitte gleich noch einmal versuchen', 'error'); return; }
 
   if (decision === 'push' && isFreshEmptyDB()) {
     // Z. B. „Alle Daten löschen“, während der Dialog offen war: Hochladen würde die Cloud leeren (BUGS P4)
@@ -6398,14 +6618,23 @@ async function resolveConflict(decision) {
   try {
     if (decision === 'pull') {
       applyCloudData(conflict.cloudData, conflict.cloudTimestamp);
+      SyncManager.updateStatus('synced'); // sonst stand noch „Konflikt!“ da (BUGS T9)
       showToast('Cloud-Version geladen und lokale Änderungen verworfen.');
 
     } else if (decision === 'push') {
       // Lokale Version erzwingen – aber nur über genau den Cloud-Stand, den der Nutzer gesehen hat.
-      const dbAtStart = db;
-      const localModified = db.settings.lastModified;
-      const newTimestamp = await SyncManager.saveToCloud(JSON.stringify(db), conflict.cloudTimestamp);
-      if (db === dbAtStart) markSynced(newTimestamp, localModified); // sonst: DB inzwischen ersetzt (BUGS K1)
+      // Sync-Sperre: Ein paralleler Sync läse noch den alten Cloud-Stand und zeigte denselben Konflikt erneut (BUGS T8)
+      syncRunning = true;
+      try {
+        const dbAtStart = db;
+        const localModified = db.settings.lastModified;
+        const newTimestamp = await SyncManager.saveToCloud(JSON.stringify(db), conflict.cloudTimestamp);
+        if (db === dbAtStart) markSynced(newTimestamp, localModified); // sonst: DB inzwischen ersetzt (BUGS K1)
+      } finally {
+        syncRunning = false;
+      }
+      SyncManager.updateStatus('synced');
+      if (syncQueued) { syncQueued = false; triggerSyncInternal(); }
       showToast('Cloud-Version erfolgreich mit lokalem Stand überschrieben.');
       warnIfCloudNearlyFull();
       updateSyncUI();
@@ -6413,6 +6642,7 @@ async function resolveConflict(decision) {
     } else if (decision === 'backup') {
       exportData(); // Ruft den Standard-Export auf
       applyCloudData(conflict.cloudData, conflict.cloudTimestamp);
+      SyncManager.updateStatus('synced');
       showToast('Backup gespeichert und Cloud-Version geladen.');
     }
   } catch (e) {
@@ -6457,9 +6687,12 @@ function updateAppliedThemeFromDB() {
 // Einstellungen schließen ohne Speichern: Farb-/Radius-Vorschau verwerfen (BUGS O2). Sind Felder geändert,
 // vorher fragen – Escape oder ein Tipp daneben darf nichts still verwerfen (Regel 27, BUGS S7).
 function cancelSettings() {
-  if (settingsSnapshot !== null && settingsFormState() !== settingsSnapshot && !confirm('Deine Änderungen in den Einstellungen sind noch nicht gespeichert.\n\nVerwerfen?')) return;
+  if (settingsDirty() && !confirm('Deine Änderungen in den Einstellungen sind noch nicht gespeichert.\n\nVerwerfen?')) return;
   closeModal('modal-settings');
   updateAppliedThemeFromDB();
+}
+function settingsDirty() {
+  return settingsSnapshot !== null && settingsFormState() !== settingsSnapshot;
 }
 function settingsFormState() {
   readBlocksEditor();

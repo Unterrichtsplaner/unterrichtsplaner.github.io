@@ -228,7 +228,12 @@ describe('P7: anderes Konto', () => {
     await sync();
     await settle();
     expect(app('db').groups[0].className).toBe('1A');
-    expect(app('window.currentConflict')).toBeTruthy();
+    // Seit T6 zuerst die Rückfrage „Daten eines anderen Kontos“; „übernehmen“ führt zum Konflikt-Dialog
+    expect(document.getElementById('modal-choice').classList.contains('hidden')).toBe(false);
+    app('answerChoice("adopt")');
+    await vi.waitFor(() => expect(app('window.currentConflict')).toBeTruthy());
+    expect(app('db').groups[0].className).toBe('1A');
+    app('foreignAccountAccepted = ""');
   });
 });
 

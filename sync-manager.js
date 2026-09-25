@@ -290,9 +290,15 @@ const SyncManager = {
    *        Dann gibt es keinen Konflikt, obwohl beide Seiten als „geändert“ gelten (z. B. Altdaten nach dem Update).
    * @param {boolean} [local.canCreateCloud=true] - false: in eine leere Cloud nicht hochladen, weil das
    *        Master-Passwort dort zum ersten Mal verwendet und noch nicht bestätigt wurde (BUGS K8).
-   * @returns {Object} { status: 'uploaded'|'pulled'|'conflict'|'no_change'|'offline'|'no_user'|'confirm_password', ... }
+   *        Auch bei leerem Gerät kommt dann `confirm_password`, damit die Bestätigung gleich beim Einrichten
+   *        passiert und nicht erst still beim ersten Autosave (BUGS T2).
+   * @param {Object} [local.ownUpload] - Ein früherer Upload dieses Geräts, dessen Antwort nie ankam (BUGS T4):
+   *        { matches: async (cloudDataString) => bool, localChangedSince: bool, localModified }.
+   *        Steht genau er in der Cloud, gilt er als letzter gemeinsamer Stand (Ergebnis: `recovered`).
+   * @param {Function} [local.onBeforeUpload] - async, direkt vor dem Schreiben (merkt sich den Upload)
+   * @returns {Object} { status: 'uploaded'|'pulled'|'conflict'|'no_change'|'offline'|'no_user'|'confirm_password', recovered?, ... }
    */
-  async sync(localDataString, { localChanged, localIsEmpty, lastSyncedCloudTimestamp, sameAsLocal, canCreateCloud = true }) {
+  async sync(localDataString, { localChanged, localIsEmpty, lastSyncedCloudTimestamp, sameAsLocal, canCreateCloud = true, ownUpload = null, onBeforeUpload = null }) {
     if (!this.isInitialized || !this.currentUser) {
       return { status: 'no_user' };
     }
@@ -310,10 +316,18 @@ const SyncManager = {
       // Passwort-Probe: Ohne erfolgreiche Entschlüsselung geht nichts weiter.
       const cloudData = hasCloud ? await this.decryptPayload(cloudPayload) : null;
 
+      // Eigener Upload, dessen Antwort verloren ging: Das ist kein fremder Stand (BUGS T4)
+      let recovered = null;
+      if (hasCloud && cloudTimestamp !== lastSyncedCloudTimestamp && ownUpload && await ownUpload.matches(cloudData)) {
+        recovered = { cloudTimestamp, localModified: ownUpload.localModified };
+        lastSyncedCloudTimestamp = cloudTimestamp;
+        localChanged = ownUpload.localChangedSince;
+      }
+
       let action = decideSync({ hasCloud, cloudTimestamp, lastSyncedCloudTimestamp, localChanged, localIsEmpty });
       if (action === 'conflict' && sameAsLocal && sameAsLocal(cloudData)) {
         this.updateStatus('synced');
-        return { status: 'no_change', cloudTimestamp };
+        return { status: 'no_change', cloudTimestamp, recovered };
       }
 
       // Alte Verschlüsselung (v1) in der Cloud: still ins neue Format umschreiben.
@@ -326,32 +340,33 @@ const SyncManager = {
         }
       }
 
-      if (action === 'upload' && !hasCloud && !canCreateCloud) {
-        this.updateStatus('idle');
+      if (!hasCloud && !canCreateCloud) {
+        this.updateStatus('confirm_password');
         return { status: 'confirm_password' };
       }
 
       if (action === 'upload') {
+        if (onBeforeUpload) await onBeforeUpload();
         const newTimestamp = await this.saveToCloud(localDataString, cloudTimestamp);
         this.updateStatus('synced');
-        return { status: 'uploaded', cloudTimestamp: newTimestamp };
+        return { status: 'uploaded', cloudTimestamp: newTimestamp, recovered };
       }
 
       if (action === 'pull') {
         this.updateStatus('synced');
-        return { status: 'pulled', data: cloudData, cloudTimestamp };
+        return { status: 'pulled', data: cloudData, cloudTimestamp, recovered };
       }
 
       if (action === 'conflict') {
         console.warn("SyncManager: Konflikt erkannt! Cloud:", cloudTimestamp, "Basis:", lastSyncedCloudTimestamp);
         this.updateStatus('conflict');
-        const conflict = { cloudTimestamp, cloudPayload, cloudData };
+        const conflict = { cloudTimestamp, cloudPayload, cloudData, recovered };
         if (this.callbacks.onConflictDetected) this.callbacks.onConflictDetected(conflict);
         return { status: 'conflict', ...conflict };
       }
 
       this.updateStatus('synced');
-      return { status: 'no_change', cloudTimestamp };
+      return { status: 'no_change', cloudTimestamp, recovered };
 
     } catch (error) {
       console.error("SyncManager: Fehler beim Sync:", error);
