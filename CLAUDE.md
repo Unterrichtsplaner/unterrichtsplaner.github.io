@@ -72,6 +72,8 @@ db = {
 - Firestore-Limit: 1 MiB pro Dokument, die ganze DB liegt in einem Dokument. `_buildDoc()` prüft die Größe vor jedem Schreiben (`CLOUD_MAX_BYTES`), ab `CLOUD_WARN_BYTES` wird gewarnt.
 - Ist ein Stand beidseitig „geändert“, aber inhaltlich gleich (`cloudMatchesLocal`), gibt es keinen Konflikt.
 - In app.js läuft immer nur ein Sync gleichzeitig (`syncRunning`/`syncQueued`). Ist ein Konflikt offen (`window.currentConflict`), pausiert der Auto-Sync.
+- Sync läuft nach jeder Eingabe (3 s später), beim Login, beim Zurückkehren in die App (`visibilitychange`) und bei `online`.
+- In eine **leere** Cloud wird erst hochgeladen, wenn das Master-Passwort ein zweites Mal gleich eingegeben wurde (`confirmedNewCloudPassword`, Status `confirm_password`). Ein Tippfehler würde sonst alle Geräte aussperren.
 
 Datumswerte sind Strings `YYYY-MM-DD` in **lokaler** Zeit (`formatDate()`). Nie `toISOString()` für Datumsstrings verwenden, und `new Date('YYYY-MM-DD')` nur mit `+ 'T12:00:00'`.
 
@@ -109,6 +111,13 @@ Datumswerte sind Strings `YYYY-MM-DD` in **lokaler** Zeit (`formatDate()`). Nie 
 29. **CSS-Variablen nur verwenden, wenn sie in `style.css` definiert sind** (`tests/css-vars.test.js`). Bei Farbe mit Transparenz eine fertige Variable (`--accent-glow`, `--danger-soft` …) nehmen, keine `rgba(var(--…-rgb))`.
 30. **`#main-content` hat 800 px Mindestbreite, außer für die Ansichten in der `:has`-Ausnahme** (inzwischen alle: Stundenplan, Dashboard, Klassen, Klassenansicht, Sitzplan; `style.css`). Die 800 px gelten damit nur noch für Browser ohne `:has` bzw. (Sitzplan) ohne Container-Queries. Layout-Stufen lieber per `@container` an der Breite der Ansicht ausrichten als per `@media` an der des Bildschirms (Seitenleiste, Split View). Layout gehört in `style.css`, nicht in Inline-Stile: ein Inline-Wert schlägt jede Stufe. Eine neue oder umgebaute Ansicht bei 375, 640 und 768 px im Browser nachmessen (`document.getElementById('app').scrollWidth` ≤ Breite) und dann in die Ausnahme aufnehmen. Vorsicht: Die Mindestbreite versteckt Layoutfehler, z. B. `margin:0 auto` in einer Flex-Spalte ohne `width:100%`. Zum Nachmessen vorher `npm run bump`, sonst liefert der Service Worker alten Code.
 31. **Jede Ansicht braucht einen eigenen Scrollbereich.** `.view` hat `overflow:hidden`; was unter dem Kopf steht, muss in einem Element mit `flex:1; min-height:0; overflow-y:auto` liegen (z. B. `.dashboard-scroll`), sonst ist alles unterhalb des Bildschirms unerreichbar. Karten nie mit fester Höhe/`aspect-ratio` **und** `overflow:hidden`: längere Namen schneiden dann Knöpfe ab. Lieber `min-height`.
+
+32. **Wer die ganze `db` ersetzt** (Import, „Alle Daten löschen“, Cloud-Übernahme), ruft danach `resetViewSelection()`. **Wer über ein `await` hinweg mit `db` arbeitet**, merkt sich `const dbAtStart = db` und schreibt nach dem `await` nur, wenn `db === dbAtStart`; sonst landet z. B. der Sync-Stand in einer neuen, leeren DB (K1).
+33. **Notenspalten = Datum + Titel + Typ** (`gradeColumns`, `findColumnGrade`, `gradeInColumn`). Nie Noten nur über Datum + Titel suchen. Mehrere Noten eines Schülers in derselben Spalte bekommen eigene Spalten (`nth`).
+34. **Auswahllisten, die gespeicherte Werte zeigen, über eine Setz-Funktion füllen, die unbekannte Werte ergänzt** (`setGradeTypeSelect`). Ein `<select>` mit unbekanntem Wert liest `''`, und Speichern löscht dann den Wert (K3).
+35. **Fenster mit Eingaben nie per `closeModal` verlassen, um woanders hinzugehen.** Stunden-Fenster: `leaveLessonModal()` (übernimmt Eingaben, speichert nur bei Änderung).
+36. **Tabellen-Eingaben: nur ein leeres Feld löscht.** Unbekannte Eingaben werden mit Hinweis abgelehnt und die Zelle zurückgesetzt (wie `updateInlineGrade`, `updateInlineAttendance`).
+37. **`persistDB()` kann scheitern** (Speicher voll) und meldet das selbst (`reportSaveFailure`). Kein `localStorage.setItem` für die DB an anderer Stelle.
 
 ## Arbeitsablauf
 

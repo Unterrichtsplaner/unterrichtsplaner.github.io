@@ -146,6 +146,14 @@ function migrateDB(data) {
     if (gr.note === undefined) gr.note = gr.label;
     delete gr.label;
   })));
+  // Angelegte Notenspalten ohne Typ: Typ ihrer Noten übernehmen. Der Typ gehört seit BUGS K4 zur Spalte;
+  // ohne ihn stünde neben der Spalte eine zweite mit denselben Noten.
+  (data.groups || []).forEach(group => (group.gradeEvents || []).forEach(ev => {
+    if (ev.type) return;
+    const match = ((data.students || {})[group.id] || []).flatMap(st => st.grades || [])
+      .find(gr => gr.date === ev.date && (gr.note ?? gradeTypeLabel(gr.type)) === ev.label);
+    ev.type = (match && match.type) || 'test';
+  }));
   (data.lessonSlots || []).forEach(slot => {
     // Zweiwöchig: früher nur KW gespeichert (`startWeek`), deren Parität ab 2027 kippt (KW 53).
     // Die KW stammt aus dem Schuljahr 2026 (bis 2026 lief die Parität seit 2021 durch) → Montag dieser KW 2026.
@@ -195,7 +203,37 @@ function persistDB() {
     showToast('Nicht gespeichert: alte Daten zuerst herunterladen', 'error');
     return;
   }
-  localStorage.setItem('lehrerapp_v3', JSON.stringify(db));
+  try {
+    localStorage.setItem('lehrerapp_v3', JSON.stringify(db));
+  } catch (e) {
+    reportSaveFailure(e);
+    return false;
+  }
+  return true;
+}
+// Speichern ging schief (meist: Speicher des Browsers voll). Nie still weitermachen – nach einem
+// Neustart wäre die Eingabe weg (BUGS K10). Das Fenster kommt einmal pro Sitzung, danach nur Toasts.
+let saveFailureShown = false;
+function reportSaveFailure(error) {
+  console.error('Speichern fehlgeschlagen:', error);
+  showToast('Nicht gespeichert – Speicher voll. Bitte Daten exportieren.', 'error');
+  if (saveFailureShown) return;
+  saveFailureShown = true;
+  const copies = rescueCopyKeys().length;
+  alert('❌ Deine letzte Eingabe konnte auf diesem Gerät nicht gespeichert werden – der Speicher des Browsers ist voll.\n\n'
+    + 'Bitte sofort unter Einstellungen → „Exportieren“ eine Sicherung speichern. Solange die App offen bleibt, sind die Daten noch da'
+    + (SyncManager.currentUser && SyncManager.masterPassword ? ' und werden weiter in die Cloud übertragen.' : '.')
+    + (copies ? `\n\nPlatz belegen auch ${copies} alte Rettungskopie(n) unlesbarer Daten („lehrerapp_v3_defekt_…“).` : ''));
+}
+function rescueCopyKeys() {
+  const keys = [];
+  try {
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      if (k && k.startsWith('lehrerapp_v3_defekt_')) keys.push(k);
+    }
+  } catch (e) { /* kein Zugriff: nichts zu melden */ }
+  return keys;
 }
 function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2,6); }
 
@@ -251,7 +289,7 @@ document.querySelectorAll('.nav-item[data-view]').forEach(btn => {
 
 // Gezielt geöffnet (Klasse/Stunde): diese Klasse zeigen, nicht die laufende Stunde vorschlagen (BUGS E1)
 function openSeatingForGroup(groupId, dateStr) {
-  closeModal('modal-lesson');
+  leaveLessonModal();
   seatingRequest = { groupId, dateStr };
   switchView('seating');
 }
@@ -785,7 +823,7 @@ function openEditLesson() {
   if (!slot) return;
   // Datum der angeklickten Stunde: bestimmt Woche für „einmalig“ und A/B-Woche beim Umstellen
   currentSpecificDate = activeLessonDate || slot.specificDate || null;
-  closeModal('modal-lesson');
+  leaveLessonModal();
   editingSlotId = slot.id;
   document.getElementById('add-lesson-title').textContent = 'Stunde bearbeiten';
   document.getElementById('btn-delete-lesson').classList.remove('hidden');
@@ -1198,19 +1236,37 @@ function ensureLessonData() {
   return db.lessonData[currentLessonDataKey];
 }
 
-function saveLessonDataAndClose() {
+// Eingaben des Stunden-Fensters übernehmen. Gespeichert (= „geändert“) wird nur, wenn sich etwas geändert hat.
+function storeLessonForm() {
   // Eingetippte, aber nicht per „+“ übernommene HA/Tests nicht verwerfen
   if (document.getElementById('hw-toggle').checked) addHWItem();
   if (document.getElementById('test-toggle').checked) addTestItem();
-  const data = ensureLessonData();
-  data.done      = document.getElementById('lesson-done-text').value;
-  data.notes     = document.getElementById('lesson-notes-text').value;
-  data.hwEnabled = document.getElementById('hw-toggle').checked;
-  data.testEnabled = document.getElementById('test-toggle').checked;
+  const form = {
+    done:        document.getElementById('lesson-done-text').value,
+    notes:       document.getElementById('lesson-notes-text').value,
+    hwEnabled:   document.getElementById('hw-toggle').checked,
+    testEnabled: document.getElementById('test-toggle').checked,
+  };
+  const old = db.lessonData[currentLessonDataKey] || {};
+  const changed = (form.done !== (old.done || '')) || (form.notes !== (old.notes || ''))
+    || (form.hwEnabled !== !!old.hwEnabled) || (form.testEnabled !== !!old.testEnabled);
+  if (!changed) return;
+  Object.assign(ensureLessonData(), form);
   saveDB();
   renderTimetable();
+}
+
+function saveLessonDataAndClose() {
+  storeLessonForm();
   closeModal('modal-lesson');
   showToast('Gespeichert ✓');
+}
+
+// Stunden-Fenster für einen anderen Weg verlassen (Bearbeiten, Sitzplan, Notenübersicht):
+// Eingetipptes vorher übernehmen, wie beim „Schließen“ (BUGS K2, Regel 27).
+function leaveLessonModal() {
+  if (!document.getElementById('modal-lesson').classList.contains('hidden')) storeLessonForm();
+  closeModal('modal-lesson');
 }
 
 // ─── Ausfall ──────────────────────────────────────────────────────────────
@@ -1595,23 +1651,15 @@ function renderOverviewTable() {
   let html = '<div class="overview-table-wrapper"><table class="overview-table"><thead><tr><th class="ov-name-col">Schüler</th>';
 
   if (currentOverviewTab === 'grades') {
-    const gradeEventsMap = new Map();
-    (group.gradeEvents || []).forEach(ev => gradeEventsMap.set(`${ev.date}_${ev.label}`, { date: ev.date, label: ev.label, type: ev.type }));
-    sortedStudents.forEach(s => {
-      (s.grades || []).forEach((g, idx) => {
-        const key = `${g.date}_${g.note ?? gradeTypeLabel(g.type)}`;
-        if (!gradeEventsMap.has(key)) gradeEventsMap.set(key, { date: g.date, label: g.note ?? gradeTypeLabel(g.type), type: g.type });
-      });
-    });
-    const gradeEvents = Array.from(gradeEventsMap.values()).sort((a,b) => a.date.localeCompare(b.date));
-    
+    const gradeEvents = gradeColumns(group, sortedStudents);
+
     html += '<th>Ø</th>';
     const weight = getSchularbeitWeight(group);
     gradeEvents.forEach(ev => {
       const type = ev.type || 'test';
       const weighted = gradeCategory(type) === 'schularbeit';
       const typeTitle = weighted ? `${gradeTypeName(type)}: zählt ${weight} % der Note` : `${gradeTypeName(type)}: Sonstige, zählt ${100 - weight} % der Note`;
-      html += `<th style="cursor:pointer;" title="Klicken zum Bearbeiten" onclick="openEditColumnModal(${jsArg(ev.date)}, ${jsArg(ev.label)}, ${jsArg(type)})">`
+      html += `<th style="cursor:pointer;" title="Klicken zum Bearbeiten" onclick="openEditColumnModal(${jsArg(ev.date)}, ${jsArg(ev.label)}, ${jsArg(type)}, ${ev.nth})">`
         + `<div class="col-type${weighted ? ' weighted' : ''}" title="${escHtml(typeTitle)}">${escHtml(gradeTypeShort(type))}</div>`
         + `<div>${formatDateShort(ev.date)}</div><div class="col-title">${escHtml(ev.label || gradeTypeName(type))}</div></th>`;
     });
@@ -1627,10 +1675,9 @@ function renderOverviewTable() {
       html += `<td style="font-weight:700;color:${gradeColor(rawAvg, scale)};text-align:center;">${avg}</td>`;
       
       gradeEvents.forEach(ev => {
-        const matchingGradeIdx = (s.grades||[]).findIndex(g => g.date === ev.date && (g.note ?? gradeTypeLabel(g.type)) === ev.label);
-        const val = matchingGradeIdx !== -1 ? s.grades[matchingGradeIdx].value : '';
-        const evType = ev.type || 'test';
-        html += `<td style="padding:4px;"><input type="text" class="form-input" style="width:100%; text-align:center; padding:6px; font-weight:600; color:${val ? gradeColor(gradeNumber(val), scale) : 'inherit'}" value="${escHtml(gradeText(val))}" placeholder="-" onchange="updateInlineGrade(${jsArg(s.id)}, ${jsArg(ev.date)}, ${jsArg(ev.label)}, this.value, ${jsArg(evType)})" /></td>`;
+        const grade = findColumnGrade(s, ev);
+        const val = grade ? grade.value : '';
+        html += `<td style="padding:4px;"><input type="text" class="form-input" style="width:100%; text-align:center; padding:6px; font-weight:600; color:${val ? gradeColor(gradeNumber(val), scale) : 'inherit'}" value="${escHtml(gradeText(val))}" placeholder="-" onchange="updateInlineGrade(${jsArg(s.id)}, ${jsArg(ev.date)}, ${jsArg(ev.label)}, this.value, ${jsArg(ev.type)}, ${ev.nth})" /></td>`;
       });
       html += `</tr>`;
     });
@@ -1643,9 +1690,9 @@ function renderOverviewTable() {
     gradeEvents.forEach(ev => {
       let sum = 0, count = 0;
       sortedStudents.forEach(s => {
-        const matchingGradeIdx = (s.grades||[]).findIndex(g => g.date === ev.date && (g.note ?? gradeTypeLabel(g.type)) === ev.label);
-        if (matchingGradeIdx !== -1) {
-          const val = gradeNumber(s.grades[matchingGradeIdx].value);
+        const grade = findColumnGrade(s, ev);
+        if (grade) {
+          const val = gradeNumber(grade.value);
           if (!isNaN(val)) { sum += val; count++; }
         }
       });
@@ -1765,16 +1812,16 @@ function renderOverviewTable() {
 // Kürzel in der Anwesenheits-Tabelle (Eingabe und Anzeige)
 const ATTENDANCE_SHORT = { abwesend: 'F', entschuldigt: 'E', 'zuspät': 'Z' };
 
-function updateInlineGrade(studentId, date, label, value, type = 'test') {
+function updateInlineGrade(studentId, date, label, value, type = 'test', nth = 0) {
   value = value.trim();
   const s = db.students[currentOverviewGroupId]?.find(x => x.id === studentId);
   if (!s) return;
   if (!s.grades) s.grades = [];
 
-  const idx = s.grades.findIndex(g => g.date === date && (g.note ?? gradeTypeLabel(g.type)) === label);
-  
+  const grade = findColumnGrade(s, { date, label, type, nth });
+
   if (!value) {
-    if (idx !== -1) s.grades.splice(idx, 1);
+    if (grade) s.grades.splice(s.grades.indexOf(grade), 1);
   } else {
     const scale = gradeScale(currentOverviewGroupId);
     const parsed = parseGradeInput(value, scale);
@@ -1784,9 +1831,8 @@ function updateInlineGrade(studentId, date, label, value, type = 'test') {
       return;
     }
     const finalValue = parsed.value;
-    if (idx !== -1) {
-      s.grades[idx].value = finalValue;
-      if (type) s.grades[idx].type = type; // Update type if it was changed
+    if (grade) {
+      grade.value = finalValue; // Typ gehört zur Spalte und bleibt (BUGS K4)
     } else {
       s.grades.push({ type: type, value: finalValue, date: date, note: label });
     }
@@ -1829,6 +1875,12 @@ function updateInlineAttendance(studentId, date, value) {
   
   const status = Object.keys(ATTENDANCE_SHORT).find(t => ATTENDANCE_SHORT[t] === value) || null;
 
+  // Nur ein leeres Feld löscht. Ein Tippfehler („U“ statt „E“) darf den Eintrag samt Grund nicht still entfernen (BUGS K5).
+  if (value && !status) {
+    showToast('Bitte F, E oder Z eingeben (leer = Eintrag löschen)', 'error');
+    renderOverviewTable(); // Eingabe zurücksetzen
+    return;
+  }
   if (!status) {
     if (idx !== -1) s.attendance.splice(idx, 1);
   } else {
@@ -1858,6 +1910,51 @@ function updateInlineHomework(studentId, date, label, value) {
   renderOverviewTable();
 }
 
+// Notentyp in einer Auswahlliste setzen. Fehlt er dort (Spalten-Dialog kennt nur Test/KA, Altdaten „klausur“),
+// wird er vorübergehend ergänzt – sonst liest das Feld '' und das Speichern löscht den Typ (BUGS K3).
+function setGradeTypeSelect(select, type) {
+  select.querySelectorAll('option[data-extra]').forEach(o => o.remove());
+  if (![...select.options].some(o => o.value === type)) {
+    const opt = document.createElement('option');
+    opt.value = type;
+    opt.textContent = gradeTypeName(type);
+    opt.dataset.extra = '1';
+    select.appendChild(opt);
+  }
+  select.value = type;
+}
+
+// Spalten der Notentabelle: Datum + Titel + Typ (BUGS K4). Noten ohne Titel heißen wie ihr Typ.
+// Hat ein Schüler mehrere Noten in derselben Spalte, bekommt jede weitere eine eigene (nth = 1, 2, …),
+// statt unsichtbar mitzuzählen.
+function gradeColumnLabel(g) { return g.note ?? gradeTypeLabel(g.type); }
+function gradeColumnType(type) { return type || 'test'; }
+function gradeInColumn(g, col) {
+  return g.date === col.date && gradeColumnLabel(g) === col.label && gradeColumnType(g.type) === gradeColumnType(col.type);
+}
+function findColumnGrade(s, col) {
+  let n = col.nth || 0;
+  return (s.grades || []).find(g => gradeInColumn(g, col) && n-- === 0) || null;
+}
+function gradeColumns(group, students) {
+  const cols = new Map();
+  const keyOf = (date, label, type, nth) => JSON.stringify([date, label, gradeColumnType(type), nth]);
+  (group.gradeEvents || []).forEach(ev => {
+    cols.set(keyOf(ev.date, ev.label, ev.type, 0), { date: ev.date, label: ev.label, type: gradeColumnType(ev.type), nth: 0 });
+  });
+  students.forEach(s => {
+    const seen = {};
+    (s.grades || []).forEach(g => {
+      const label = gradeColumnLabel(g);
+      const base = keyOf(g.date, label, g.type, 0);
+      const nth = seen[base] = base in seen ? seen[base] + 1 : 0;
+      const key = keyOf(g.date, label, g.type, nth);
+      if (!cols.has(key)) cols.set(key, { date: g.date, label, type: gradeColumnType(g.type), nth });
+    });
+  });
+  return [...cols.values()].sort((a, b) => a.date.localeCompare(b.date));
+}
+
 // ─── Column Management ───────────────────────────────────────────────────
 let editingColumnCtx = null;
 
@@ -1869,7 +1966,7 @@ function openAddColumnModal() {
   
   if (currentOverviewTab === 'grades') {
     document.getElementById('new-col-type-group').style.display = 'block';
-    document.getElementById('new-col-type').value = 'test';
+    setGradeTypeSelect(document.getElementById('new-col-type'), 'test');
   } else {
     document.getElementById('new-col-type-group').style.display = 'none';
   }
@@ -1878,15 +1975,15 @@ function openAddColumnModal() {
   setTimeout(() => document.getElementById('new-col-label').focus(), 80);
 }
 
-function openEditColumnModal(oldDate, oldLabel, oldType) {
-  editingColumnCtx = { oldDate, oldLabel };
+function openEditColumnModal(oldDate, oldLabel, oldType, nth = 0) {
+  editingColumnCtx = { oldDate, oldLabel, oldType: gradeColumnType(oldType), nth };
   document.getElementById('column-modal-title').textContent = 'Spalte bearbeiten';
   document.getElementById('new-col-date').value = oldDate;
   document.getElementById('new-col-label').value = oldLabel;
   
   if (currentOverviewTab === 'grades') {
     document.getElementById('new-col-type-group').style.display = 'block';
-    document.getElementById('new-col-type').value = oldType || 'test';
+    setGradeTypeSelect(document.getElementById('new-col-type'), oldType || 'test');
   } else {
     document.getElementById('new-col-type-group').style.display = 'none';
   }
@@ -1902,6 +1999,15 @@ function saveOverviewColumn() {
 
   const group = db.groups.find(g => g.id === currentOverviewGroupId);
   const students = db.students[currentOverviewGroupId] || [];
+
+  // Zwei Notenspalten mit gleichem Datum, Titel und Typ würden verschmelzen (BUGS K4)
+  if (currentOverviewTab === 'grades') {
+    const ctx = editingColumnCtx;
+    const same = (c, d, l, t) => c.date === d && c.label === l && c.type === gradeColumnType(t);
+    const clash = gradeColumns(group, students).some(c => c.nth === 0 && same(c, newDate, newLabel, type)
+      && !(ctx && same(c, ctx.oldDate, ctx.oldLabel, ctx.oldType)));
+    if (clash) { showToast('Diese Spalte gibt es schon (gleiches Datum, gleicher Titel und Typ)', 'error'); return; }
+  }
 
   if (!editingColumnCtx) {
     // Add logic
@@ -1920,14 +2026,15 @@ function saveOverviewColumn() {
     }
   } else {
     // Edit logic
-    const { oldDate, oldLabel } = editingColumnCtx;
+    const { oldDate, oldLabel, oldType, nth } = editingColumnCtx;
     let events = [];
     if (currentOverviewTab === 'grades') events = group.gradeEvents || [];
     if (currentOverviewTab === 'participation') events = group.participationEvents || [];
     if (currentOverviewTab === 'attendance') events = group.attendanceEvents || [];
     if (currentOverviewTab === 'homework') events = group.homeworkEvents || [];
     
-    const evIdx = events.findIndex(e => e.date === oldDate && e.label === oldLabel);
+    const evIdx = events.findIndex(e => e.date === oldDate && e.label === oldLabel
+      && (currentOverviewTab !== 'grades' || gradeColumnType(e.type) === oldType));
     if (evIdx !== -1) {
       events[evIdx].date = newDate;
       events[evIdx].label = newLabel;
@@ -1944,8 +2051,8 @@ function saveOverviewColumn() {
 
     students.forEach(s => {
       if (currentOverviewTab === 'grades') {
-        const gIdx = (s.grades||[]).findIndex(g => g.date === oldDate && (g.note ?? gradeTypeLabel(g.type)) === oldLabel);
-        if (gIdx !== -1) { s.grades[gIdx].date = newDate; s.grades[gIdx].note = newLabel; s.grades[gIdx].type = type; }
+        const grade = findColumnGrade(s, { date: oldDate, label: oldLabel, type: oldType, nth });
+        if (grade) { grade.date = newDate; grade.note = newLabel; grade.type = type; }
       } else if (currentOverviewTab === 'participation') {
         const pIdx = (s.participation||[]).findIndex(p => p.date === oldDate && (p.label||'') === (oldLabel||''));
         if (pIdx !== -1) { s.participation[pIdx].date = newDate; s.participation[pIdx].label = newLabel; }
@@ -1990,6 +2097,23 @@ function openGroupStudents(groupId, initialTab = 'students') {
   document.getElementById('student-view-subtitle').textContent = `${g.subject}${g.year?' · '+g.year:''}`;
   switchView('students');
   switchClassDashboardTab(initialTab);
+}
+
+// Nach dem Austausch der ganzen DB (Import, „Alle Daten löschen“, Cloud-Übernahme): gemerkte Klassen
+// prüfen und die offene Ansicht mit den neuen Daten zeichnen (Regel 10).
+function resetViewSelection() {
+  const exists = id => !!id && (db.groups || []).some(g => g.id === id);
+  if (!exists(currentSeatingGroupId)) currentSeatingGroupId = '';
+  if (!exists(lastSeatingGroupId)) lastSeatingGroupId = '';
+  if (!exists(currentOverviewGroupId)) currentOverviewGroupId = null;
+  const active = document.querySelector('.view.active');
+  const name = active ? active.id.replace('view-', '') : '';
+  if (name === 'students') {
+    if (exists(currentGroupId)) openGroupStudents(currentGroupId, currentClassDashboardTab);
+    else goBackToSubjects();
+  } else if (name) {
+    switchView(name);
+  }
 }
 
 function goBackToSubjects() {
@@ -2892,7 +3016,7 @@ function exportData() {
   a.click();
   
   db.settings.lastBackupTimestamp = Date.now();
-  saveDB();
+  persistDB(); // keine Datenänderung: sonst Upload und evtl. Konflikt auf anderen Geräten (BUGS K13)
   
   showToast('Daten erfolgreich gesichert! ✓');
 }
@@ -2903,17 +3027,37 @@ function importData(event) {
   reader.onload = e => {
     try {
       const parsed = JSON.parse(e.target.result);
-      if (parsed.lessonSlots && parsed.groups && parsed.students) {
-        db = migrateDB(parsed); saveDB(); renderTimetable(); renderSubjectGroups(); closeModal('modal-settings');
-        showToast('Importiert ✓');
-      } else { showToast('Ungültiges Format','error'); }
+      if (parsed && parsed.lessonSlots && parsed.groups && parsed.students) importBackup(parsed);
+      else showToast('Ungültiges Format','error');
     } catch { showToast('Fehler beim Importieren','error'); }
   };
   reader.readAsText(file); event.target.value='';
 }
+// Sicherung übernehmen: vorher fragen (ersetzt alles!). Der Sync-Stand dieses Geräts bleibt, der aus der
+// Sicherung ist veraltet und würde sofort einen Konflikt melden. Der Import zählt als Änderung und geht
+// damit auch in die Cloud (BUGS K9).
+function importBackup(parsed) {
+  const nGroups = parsed.groups.length;
+  const nStudents = Object.values(parsed.students || {}).reduce((n, list) => n + ((list && list.length) || 0), 0);
+  const what = `${nGroups} ${nGroups === 1 ? 'Klasse' : 'Klassen'}, ${nStudents} ${nStudents === 1 ? 'Schüler' : 'Schüler'}`;
+  const cloud = SyncManager.currentUser ? '\n\nDer Cloud-Sync ist aktiv: Die Sicherung ersetzt danach auch den Stand in der Cloud und auf deinen anderen Geräten.' : '';
+  if (!confirm(`Sicherung laden (${what})?\n\nAlle Daten auf diesem Gerät werden durch die Sicherung ersetzt.${cloud}`)) return;
+  const syncSettings = db.syncSettings;
+  delete parsed.syncSettings;
+  db = migrateDB(parsed);
+  if (syncSettings) db.syncSettings = syncSettings;
+  saveDB();
+  resetViewSelection();
+  renderTimetable(); renderSubjectGroups(); closeModal('modal-settings');
+  showToast('Importiert ✓');
+}
 function clearAllData() {
   if (!confirm('ACHTUNG: Wirklich alle Daten auf diesem Gerät löschen?\n\nFalls Cloud-Sync aktiv ist, bleiben die Daten in der Cloud erhalten und werden beim nächsten Sync wieder geladen.')) return;
-  localStorage.removeItem('lehrerapp_v3'); db = loadDB();
+  localStorage.removeItem('lehrerapp_v3');
+  // Auch Rettungskopien unlesbarer Stände (G12) enthalten Schülerdaten (BUGS K15)
+  rescueCopyKeys().forEach(k => localStorage.removeItem(k));
+  db = loadDB();
+  resetViewSelection();
   renderTimetable(); renderSubjectGroups(); closeModal('modal-settings');
   showToast('Lokale Daten gelöscht.');
 }
@@ -3964,14 +4108,14 @@ function openGradeForm(studentId, groupId, gradeIdx, defaultDateStr = '', defaul
   if (currentGradeFormCtx.grade) {
     const g = currentGradeFormCtx.grade;
     document.getElementById('grade-form-title').textContent = 'Note bearbeiten';
-    document.getElementById('gf-type').value = g.type || 'test';
+    setGradeTypeSelect(document.getElementById('gf-type'), g.type || 'test');
     document.getElementById('gf-value').value = g.value || '';
     document.getElementById('gf-date').value = g.date || formatDate(new Date());
     document.getElementById('gf-label').value = g.note || '';
     btnDelete.style.display = 'block';
   } else {
     document.getElementById('grade-form-title').textContent = 'Neue Note';
-    document.getElementById('gf-type').value = 'test';
+    setGradeTypeSelect(document.getElementById('gf-type'), 'test');
     document.getElementById('gf-value').value = '';
     document.getElementById('gf-date').value = defaultDateStr || formatDate(new Date());
     document.getElementById('gf-label').value = defaultLabel || '';
@@ -4027,6 +4171,8 @@ function saveGradeFromForm() {
 
   if (!s.grades) s.grades = [];
   const entry = { type, value: parsed.value, date: dateStr, note: label };
+  // Note ohne Titel bleibt ohne Titel: sonst wandert sie in der Tabelle in eine andere Spalte (Titel '' statt Typ)
+  if (isEdit && !label && s.grades[idx].note === undefined) delete entry.note;
   if (isEdit) {
     s.grades[idx] = entry;
     showToast('Note aktualisiert');
@@ -4074,7 +4220,7 @@ function refreshGradeViews(s, groupId) {
 function openClassOverviewFromLesson() {
   const slot = db.lessonSlots.find(s => s.id === activeLessonId);
   if (!slot || !slot.groupId) return;
-  closeModal('modal-lesson');
+  leaveLessonModal();
   openClassOverview(slot.groupId);
 }
 
@@ -4437,6 +4583,11 @@ if (typeof process === 'undefined' || process.env.NODE_ENV !== 'test') {
 
 // ─── PWA Update Logic ───────────────────────────────────────────────────
 async function forceAppUpdate() {
+  // Offline den Cache zu löschen hieße: keine App bis zum nächsten WLAN (BUGS K12). Erst prüfen, ob der Server erreichbar ist.
+  if (navigator.onLine === false || !(await serverReachable())) {
+    showToast('Keine Internetverbindung – Aktualisieren geht nur online.', 'error');
+    return;
+  }
   if ('serviceWorker' in navigator) {
     showToast('App wird aktualisiert...', 'success');
     // Erst alles wirklich entfernen, dann neu laden (sonst kommt u. U. wieder der alte Cache)
@@ -4446,6 +4597,14 @@ async function forceAppUpdate() {
     await Promise.all(names.map(name => caches.delete(name)));
   }
   window.location.reload();
+}
+async function serverReachable() {
+  try {
+    const res = await fetch('./index.html?check=' + Date.now(), { cache: 'no-store' });
+    return res.ok;
+  } catch (e) {
+    return false;
+  }
 }
 // ─── Resize Observer for Smart Fit ────────────────────────────────────────
 let seatingResizeTimeout;
@@ -4848,8 +5007,16 @@ function initSync() {
     if (user && SyncManager.masterPassword) {
       // Automatischer Hintergrund-Sync bei Login
       triggerSyncInternal();
+    } else if (user) {
+      // Nach einem Neustart fehlt das Passwort (liegt nur im sessionStorage): Bescheid geben (BUGS K7)
+      showToast('Cloud-Sync pausiert: bitte Master-Passwort in den Einstellungen eingeben', 'error');
     }
   };
+
+  // Zurück in der App bzw. wieder online: gleich abgleichen, nicht erst bei der nächsten Eingabe.
+  // Sonst trägt man morgens auf dem iPad ein, was abends am Laptop geändert wurde → Konflikt (BUGS K6).
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) triggerSyncInternal(); });
+  window.addEventListener('online', () => triggerSyncInternal());
 
   SyncManager.callbacks.onSyncStatusChanged = (status) => {
     const badge = document.getElementById('sync-status-badge');
@@ -4903,6 +5070,7 @@ function updateSyncUI() {
   const lastTimeEl = document.getElementById('sync-last-time');
 
   if (!userStatus) return; // Falls DOM noch nicht bereit
+  updateSyncAttention();
 
   // Benutzer angemeldet?
   if (SyncManager.currentUser) {
@@ -4991,9 +5159,11 @@ function logoutSync() {
 // Direkt danach wird synchronisiert – dabei prüft der SyncManager, ob das Passwort
 // die Cloud-Daten entschlüsseln kann, bevor irgendetwas hochgeladen wird.
 function updateMasterPassword(pwd) {
+  cancelNewCloudPassword();
   SyncManager.setMasterPassword(pwd);
   if (pwd) sessionStorage.setItem('sync_master_password', pwd);
   else sessionStorage.removeItem('sync_master_password');
+  updateSyncAttention();
   if (pwd && SyncManager.currentUser) triggerSyncInternal({ manual: true });
 }
 
@@ -5003,6 +5173,51 @@ function rejectMasterPassword() {
   sessionStorage.removeItem('sync_master_password');
   const passInput = document.getElementById('sync-master-password');
   if (passInput) passInput.value = '';
+  updateSyncAttention();
+}
+
+// Erstes Master-Passwort (Cloud noch leer): erst hochladen, wenn es ein zweites Mal gleich eingegeben wurde.
+// Sonst verschlüsselt ein Tippfehler die Cloud, und kein Gerät kommt mehr an die Daten (BUGS K8).
+let confirmedNewCloudPassword = '';
+function showNewPasswordConfirm() {
+  const group = document.getElementById('sync-master-password-confirm-group');
+  if (!group) return;
+  group.classList.remove('hidden');
+  updateSyncAttention();
+}
+function cancelNewCloudPassword() {
+  const group = document.getElementById('sync-master-password-confirm-group');
+  if (!group) return;
+  group.classList.add('hidden');
+  document.getElementById('sync-master-password-confirm').value = '';
+  updateSyncAttention();
+}
+function confirmNewMasterPassword(pwd) {
+  if (!pwd) return;
+  cancelNewCloudPassword();
+  if (pwd !== SyncManager.masterPassword) {
+    rejectMasterPassword();
+    alert('❌ Die beiden Passwörter stimmen nicht überein.\n\nEs wurde nichts hochgeladen. Bitte das Master-Passwort neu festlegen.');
+    return;
+  }
+  confirmedNewCloudPassword = pwd;
+  triggerSyncInternal({ manual: true });
+}
+
+// Angemeldet, aber der Sync läuft nicht (kein Master-Passwort, oder es wartet auf Bestätigung):
+// Punkt am Menüpunkt „Einstellungen“, sonst fällt das niemandem auf (BUGS K7).
+function syncNeedsAttention() {
+  if (!SyncManager.isInitialized || !SyncManager.currentUser) return false;
+  const confirmGroup = document.getElementById('sync-master-password-confirm-group');
+  return !SyncManager.masterPassword || !!(confirmGroup && !confirmGroup.classList.contains('hidden'));
+}
+function updateSyncAttention() {
+  const btn = document.getElementById('nav-settings');
+  if (!btn) return;
+  const needs = syncNeedsAttention();
+  btn.classList.toggle('needs-attention', needs);
+  if (needs) btn.title = 'Cloud-Sync pausiert: Master-Passwort in den Einstellungen eingeben';
+  else btn.removeAttribute('title');
 }
 
 // Triggert den Sync-Prozess
@@ -5085,6 +5300,7 @@ function applyCloudData(dataString, cloudTimestamp) {
   updateAppliedThemeFromDB();
   renderTimetable();
   renderSubjectGroups();
+  resetViewSelection();
   updateSyncUI();
 }
 
@@ -5112,6 +5328,7 @@ async function triggerSyncInternal({ manual = false } = {}) {
 
   try {
     // Schnappschuss des lokalen Stands zum Zeitpunkt des Syncs
+    const dbAtStart = db;
     const localDataString = JSON.stringify(db);
     const localModified = db.settings.lastModified;
 
@@ -5120,9 +5337,15 @@ async function triggerSyncInternal({ manual = false } = {}) {
       localIsEmpty: isLocalDBEmpty(),
       lastSyncedCloudTimestamp: db.syncSettings ? db.syncSettings.lastSyncedCloudTimestamp : undefined,
       sameAsLocal: cloudData => cloudMatchesLocal(cloudData, localDataString),
+      canCreateCloud: confirmedNewCloudPassword === SyncManager.masterPassword,
     }), SYNC_TIMEOUT_MS);
 
-    if (result.status === 'pulled') {
+    if (db !== dbAtStart) {
+      // Während des Syncs wurde die ganze DB ersetzt („Alle Daten löschen“, Import, Cloud-Übernahme).
+      // Das Ergebnis gehört zum alten Stand; in die neue DB geschrieben, würde sie als „synchron“
+      // gelten und beim nächsten Mal die Cloud überschreiben (BUGS K1). Einfach neu prüfen.
+      syncQueued = true;
+    } else if (result.status === 'pulled') {
       if (db.settings.lastModified !== localModified) {
         // Während des Downloads wurde lokal etwas eingetragen – nicht überschreiben!
         // Der nächste Durchlauf erkennt das als Konflikt und fragt nach.
@@ -5145,6 +5368,9 @@ async function triggerSyncInternal({ manual = false } = {}) {
       updateSyncUI();
     } else if (result.status === 'offline') {
       if (manual) showToast('Offline – Sync folgt, sobald wieder Internet da ist.', 'error');
+    } else if (result.status === 'confirm_password') {
+      showNewPasswordConfirm();
+      if (manual) showToast('Neues Master-Passwort: bitte zur Sicherheit noch einmal eingeben', 'error');
     }
   } catch (error) {
     console.error("Fehler beim Sync:", error);
@@ -5191,9 +5417,10 @@ async function resolveConflict(decision) {
 
     } else if (decision === 'push') {
       // Lokale Version erzwingen – aber nur über genau den Cloud-Stand, den der Nutzer gesehen hat.
+      const dbAtStart = db;
       const localModified = db.settings.lastModified;
       const newTimestamp = await SyncManager.saveToCloud(JSON.stringify(db), conflict.cloudTimestamp);
-      markSynced(newTimestamp, localModified);
+      if (db === dbAtStart) markSynced(newTimestamp, localModified); // sonst: DB inzwischen ersetzt (BUGS K1)
       showToast('Cloud-Version erfolgreich mit lokalem Stand überschrieben.');
       warnIfCloudNearlyFull();
       updateSyncUI();

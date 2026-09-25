@@ -101,6 +101,6 @@ describe('Ansichten mit präparierten Daten', () => {
     const th = [...document.querySelectorAll('#overview-content th[onclick]')].find(t => t.getAttribute('onclick').includes('openEditColumnModal'));
     const spy = vi.fn();
     new Function('openEditColumnModal', 'event', th.getAttribute('onclick'))(spy, {});
-    expect(spy).toHaveBeenCalledWith('2026-09-01', X, 'test');
+    expect(spy).toHaveBeenCalledWith('2026-09-01', X, 'test', 0);
   });
 });

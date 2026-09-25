@@ -62,6 +62,10 @@ input[type="date"] { min-height: 1.2em; } /* Fix iOS Safari date input collapse 
 .nav-item{display:flex;align-items:center;gap:10px;padding:10px 10px;border-radius:99px;background:transparent;border:none;color:var(--text-secondary);cursor:pointer;font-family:inherit;font-size:14px;font-weight:500;transition:all var(--transition);width:100%;text-align:left;}
 .nav-item:hover{background:var(--bg-elevated);color:var(--text-primary);}
 .nav-item.active{background:var(--accent-soft);color:var(--text-accent);box-shadow:inset 0 0 0 1px var(--border-active);}
+/* Cloud-Sync pausiert (kein Master-Passwort): Punkt am Menüpunkt „Einstellungen“ (BUGS K7) */
+.nav-item.needs-attention{position:relative;}
+.nav-item.needs-attention::after{content:'';position:absolute;top:6px;left:24px;width:9px;height:9px;border-radius:50%;background:var(--danger);}
+#sidebar.collapsed .nav-item.needs-attention::after{left:calc(50% + 4px);}
 .nav-item svg{flex-shrink:0;transition:margin var(--transition);}
 .sidebar-footer{border-top:1px solid var(--border);height:80px;box-sizing:border-box;display:flex;align-items:center;padding:0 8px;}
 
@@ -634,6 +638,7 @@ select option{background:var(--bg-secondary);}
   .subject-groups-grid{grid-template-columns:1fr;}
   .subject-group-card{min-height:0;}  /* volle Breite: nicht quadratisch hochziehen (BUGS I2) */
   #sidebar.collapsed{width:100%;padding:8px 12px;}  /* ☰ darf die Leiste oben nicht auf 88 px stauchen */
+  .nav-item.needs-attention::after{left:calc(50% + 4px);}
 }
 
 :root[data-theme="light"] {

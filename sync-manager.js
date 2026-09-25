@@ -58,7 +58,8 @@ function decideSync({ hasCloud, cloudTimestamp, lastSyncedCloudTimestamp, localC
     return localIsEmpty ? 'none' : 'upload';
   }
   const cloudChanged = cloudTimestamp !== lastSyncedCloudTimestamp;
-  if (!cloudChanged) return localChanged ? 'upload' : 'none';
+  // Auch bei unveränderter Cloud lädt ein leeres Gerät nie hoch (z. B. „Alle Daten löschen“, BUGS K1).
+  if (!cloudChanged) return localChanged && !localIsEmpty ? 'upload' : 'none';
   // Cloud hat sich verändert:
   if (localIsEmpty || !localChanged) return 'pull';
   return 'conflict';
@@ -259,9 +260,11 @@ const SyncManager = {
    * @param {*} local.lastSyncedCloudTimestamp
    * @param {Function} [local.sameAsLocal] - (cloudDataString) => true, wenn die Cloud inhaltlich dem lokalen Stand entspricht.
    *        Dann gibt es keinen Konflikt, obwohl beide Seiten als „geändert“ gelten (z. B. Altdaten nach dem Update).
-   * @returns {Object} { status: 'uploaded'|'pulled'|'conflict'|'no_change'|'offline'|'no_user', ... }
+   * @param {boolean} [local.canCreateCloud=true] - false: in eine leere Cloud nicht hochladen, weil das
+   *        Master-Passwort dort zum ersten Mal verwendet und noch nicht bestätigt wurde (BUGS K8).
+   * @returns {Object} { status: 'uploaded'|'pulled'|'conflict'|'no_change'|'offline'|'no_user'|'confirm_password', ... }
    */
-  async sync(localDataString, { localChanged, localIsEmpty, lastSyncedCloudTimestamp, sameAsLocal }) {
+  async sync(localDataString, { localChanged, localIsEmpty, lastSyncedCloudTimestamp, sameAsLocal, canCreateCloud = true }) {
     if (!this.isInitialized || !this.currentUser) {
       return { status: 'no_user' };
     }
@@ -293,6 +296,11 @@ const SyncManager = {
         } catch (e) {
           console.warn('SyncManager: Umstellung auf das neue Cloud-Format verschoben:', e.message);
         }
+      }
+
+      if (action === 'upload' && !hasCloud && !canCreateCloud) {
+        this.updateStatus('idle');
+        return { status: 'confirm_password' };
       }
 
       if (action === 'upload') {

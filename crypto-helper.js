@@ -8,8 +8,12 @@
  */
 
 class UnsupportedFormatError extends Error {
-  constructor(format) {
-    super('Die Cloud-Daten stammen von einer neueren App-Version (Format ' + format + '). Bitte die App aktualisieren.');
+  // reason 'device': Das Format ist bekannt, aber dieses Gerät kann es nicht lesen (z. B. iOS < 16.4 ohne
+  // DecompressionStream). Ein App-Update hilft dann nicht (BUGS K14).
+  constructor(format, reason) {
+    super(reason === 'device'
+      ? 'Dieses Gerät ist für den Cloud-Sync zu alt: Der Browser kann die Cloud-Daten nicht entpacken (nötig ist z. B. iOS 16.4 oder neuer). Die Daten auf diesem Gerät bleiben erhalten; bitte den Sync auf einem neueren Gerät nutzen.'
+      : 'Die Cloud-Daten stammen von einer neueren App-Version (Format ' + format + '). Bitte die App aktualisieren.');
     this.name = 'UnsupportedFormatError';
   }
 }
@@ -103,7 +107,7 @@ const CryptoHelper = {
     }
     if (payload.compression === 'gzip') {
       if (typeof DecompressionStream === 'undefined') {
-        throw new UnsupportedFormatError('2/gzip – dieser Browser kann nicht entpacken');
+        throw new UnsupportedFormatError('2/gzip', 'device');
       }
       plain = await pipeBytes(plain, new DecompressionStream('gzip'));
     }

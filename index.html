@@ -38,7 +38,7 @@
       }
     } catch(e) {}
   </script>
-  <link rel="stylesheet" href="style.css?v=214" />
+  <link rel="stylesheet" href="style.css?v=215" />
   <script>
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
@@ -947,6 +947,13 @@
                 ⚠️ WICHTIG: Dieses Passwort verschlüsselt deine Daten lokal auf deinem Gerät. Es wird NIEMALS unverschlüsselt übertragen. Wenn du es verlierst, sind deine Cloud-Daten unlesbar verloren!
               </div>
             </div>
+            <div class="form-group hidden" id="sync-master-password-confirm-group">
+              <label for="sync-master-password-confirm">Neues Master-Passwort wiederholen</label>
+              <input type="password" id="sync-master-password-confirm" class="form-input" placeholder="Zur Sicherheit noch einmal eingeben" onchange="confirmNewMasterPassword(this.value)" />
+              <div style="font-size:11px; color:var(--text-secondary); margin-top:4px;">
+                In der Cloud liegen noch keine Daten. Erst wenn das Passwort zweimal gleich eingegeben ist, wird hochgeladen – ein Tippfehler würde die Cloud sonst für alle Geräte sperren.
+              </div>
+            </div>
 
             <!-- Sync Controls -->
             <div style="display:flex; justify-content:space-between; align-items:center; margin-top:16px;">
@@ -1125,7 +1132,7 @@
             <span id="conflict-local-time" style="color: var(--accent); font-weight: bold;">Unbekannt</span>
           </div>
           <div style="display: flex; justify-content: space-between;">
-            <strong>Neuere Version in der Cloud:</strong>
+            <strong>Version in der Cloud:</strong>
             <span id="conflict-cloud-time" style="color: var(--success); font-weight: bold;">Unbekannt</span>
           </div>
         </div>
@@ -1133,26 +1140,27 @@
         <p style="font-weight: 600; margin-bottom: 12px; font-size: 13px;">Wie möchtest du vorgehen?</p>
       </div>
       <div class="modal-footer" style="flex-direction: column; gap: 10px; align-items: stretch; display: flex; padding: 16px;">
-        <button class="btn-primary" style="background: var(--success); border-color: var(--success); width: 100%;" onclick="resolveConflict('pull')">
-          <i data-icon="cloud-down"></i>Cloud-Version laden (Lokale Änderungen VERWERFEN)
+        <!-- Sicherer Weg zuerst und als einziger Hauptknopf: nichts geht verloren (BUGS K11) -->
+        <button class="btn-primary" style="width: 100%;" onclick="resolveConflict('backup')">
+          <i data-icon="save"></i>Sicherheitskopie dieses Geräts speichern, dann Cloud laden
         </button>
-        <button class="btn-secondary" style="color: var(--danger); border-color: var(--danger); width: 100%;" onclick="resolveConflict('push')">
-          <i data-icon="cloud-up"></i>Lokale Version hochladen (Cloud-Version ÜBERSCHREIBEN)
+        <button class="btn-secondary" style="width: 100%;" onclick="resolveConflict('pull')">
+          <i data-icon="cloud-down"></i>Cloud-Version laden (Änderungen auf diesem Gerät verwerfen)
         </button>
-        <button class="btn-secondary" style="width: 100%;" onclick="resolveConflict('backup')">
-          <i data-icon="save"></i>Sicherheitskopie exportieren und Cloud laden
+        <button class="btn-secondary" style="width: 100%;" onclick="resolveConflict('push')">
+          <i data-icon="cloud-up"></i>Dieses Gerät hochladen (Cloud-Version überschreiben)
         </button>
       </div>
     </div>
   </div>
 
   <script src="lib/crypto-js.min.js"></script>
-  <script src="crypto-helper.js?v=214"></script>
+  <script src="crypto-helper.js?v=215"></script>
   <script src="lib/firebase-app-compat.js"></script>
   <script src="lib/firebase-auth-compat.js"></script>
   <script src="lib/firebase-firestore-compat.js"></script>
-  <script src="firebase-config.js?v=214"></script>
-  <script src="sync-manager.js?v=214"></script>
-  <script src="app.js?v=214"></script>
+  <script src="firebase-config.js?v=215"></script>
+  <script src="sync-manager.js?v=215"></script>
+  <script src="app.js?v=215"></script>
 </body>
 </html>

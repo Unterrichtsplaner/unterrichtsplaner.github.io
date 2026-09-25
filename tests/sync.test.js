@@ -72,6 +72,7 @@ beforeEach(() => {
   cloud.onNextRead = null;
   globalThis.alert.mockClear();
   app('window.currentConflict = null; syncRunning = false; syncQueued = false; syncProblemShown = false; cloudSizeWarned = false');
+  app('confirmedNewCloudPassword = ' + JSON.stringify(PW)); // K8: erstes Hochladen braucht ein bestätigtes Passwort
   const SM = app('SyncManager');
   SM.currentUser = { uid: UID, email: 'lehrer@example.org' };
   SM.setMasterPassword(PW);
@@ -455,5 +456,123 @@ describe('A10: Sync-Stand aus alter App-Version (ohne syncedLocalModified)', () 
     await sync();
     expect(app('window.currentConflict')).toBeTruthy();
     expect(cloud.writes).toBe(0);
+  });
+});
+
+describe('K1: „Alle Daten löschen“ während eines laufenden Syncs', () => {
+  it('der Sync-Stand landet nicht in der neuen, leeren DB – die Cloud wird nie geleert', async () => {
+    await sync();
+    userEdits('db.groups[0].className = "geändert"');
+    // Genau während des Uploads löscht der Nutzer alle lokalen Daten
+    cloud.onNextRead = () => app('clearAllData()');
+    await sync();
+    await vi.waitFor(() => expect(app('syncRunning')).toBe(false));
+
+    await sync();
+    await vi.waitFor(() => expect(app('syncRunning')).toBe(false));
+    expect((await cloudContent()).groups).toHaveLength(1);
+    // Das leere Gerät hat sich stattdessen die Cloud geholt
+    expect(app('db').groups[0].className).toBe('geändert');
+  });
+
+  it('decideSync: leeres Gerät lädt auch bei unveränderter Cloud nie hoch', () => {
+    const decide = (s) => app('decideSync')(s);
+    expect(decide({ hasCloud: true, cloudTimestamp: 5, lastSyncedCloudTimestamp: 5, localChanged: true, localIsEmpty: true })).toBe('none');
+  });
+
+  it('„Lokal hochladen“ im Konflikt schreibt den Sync-Stand nicht in eine inzwischen ersetzte DB', async () => {
+    await sync();
+    await otherDeviceUploads(sampleDB('B'), Date.now() + 1);
+    userEdits('db.groups[0].className = "A"');
+    await sync();
+    expect(app('window.currentConflict')).toBeTruthy();
+
+    const SM = app('SyncManager');
+    const original = SM.saveToCloud.bind(SM);
+    SM.saveToCloud = async (...args) => { const r = await original(...args); app('clearAllData()'); return r; };
+    try { await app('resolveConflict')('push'); } finally { SM.saveToCloud = original; }
+    expect(app('db.syncSettings')).toBeFalsy();
+  });
+});
+
+describe('K6: Sync beim Zurückkehren in die App und beim Wiederverbinden', () => {
+  it('App wird wieder sichtbar → holt neue Cloud-Daten, bevor der Nutzer etwas einträgt', async () => {
+    await sync();
+    await otherDeviceUploads(sampleDB('vom Laptop'), Date.now() + 1);
+    Object.defineProperty(document, 'hidden', { value: false, configurable: true });
+    document.dispatchEvent(new Event('visibilitychange'));
+    await vi.waitFor(() => expect(app('db').groups[0].className).toBe('vom Laptop'));
+  });
+
+  it('wieder online → offline gemachte Eingaben gehen hoch', async () => {
+    await sync();
+    userEdits('db.groups[0].className = "offline eingetragen"');
+    window.dispatchEvent(new Event('online'));
+    await vi.waitFor(async () => expect((await cloudContent()).groups[0].className).toBe('offline eingetragen'));
+  });
+});
+
+describe('K8: erstes Master-Passwort muss bestätigt werden', () => {
+  beforeEach(() => app('confirmedNewCloudPassword = ""; cancelNewCloudPassword()'));
+
+  it('leere Cloud: ohne Bestätigung wird nichts hochgeladen, das Bestätigungsfeld erscheint', async () => {
+    await sync();
+    expect(cloud.writes).toBe(0);
+    expect(document.getElementById('sync-master-password-confirm-group').classList.contains('hidden')).toBe(false);
+  });
+
+  it('richtig wiederholt → wird hochgeladen', async () => {
+    await sync();
+    app('confirmNewMasterPassword')(PW);
+    await vi.waitFor(() => expect(cloud.writes).toBe(1));
+    expect(document.getElementById('sync-master-password-confirm-group').classList.contains('hidden')).toBe(true);
+  });
+
+  it('vertippt → nichts hochgeladen, Passwort verworfen', async () => {
+    await sync();
+    app('confirmNewMasterPassword')('richtig-geheimm');
+    await new Promise(r => setTimeout(r, 20));
+    expect(cloud.writes).toBe(0);
+    expect(app('SyncManager').masterPassword).toBe('');
+    expect(globalThis.alert).toHaveBeenCalledWith(expect.stringContaining('stimmen nicht überein'));
+  });
+
+  it('bestehende Cloud: keine Bestätigung nötig (Passwort-Probe genügt)', async () => {
+    await otherDeviceUploads(sampleDB('B'), 7000);
+    app('db = ' + JSON.stringify(emptyDB()));
+    await sync();
+    expect(app('db').groups[0].className).toBe('B');
+    expect(document.getElementById('sync-master-password-confirm-group').classList.contains('hidden')).toBe(true);
+  });
+});
+
+describe('K9: Import einer Sicherung', () => {
+  it('fragt vorher und nennt, was ersetzt wird', () => {
+    const spy = vi.fn(() => false);
+    globalThis.confirm = spy;
+    try {
+      app('importBackup')({ ...sampleDB('Backup'), syncSettings: { lastSyncedCloudTimestamp: 1 } });
+    } finally { globalThis.confirm = () => true; }
+    expect(spy).toHaveBeenCalledWith(expect.stringContaining('1 Klasse'));
+    expect(app('db').groups[0].className).toBe('1A'); // abgelehnt → nichts ersetzt
+  });
+
+  it('altes Backup führt nicht zum Konflikt-Dialog, sondern geht als Änderung in die Cloud', async () => {
+    await sync();
+    app('importBackup')({ ...sampleDB('aus dem Backup'), syncSettings: { lastSyncedCloudTimestamp: 1, syncedLocalModified: 1 } });
+    app('clearTimeout(window.syncTimeout)');
+    await sync();
+    expect(app('window.currentConflict')).toBeFalsy();
+    expect((await cloudContent()).groups[0].className).toBe('aus dem Backup');
+  });
+});
+
+describe('K13: Export zählt nicht als Datenänderung', () => {
+  it('nach dem Export gilt das Gerät weiter als synchron', async () => {
+    await sync();
+    URL.createObjectURL = URL.createObjectURL || (() => 'blob:x');
+    URL.revokeObjectURL = URL.revokeObjectURL || (() => {});
+    app('exportData()');
+    expect(app('isLocalDBChanged()')).toBe(false);
   });
 });
