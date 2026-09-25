@@ -1,6 +1,6 @@
 # Bekannte Fehler & Aufgaben
 
-Stand: Code-Review vom 23.09.2026. Zeilennummern beziehen sich auf diesen Stand und verrutschen mit der Zeit – im Zweifel nach dem Funktionsnamen suchen.
+Stand: Code-Review vom 23.09.2026, neue Befunde aus dem Review vom 25.09.2026 in K–O. Zeilennummern beziehen sich auf diesen Stand und verrutschen mit der Zeit – im Zweifel nach dem Funktionsnamen suchen.
 
 **Arbeitsweise:** Ein Block pro Sitzung. Für jeden Fix zuerst einen Test schreiben, der den Fehler zeigt, dann reparieren und hier abhaken (`[x]` + Commit-Hash).
 
@@ -146,6 +146,86 @@ Priorität: 🔴 Datenverlust / App kaputt · 🟠 falsche Anzeige / nervig · �
 
 - [x] **J1** 🟢 Schülerliste: Der Notenschnitt rechts sollte leicht getönt hinterlegt sein, bleibt aber durchsichtig. `hexToRgba(gradeColor(…))` bekommt `var(--grade-3)` statt einer Hex-Farbe und liefert `rgba(10,NaN,NaN,0.15)`, das der Browser verwirft. → Hintergrund per CSS aus der Notenfarbe selbst (`color-mix(in srgb, currentColor 15%, transparent)`), `hexToRgba(gradeColor(…))` entfernt.
 - [x] **J2** 🟠 Heller Modus, Rest aus I4: fest eingetragene Farben (`#f59e0b`/`#ef4444`: HA-/Test-Symbole in Kacheln, Dashboard-Badges, „Nächste Stunde“) und die Statusfarben `--success`/`--warning`/`--danger` (Toasts, Knöpfe, „Keine HA“) haben auf hellem Grund nur 1,7–3:1 Kontrast; `--text-muted` (graue Nebenschrift) 2,6:1. → Heller Modus: `--success #166534`, `--warning #92400e`, `--danger #b91c1c` (≥ 5:1 auf allen hellen Hintergründen), `--text-muted #64748b` (4,8:1 auf Weiß). Fest eingetragene `#f59e0b`/`#ef4444`/`#94a3b8` in Kachel-Symbolen, Dashboard-Badges und „Nächste Stunde“ durch diese Variablen ersetzt. Dunkler Modus unverändert.
+
+## K. Review 25.09.2026: Datenverlust & Sync
+
+> Viertes Review: Code in vier Bereichen (Sync, Stundenplan, Klassen/Noten, Sitzplan/Fenster) plus Durchklicken mit Beispieldaten bei 375/1024 px, dunkel und hell. „Test“ = mit Vitest nachgestellt. Zeilennummern Stand `5f261aa`.
+
+- [ ] **K1** 🔴 **„Alles löschen“ während eines Uploads leert später die Cloud** (`triggerSyncInternal` → `markSynced` nach dem `await`; `decideSync` prüft `localIsEmpty` nur bei geänderter Cloud). Ablauf: Eingabe → Sync läuft → „Alles löschen“ → `markSynced` schreibt den Sync-Stand in die **neue, leere** `db` → nächster Sync = `upload` der leeren DB → andere Geräte laden „leer“ herunter. *Test.* → Vor `markSynced` prüfen, ob `db` noch dasselbe Objekt ist; `decideSync` lädt bei leerer lokaler DB nie hoch, wenn die Cloud Daten hat (gilt auch für `resolveConflict`).
+- [ ] **K2** 🔴 **Stunden-Fenster: drei Knöpfe verwerfen eingetippte Notizen** (Rest von G13): Stift (`openEditLesson` ~Z. 788), „Sitzplan öffnen“ (`openSeatingForGroup` ~Z. 254), „Notenübersicht“ (`openClassOverviewFromLesson` ~Z. 4077) schließen per `closeModal('modal-lesson')`. Inhalt/Notizen tippen → Knopf → weg. *Test.* → Vorher speichern wie `saveLessonDataAndClose` (ohne Toast).
+- [ ] **K3** 🔴 **Spalte/Note bearbeiten löscht den Notentyp** (`openEditColumnModal`/`saveOverviewColumn` ~Z. 1889/1934, `openGradeForm`/`saveGradeFromForm` ~Z. 3967/4029): Steht der Typ nicht in der Auswahl (Spalten-Dialog kennt nur „test“/„schularbeit“, Notenformular kein Alt-„klausur“), liest das Feld `''` und speichert das. Spalte „Mündlich“ umbenennen → alle Noten `type:''`; alte „klausur“-Note nur öffnen+speichern → zählt nicht mehr als KA (Schnitt 1,8 → 3,0). *Test.* → Unbekannten Typ als Option ergänzen bzw. alten Typ behalten.
+- [ ] **K4** 🔴 **Notentabelle: zwei Noten am selben Tag ohne Titel = eine Spalte** (`renderOverviewTable` ~Z. 1602, Schlüssel `datum_titel` ohne Typ; `updateInlineGrade` ~Z. 1774). KA von Anna + mündliche Note von Ben am 10.09. → eine KA-Spalte; Bens Zelle ändern macht seine Note zur KA. Zwei Noten eines Schülers am selben Tag → eine unsichtbar, zählt aber, Eingabe überschreibt die erste. Gleiches beim Umbenennen auf eine bestehende Spalte. *Test.* → Typ in Schlüssel + Zellsuche, gleiche Kombination beim Anlegen/Umbenennen ablehnen.
+- [ ] **K5** 🔴 **Anwesenheitstabelle: Tippfehler löscht Eintrag samt Grund** (`updateInlineAttendance` ~Z. 1830): „E“ mit Grund „Arztattest“, man tippt „U“ → Eintrag weg, ohne Meldung. *Test.* → Nur leeres Feld löscht; unbekannte Eingabe wie bei Noten ablehnen.
+- [ ] **K6** 🟠 **Kein Sync beim Zurückkommen/Wiederverbinden** (nur `saveDB`, Login, Passwort lösen aus). iPad über Nacht im Hintergrund, abends am Laptop geändert, morgens Fehlzeit eintragen → Konflikt-Dialog statt stillem Pull. Offline-Eingaben gehen erst mit der nächsten Eingabe hoch. *Test.* → `triggerSyncInternal()` bei `visibilitychange` (sichtbar) und `online`.
+- [ ] **K7** 🟠 **Nach Kaltstart synct die App still nicht**, bis das Master-Passwort neu eingegeben ist (nur `sessionStorage`, `initSync` ~Z. 4836). Kein Hinweis außerhalb der Einstellungen → Konflikte wie K6. *Nur Code; auf dem iPad prüfen, ob iOS `sessionStorage` der Home-Bildschirm-App beim Beenden leert.* → Sichtbarer Hinweis / Abfrage beim Start, oder bewusst dauerhaft speichern.
+- [ ] **K8** 🟠 **Tippfehler beim ersten Master-Passwort sperrt die Cloud** (`updateMasterPassword` ~Z. 4993): Cloud leer, `onchange` lädt sofort mit dem vertippten Passwort hoch; danach „Falsches Master-Passwort“ auf allen Geräten, kein Weg zum Zurücksetzen. *Nur Code.* → Beim ersten Festlegen zweimal abfragen.
+- [ ] **K9** 🟠 **Import ersetzt alles ohne Rückfrage**, und das Backup bringt alte `syncSettings` mit → 3 s später Konflikt-Dialog, dessen Hauptknopf den Import wieder verwirft (`importData` ~Z. 2900). *Test.* → Rückfrage („ersetzt N Klassen …“), `syncSettings` beim Import verwerfen, Import zählt als Nutzeränderung.
+- [ ] **K10** 🟠 **Speicher voll → Eingabe still verloren** (`persistDB` ~Z. 198, `setItem` ohne try/catch): Handler bricht ab, Änderung nur im Arbeitsspeicher. *Test (Wurf).* → Abfangen, deutlich melden („Nicht gespeichert – bitte exportieren“), alte `lehrerapp_v3_defekt_*` zum Aufräumen anbieten.
+- [ ] **K11** 🟠 **Konflikt-Dialog:** grüner Hauptknopf „Cloud-Version laden (lokale Änderungen verwerfen)“ wirkt wie der empfohlene Weg; „Neuere Version in der Cloud“ stimmt nicht (Uhren nicht vergleichbar) (index.html ~Z. 1128/1136). → „Version in der Cloud“; Hauptknopf „Sicherung exportieren und Cloud laden“, die anderen neutral.
+- [ ] **K12** 🟠 **„App jetzt aktualisieren“ offline** löscht Service Worker + Caches und lädt neu → Browser-Fehlerseite, bis wieder WLAN da ist (`forceAppUpdate` ~Z. 4439). *Nur Code.* → Offline abbrechen mit Hinweis.
+- [ ] **K13** 🟢 **Export zählt als Datenänderung** (`exportData` ~Z. 2894: `lastBackupTimestamp` per `saveDB()`) → Upload, evtl. Konflikt auf anderen Geräten. Der Wert wird nirgends gelesen (Backup-Erinnerung in 7d114a7 bewusst entfernt). *Test.* → `persistDB()` oder Feld weglassen.
+- [ ] **K14** 🟢 Alte iPads (< iOS 16.4, kein `DecompressionStream`) melden „neuere App-Version, bitte aktualisieren“ – hilft dort nicht (crypto-helper.js ~Z. 104). → Eigene Meldung „Gerät zu alt für den Cloud-Sync“.
+- [ ] **K15** 🟢 `clearAllData` lässt Rettungskopien `lehrerapp_v3_defekt_*` (Schülerdaten!) auf dem Gerät. *Nur Code.*
+
+## L. Review 25.09.2026: Noten, Anwesenheit, Klassen
+
+- [ ] **L1** 🟠 **Tabellen veralten nach Schnellbewertung/Profil:** `setSeatingAbsence`, `setSeatingLate`, `setSeatingHomework`, `addParticipationSmiley` zeichnen nur den Sitzplan; `addAttendanceEntry`, `deleteAttendance`, `deleteParticipation`, `deleteCurrentStudent` nur die Schülerliste. Reiter „Anwesenheit“ → Name antippen → „Unentschuldigt“ → Tabelle zeigt weiter 0. *Test.* → Gemeinsame Auffrischung wie `refreshGradeViews`, inkl. `renderOverviewTable()`.
+- [ ] **L2** 🟠 **Anwesenheitsspalte mit Bezeichnung doppelt** (`renderOverviewTable` ~Z. 1706): Spalte „10.09. Wandertag“ + „F“ → zwei Spalten „10.09. Wandertag“ und „10.09.“. *Test.* → Nach Datum zusammenführen, Bezeichnung als Zusatz.
+- [ ] **L3** 🟠 **Fehlzeit in der Tabelle ändern pflegt den Hinweis „… hat letzte Stunde gefehlt“ nicht** (Regel 25, `updateInlineAttendance`): „F“ aus dem Sitzplan in „E“/leer ändern → Hinweis bleibt; „F“ in der Tabelle → kein Hinweis. *Test.* → `addAbsenceNote`/`removeAbsenceNote` aufrufen.
+- [ ] **L4** 🟠 **Hinweis bei Schülern mit nur einem Namen wird nie entfernt** (`absenceNoteText` ~Z. 3633: „ Max hat …“ mit führendem Leerzeichen, `removeAbsenceNote` vergleicht getrimmt). *Test.* → `[first,last].filter(Boolean).join(' ')`.
+- [ ] **L5** 🟠 **Noten-/Anwesenheitsspalten lassen sich nicht löschen** (`editOverviewColumns` wird nie aufgerufen, kein Knopf im Spalten-Dialog). Versehentliche Spalte bleibt für immer. → „Spalte löschen“ mit Rückfrage (Anzahl Einträge), per Referenz.
+- [ ] **L6** 🟠 **Notentabelle: Enter springt nicht nach unten.** Eine Klassenarbeit für 25 Schüler eintragen: Tab geht seitlich in die nächste Spalte, Enter tut nichts (auch „Return“ auf der iPad-Tastatur). *Browser.* → Enter/Return = nächster Schüler in derselben Spalte (Shift+Enter hoch).
+- [ ] **L7** 🟢 **Klasse bearbeiten dreht den Kopf der Klassenansicht um** (Rest von I13, `saveSubjectGroup` ~Z. 1455): danach „Mathe | Klasse 7b“ statt „7b | Mathe · 2026/27“. *Test.* → Wie `openGroupStudents`.
+- [ ] **L8** 🟢 **Schüler mit nur einem Namen (Import „Max“) nicht mehr bearbeitbar** (`saveStudent` verlangt beide Namen) → Notiz „LRS“ lässt sich nicht speichern. *Test.* → Mindestens einen Namen verlangen.
+- [ ] **L9** 🟢 **Vertretung erscheint als fester Tag auf der Klassenkarte** (`renderSubjectGroups` ~Z. 1331 filtert `s.recurring`, `'none'` ist truthy). *Test.* → `!isOneOffSlot(s)`.
+- [ ] **L10** 🟢 **Schülerakte (Export):** „Note: 2.5“ mit Punkt, bei 0–15 „Note“ statt „Punkte“, Hausaufgaben fehlen ganz (`exportCurrentStudent` ~Z. 2586, Rest von I14). *Test.* → `gradeText`, Beschriftung nach Skala, Abschnitt „Hausaufgaben vergessen“.
+- [ ] **L11** 🟢 **CSV-Export:** `"` im Namen wird nicht verdoppelt → Zeile zerfällt (`exportGradesCSV` ~Z. 2872). *Nur Code.*
+- [ ] **L12** 🟢 **Avatare in der Schülerliste:** Initialen in Akzentfarbe auf dunkler Variante derselben Farbe, ~2,5:1 (z. B. `#6366f1` auf `#312e81`), in beiden Modi (`AVATAR_COLORS`). *Browser.* → Hellere Schrift bzw. im hellen Modus helle Fläche + dunkle Schrift.
+
+## M. Review 25.09.2026: Stundenplan, Stunden-Fenster, Dashboard
+
+- [ ] **M1** 🟠 **Dashboard wird nicht neu gezeichnet** nach Speichern/„Stunde entfällt“ (`saveLessonDataAndClose`, `toggleAusfall`), nach Cloud-Übernahme (`applyCloudData`), nach Einstellungen (`saveSettings`) und nie per Timer (anders als `refreshTimetableClock`). Ausgefallene Stunde bleibt „nächste Stunde“; über Mitternacht bleibt „Heute“ stehen. *Test (Ausfall).* → Gemeinsames `refreshActiveView()`, Dashboard in den Minuten-Timer.
+- [ ] **M2** 🟠 **Nach Pull/Import/Löschen wird die aktive Ansicht nicht neu gezeichnet**, ungültige Auswahl bleibt (`applyCloudData` ~Z. 5078 zeichnet nur Stundenplan+Klassen; `importData`/`clearAllData` setzen `currentGroupId`/`currentSeatingGroupId` nicht zurück, Regel 10). Neues Gerät: Login → Dashboard bleibt leer. *Test.*
+- [ ] **M3** 🟠 **HA für freie Stunden (ohne Klasse) mit mehreren Terminen landet nirgends:** `findUpcomingLessonDates` (~Z. 941) sucht über den Fachnamen, `getIncomingItems` (~Z. 664) nur über dieselbe `slotId`. „AG Robotik“ Mo+Mi: HA für Mi erscheint weder Mi noch im Dashboard. *Test.* → Eine gemeinsame „Geschwister-Stunden“-Regel.
+- [ ] **M4** 🟠 **Datumsvorschläge für HA/Test bieten ausgefallene oder vertretene Stunden an** (`findUpcomingLessonDates` ~Z. 956 nur `slotOccursOn`). Eingetragene HA ist dann unsichtbar. *Test.* → Über `lessonsOnDate`, `!ausfall`.
+- [ ] **M5** 🟠 **HA-Schalter aus → HA bleibt in der Zielstunde „fällig“** (`getIncomingItems`/`dueItemsFor` ignorieren `hwEnabled`/`testEnabled`), dort nicht löschbar. *Test.*
+- [ ] **M6** 🟠 **Vertretung auf dem Platz einer regulären Stunde nicht anlegbar** („Block ist bereits belegt!“, `saveLessonSlot` ~Z. 876), obwohl `lessonsAt` das Ersetzen kann – geht nur, wenn die Vertretung älter ist als die reguläre Stunde. *Test; Designfrage, bestehender Test legt das heutige Verhalten fest.* → Einmalige Stunde darf eine reguläre überlagern (mit Hinweis „ersetzt 7b an diesem Tag“).
+- [ ] **M7** 🟠 **Stundenplanwechsel zum Halbjahr verändert die Vergangenheit:** Tag ändern verschiebt *alle* alten Notizen/HA auf den neuen Tag (`moveLessonData`); auf einmalig/zweiwöchentlich stellen blendet alte Notizen aus; Löschen löscht alle Notizen des Jahres, die Rückfrage sagt das nicht. *Nur Code.* → „Ab diesem Datum ändern/beenden“ (Enddatum an der Stunde); mindestens Anzahl Notizen in der Rückfrage.
+- [ ] **M8** 🟢 Freie Stunde: „Notenübersicht“ und „Schüler bewerten“ sichtbar, tun nichts. *Test.* → Ausblenden wie den Sitzplan-Link.
+- [ ] **M9** 🟢 „Schüler bewerten“ zeigt fest „Nachname, Vorname“ („, Max“ ohne Nachnamen), Rest von I12 (~Z. 4096). *Test.* → `studentListName(s)`.
+- [ ] **M10** 🟢 „Schüler bewerten“ → jemanden als fehlend markieren: „Heute fehlen“ im offenen Stunden-Fenster bleibt leer. *Test.*
+- [ ] **M11** 🟢 Tagesansicht: Sprung auf einen Samstag zeigt den **Montag davor** statt danach (`jumpToDate`/`timetableDayDate` ~Z. 404). *Test.*
+- [ ] **M12** 🟢 Wochenkopf über Neujahr: „KW 53 · 28.12. – 01.01. 2026“ (~Z. 428). *Test.* → Jahr vom Freitag bzw. beide Jahre.
+- [ ] **M13** 🟢 Stunde ohne `color` (Alt-/Fremddaten) → `hexToRgba(undefined)` wirft, ganzer Stundenplan leer (`buildTimetableCell`). *Test.* → Ersatzfarbe bzw. `migrateDB`.
+- [ ] **M14** 🟢 Datums-Picker (KW-Anzeige, Sitzplan-Kalender) wird nie auf das aktuelle Datum gesetzt → dasselbe Datum ein zweites Mal wählen löst kein `change` aus, nichts passiert. *Nur Code.*
+- [ ] **M15** 🟢 HA/Test im Stunden-Fenster per Index gelöscht (`removeItem(type, ${i})`, Regel 9). *Nur Code.*
+
+## N. Review 25.09.2026: Sitzplan
+
+- [ ] **N1** 🟠 **Raster verkleinern verschiebt Schüler dauerhaft** – `renderSeatingPlan` (~Z. 3322) schreibt Ausweichplätze in `s.gridX/Y`. 6 → 3 → 6 Spalten: Anna sitzt woanders (und das geht in die Cloud). Mehr Schüler als Plätze → Überzählige alle auf (0,0), nach dem Vergrößern übereinander, nur einer antippbar. *Test.* → Ausweichplätze nur für die Anzeige, Warnung „Raster zu klein“.
+- [ ] **N2** 🟠 **Negative Spaltenzahl legt den Sitzplan lahm** (`saveSeatingGrid` ~Z. 3186): `-3` → `RangeError`, Sitzplan leer, wird synchronisiert; `0` wird still zu 10. *Test.* → 1…N erzwingen.
+- [ ] **N3** 🟠 **Lehrerpult verschwindet nach dem Verkleinern** (außerhalb der Fläche, nicht mehr zurückziehbar). *Test.* → Beim Zeichnen ins Raster klemmen.
+- [ ] **N4** 🟠 **Schüler lässt sich unter das Lehrerpult ziehen** (und umgekehrt) → Karte im Unterricht nicht antippbar (`makeDraggable` dragEnd). *Test.* → Drop ablehnen oder tauschen.
+- [ ] **N5** 🟠 **Abgebrochene Touch-Geste** (Mitteilung, Systemgeste) lässt die Listener auf `document` hängen: nächstes Wischen irgendwo verschiebt die Karte und speichert einen Zufallsplatz (kein `touchcancel`). *Test.*
+- [ ] **N6** 🟠 **Schnellbewertung zeigt nicht, was heute schon gesetzt ist**; zweites Tippen auf 😊 oder „Unentschuldigt“ *löscht* den Eintrag (nur Toast „Eintrag entfernt“, kein Rückgängig). Zweiter guter Beitrag → erster weg. *Browser.* → Aktiven Knopf markieren (`aria-pressed`), Toast mit „Rückgängig“.
+- [ ] **N7** 🟢 „Neue Note“ aus der Schnellbewertung nimmt immer heute, Anwesenheit/Mitarbeit das gewählte Sitzplan-Datum (`openGradeFormForCurrentStudent` ~Z. 3932).
+- [ ] **N8** 🟢 Gleiche Vornamen im Sitzplan nicht unterscheidbar (auch Tooltip). → Bei Doppel „Anna M.“.
+- [ ] **N9** 🟢 Klassenwahl zeigt nur „7b“ – bei 7b in zwei Fächern unklar, welcher Plan offen ist.
+- [ ] **N10** 🟢 Datumsleiste zeigt auch Tage, an denen die Klasse keinen Unterricht hat (7b am Mittwoch). *Browser.* → Unterrichtstage der Klasse hervorheben oder nur diese zeigen.
+- [ ] **N11** 🟢 Tippflächen 32–34 px (Datums-Chips, Werkzeug- und Timer-Knöpfe), Raster-Felder 32×26 px; Datums-Chips und Klassenmenü sind `div`s ohne Tastatur-/Screenreader-Zugang. → ≥ 44 px, `button`.
+- [ ] **N12** 🟢 Timer-Ende: nur 2,5-s-Toast, kein Ton, keine bleibende Markierung; Start bei 00:00 ohne Rückmeldung.
+- [ ] **N13** 🟢 Toter Code: `window.currentRandomStudent` (gesetzt, nie gelesen – der gezogene Schüler hat keine Aktion), `.sc-absent-toggle` in CSS/`makeDraggable`; Noten-Bearbeiten im Schüler-Fenster per `g._origIdx` (Regel 9).
+
+## O. Review 25.09.2026: Fenster, Einstellungen, Navigation
+
+- [ ] **O1** 🟠 **Markieren in einem Feld und neben dem Fenster loslassen schließt es, Eingaben weg** (`closeModalOnOverlay`: `click` landet auf dem Overlay). Betrifft alle Formulare außer Stunde/Note (Klasse, Schüler, Import, Spalte …), verletzt Regel 27. *Browser.* → Nur schließen, wenn auch `pointerdown` auf dem Overlay begann.
+- [ ] **O2** 🟠 **Farbvorschau bleibt nach Schließen ohne Speichern** (✕/Escape/daneben): App bleibt rosa, nach Neuladen wieder weg. *Test.* → `modal-settings` in `MODAL_CLOSE_ACTIONS` mit `updateAppliedThemeFromDB()`.
+- [ ] **O3** 🟠 **Gespeicherter Kanten-Radius wirkt nach Neuladen nicht** (`applyThemePreview` liest den Regler, der beim Start auf 8 steht). *Test.*
+- [ ] **O4** 🟢 Nach „Speichern“ in den Einstellungen wird nur der Stundenplan neu gezeichnet (Sortierung, Namensformat, Warnschwellen erst nach Ansichtswechsel). *Test.* → Siehe M1.
+- [ ] **O5** 🟢 Sitzplan-Vorlauf leer → 0 statt 5 (`parseInt('') || 0`); Blockzeiten ungeprüft (Ende vor Beginn, neuer Block immer 08:00–09:30).
+- [ ] **O6** 🟢 Tipp auf das Logo „Planer“ lädt die Seite neu – im Unterricht sind Timer, Stoppuhr und Gruppen weg.
+- [ ] **O7** 🟢 Handy-Navigation: nur Symbole ohne Beschriftung; aktive Pille breiter → ungleiche Abstände. Kopf der Klassenansicht belegt auf dem Handy ~⅓ des Bildschirms (Titel, zwei Knopfreihen, Reiter in zwei Zeilen). *Browser.*
+- [ ] **O8** 🟢 Fenster ohne `role="dialog"`, ohne Fokus-Übergabe beim Öffnen und Rückgabe beim Schließen.
 
 ---
 
