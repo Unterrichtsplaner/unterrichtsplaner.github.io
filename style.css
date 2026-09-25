@@ -152,8 +152,8 @@ input[type="date"] { min-height: 1.2em; } /* Fix iOS Safari date input collapse 
 .tt-status-row{display:flex;gap:5px;margin-left:auto;flex-shrink:0;}
 .tt-status{display:inline-flex;width:15px;height:15px;opacity:.85;}
 .tt-status svg{width:100%;height:100%;}
-.tt-status-hw{color:#f59e0b;}
-.tt-status-test{color:#ef4444;}
+.tt-status-hw{color:var(--warning);}
+.tt-status-test{color:var(--danger);}
 .tt-status-notiz{color:var(--text-muted);}
 /* Laufende Stunde: kräftig; nächste Stunde: dezent */
 .tt-lesson.running{box-shadow:0 0 0 2px currentColor,var(--shadow-md);}
@@ -265,6 +265,8 @@ input[type="date"] { min-height: 1.2em; } /* Fix iOS Safari date input collapse 
 .student-name{font-size:14px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .student-quick-notes{font-size:11px;color:var(--text-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:2px;}
 .student-grade-badge{font-size:17px;font-weight:800;padding:4px 9px;border-radius:var(--radius-sm);min-width:46px;text-align:center;flex-shrink:0;}
+/* Tönung aus der Notenfarbe selbst (BUGS J1: hexToRgba konnte mit var(--grade-…) nichts anfangen) */
+.student-grade-badge{background:color-mix(in srgb, currentColor 15%, transparent);}
 .indicator-dot{width:7px;height:7px;border-radius:50%;}
 
 /* ─── Modals ─────────────────────────── */
@@ -649,7 +651,7 @@ select option{background:var(--bg-secondary);}
   --accent-soft: rgba(79,70,229,0.08);
   --text-primary: #0f172a;
   --text-secondary: #475569;
-  --text-muted: #94a3b8;
+  --text-muted: #64748b;   /* #94a3b8 hatte auf Weiß nur 2,6:1 (BUGS J2) */
   --text-accent: #4f46e5;
   --border: rgba(0,0,0,0.15);
   --border-active: rgba(79,70,229,0.4);
@@ -658,6 +660,8 @@ select option{background:var(--bg-secondary);}
   --shadow-lg: 0 10px 30px rgba(0,0,0,0.08);
   /* Notenfarben: die hellen Töne des dunklen Modus hatten auf hellem Grund nur 1,5–2,9:1 Kontrast (BUGS I4) */
   --grade-1:#15803d;--grade-2:#4d7c0f;--grade-3:#b45309;--grade-4:#c2410c;--grade-5:#b91c1c;
+  /* Statusfarben (Toasts, Knöpfe, HA/Test-Symbole): die hellen Töne hatten 1,7–3:1, jetzt ≥ 5:1 (BUGS J2) */
+  --success:#166534;--warning:#92400e;--danger:#b91c1c;
 }
 /* Klassenfarben als Text: im hellen Modus zur Hälfte mit Schwarz gemischt, sonst z. B. Gelb auf Salbeigrün 1,4:1.
    Mit 50 % mindestens 4,8:1 für alle 14 Klassenfarben auf allen hellen Hintergründen (BUGS I4). */
@@ -741,9 +745,9 @@ select option{background:var(--bg-secondary);}
 .dash-lesson-room{font-size:12px;color:var(--text-muted);}
 .dash-lesson-badges{display:flex;gap:4px;flex-wrap:wrap;}
 .dash-badge{font-size:11px;font-weight:600;padding:2px 6px;border-radius:4px;}
-.dash-badge.hw{background:rgba(245,158,11,.18);color:#f59e0b;}
-.dash-badge.test{background:rgba(239,68,68,.18);color:#ef4444;}
-.dash-badge.note{background:rgba(100,116,139,.2);color:#94a3b8;}
+.dash-badge.hw{background:rgba(245,158,11,.18);color:var(--warning);}
+.dash-badge.test{background:rgba(239,68,68,.18);color:var(--danger);}
+.dash-badge.note{background:rgba(100,116,139,.2);color:var(--text-muted);}
 .dash-lesson-status{font-size:12px;font-weight:600;color:var(--text-secondary);white-space:nowrap;}
 .dash-lesson.past{opacity:.5;}
 .dash-lesson.ausfall{opacity:.4;text-decoration:line-through;}
@@ -758,8 +762,8 @@ select option{background:var(--bg-secondary);}
 .dash-next-notes{white-space:pre-line;font-size:14px;line-height:1.5;color:var(--text-primary);background:var(--bg-secondary);padding:10px 12px;border-radius:var(--radius-sm);margin-bottom:8px;}
 .dash-next-items{font-size:14px;margin-top:6px;color:var(--text-primary);}
 .dash-next-items strong{font-size:12px;}
-.dash-next-items.hw strong{color:#f59e0b;}
-.dash-next-items.test strong{color:#ef4444;}
+.dash-next-items.hw strong{color:var(--warning);}
+.dash-next-items.test strong{color:var(--danger);}
 .dash-next-items ul{margin:2px 0 0 18px;}
 .dash-warn-group{background:var(--bg-elevated);border-radius:var(--radius-md);margin-bottom:8px;overflow:hidden;}
 .dash-warn-group summary{padding:12px 16px;cursor:pointer;display:flex;align-items:center;gap:8px;font-size:15px;list-style:none;}

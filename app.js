@@ -2057,7 +2057,7 @@ function renderStudents() {
         </div>
       </div>
       ${avg!==null
-        ? `<div class="student-grade-badge" style="background:${hexToRgba(gradeColor(avg, scale),0.15)};color:${gradeColor(avg, scale)}">${formatGradeAverage(avg)}</div>`
+        ? `<div class="student-grade-badge" style="color:${gradeColor(avg, scale)}">${formatGradeAverage(avg)}</div>`
         : `<div class="student-grade-badge" style="background:var(--bg-elevated);color:var(--text-muted)">–</div>`}
     `;
     row.addEventListener('click', () => openStudentDetail(s.id));

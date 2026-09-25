@@ -486,3 +486,34 @@ describe('Paket 5c: Knöpfe, Einstellungen, Formular', () => {
     expect(document.getElementById('modal-add-lesson').textContent).not.toContain('Wiederholung?');
   });
 });
+
+describe('Block J', () => {
+  it('J1: Notenschnitt in der Schülerliste ist getönt hinterlegt (kein rgba(…NaN…))', () => {
+    app('openGroupStudents("g1", "students")');
+    const badges = [...document.querySelectorAll('#students-container .student-grade-badge')];
+    expect(badges.length).toBeGreaterThan(0);
+    badges.forEach(b => expect(b.getAttribute('style') || '').not.toMatch(/NaN/));
+    expect(rulesFor('.student-grade-badge')).toMatch(/background:\s*color-mix\(in srgb,\s*currentColor 15%,\s*transparent\)/);
+  });
+
+  it('J1: hexToRgba nimmt nur Hex-Farben – Aufrufe mit gradeColor gibt es nicht mehr', () => {
+    const src = fs.readFileSync(path.join(__dirname, '..', 'app.js'), 'utf8');
+    expect(src).not.toMatch(/hexToRgba\(\s*gradeColor/);
+  });
+
+  it('J2: heller Modus hat dunklere Status- und Nebenfarben', () => {
+    const light = css.match(/:root\[data-theme="light"\]\s*\{([^}]*)\}/)[1];
+    expect(light).toMatch(/--success:\s*#166534/);
+    expect(light).toMatch(/--warning:\s*#92400e/);
+    expect(light).toMatch(/--danger:\s*#b91c1c/);
+    expect(light).toMatch(/--text-muted:\s*#64748b/);
+  });
+
+  it('J2: keine fest eingetragenen Status-Farben mehr, alles über Variablen', () => {
+    for (const sel of ['.tt-status-hw', '.tt-status-test', '.dash-badge.hw', '.dash-badge.test', '.dash-badge.note',
+                       '.dash-next-items.hw strong', '.dash-next-items.test strong']) {
+      expect(rulesFor(sel), sel).not.toMatch(/#(f59e0b|ef4444|94a3b8)/i);
+      expect(rulesFor(sel), sel).toMatch(/var\(--(warning|danger|text-muted)\)/);
+    }
+  });
+});
