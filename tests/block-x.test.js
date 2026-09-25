@@ -25,3 +25,10 @@ describe('X1: App füllt auf dem iPad den ganzen Bildschirm', () => {
     expect(minH).toBeGreaterThan(820);
   });
 });
+
+describe('X7: Ziehen am Rand bewegt nicht die ganze App (Gummiband-Effekt)', () => {
+  it('html und body federn nicht nach', () => {
+    const rule = CSS.match(/^html,body\{[^}]*\}/m)[0];
+    expect(rule).toMatch(/overscroll-behavior:none/);
+  });
+});

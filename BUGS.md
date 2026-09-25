@@ -402,6 +402,7 @@ Priorität: 🔴 Datenverlust / App kaputt · 🟠 falsche Anzeige / nervig · �
 - [ ] **X4** 🟢 Wochenansicht: lange Klassennamen abgeschnitten („Q1 Leist…“), ohne `title`/`aria-label` – der volle Name ist in der Woche nirgends zu sehen; in den Tabellen ebenso „David von Hohe…“ (dort immerhin im Profil). *Browser.* → `title` bzw. zweizeilig umbrechen.
 - [ ] **X5** 🟢 Tagesansicht (Handy): leere Blöcke zeigen kein „+“, der Hinweis steht nur im `title` („Klicken zum Hinzufügen“), den es auf Touch nicht gibt. *Browser.* → „+“ auch in der Tagesansicht sichtbar.
 - [ ] **X6** 🟢 Die App folgt nicht der Systemeinstellung hell/dunkel (kein `prefers-color-scheme`, Standard immer dunkel, `db.settings.theme || 'dark'` ~Z. 3299). *Code.* → Option „Automatisch (wie Gerät)“ als Standard für neue Nutzer.
+- [x] **X7** 🟠 **Ganze App federt beim Ziehen nach (Gummiband-Effekt, iPad/Safari)**: Wer oben/unten am Rand zieht, schiebt das ganze Layout samt Seitenleiste mit, danach springt es zurück. Die Seite selbst ist nicht höher als der Bildschirm (nachgemessen: 1024 = 1024 bei 768×1024), es ist das Nachfedern von Safari an `html`/`body`. **Behoben (v237):** `overscroll-behavior:none` an `html,body`. Listen innerhalb der Ansichten scrollen und federn weiter wie gewohnt. Test: `tests/block-x.test.js`. *Nur auf echtem iPad/iPhone prüfbar (Chromium federt nicht).*
 
 ## Y. Konzept-Review 25.09.2026: Datenschutz, Datensicherheit, Schuljahr
 

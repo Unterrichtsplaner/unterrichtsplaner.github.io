@@ -43,7 +43,8 @@
 }
 
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
-html,body{height:100%;width:100%;overflow-y:auto;overflow-x:hidden;display:flex;background:#050505;font-family:'Inter',-apple-system,sans-serif;color:var(--text-primary);-webkit-font-smoothing:antialiased;font-size:14px;touch-action:manipulation;}
+/* overscroll-behavior: Safari lässt sonst die ganze App beim Ziehen am Rand nachfedern (BUGS X7) */
+html,body{height:100%;width:100%;overflow-y:auto;overflow-x:hidden;overscroll-behavior:none;display:flex;background:#050505;font-family:'Inter',-apple-system,sans-serif;color:var(--text-primary);-webkit-font-smoothing:antialiased;font-size:14px;touch-action:manipulation;}
 input, button, select, textarea { -webkit-appearance: none; appearance: none; }
 input[type="checkbox"] { -webkit-appearance: auto; appearance: auto; accent-color: var(--accent); }
 input[type="date"] { min-height: 1.2em; } /* Fix iOS Safari date input collapse */
