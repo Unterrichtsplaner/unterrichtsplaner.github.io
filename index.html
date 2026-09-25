@@ -41,7 +41,7 @@
       }
     } catch(e) {}
   </script>
-  <link rel="stylesheet" href="style.css?v=240" />
+  <link rel="stylesheet" href="style.css?v=241" />
   <script>
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
@@ -911,6 +911,7 @@
           <button class="btn-secondary" onclick="exportData()"><i data-icon="download"></i>Exportieren</button>
           <button class="btn-secondary" onclick="importDataClick()"><i data-icon="upload"></i>Importieren</button>
           <button class="btn-danger-outline" onclick="clearAllData()"><i data-icon="trash"></i>Alles löschen</button>
+          <button class="btn-danger-outline hidden" id="btn-clear-everywhere" onclick="clearAllDataEverywhere()"><i data-icon="trash"></i>Alles löschen – auch in der Cloud</button>
         </div>
         <input type="file" id="import-file-input" accept=".json" style="display:none" onchange="importData(event)" />
       </div>
@@ -948,7 +949,23 @@
 
             <!-- Logged In Panel -->
             <div id="sync-logged-in-panel" class="hidden">
-              <button class="btn-danger-outline" style="padding: 4px 10px; font-size: 11px;" onclick="logoutSync()">Ausloggen</button>
+              <div style="display:flex; gap:8px; flex-wrap:wrap;">
+                <button class="btn-danger-outline" style="padding: 4px 10px; font-size: 11px;" onclick="logoutSync()">Ausloggen</button>
+                <button class="btn-secondary" style="padding: 4px 10px; font-size: 11px;" onclick="startDeleteAccount()">Cloud-Konto löschen …</button>
+              </div>
+              <div class="form-group hidden" id="sync-delete-account-group" style="margin-top:12px; margin-bottom:0;">
+                <div style="font-size:12px; color:var(--text-secondary); margin-bottom:8px;">
+                  Cloud-Daten und Anmelde-Konto werden endgültig gelöscht. Zur Sicherheit bitte noch einmal anmelden.
+                </div>
+                <div id="sync-delete-account-password-group">
+                  <label for="sync-delete-account-password">Anmelde-Passwort</label>
+                  <input type="password" id="sync-delete-account-password" class="form-input" placeholder="Passwort deines Cloud-Kontos" autocomplete="current-password" />
+                </div>
+                <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:8px;">
+                  <button class="btn-danger-outline" onclick="confirmDeleteAccount()">Konto endgültig löschen</button>
+                  <button class="btn-secondary" onclick="cancelDeleteAccount()">Abbrechen</button>
+                </div>
+              </div>
             </div>
           </div>
 
@@ -1071,7 +1088,7 @@
         <li>Gespeichert werden: deine E-Mail-Adresse bzw. dein Google-Konto für die Anmeldung und ein verschlüsseltes Datenpaket (AES-256-GCM, Schlüssel aus dem Master-Passwort per PBKDF2) mit dem Zeitpunkt der letzten Änderung.</li>
         <li>Wie jeder Server-Dienst verarbeitet Google dabei technische Daten wie deine IP-Adresse. Eine Übermittlung in die USA ist dabei nicht ausgeschlossen. Schülerdaten sind davon nur verschlüsselt betroffen.</li>
         <li>Jedes Konto kann nur sein eigenes Datenpaket lesen und schreiben.</li>
-        <li>Deine Cloud-Daten und dein Konto löschen lassen: kurze E-Mail an den Betreiber (siehe unten).</li>
+        <li>Deine Cloud-Daten und dein Konto löschen: selbst unter Einstellungen → Cloud-Synchronisierung → „Cloud-Konto löschen“ (nur die Cloud-Daten: Datenverwaltung → „Alles löschen – auch in der Cloud“). Klappt das nicht, genügt eine kurze E-Mail an den Betreiber (siehe unten).</li>
       </ul>
 
       <h3>Aufruf der App</h3>
@@ -1272,12 +1289,12 @@
   </div>
 
   <script src="lib/crypto-js.min.js"></script>
-  <script src="crypto-helper.js?v=240"></script>
+  <script src="crypto-helper.js?v=241"></script>
   <script src="lib/firebase-app-compat.js"></script>
   <script src="lib/firebase-auth-compat.js"></script>
   <script src="lib/firebase-firestore-compat.js"></script>
-  <script src="firebase-config.js?v=240"></script>
-  <script src="sync-manager.js?v=240"></script>
-  <script src="app.js?v=240"></script>
+  <script src="firebase-config.js?v=241"></script>
+  <script src="sync-manager.js?v=241"></script>
+  <script src="app.js?v=241"></script>
 </body>
 </html>

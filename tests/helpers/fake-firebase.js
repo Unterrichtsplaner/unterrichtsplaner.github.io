@@ -51,6 +51,7 @@ function createFakeFirebase() {
     firestore: () => firestore,
   };
   firebase.auth.GoogleAuthProvider = function () {};
+  firebase.auth.EmailAuthProvider = { credential: (email, password) => ({ email, password }) };
 
   return { firebase, cloud };
 }

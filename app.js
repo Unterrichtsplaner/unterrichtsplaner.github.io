@@ -3778,14 +3778,17 @@ function exportGradesCSV() {
   showToast('Noten als CSV exportiert ✓');
 }
 
-function exportData() {
+function downloadBackupFile(data, suffix = '') {
   const a = document.createElement('a');
-  a.href = URL.createObjectURL(new Blob([JSON.stringify(db,null,2)],{type:'application/json'}));
+  a.href = URL.createObjectURL(new Blob([JSON.stringify(data,null,2)],{type:'application/json'}));
   const now = new Date();
   const dateStr = formatDate(now);
   const timeStr = String(now.getHours()).padStart(2, '0') + '-' + String(now.getMinutes()).padStart(2, '0');
-  a.download = `Unterrichtsplaner_Backup_${dateStr}_${timeStr}.json`; 
+  a.download = `Unterrichtsplaner_Backup${suffix}_${dateStr}_${timeStr}.json`;
   a.click();
+}
+function exportData() {
+  downloadBackupFile(db);
   
   db.settings.lastBackupTimestamp = Date.now();
   persistDB(); // keine Datenänderung: sonst Upload und evtl. Konflikt auf anderen Geräten (BUGS K13)
@@ -3825,10 +3828,89 @@ function importBackup(parsed) {
   showToast('Importiert ✓');
 }
 function clearAllData() {
-  if (!confirm('ACHTUNG: Wirklich alle Daten auf diesem Gerät löschen?\n\nFalls Cloud-Sync aktiv ist, bleiben die Daten in der Cloud erhalten und werden beim nächsten Sync wieder geladen.')) return;
+  const cloudHint = SyncManager.currentUser
+    ? '\n\nDie Daten in der Cloud bleiben erhalten und werden beim nächsten Sync wieder geladen. Um auch sie zu löschen: „Alles löschen – auch in der Cloud“.'
+    : '\n\nFalls Cloud-Sync aktiv ist, bleiben die Daten in der Cloud erhalten und werden beim nächsten Sync wieder geladen.';
+  if (!confirm('ACHTUNG: Wirklich alle Daten auf diesem Gerät löschen?' + cloudHint)) return;
   wipeLocalData();
   closeModal('modal-settings');
   showToast('Lokale Daten gelöscht.');
+}
+
+// Kurzbeschreibung eines Datenstands für Rückfragen („3 Klassen, 75 Schüler“)
+function dataSummary(data) {
+  const nGroups = (data.groups || []).length;
+  const nStudents = Object.values(data.students || {}).reduce((n, list) => n + ((list && list.length) || 0), 0);
+  return `${nGroups} ${nGroups === 1 ? 'Klasse' : 'Klassen'}, ${nStudents} Schüler`;
+}
+
+// „Alles löschen“ leert nur das Gerät, und das holt beim nächsten Sync alles zurück (ein leeres Gerät lädt nie hoch).
+// Hier wird ein leerer Stand als neueste Cloud-Version hochgeladen – das Dokument bleibt. Andere Geräte übernehmen
+// ihn wie jede Änderung; wer dort noch nicht übertragene Eingaben hat, bekommt den Konflikt-Dialog (BUGS Z1).
+async function clearAllDataEverywhere() {
+  if (!SyncManager.currentUser) return;
+  if (!SyncManager.masterPassword) { alert('Bitte zuerst das Master-Passwort eingeben.'); return; }
+  if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+    alert('Dafür braucht es eine Internetverbindung. Es wurde nichts gelöscht.');
+    return;
+  }
+  if (syncRunning) { showToast('Gerade läuft ein Sync – bitte gleich noch einmal versuchen', 'error'); return; }
+  syncRunning = true;
+  try {
+    // Passwort-Probe: Die Cloud wird nur überschrieben, wenn dieses Gerät sie lesen kann
+    const cloud = await SyncManager.readCloud();
+    let cloudData = null;
+    try { cloudData = cloud ? JSON.parse(cloud.data) : null; } catch (e) { /* dann ohne Angabe */ }
+    const localEmpty = isLocalDBEmpty();
+    const lines = [];
+    if (cloudData) lines.push('In der Cloud: ' + dataSummary(cloudData));
+    if (!localEmpty) lines.push('Auf diesem Gerät: ' + dataSummary(db));
+    const answer = await askChoice('Alles löschen – auch in der Cloud',
+      'Alle Klassen, Schüler, Noten, Stunden und Einstellungen werden gelöscht: auf diesem Gerät, in der Cloud und auf '
+      + 'allen deinen anderen Geräten, sobald sie sich abgleichen.\n\n' + (lines.length ? lines.join('\n') + '\n\n' : '')
+      + 'Das lässt sich nicht rückgängig machen. Eine Sicherung ist danach die einzige Kopie.',
+      [{ label: 'Sicherung speichern, dann alles löschen', value: 'backup', primary: true },
+       { label: 'Ohne Sicherung alles löschen', value: 'delete', danger: true }]);
+    if (!answer) return;
+    if (answer === 'delete' && !confirm('Wirklich ohne Sicherung alles löschen – auch in der Cloud?\n\nDas lässt sich nicht rückgängig machen.')) return;
+    if (answer === 'backup') {
+      if (!localEmpty) exportData();
+      // Steht in der Cloud etwas anderes (Änderungen anderer Geräte), das auch sichern
+      if (cloudData && (localEmpty || !cloudMatchesLocal(cloud.data, JSON.stringify(db)))) downloadBackupFile(cloudData, '_Cloud');
+    }
+
+    const empty = emptyDB();
+    empty.settings.lastModified = Date.now();
+    // Kein pendingUpload (T4): Käme die Antwort nicht an, würde der nächste Sync sonst die Daten dieses Geräts
+    // als „eigenen Stand“ wieder hochladen. So gibt es schlimmstenfalls den Konflikt-Dialog.
+    const newTimestamp = cloud ? await SyncManager.saveToCloud(JSON.stringify(empty), cloud.cloudTimestamp) : null;
+
+    // Gerät leeren. Mit Sync-Stand der leeren Cloud: Das Gerät gilt dann nicht als neu, sondern als abgeglichen.
+    wipeLocalData();
+    if (newTimestamp !== null) {
+      db.settings.lastModified = empty.settings.lastModified;
+      markSynced(newTimestamp, empty.settings.lastModified);
+    }
+    if (window.currentConflict) { window.currentConflict = null; closeModal('modal-sync-conflict'); }
+    SyncManager.updateStatus('synced');
+    closeModal('modal-settings');
+    updateSyncUI();
+    showToast('Alles gelöscht – auf diesem Gerät und in der Cloud.');
+  } catch (e) {
+    if (e.name === 'WrongPasswordError') {
+      rejectMasterPassword();
+      alert('❌ Das Master-Passwort passt nicht zu den Daten in der Cloud. Es wurde nichts gelöscht.');
+    } else if (e.name === 'CloudChangedError') {
+      alert('Gerade hat ein anderes Gerät hochgeladen. Es wurde nichts gelöscht – bitte noch einmal versuchen.');
+    } else if (e.name === 'AccountDeletedError') {
+      handleAccountDeleted();
+    } else {
+      alert('Fehler: ' + e.message + '\n\nEs wurde nichts gelöscht.');
+    }
+  } finally {
+    syncRunning = false;
+    if (syncQueued) { syncQueued = false; triggerSyncInternal(); }
+  }
 }
 // Alle Daten dieses Geräts löschen („Alle Daten löschen“, Abmelden auf einem geteilten Gerät)
 function wipeLocalData() {
@@ -6242,6 +6324,9 @@ function updateSyncUI() {
   updateSyncAttention();
 
   // Benutzer angemeldet?
+  const clearEverywhere = document.getElementById('btn-clear-everywhere');
+  if (clearEverywhere) clearEverywhere.classList.toggle('hidden', !SyncManager.currentUser);
+  if (!SyncManager.currentUser && accountDeleteChoice) cancelDeleteAccount();
   if (SyncManager.currentUser) {
     userStatus.textContent = `Angemeldet als: ${SyncManager.currentUser.email}`;
     loginForm.classList.add('hidden');
@@ -6279,7 +6364,12 @@ function loginEmail() {
       document.getElementById('sync-password').value = '';
     })
     .catch(err => {
-      alert('Fehler beim Login: ' + err.message);
+      // Auch ein gelöschtes Konto (BUGS Z2) landet hier; Firebase unterscheidet das nicht immer von einem falschen Passwort
+      if (['auth/user-not-found', 'auth/wrong-password', 'auth/invalid-credential', 'auth/invalid-login-credentials'].includes(err && err.code)) {
+        alert('Anmeldung fehlgeschlagen: E-Mail oder Passwort stimmen nicht – oder das Konto wurde gelöscht.\n\nDie Daten auf diesem Gerät sind davon nicht betroffen.');
+      } else {
+        alert('Fehler beim Login: ' + err.message);
+      }
     });
 }
 
@@ -6331,12 +6421,7 @@ async function logoutSync() {
     if (answer === 'delete' && unsynced && !confirm('Wirklich löschen? Die letzten Änderungen sind nicht in der Cloud und gehen verloren.\n\nTipp: Vorher „Jetzt synchronisieren“.')) return;
   }
   await SyncManager.logout();
-  storeMasterPassword('');
-  SyncManager.setMasterPassword('');
-  foreignAccountAccepted = '';
-  updateSyncAttention();
-  const passInput = document.getElementById('sync-master-password');
-  if (passInput) passInput.value = '';
+  forgetCloudLogin();
   if (answer === 'delete') {
     wipeLocalData();
     showToast('Abgemeldet, Daten auf diesem Gerät gelöscht.');
@@ -6344,6 +6429,108 @@ async function logoutSync() {
     showToast('Ausgeloggt.');
   }
 }
+
+// Nach dem Abmelden: Master-Passwort und Kontowahl dieses Geräts vergessen
+function forgetCloudLogin() {
+  storeMasterPassword('');
+  SyncManager.setMasterPassword('');
+  foreignAccountAccepted = '';
+  updateSyncAttention();
+  const passInput = document.getElementById('sync-master-password');
+  if (passInput) passInput.value = '';
+}
+
+// ─── Cloud-Konto löschen (BUGS Z2) ────────────────────────────────────────
+// Cloud-Daten und Anmelde-Konto löschen (Recht auf Löschung, Nutzer hört auf). Firebase verlangt dafür eine
+// frische Anmeldung; die passiert vorher, damit nicht die Cloud leer ist, das Konto aber bleibt.
+let accountDeleteChoice = null;   // 'keep' | 'delete': Daten auf diesem Gerät behalten oder löschen
+let accountDeleting = false;      // eigene Löschung läuft: die Markierung in der Cloud ist kein fremdes Ereignis
+async function startDeleteAccount() {
+  if (!SyncManager.currentUser) return;
+  if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+    alert('Dafür braucht es eine Internetverbindung. Es wurde nichts gelöscht.');
+    return;
+  }
+  const hasData = !isLocalDBEmpty();
+  const answer = await askChoice('Cloud-Konto löschen',
+    `Deine Daten in der Cloud und dein Anmelde-Konto (${SyncManager.currentUser.email || 'Cloud-Konto'}) werden endgültig gelöscht. `
+    + 'Deine anderen Geräte können danach nicht mehr synchronisieren; was dort gespeichert ist, bleibt dort.'
+    + (hasData ? '\n\nSollen die Daten auf DIESEM Gerät bleiben? Tipp: Vorher exportieren.' : ''),
+    hasData
+      ? [{ label: 'Konto löschen, Daten auf diesem Gerät behalten', value: 'keep', primary: true },
+         { label: 'Konto und Daten auf diesem Gerät löschen', value: 'delete', danger: true }]
+      : [{ label: 'Konto löschen', value: 'keep', danger: true }]);
+  if (!answer || !SyncManager.currentUser) return;
+  accountDeleteChoice = answer;
+  const pwGroup = document.getElementById('sync-delete-account-password-group');
+  pwGroup.classList.toggle('hidden', !SyncManager.usesPasswordLogin());
+  document.getElementById('sync-delete-account-group').classList.remove('hidden');
+  if (SyncManager.usesPasswordLogin()) document.getElementById('sync-delete-account-password').focus();
+}
+function cancelDeleteAccount() {
+  accountDeleteChoice = null;
+  document.getElementById('sync-delete-account-group').classList.add('hidden');
+  document.getElementById('sync-delete-account-password').value = '';
+}
+async function confirmDeleteAccount() {
+  const choice = accountDeleteChoice;
+  if (!choice || !SyncManager.currentUser) return;
+  const password = document.getElementById('sync-delete-account-password').value;
+  if (SyncManager.usesPasswordLogin() && !password) { showToast('Bitte das Anmelde-Passwort eingeben', 'error'); return; }
+  if (syncRunning) { showToast('Gerade läuft ein Sync – bitte gleich noch einmal versuchen', 'error'); return; }
+  if (choice === 'delete' && isLocalDBChanged() && !isLocalDBEmpty()
+      && !confirm('Die letzten Änderungen auf diesem Gerät sind nicht in der Cloud. Sie gehen beim Löschen verloren.\n\nTrotzdem löschen?')) return;
+  syncRunning = true;
+  accountDeleting = true;
+  try {
+    try {
+      await SyncManager.reauthenticate(password);
+    } catch (e) {
+      const wrong = ['auth/wrong-password', 'auth/invalid-credential', 'auth/invalid-login-credentials'].includes(e && e.code);
+      alert((wrong ? '❌ Das Anmelde-Passwort stimmt nicht.' : '❌ Anmeldung nicht bestätigt: ' + e.message) + '\n\nEs wurde nichts gelöscht.');
+      return;
+    }
+    try {
+      await SyncManager.deleteAccount();
+    } catch (e) {
+      alert('❌ Das Konto konnte nicht gelöscht werden: ' + e.message
+        + '\n\nBitte noch einmal versuchen. Die Daten auf diesem Gerät sind unverändert.');
+      return;
+    }
+    cancelDeleteAccount();
+    forgetCloudLogin();
+    if (window.currentConflict) { window.currentConflict = null; closeModal('modal-sync-conflict'); }
+    if (choice === 'delete') {
+      wipeLocalData();
+    } else if (db.syncSettings) {
+      // Kein Sync-Stand mehr: Mit einem neuen Konto zählen die Daten wie „nie synchronisiert“
+      delete db.syncSettings;
+      persistDB();
+    }
+    try { await SyncManager.logout(); } catch (e) { /* Konto ist ohnehin weg */ }
+    SyncManager.updateStatus('idle');
+    updateSyncUI();
+    showToast(choice === 'delete' ? 'Cloud-Konto und Daten auf diesem Gerät gelöscht.' : 'Cloud-Konto gelöscht. Die Daten auf diesem Gerät bleiben.');
+  } finally {
+    syncRunning = false;
+    accountDeleting = false;
+    syncQueued = false; // ohne Konto gibt es nichts mehr abzugleichen
+  }
+}
+
+// Das Konto wurde auf einem anderen Gerät gelöscht (Markierung in der Cloud) oder Firebase kennt es nicht mehr:
+// abmelden, Daten bleiben – statt eines rätselhaften Sync-Fehlers nach jeder Eingabe (BUGS Z2).
+async function handleAccountDeleted() {
+  if (accountDeleting || !SyncManager.currentUser) return;
+  try { await SyncManager.logout(); } catch (e) { /* ohnehin abgemeldet */ }
+  forgetCloudLogin();
+  if (window.currentConflict) { window.currentConflict = null; closeModal('modal-sync-conflict'); }
+  SyncManager.updateStatus('idle');
+  updateSyncUI();
+  alert('Dein Cloud-Konto wurde gelöscht (z. B. auf einem anderen Gerät).\n\n'
+    + 'Die Daten auf diesem Gerät bleiben erhalten, der Cloud-Sync ist aus und du bist abgemeldet.');
+}
+const ACCOUNT_GONE_CODES = ['auth/user-not-found', 'auth/user-token-expired', 'auth/user-disabled'];
 
 // Master-Passwort übernehmen (onchange, nicht bei jedem Tastendruck).
 // Direkt danach wird synchronisiert – dabei prüft der SyncManager, ob das Passwort
@@ -6787,6 +6974,8 @@ async function triggerSyncInternal({ manual = false } = {}) {
     } else if (error.name === 'CloudChangedError') {
       // Ein anderes Gerät war schneller – einfach neu prüfen.
       syncQueued = true;
+    } else if (error.name === 'AccountDeletedError' || ACCOUNT_GONE_CODES.includes(error.code)) {
+      handleAccountDeleted();
     } else if (error.name === 'CloudTooLargeError' || error.name === 'UnsupportedFormatError') {
       showSyncProblem(error, manual);
     } else if (manual || !syncErrorShown) {

@@ -33,6 +33,15 @@ class CloudTooLargeError extends Error {
   }
 }
 
+// Wird geworfen, wenn das Cloud-Konto gelöscht wurde (auf einem anderen Gerät, BUGS Z2).
+// In der Cloud steht dann nur noch eine Markierung ohne Daten.
+class AccountDeletedError extends Error {
+  constructor() {
+    super('Dieses Cloud-Konto wurde gelöscht.');
+    this.name = 'AccountDeletedError';
+  }
+}
+
 // Firestore erlaubt 1 MiB pro Dokument; etwas Luft für Feldnamen und Verwaltungsdaten.
 const CLOUD_MAX_BYTES = 1000000;
 // Ab hier wird gewarnt, damit der Nutzer rechtzeitig aufräumen kann.
@@ -174,6 +183,7 @@ const SyncManager = {
   async overwriteCloud(rawDataString, newPassword) {
     if (!newPassword) throw new Error("Master-Passwort fehlt.");
     const payload = await this.getCloudData();
+    if (payload && payload.deleted) throw new AccountDeletedError();
     const expected = payload ? payload.lastModified : null;
     const previous = this.masterPassword;
     this.masterPassword = newPassword;
@@ -183,6 +193,55 @@ const SyncManager = {
       this.masterPassword = previous;
       throw e;
     }
+  },
+
+  /**
+   * Liest und entschlüsselt den Cloud-Stand (Passwort-Probe), ohne etwas zu schreiben.
+   * @returns {Object|null} { cloudTimestamp, data } oder null, wenn die Cloud leer ist
+   */
+  async readCloud() {
+    const payload = await this.getCloudData();
+    if (!payload) return null;
+    if (payload.deleted) throw new AccountDeletedError();
+    return { cloudTimestamp: payload.lastModified, data: await this.decryptPayload(payload) };
+  },
+
+  /**
+   * Frische Anmeldung, bevor das Konto gelöscht werden darf (Firebase verlangt sie, wenn die letzte
+   * Anmeldung länger her ist). E-Mail-Konten mit dem Anmelde-Passwort, Google-Konten per Popup.
+   */
+  async reauthenticate(loginPassword) {
+    const user = this.currentUser;
+    if (!user) throw new Error("Nicht angemeldet.");
+    if (this.usesPasswordLogin()) {
+      const credential = firebase.auth.EmailAuthProvider.credential(user.email, loginPassword);
+      return user.reauthenticateWithCredential(credential);
+    }
+    return user.reauthenticateWithPopup(new firebase.auth.GoogleAuthProvider());
+  },
+
+  usesPasswordLogin() {
+    const user = this.currentUser;
+    return !!(user && (user.providerData || []).some(p => p && p.providerId === 'password'));
+  },
+
+  /**
+   * Löscht Cloud-Daten und Anmelde-Konto (BUGS Z2). Das Dokument wird durch eine Markierung ohne Daten
+   * ersetzt statt entfernt: Andere Geräte, die noch angemeldet sind, würden in ein fehlendes Dokument
+   * sonst sofort wieder hochladen (auch alte App-Versionen). Neue Versionen melden „Konto gelöscht“, ältere
+   * sehen ein unbekanntes Format („bitte aktualisieren“) und laden nichts hoch.
+   */
+  async deleteAccount() {
+    const user = this.currentUser;
+    if (!this.isInitialized || !user) throw new Error("Nicht angemeldet.");
+    const docRef = this._docRef();
+    await this.db.runTransaction(async (tx) => {
+      await tx.get(docRef);
+      tx.set(docRef, { deleted: true, format: 'deleted', deletedAt: Date.now() });
+    });
+    await user.delete();
+    this.masterPassword = '';
+    this.currentUser = null;
   },
 
   /**
@@ -310,6 +369,7 @@ const SyncManager = {
 
     try {
       const cloudPayload = await this.getCloudData();
+      if (cloudPayload && cloudPayload.deleted) throw new AccountDeletedError();
       const hasCloud = !!cloudPayload;
       const cloudTimestamp = hasCloud ? cloudPayload.lastModified : null;
 

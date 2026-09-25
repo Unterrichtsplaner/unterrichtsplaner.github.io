@@ -83,6 +83,7 @@ db = {
 - Vor jedem Upload merkt sich das Gerät, was es hochlädt (`syncSettings.pendingUpload`, SHA-256). Kam die Antwort nie an, erkennt der nächste Sync den eigenen Stand in der Cloud wieder (`ownUpload` → `recovered`), statt einen Konflikt gegen die eigenen Daten zu melden (T4).
 - Gehören die lokalen Daten laut `syncSettings.uid` zu einem anderen Konto, fragt der Sync vorher (übernehmen / vom Gerät löschen, `askAboutForeignAccountData`). Abmelden fragt, ob die Daten auf dem Gerät bleiben (T6).
 - Beim Verlassen der App (`onAppHidden`) wird ein offenes Stunden-Fenster übernommen, dann der wartende Autosave gesendet.
+- **Cloud leeren** (Z1, `clearAllDataEverywhere`): leerer Stand als neue Cloud-Version, Dokument bleibt; das Gerät behält den Sync-Stand (gilt nicht als neu). **Konto löschen** (Z2, `SyncManager.deleteAccount`): Dokument wird zur Markierung `{ deleted, format: 'deleted' }` ohne Daten, dann `user.delete()`. Wer die Cloud liest, prüft zuerst `deleted` (`AccountDeletedError`), nie ein fehlendes Dokument als „gelöscht“ deuten.
 
 Datumswerte sind Strings `YYYY-MM-DD` in **lokaler** Zeit (`formatDate()`). Nie `toISOString()` für Datumsstrings verwenden, und `new Date('YYYY-MM-DD')` nur mit `+ 'T12:00:00'`.
 
@@ -152,6 +153,7 @@ Datumswerte sind Strings `YYYY-MM-DD` in **lokaler** Zeit (`formatDate()`). Nie 
 56. **Nie per `align-items:center`/`justify-content:center` zentrieren, was höher oder breiter als sein Behälter werden kann** (App, Sitzplan-Raster): Der Überschuss ragt dann auf beiden Seiten hinaus, und oben/links ist nicht erreichbar. Stattdessen `margin:auto` am Kind. Bildschirmhöhen mit `100dvh` (nach `100vh` als Rückfall), nie nur `100vh` – Safari auf dem iPhone rechnet `100vh` mit eingefahrener Leiste (S18).
 57. **Formulare mit Eingaben blockieren den Pull, solange etwas eingetippt ist** (`inputModalOpen`; Einstellungen nur bei `settingsDirty()`). Ein neues Formular, dessen Felder aus `db` stammen, gehört dazu – sonst ersetzt ein Pull die Eingaben still oder das Formular schreibt beim Speichern den alten Stand zurück (P1, T5).
 58. **Datumsfelder für neue Einträge stehen auf heute** (am Wochenende letzter Schultag, `profileDefaultDate`), auch nach dem Eintragen – nie leer lassen. Notenwerte werden mit bis zu zwei Nachkommastellen gespeichert (`parseGradeInput`), im Formular mit Komma angezeigt (`gradeText`).
+59. **Wer die Cloud absichtlich überschreibt oder leert** (Passwort neu, Cloud leeren), liest sie vorher und schreibt nur gegen genau diesen Stand (`saveToCloud(…, gelesenerTimestamp)`), und setzt dafür **kein** `pendingUpload`: Käme die Antwort nicht an, hielte der nächste Sync sonst die alten Gerätedaten für den eigenen Upload und lüde sie wieder hoch.
 
 ## Arbeitsablauf
 
