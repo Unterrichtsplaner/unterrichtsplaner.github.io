@@ -51,3 +51,29 @@ describe('X8: keine vermeidbaren Meldungen in der Konsole', () => {
     expect(HTML).toMatch(/<meta name="apple-mobile-web-app-capable" content="yes"/);
   });
 });
+
+describe('X9: jede Beschriftung gehört zu ihrem Feld (Chrome „No label associated with a form field“)', () => {
+  const { loadApp } = require('./helpers/load-app');
+  beforeAll(() => loadApp());
+
+  it('jedes <label> hat ein Feld (per for oder darin)', () => {
+    const loose = [...document.querySelectorAll('label')].filter(l => !l.control).map(l => l.textContent.trim());
+    expect(loose).toEqual([]);
+  });
+
+  it('Tippen auf die Beschriftung setzt den Fokus ins Feld', () => {
+    const label = document.querySelector('label[for="new-student-first"]');
+    expect(label).not.toBeNull();
+    expect(label.control.id).toBe('new-student-first');
+  });
+
+  it('Farbauswahl und Hälften-Auswahl sind als Gruppe mit Namen ausgezeichnet', () => {
+    ['lesson-color-picker', 'group-color-picker', 'settings-bg-colors', 'settings-accent-colors', 'lesson-part-options'].forEach(id => {
+      const el = document.getElementById(id);
+      expect(el, id).not.toBeNull();
+      const nameEl = document.getElementById(el.getAttribute('aria-labelledby') || '');
+      expect(nameEl && nameEl.textContent.trim(), id).toBeTruthy();
+      expect(['group', 'radiogroup'], id).toContain(el.getAttribute('role'));
+    });
+  });
+});

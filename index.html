@@ -41,7 +41,7 @@
       }
     } catch(e) {}
   </script>
-  <link rel="stylesheet" href="style.css?v=238" />
+  <link rel="stylesheet" href="style.css?v=239" />
   <script>
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
@@ -456,7 +456,7 @@
     </div>
     <div class="modal-body">
       <div class="form-group">
-        <label>Klasse verknüpfen (optional)</label>
+        <label for="new-lesson-group">Klasse verknüpfen (optional)</label>
         <select id="new-lesson-group" class="form-input" onchange="onLessonGroupChange()">
           <option value="">— Freie Eingabe (keine Verknüpfung) —</option>
         </select>
@@ -472,12 +472,12 @@
       </div>
       <!-- Free subject field (shown when no group linked) -->
       <div id="lesson-subject-field" class="form-group">
-        <label>Fach / Klasse</label>
+        <label for="new-lesson-subject">Fach / Klasse</label>
         <input type="text" id="new-lesson-subject" placeholder="z.B. Mathematik 7b" class="form-input" />
       </div>
       <div class="form-row">
         <div class="form-group">
-          <label>Tag</label>
+          <label for="new-lesson-day">Tag</label>
           <select id="new-lesson-day" class="form-input" onchange="updateLessonDateHint()">
             <option value="0">Montag</option>
             <option value="1">Dienstag</option>
@@ -487,21 +487,21 @@
           </select>
         </div>
         <div class="form-group">
-          <label>Block</label>
+          <label for="new-lesson-block">Block</label>
           <select id="new-lesson-block" class="form-input" onchange="updateLessonDateHint()"></select>
         </div>
       </div>
       <div class="form-group">
-        <label>Farbe</label>
-        <div class="color-picker" id="lesson-color-picker"></div>
+        <span class="group-label" id="lesson-color-label">Farbe</span>
+        <div class="color-picker" id="lesson-color-picker" role="group" aria-labelledby="lesson-color-label"></div>
       </div>
       <div class="form-group">
-        <label>Raum (optional)</label>
+        <label for="new-lesson-room">Raum (optional)</label>
         <input type="text" id="new-lesson-room" placeholder="z.B. R102" class="form-input" />
       </div>
       <div class="form-group" style="margin-top:12px;">
-        <label class="form-label">Dauer / Position im Block</label>
-        <div style="display:flex; background:var(--bg-elevated); border:1px solid var(--border); border-radius:99px; overflow:hidden;">
+        <span class="group-label" id="lesson-part-label">Dauer / Position im Block</span>
+        <div id="lesson-part-options" role="radiogroup" aria-labelledby="lesson-part-label" style="display:flex; background:var(--bg-elevated); border:1px solid var(--border); border-radius:99px; overflow:hidden;">
           <label style="flex:1; position:relative; cursor:pointer; margin:0;">
             <input type="radio" name="new-lesson-part" value="full" checked style="position:absolute; opacity:0; pointer-events:none;" />
             <div class="duration-btn">Ganzer Block</div>
@@ -517,7 +517,7 @@
         </div>
       </div>
         <div class="form-group" style="margin-top:12px;">
-          <label class="form-label">Wiederholung</label>
+          <label for="new-lesson-recurring" class="form-label">Wiederholung</label>
           <select id="new-lesson-recurring" class="form-input" onchange="updateLessonDateHint()">
             <option value="weekly">Jede Woche</option>
             <option value="biweekly">Alle 2 Wochen</option>
@@ -543,7 +543,7 @@
     </div>
     <div class="modal-body">
       <div class="form-group">
-        <label class="form-label">Art</label>
+        <label for="gf-type" class="form-label">Art</label>
         <select id="gf-type" class="form-input">
           <option value="mitarbeit">Mitarbeitsnote</option>
           <option value="test">Test / HÜ</option>
@@ -555,11 +555,11 @@
         </select>
       </div>
       <div class="form-group">
-        <label class="form-label" id="gf-value-label">Note / Wert (z. B. 1, 2,5, 2-, +)</label>
+        <label for="gf-value" class="form-label" id="gf-value-label">Note / Wert (z. B. 1, 2,5, 2-, +)</label>
         <input type="text" id="gf-value" class="form-input" placeholder="z.B. 1 oder +">
       </div>
       <div class="form-group">
-        <label class="form-label">Datum</label>
+        <label for="gf-date" class="form-label">Datum</label>
         <input type="date" id="gf-date" class="form-input">
       </div>
       <div class="form-group">
@@ -587,16 +587,16 @@
       <button class="modal-close" aria-label="Schließen" onclick="closeModal('modal-add-group')">✕</button>
     </div>
     <div class="modal-body">
-      <div class="form-group"><label>Klasse</label><input type="text" id="new-group-class" placeholder="z.B. 7b" class="form-input" /></div>
+      <div class="form-group"><label for="new-group-class">Klasse</label><input type="text" id="new-group-class" placeholder="z.B. 7b" class="form-input" /></div>
       <div class="form-group">
-        <label>Fach</label>
+        <label for="new-group-subject">Fach</label>
         <input type="text" id="new-group-subject" placeholder="z.B. Mathematik" class="form-input" list="subject-suggestions" />
         <datalist id="subject-suggestions"></datalist>
       </div>
-      <div class="form-group"><label>Schuljahr (optional)</label><input type="text" id="new-group-year" placeholder="z.B. 2025/26" class="form-input" /></div>
-      <div class="form-group"><label>Farbe</label><div class="color-picker" id="group-color-picker"></div></div>
+      <div class="form-group"><label for="new-group-year">Schuljahr (optional)</label><input type="text" id="new-group-year" placeholder="z.B. 2025/26" class="form-input" /></div>
+      <div class="form-group"><span class="group-label" id="group-color-label">Farbe</span><div class="color-picker" id="group-color-picker" role="group" aria-labelledby="group-color-label"></div></div>
       <div class="form-group" style="margin-top:20px; border-top:1px solid var(--border); padding-top:16px;">
-        <label>Noten-Wichtung (in %)</label>
+        <label for="weight-schularbeit">Noten-Wichtung (in %)</label>
         <p style="font-size:12px; color:var(--text-muted); margin-bottom:12px; line-height:1.4;">Lege fest, zu wie viel Prozent die <strong>Klassenarbeiten / Klausuren</strong> in die Gesamtnote zählen. Alle anderen Noten werden zusammengefasst und bilden den restlichen Prozent-Anteil.</p>
         <div style="display:flex; align-items:center; gap:12px;">
           <input type="number" id="weight-schularbeit" class="form-input" style="width:80px;" value="50" min="0" max="100" />
@@ -604,7 +604,7 @@
         </div>
       </div>
       <div class="form-group">
-        <label>Notenskala</label>
+        <label for="new-group-scale">Notenskala</label>
         <select id="new-group-scale" class="form-input">
           <option value="1-6">Noten 1–6</option>
           <option value="0-15">Punkte 0–15 (Oberstufe)</option>
@@ -631,10 +631,10 @@
     </div>
     <div class="modal-body">
       <div class="form-row">
-        <div class="form-group"><label>Vorname</label><input type="text" id="new-student-first" placeholder="Vorname" class="form-input" /></div>
-        <div class="form-group"><label>Nachname</label><input type="text" id="new-student-last" placeholder="Nachname" class="form-input" /></div>
+        <div class="form-group"><label for="new-student-first">Vorname</label><input type="text" id="new-student-first" placeholder="Vorname" class="form-input" /></div>
+        <div class="form-group"><label for="new-student-last">Nachname</label><input type="text" id="new-student-last" placeholder="Nachname" class="form-input" /></div>
       </div>
-      <div class="form-group"><label>Notizen</label><textarea id="new-student-notes" placeholder="Besonderheiten..." class="form-input" rows="3"></textarea></div>
+      <div class="form-group"><label for="new-student-notes">Notizen</label><textarea id="new-student-notes" placeholder="Besonderheiten..." class="form-input" rows="3"></textarea></div>
     </div>
     <div class="modal-footer">
       <button class="btn-secondary" onclick="closeModal('modal-add-student')">Abbrechen</button>
@@ -652,7 +652,7 @@
     </div>
     <div class="modal-body">
       <div class="form-group">
-        <label>Von bestehender Klasse kopieren:</label>
+        <label for="import-from-group">Von bestehender Klasse kopieren:</label>
         <select id="import-from-group" class="form-input">
           <option value="">-- Bitte wählen --</option>
         </select>
@@ -660,7 +660,7 @@
       </div>
       <div style="margin: 16px 0; border-bottom: 1px solid var(--border);"></div>
       <div class="form-group">
-        <label>Oder Namen einfügen (ein Name pro Zeile, „Vorname Nachname“ oder aus Excel zwei Spalten Vorname | Nachname):</label>
+        <label for="import-text">Oder Namen einfügen (ein Name pro Zeile, „Vorname Nachname“ oder aus Excel zwei Spalten Vorname | Nachname):</label>
         <textarea id="import-text" class="form-input" style="height: 120px;" placeholder="Max Mustermann&#10;Anna Schmidt&#10;..."></textarea>
       </div>
       <div class="form-group" style="margin-top: 12px; margin-bottom: 12px;">
@@ -708,15 +708,15 @@
     </div>
     <div class="modal-body">
       <div class="form-group">
-        <label>Datum</label>
+        <label for="new-col-date">Datum</label>
         <input type="date" id="new-col-date" class="form-input" />
       </div>
       <div class="form-group">
-        <label>Anlass / Bezeichnung (optional)</label>
+        <label for="new-col-label">Anlass / Bezeichnung (optional)</label>
         <input type="text" id="new-col-label" placeholder="z.B. 1. Vokabeltest" class="form-input" />
       </div>
       <div class="form-group" id="new-col-type-group" style="display:none;">
-        <label>Art der Note</label>
+        <label for="new-col-type">Art der Note</label>
         <select id="new-col-type" class="form-input">
           <option value="test">Sonstige Note (Test, Mitarbeit, etc.)</option>
           <option value="schularbeit">Klassenarbeit / Klausur</option>
@@ -820,27 +820,27 @@
       <button class="modal-close" aria-label="Schließen" onclick="closeModalLikeButton('modal-settings')">✕</button>
     </div>
     <div class="modal-body">
-      <div class="form-group"><label>Lehrername</label><input type="text" id="settings-teacher-name" class="form-input" placeholder="Dein Name" /></div>
-      <div class="form-group"><label>Schule</label><input type="text" id="settings-school" class="form-input" placeholder="Schulname" /></div>
+      <div class="form-group"><label for="settings-teacher-name">Lehrername</label><input type="text" id="settings-teacher-name" class="form-input" placeholder="Dein Name" /></div>
+      <div class="form-group"><label for="settings-school">Schule</label><input type="text" id="settings-school" class="form-input" placeholder="Schulname" /></div>
       <div class="settings-section" style="margin-top:16px;">
         <h3 style="margin-bottom:12px;font-size:14px;">Warnungs-Schwellenwerte (Dashboard)</h3>
         <div class="form-row">
           <div class="form-group">
-            <label>Unentsch. Fehlzeiten (0 = aus)</label>
+            <label for="settings-warn-absences">Unentsch. Fehlzeiten (0 = aus)</label>
             <input type="number" id="settings-warn-absences" class="form-input" min="0" max="50" placeholder="z.B. 3" />
           </div>
           <div class="form-group">
-            <label>Vergessene HA (0 = aus)</label>
+            <label for="settings-warn-homework">Vergessene HA (0 = aus)</label>
             <input type="number" id="settings-warn-homework" class="form-input" min="0" max="50" placeholder="z.B. 3" />
           </div>
         </div>
         <div class="form-row">
           <div class="form-group">
-            <label>Notenschnitt schlechter als (0 = aus)</label>
+            <label for="settings-warn-grade">Notenschnitt schlechter als (0 = aus)</label>
             <input type="number" id="settings-warn-grade" class="form-input" step="0.1" min="0" max="6" placeholder="z.B. 4.5" />
           </div>
           <div class="form-group">
-            <label>Oberstufe: Schnitt unter … Punkten (0 = aus)</label>
+            <label for="settings-warn-points">Oberstufe: Schnitt unter … Punkten (0 = aus)</label>
             <input type="number" id="settings-warn-points" class="form-input" step="0.5" min="0" max="15" placeholder="z.B. 5" />
           </div>
         </div>
@@ -858,8 +858,8 @@
       <div class="settings-section">
         <h3 style="margin-bottom:12px;font-size:14px;">Darstellung</h3>
         <div class="form-group">
-          <label>Hintergrundfarbe</label>
-          <div style="display:flex; gap:10px; flex-wrap:wrap; margin-bottom:12px;" id="settings-bg-colors">
+          <span class="group-label" id="settings-bg-label">Hintergrundfarbe</span>
+          <div style="display:flex; gap:10px; flex-wrap:wrap; margin-bottom:12px;" id="settings-bg-colors" role="group" aria-labelledby="settings-bg-label">
             <div class="color-swatch settings-swatch-bg" role="button" tabindex="0" style="background:#0f1117; --swatch-color:#6b7280;" data-color="" data-mode="dark" data-card="" title="Standard (dunkel)" onclick="selectThemeBg(this, '', 'dark', '')"></div>
             <!-- Light Backgrounds -->
             <div class="color-swatch settings-swatch-bg" role="button" tabindex="0" style="background:#fbcfe8; --swatch-color:#f9a8d4;" data-color="#fbcfe8" data-mode="light" data-card="#fce7f3" title="Pastellrosa" onclick="selectThemeBg(this, '#fbcfe8', 'light', '#fce7f3')"></div>
@@ -874,8 +874,8 @@
           </div>
         </div>
         <div class="form-group">
-          <label>Akzentfarbe</label>
-          <div style="display:flex; gap:10px; flex-wrap:wrap; margin-bottom:12px;" id="settings-accent-colors">
+          <span class="group-label" id="settings-accent-label">Akzentfarbe</span>
+          <div style="display:flex; gap:10px; flex-wrap:wrap; margin-bottom:12px;" id="settings-accent-colors" role="group" aria-labelledby="settings-accent-label">
             <div class="color-swatch settings-swatch-accent" role="button" tabindex="0" style="background:#6366f1; --swatch-color:#6366f1;" data-color="#6366f1" title="Indigo (Standard)" onclick="selectThemeAccent(this, '#6366f1')"></div>
             <div class="color-swatch settings-swatch-accent" role="button" tabindex="0" style="background:#be123c; --swatch-color:#be123c;" data-color="#be123c" title="Dusty Rose" onclick="selectThemeAccent(this, '#be123c')"></div>
             <div class="color-swatch settings-swatch-accent" role="button" tabindex="0" style="background:#fb7185; --swatch-color:#fb7185;" data-color="#fb7185" title="Soft Coral" onclick="selectThemeAccent(this, '#fb7185')"></div>
@@ -888,14 +888,14 @@
           </div>
         </div>
         <div class="form-group">
-          <label>Kanten-Radius: <span id="settings-radius-val">8px</span></label>
+          <label for="settings-radius">Kanten-Radius: <span id="settings-radius-val">8px</span></label>
           <input type="range" id="settings-radius" min="0" max="12" value="8" style="width:100%" oninput="document.getElementById('settings-radius-val').textContent=this.value+'px'; applyThemePreview()" />
         </div>
       </div>
       <div class="settings-section">
         <h3 style="margin-bottom:12px;font-size:14px;">Anzeige</h3>
         <div class="form-group">
-          <label>Schüler sortieren nach</label>
+          <label for="settings-sort-order">Schüler sortieren nach</label>
           <select id="settings-sort-order" class="form-input">
             <option value="firstName">Vorname (Max Müller)</option>
             <option value="lastName">Nachname (Müller, Max)</option>
@@ -955,7 +955,7 @@
           <!-- Master Password Config -->
           <div id="sync-crypto-section" class="hidden">
             <div class="form-group">
-              <label>Master-Passwort (für lokale E2EE-Verschlüsselung)</label>
+              <label for="sync-master-password">Master-Passwort (für lokale E2EE-Verschlüsselung)</label>
               <input type="password" id="sync-master-password" class="form-input" placeholder="Master-Passwort festlegen/eingeben" onchange="updateMasterPassword(this.value)" />
               <div style="font-size:11px; color:var(--danger); margin-top:4px; font-weight:600;">
                 ⚠️ WICHTIG: Dieses Passwort verschlüsselt deine Daten lokal auf deinem Gerät. Es wird NIEMALS unverschlüsselt übertragen. Wenn du es verlierst, sind deine Cloud-Daten unlesbar verloren! Auf diesem Gerät bleibt es gespeichert, bis du dich abmeldest.
@@ -1106,7 +1106,7 @@
       </div>
       <div class="modal-body">
         <div class="form-group">
-          <label>Gruppengröße</label>
+          <label for="seating-group-size">Gruppengröße</label>
           <select id="seating-group-size" class="form-input">
             <option value="2">2er-Gruppen (Partnerarbeit)</option>
             <option value="3">3er-Gruppen</option>
@@ -1116,7 +1116,7 @@
           </select>
         </div>
         <div class="form-group">
-          <label>Methode</label>
+          <label for="seating-group-method">Methode</label>
           <select id="seating-group-method" class="form-input">
             <option value="proximity">Sitznachbarn (räumlich nah)</option>
             <option value="random">Zufällig gemischt</option>
@@ -1256,12 +1256,12 @@
   </div>
 
   <script src="lib/crypto-js.min.js"></script>
-  <script src="crypto-helper.js?v=238"></script>
+  <script src="crypto-helper.js?v=239"></script>
   <script src="lib/firebase-app-compat.js"></script>
   <script src="lib/firebase-auth-compat.js"></script>
   <script src="lib/firebase-firestore-compat.js"></script>
-  <script src="firebase-config.js?v=238"></script>
-  <script src="sync-manager.js?v=238"></script>
-  <script src="app.js?v=238"></script>
+  <script src="firebase-config.js?v=239"></script>
+  <script src="sync-manager.js?v=239"></script>
+  <script src="app.js?v=239"></script>
 </body>
 </html>
