@@ -950,3 +950,10 @@ button.date-chip{font-family:inherit;padding:0;}
 
 /* Zufallsauswahl: die Karten im Sitzplan leuchten mit, also nicht abdunkeln/verwischen (BUGS S11) */
 #modal-seating-randomizer{background:transparent;backdrop-filter:none;-webkit-backdrop-filter:none;align-items:flex-end;padding-bottom:24px;}
+/* Datenschutzhinweise (BUGS Y1) */
+.privacy-notice{font-size:13px;line-height:1.5;color:var(--text-secondary);}
+.privacy-notice h3{font-size:14px;color:var(--text-primary);margin:16px 0 6px;}
+.privacy-notice h3:first-child{margin-top:0;}
+.privacy-notice ul{margin:0;padding-left:18px;}
+.privacy-notice li{margin-bottom:6px;}
+.privacy-notice a{color:var(--accent);}

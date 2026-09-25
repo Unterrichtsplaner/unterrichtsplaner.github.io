@@ -1,6 +1,6 @@
 # Bekannte Fehler & Aufgaben
 
-Stand: Code-Review vom 23.09.2026, neue Befunde aus dem Review vom 25.09.2026 in K–O, aus dem fünften Review (25.09.2026, nachmittags) in P–S, aus dem sechsten Review (25.09.2026, Mittag) in T–X. Zeilennummern beziehen sich auf diesen Stand und verrutschen mit der Zeit – im Zweifel nach dem Funktionsnamen suchen.
+Stand: Code-Review vom 23.09.2026, neue Befunde aus dem Review vom 25.09.2026 in K–O, aus dem fünften Review (25.09.2026, nachmittags) in P–S, aus dem sechsten Review (25.09.2026, Mittag) in T–X, Konzept-Review (Datenschutz, Schuljahr) in Y. Zeilennummern beziehen sich auf diesen Stand und verrutschen mit der Zeit – im Zweifel nach dem Funktionsnamen suchen.
 
 **Arbeitsweise:** Ein Block pro Sitzung. Für jeden Fix zuerst einen Test schreiben, der den Fehler zeigt, dann reparieren und hier abhaken (`[x]` + Commit-Hash).
 
@@ -402,6 +402,36 @@ Priorität: 🔴 Datenverlust / App kaputt · 🟠 falsche Anzeige / nervig · �
 - [ ] **X4** 🟢 Wochenansicht: lange Klassennamen abgeschnitten („Q1 Leist…“), ohne `title`/`aria-label` – der volle Name ist in der Woche nirgends zu sehen; in den Tabellen ebenso „David von Hohe…“ (dort immerhin im Profil). *Browser.* → `title` bzw. zweizeilig umbrechen.
 - [ ] **X5** 🟢 Tagesansicht (Handy): leere Blöcke zeigen kein „+“, der Hinweis steht nur im `title` („Klicken zum Hinzufügen“), den es auf Touch nicht gibt. *Browser.* → „+“ auch in der Tagesansicht sichtbar.
 - [ ] **X6** 🟢 Die App folgt nicht der Systemeinstellung hell/dunkel (kein `prefers-color-scheme`, Standard immer dunkel, `db.settings.theme || 'dark'` ~Z. 3299). *Code.* → Option „Automatisch (wie Gerät)“ als Standard für neue Nutzer.
+
+## Y. Konzept-Review 25.09.2026: Datenschutz, Datensicherheit, Schuljahr
+
+> Keine Einzelfehler, sondern Lücken für den Alltag von Lehrkräften (Blick von außen auf die ganze App). Dazu zwei Kleinigkeiten aus dem Code-Review von `review-6` (Y13, Y14).
+
+**Datenschutz & Betrieb**
+- [x] **Y1** 🟠 **Keine Datenschutzhinweise.** Andere Lehrkräfte speichern Schülerdaten im Firebase-Projekt des Autors; für die Genehmigung durch die Schulleitung brauchen sie etwas zum Vorlegen. → Einstellungen → „Datenschutz“ → Fenster `modal-privacy` (`openPrivacyNotice`): Gerät, Verschlüsselung, Firebase/Google, GitHub Pages, Verantwortung der Schule, Kontakt. Test: `tests/privacy.test.js`. **Offen:** Firestore-Region in der Firebase-Konsole nachsehen und ggf. im Text nennen (EU-Region wäre ein gutes Argument); Text ist keine Rechtsberatung.
+- [ ] **Y2** 🟠 **Keine App-Sperre.** Das iPad liegt am Pult; wer die App öffnet, sieht alle Noten, Fehlzeiten, Anmerkungen. Regel 16 schützt nur den Sitzplan. → PIN (oder Face ID per WebAuthn) beim Öffnen und nach X Minuten im Hintergrund, optional; PIN nie in `db` (sonst geht sie in die Cloud).
+- [ ] **Y3** 🟠 **Keine Löschfristen / Schuljahresende.** Schülerdaten sammeln sich unbegrenzt an; sie müssen nach Ablauf der Aufbewahrungsfrist gelöscht werden. → zusammen mit Y6.
+
+**Datensicherheit auf dem Gerät**
+- [ ] **Y4** 🟠 **Keine Erinnerung an die Sicherung.** `db.settings.lastBackupTimestamp` wird beim Export gesetzt (`exportData`), aber nirgends gelesen. Ohne Cloud-Sync ist `localStorage` die einzige Kopie. → Hinweis im Dashboard, z. B. ab 30 Tagen ohne Export (nicht, wenn der Cloud-Sync läuft).
+- [ ] **Y5** 🟠 **`navigator.storage.persist()` wird nie aufgerufen.** Safari löscht Speicher von Websites nach 7 Tagen ohne Besuch, wenn die App nicht zum Home-Bildschirm hinzugefügt ist. → beim Start `persist()` anfragen; in Safari (nicht `standalone`) einmal „Zum Home-Bildschirm hinzufügen“ empfehlen.
+
+**Fachlich**
+- [ ] **Y6** 🟠 **Kein Schuljahreswechsel.** Nur ein freies Feld „Schuljahr“ an der Klasse. Fehlt: Klasse ins neue Schuljahr übernehmen (Schüler ja, Noten/Fehlzeiten nein), altes Jahr exportieren/archivieren und löschen, neuer Stundenplan. Sonst wächst die DB jedes Jahr (Firestore-Dokument max. 1 MiB, `localStorage` ~5 MB, Y11).
+- [ ] **Y7** 🟠 **Keine Halbjahre.** Der Schnitt läuft über alle Noten; fürs Halbjahreszeugnis braucht man ihn bis zum Stichtag, danach getrennt oder gesamt. → Zeitraum (Halbjahr 1/2/gesamt) für `calculateStudentAverage`, Stichtag in den Einstellungen.
+- [ ] **Y8** 🟠 **Keine Ferien und Feiertage.** Schultage sind fest Mo–Fr (Regel 17). HA „bis nächste Stunde“ vor den Ferien ist mitten in den Ferien fällig, „Nächste Stunde“ zeigt Ferientage, A/B-Woche läuft durch (an manchen Schulen falsch). → Ferienliste pro Schuljahr (manuell, evtl. Vorlage je Bundesland), `isSchoolDay` beachtet sie; A/B-Zählung über Ferien einstellbar. Achtung Regel 5/40: alles über `slotOccursOn`.
+- [ ] **Y9** 🟢 **Keine druckbare Notenübersicht** für die Zeugniskonferenz (nur CSV). → Druckansicht einer Klasse (`@media print`).
+
+**Sync**
+- [ ] **Y10** 🟢 **Konflikt-Dialog sagt nicht, was sich unterscheidet.** Bei einem Konflikt muss man einen ganzen Stand verwerfen, ohne zu sehen, welcher was enthält. → Zusammenfassung pro Seite („iPad: 3 Noten in 7b; Cloud: Stundenplan geändert“) aus einem Vergleich der beiden Stände.
+
+**Technik**
+- [ ] **Y11** 🟢 **Datenmenge wächst unbegrenzt** (hängt an Y6): Warnung ab 75 % des Firestore-Limits gibt es; für `localStorage` nicht.
+- [ ] **Y12** 🟢 **`app.js` hat ~6900 Zeilen in einem globalen Scope.** Die Zahl der Regeln in CLAUDE.md zeigt, wie viele Stellen jede Änderung treffen kann. → schrittweise in Dateien aufteilen (Sync, Noten, Stundenplan, Sitzplan), ohne Build-Schritt; Reihenfolge in index.html, `ASSETS` in sw.js und `?v=N` (Regel 26) mitziehen.
+
+**Aus dem Code-Review von `review-6`**
+- [ ] **Y13** 🟢 „Stunde hinzufügen“ (`refreshLessonPartOptions`): Ist im Block nur eine Hälfte belegt, ist genau diese Hälfte gesperrt – eine Vertretung (einmalig) für eine halbe Stunde lässt sich nicht mehr anlegen (M6 erlaubt das eigentlich). Ganze Stunden gehen. → Bei „einmalig“ belegte Hälften regelmäßiger Stunden nicht sperren; bei Wechsel der Wiederholung neu prüfen.
+- [ ] **Y14** 🟢 Altdaten aus dem V1-Fehler (Stunde vor dem Fix auf den Platz einer beendeten gelegt, ohne `validFrom`, mit Einträgen aus früheren Wochen): `saveLessonSlot` lehnt jedes Speichern ab, auch nur Raum/Farbe, und verweist auf „ab … ändern“, das ohne Terminänderung nie erscheint. → bei Änderungen ohne `changesSchedule` die `endedHere`-Prüfung überspringen.
 
 ---
 

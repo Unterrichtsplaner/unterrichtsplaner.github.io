@@ -38,7 +38,7 @@
       }
     } catch(e) {}
   </script>
-  <link rel="stylesheet" href="style.css?v=234" />
+  <link rel="stylesheet" href="style.css?v=235" />
   <script>
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
@@ -1008,6 +1008,12 @@
       </div>
 
       <div class="settings-section">
+        <h3>Datenschutz</h3>
+        <p style="font-size:12px;color:var(--text-muted);margin:6px 0 12px">Was wo gespeichert wird und wer es lesen kann – auch zum Vorlegen bei der Schulleitung.</p>
+        <button class="btn-secondary" onclick="openPrivacyNotice()"><i data-icon="lock"></i>Datenschutzhinweise</button>
+      </div>
+
+      <div class="settings-section">
         <h3>Über & Kontakt</h3>
         <p style="font-size:12px;color:var(--text-muted);margin:6px 0 12px">Hast du Fragen, Probleme oder Wünsche für neue Funktionen?</p>
         <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:8px;">
@@ -1028,6 +1034,60 @@
     <div class="modal-footer" style="justify-content:space-between; gap:12px;">
       <span class="settings-footer-hint">Namen, Warnschwellen, Darstellung und Stundenzeiten gelten erst mit „Speichern“.</span>
       <button class="btn-primary" onclick="saveSettings()">Speichern</button>
+    </div>
+  </div>
+</div>
+
+<!-- Datenschutzhinweise (BUGS Y1). Nach den Einstellungen im Markup: liegt über ihnen (Escape schließt das oberste). -->
+<div id="modal-privacy" class="modal-overlay hidden" onclick="closeModalOnOverlay(event,'modal-privacy')">
+  <div class="modal" onclick="event.stopPropagation()">
+    <div class="modal-header">
+      <h2>Datenschutzhinweise</h2>
+      <button class="modal-close" aria-label="Schließen" onclick="closeModal('modal-privacy')">✕</button>
+    </div>
+    <div class="modal-body privacy-notice">
+      <h3>Kurz gesagt</h3>
+      <ul>
+        <li>Deine Daten (Klassen, Schüler, Noten, Fehlzeiten, Notizen) liegen <strong>auf diesem Gerät</strong>, im Speicher des Browsers.</li>
+        <li>Ohne Anmeldung beim Cloud-Sync verlassen sie das Gerät nie.</li>
+        <li>Mit Cloud-Sync geht nur eine <strong>verschlüsselte</strong> Kopie auf einen Server. Verschlüsselt wird auf deinem Gerät mit deinem Master-Passwort. Ohne dieses Passwort kann niemand die Daten lesen – auch nicht der Betreiber der App oder Google.</li>
+        <li>Kein Tracking, keine Werbung, keine Analyse-Dienste, keine fremden Schriften oder Skripte.</li>
+      </ul>
+
+      <h3>Auf diesem Gerät</h3>
+      <ul>
+        <li>Die Daten liegen unverschlüsselt im Browser-Speicher (<code>localStorage</code>). Wer das Gerät entsperrt benutzen kann, kann sie sehen. Sperre das Gerät deshalb mit Code, Fingerabdruck oder Gesicht und nutze die App nicht in einem geteilten Benutzerkonto.</li>
+        <li>Wenn du den Cloud-Sync nutzt, ist auch dein Master-Passwort auf diesem Gerät gespeichert, damit der Abgleich ohne erneute Eingabe läuft. Beim Abmelden wird es gelöscht.</li>
+        <li>Exportierte Sicherungsdateien sind <strong>nicht</strong> verschlüsselt. Bewahre sie so sicher auf wie die Notenliste auf Papier.</li>
+        <li>Löschen: Einstellungen → Datenverwaltung → „Alles löschen“. Beim Abmelden fragt die App außerdem, ob die Daten auf dem Gerät bleiben sollen.</li>
+      </ul>
+
+      <h3>Cloud-Sync (freiwillig)</h3>
+      <ul>
+        <li>Anbieter: Google Firebase (Anmeldung und Datenbank Firestore).</li>
+        <li>Gespeichert werden: deine E-Mail-Adresse bzw. dein Google-Konto für die Anmeldung und ein verschlüsseltes Datenpaket (AES-256-GCM, Schlüssel aus dem Master-Passwort per PBKDF2) mit dem Zeitpunkt der letzten Änderung.</li>
+        <li>Wie jeder Server-Dienst verarbeitet Google dabei technische Daten wie deine IP-Adresse. Eine Übermittlung in die USA ist dabei nicht ausgeschlossen. Schülerdaten sind davon nur verschlüsselt betroffen.</li>
+        <li>Jedes Konto kann nur sein eigenes Datenpaket lesen und schreiben.</li>
+        <li>Deine Cloud-Daten und dein Konto löschen lassen: kurze E-Mail an den Betreiber (siehe unten).</li>
+      </ul>
+
+      <h3>Aufruf der App</h3>
+      <ul>
+        <li>Die App wird über GitHub Pages ausgeliefert. Beim Laden erhält GitHub technische Daten wie die IP-Adresse. Danach läuft die App aus dem Speicher des Geräts, auch offline.</li>
+        <li>Der Quellcode ist öffentlich (Einstellungen → Open Source) – was die App tut, lässt sich dort nachprüfen.</li>
+      </ul>
+
+      <h3>Für den dienstlichen Einsatz</h3>
+      <ul>
+        <li>Verantwortlich für die Daten deiner Schülerinnen und Schüler ist deine Schule. In vielen Bundesländern brauchst du für die Verarbeitung auf einem privaten Gerät eine Genehmigung der Schulleitung. Diese Hinweise kannst du dafür vorlegen.</li>
+        <li>Trage nur ein, was du für den Unterricht brauchst, und lösche Daten, wenn die Aufbewahrungsfrist deiner Schule abgelaufen ist.</li>
+      </ul>
+
+      <h3>Betreiber</h3>
+      <p>Der Unterrichtsplaner ist ein privates, nicht kommerzielles Projekt einer Lehrkraft. Fragen zum Datenschutz: <a href="mailto:ericwinderlich@gmail.com?subject=Datenschutz%20Unterrichtsplaner">ericwinderlich@gmail.com</a></p>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-primary" onclick="closeModal('modal-privacy')">Schließen</button>
     </div>
   </div>
 </div>
@@ -1193,12 +1253,12 @@
   </div>
 
   <script src="lib/crypto-js.min.js"></script>
-  <script src="crypto-helper.js?v=234"></script>
+  <script src="crypto-helper.js?v=235"></script>
   <script src="lib/firebase-app-compat.js"></script>
   <script src="lib/firebase-auth-compat.js"></script>
   <script src="lib/firebase-firestore-compat.js"></script>
-  <script src="firebase-config.js?v=234"></script>
-  <script src="sync-manager.js?v=234"></script>
-  <script src="app.js?v=234"></script>
+  <script src="firebase-config.js?v=235"></script>
+  <script src="sync-manager.js?v=235"></script>
+  <script src="app.js?v=235"></script>
 </body>
 </html>
