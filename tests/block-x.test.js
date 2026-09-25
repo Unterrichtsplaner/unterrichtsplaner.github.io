@@ -32,3 +32,22 @@ describe('X7: Ziehen am Rand bewegt nicht die ganze App (Gummiband-Effekt)', () 
     expect(rule).toMatch(/overscroll-behavior:none/);
   });
 });
+
+describe('X8: keine vermeidbaren Meldungen in der Konsole', () => {
+  const HTML = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+  const SW = fs.readFileSync(path.join(__dirname, '..', 'sw.js'), 'utf8');
+
+  it('Tab-Symbol ist angegeben (sonst sucht der Browser favicon.ico → 404) und liegt im Offline-Cache', () => {
+    const icons = [...HTML.matchAll(/<link rel="icon"[^>]*href="([^"]+)"/g)].map(m => m[1]);
+    expect(icons.length).toBeGreaterThan(0);
+    icons.forEach(href => {
+      expect(fs.existsSync(path.join(__dirname, '..', href)), href).toBe(true);
+      expect(SW).toContain(`'./${href}'`);
+    });
+  });
+
+  it('Vollbild vom Home-Bildschirm: neue Angabe plus die alte für ältere iPads', () => {
+    expect(HTML).toMatch(/<meta name="mobile-web-app-capable" content="yes"/);
+    expect(HTML).toMatch(/<meta name="apple-mobile-web-app-capable" content="yes"/);
+  });
+});
