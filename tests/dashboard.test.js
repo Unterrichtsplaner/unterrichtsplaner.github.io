@@ -109,6 +109,8 @@ describe('H3: nächste Stunde', () => {
   });
 
   it('zeigt fällige Hausaufgaben und Tests', () => {
+    // 1A hat heute zwei Stunden; fällig ist die HA in der ersten, die stattfindet (BUGS R11) – hier fällt die erste aus
+    app('db.lessonData["sA_2026-09-24"] = { ausfall: true }');
     render();
     const next = content().querySelector('.dash-next');
     expect(next.textContent).toContain('Buch S. 12 Nr. 3');

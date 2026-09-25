@@ -38,7 +38,7 @@
       }
     } catch(e) {}
   </script>
-  <link rel="stylesheet" href="style.css?v=226" />
+  <link rel="stylesheet" href="style.css?v=227" />
   <script>
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
@@ -475,7 +475,7 @@
       <div class="form-row">
         <div class="form-group">
           <label>Tag</label>
-          <select id="new-lesson-day" class="form-input">
+          <select id="new-lesson-day" class="form-input" onchange="updateLessonDateHint()">
             <option value="0">Montag</option>
             <option value="1">Dienstag</option>
             <option value="2">Mittwoch</option>
@@ -515,11 +515,12 @@
       </div>
         <div class="form-group" style="margin-top:12px;">
           <label class="form-label">Wiederholung</label>
-          <select id="new-lesson-recurring" class="form-input">
+          <select id="new-lesson-recurring" class="form-input" onchange="updateLessonDateHint()">
             <option value="weekly">Jede Woche</option>
             <option value="biweekly">Alle 2 Wochen</option>
             <option value="none">Nur einmalig</option>
           </select>
+          <div id="lesson-date-hint" class="form-hint hidden" aria-live="polite"></div>
         </div>
     </div>
     <div class="modal-footer">
@@ -1186,12 +1187,12 @@
   </div>
 
   <script src="lib/crypto-js.min.js"></script>
-  <script src="crypto-helper.js?v=226"></script>
+  <script src="crypto-helper.js?v=227"></script>
   <script src="lib/firebase-app-compat.js"></script>
   <script src="lib/firebase-auth-compat.js"></script>
   <script src="lib/firebase-firestore-compat.js"></script>
-  <script src="firebase-config.js?v=226"></script>
-  <script src="sync-manager.js?v=226"></script>
-  <script src="app.js?v=226"></script>
+  <script src="firebase-config.js?v=227"></script>
+  <script src="sync-manager.js?v=227"></script>
+  <script src="app.js?v=227"></script>
 </body>
 </html>

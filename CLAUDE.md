@@ -128,7 +128,7 @@ Datumswerte sind Strings `YYYY-MM-DD` in **lokaler** Zeit (`formatDate()`). Nie 
 38. **Nach Änderungen an Schülerdaten `refreshStudentViews(groupId)` aufrufen** (bzw. `refreshGradeViews` bei Noten), nicht nur die Ansicht, aus der die Änderung kam. Die Schnellbewertung öffnet sich auch über Tabelle und Stunden-Fenster.
 39. **Farben mit Hell/Dunkel-Varianten als Grundfarbe in eine CSS-Variable legen** (`style="--avatar:#…"`) und die Töne in style.css per `color-mix` je Modus mischen, statt zwei feste Farben inline zu setzen (die überstimmen jede Modus-Regel).
 
-40. **Stunden haben einen optionalen Gültigkeitszeitraum** (`validFrom`/`validUntil`). Wer prüft, ob eine Stunde an einem Datum stattfindet oder mit einer anderen kollidiert, geht über `slotOccursOn`/`slotsShareDate` (beachten ihn). Stundenplanwechsel mit Einträgen aus früheren Wochen: `splitSlotFrom`, nie rückwirkend verschieben.
+40. **Stunden haben einen optionalen Gültigkeitszeitraum** (`validFrom`/`validUntil`). Wer prüft, ob eine Stunde an einem Datum stattfindet oder mit einer anderen kollidiert, geht über `slotOccursOn`/`slotsShareDate` (beachten ihn). Stundenplanwechsel mit Einträgen aus früheren Wochen: `splitSlotFrom`, nie rückwirkend verschieben. Ab wann, bestimmt `splitDateFor` (nie vor heute, nie über gehaltene Stunden); wer Stunden verschiebt, nimmt die Zieldaten von HA/Tests mit (`retargetDueItems`).
 41. **„Dieselbe Klasse“ für Stunden nur über `relatedSlots(slot)`** (mit Klasse: alle Stunden der Klasse; freie Stunden: gleicher Fachname). Datumsvorschläge und Fälligkeit müssen dieselbe Regel nutzen.
 42. **Nach Änderungen an Stunden oder Stundendaten `renderScheduleViews()`** statt nur `renderTimetable()`, damit das Dashboard mitkommt.
 43. **Rückfragen mit mehr als Ja/Nein über `askChoice(titel, text, [{label, value, primary|danger}])`** (liefert eine Promise, `null` = abgebrochen). Die aufrufende Funktion ist dann `async`; nach dem `await` prüfen, ob das bearbeitete Objekt noch in `db` ist.
@@ -142,6 +142,8 @@ Datumswerte sind Strings `YYYY-MM-DD` in **lokaler** Zeit (`formatDate()`). Nie 
 49. **Sitzplan und Schnellbewertung fassen nur Mitarbeit/HA-Einträge ohne Titel an.** Einträge mit Titel („Referat“, HA-Spalte „Arbeitsheft“) gehören zu Spalten der Tabelle (Q8).
 50. **Pro Schüler und Tag höchstens ein Eintrag aus `DAY_ATTENDANCE_TYPES`** (F/E/Z). Wer einträgt, stellt einen vorhandenen um, damit sein Grund bleibt, statt einen zweiten anzulegen (Q2, Q11). Fehl-Hinweise beim Löschen von Schülern über `cleanUpDeletedStudents`, beim Umbenennen über `renameAbsenceNotes`.
 51. **Tabellen der Klassenansicht werden bei jeder Eingabe neu gezeichnet.** Wohin der Fokus danach soll, merkt sich `overviewFocusTarget` (Antippen, Tab); Enter/Tab, die per `change` übernehmen, setzen `overviewCommittedInput`. Neue Eingabe-Reiter nutzen dieselben Wege, sonst geht auf dem iPad nach jeder Zelle die Tastatur zu (Q3).
+52. **Fällig ist eine HA nur in der ersten Stunde des Tages, die stattfindet** (`getIncomingItems`). Wer HA/Tests zählt oder anzeigt, geht über `getIncomingItems`/`dueItemsFor`, nie selbst über `targetDate`.
+53. **Blöcke immer über `getBlocks()`** – die Liste ist nach Uhrzeit sortiert und eine Kopie. Wer Blöcke speichert, schreibt `db.settings.blocks` (Einstellungen: `blocksDraft`), nie in das Ergebnis von `getBlocks()`.
 
 ## Arbeitsablauf
 

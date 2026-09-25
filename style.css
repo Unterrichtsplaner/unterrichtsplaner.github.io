@@ -468,6 +468,8 @@ input[name="new-lesson-part"]:hover:not(:checked) + .duration-btn {
 /* ─── Form ───────────────────────────── */
 .form-group{display:flex;flex-direction:column;gap:5px;margin-bottom:13px;}
 .form-group label{font-size:11px;font-weight:600;color:var(--text-secondary);text-transform:uppercase;letter-spacing:.5px;}
+/* Hinweis unter einem Feld, z. B. an welchem Tag eine einmalige Stunde liegt (BUGS R13) */
+.form-hint{font-size:12px;color:var(--text-secondary);margin-top:2px;}
 .form-input{background:var(--bg-input);border:1px solid var(--border);border-radius:var(--radius-md);color:var(--text-primary);font-family:inherit;font-size:14px;padding:9px 11px;transition:all var(--transition);width:100%;}
 .form-input:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 2px var(--accent-glow);}
 .form-input::placeholder{color:var(--text-muted);}
