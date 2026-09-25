@@ -188,21 +188,23 @@ Priorität: 🔴 Datenverlust / App kaputt · 🟠 falsche Anzeige / nervig · �
 
 ## M. Review 25.09.2026: Stundenplan, Stunden-Fenster, Dashboard
 
-- [ ] **M1** 🟠 **Dashboard wird nicht neu gezeichnet** nach Speichern/„Stunde entfällt“ (`saveLessonDataAndClose`, `toggleAusfall`), nach Cloud-Übernahme (`applyCloudData`), nach Einstellungen (`saveSettings`) und nie per Timer (anders als `refreshTimetableClock`). Ausgefallene Stunde bleibt „nächste Stunde“; über Mitternacht bleibt „Heute“ stehen. *Test (Ausfall).* → Gemeinsames `refreshActiveView()`, Dashboard in den Minuten-Timer.
+> Behoben (v218). Tests: `tests/block-m.test.js`. M6: Eine Vertretung darf jetzt eine regelmäßige Stunde an ihrem Tag ersetzen (Hinweis „ersetzt 7b an diesem Tag“); der D3-Test ist entsprechend angepasst. M7: Stunden haben optional `validFrom`/`validUntil`. Ändern (Tag, Block, Hälfte, Rhythmus) oder Löschen einer Stunde mit Einträgen aus früheren Wochen fragt „ab der Woche vom … / alle Stunden“; ohne frühere Einträge bleibt alles wie bisher. Ältere App-Versionen kennen die Felder nicht und zeigen beendete Stunden weiter an (nur Anzeige, kein Datenverlust).
+
+- [x] **M1** 🟠 **Dashboard wird nicht neu gezeichnet** nach Speichern/„Stunde entfällt“ (`saveLessonDataAndClose`, `toggleAusfall`), nach Cloud-Übernahme (`applyCloudData`), nach Einstellungen (`saveSettings`) und nie per Timer (anders als `refreshTimetableClock`). Ausgefallene Stunde bleibt „nächste Stunde“; über Mitternacht bleibt „Heute“ stehen. *Test (Ausfall).* → Gemeinsames `refreshActiveView()`, Dashboard in den Minuten-Timer.
 - [x] **M2** 🟠 *(mit K15 erledigt: `resetViewSelection()`)* **Nach Pull/Import/Löschen wird die aktive Ansicht nicht neu gezeichnet**, ungültige Auswahl bleibt (`applyCloudData` ~Z. 5078 zeichnet nur Stundenplan+Klassen; `importData`/`clearAllData` setzen `currentGroupId`/`currentSeatingGroupId` nicht zurück, Regel 10). Neues Gerät: Login → Dashboard bleibt leer. *Test.*
-- [ ] **M3** 🟠 **HA für freie Stunden (ohne Klasse) mit mehreren Terminen landet nirgends:** `findUpcomingLessonDates` (~Z. 941) sucht über den Fachnamen, `getIncomingItems` (~Z. 664) nur über dieselbe `slotId`. „AG Robotik“ Mo+Mi: HA für Mi erscheint weder Mi noch im Dashboard. *Test.* → Eine gemeinsame „Geschwister-Stunden“-Regel.
-- [ ] **M4** 🟠 **Datumsvorschläge für HA/Test bieten ausgefallene oder vertretene Stunden an** (`findUpcomingLessonDates` ~Z. 956 nur `slotOccursOn`). Eingetragene HA ist dann unsichtbar. *Test.* → Über `lessonsOnDate`, `!ausfall`.
-- [ ] **M5** 🟠 **HA-Schalter aus → HA bleibt in der Zielstunde „fällig“** (`getIncomingItems`/`dueItemsFor` ignorieren `hwEnabled`/`testEnabled`), dort nicht löschbar. *Test.*
-- [ ] **M6** 🟠 **Vertretung auf dem Platz einer regulären Stunde nicht anlegbar** („Block ist bereits belegt!“, `saveLessonSlot` ~Z. 876), obwohl `lessonsAt` das Ersetzen kann – geht nur, wenn die Vertretung älter ist als die reguläre Stunde. *Test; Designfrage, bestehender Test legt das heutige Verhalten fest.* → Einmalige Stunde darf eine reguläre überlagern (mit Hinweis „ersetzt 7b an diesem Tag“).
-- [ ] **M7** 🟠 **Stundenplanwechsel zum Halbjahr verändert die Vergangenheit:** Tag ändern verschiebt *alle* alten Notizen/HA auf den neuen Tag (`moveLessonData`); auf einmalig/zweiwöchentlich stellen blendet alte Notizen aus; Löschen löscht alle Notizen des Jahres, die Rückfrage sagt das nicht. *Nur Code.* → „Ab diesem Datum ändern/beenden“ (Enddatum an der Stunde); mindestens Anzahl Notizen in der Rückfrage.
-- [ ] **M8** 🟢 Freie Stunde: „Notenübersicht“ und „Schüler bewerten“ sichtbar, tun nichts. *Test.* → Ausblenden wie den Sitzplan-Link.
-- [ ] **M9** 🟢 „Schüler bewerten“ zeigt fest „Nachname, Vorname“ („, Max“ ohne Nachnamen), Rest von I12 (~Z. 4096). *Test.* → `studentListName(s)`.
-- [ ] **M10** 🟢 „Schüler bewerten“ → jemanden als fehlend markieren: „Heute fehlen“ im offenen Stunden-Fenster bleibt leer. *Test.*
-- [ ] **M11** 🟢 Tagesansicht: Sprung auf einen Samstag zeigt den **Montag davor** statt danach (`jumpToDate`/`timetableDayDate` ~Z. 404). *Test.*
-- [ ] **M12** 🟢 Wochenkopf über Neujahr: „KW 53 · 28.12. – 01.01. 2026“ (~Z. 428). *Test.* → Jahr vom Freitag bzw. beide Jahre.
-- [ ] **M13** 🟢 Stunde ohne `color` (Alt-/Fremddaten) → `hexToRgba(undefined)` wirft, ganzer Stundenplan leer (`buildTimetableCell`). *Test.* → Ersatzfarbe bzw. `migrateDB`.
-- [ ] **M14** 🟢 Datums-Picker (KW-Anzeige, Sitzplan-Kalender) wird nie auf das aktuelle Datum gesetzt → dasselbe Datum ein zweites Mal wählen löst kein `change` aus, nichts passiert. *Nur Code.*
-- [ ] **M15** 🟢 HA/Test im Stunden-Fenster per Index gelöscht (`removeItem(type, ${i})`, Regel 9). *Nur Code.*
+- [x] **M3** 🟠 **HA für freie Stunden (ohne Klasse) mit mehreren Terminen landet nirgends:** `findUpcomingLessonDates` (~Z. 941) sucht über den Fachnamen, `getIncomingItems` (~Z. 664) nur über dieselbe `slotId`. „AG Robotik“ Mo+Mi: HA für Mi erscheint weder Mi noch im Dashboard. *Test.* → Eine gemeinsame „Geschwister-Stunden“-Regel.
+- [x] **M4** 🟠 **Datumsvorschläge für HA/Test bieten ausgefallene oder vertretene Stunden an** (`findUpcomingLessonDates` ~Z. 956 nur `slotOccursOn`). Eingetragene HA ist dann unsichtbar. *Test.* → Über `lessonsOnDate`, `!ausfall`.
+- [x] **M5** 🟠 **HA-Schalter aus → HA bleibt in der Zielstunde „fällig“** (`getIncomingItems`/`dueItemsFor` ignorieren `hwEnabled`/`testEnabled`), dort nicht löschbar. *Test.*
+- [x] **M6** 🟠 **Vertretung auf dem Platz einer regulären Stunde nicht anlegbar** („Block ist bereits belegt!“, `saveLessonSlot` ~Z. 876), obwohl `lessonsAt` das Ersetzen kann – geht nur, wenn die Vertretung älter ist als die reguläre Stunde. *Test; Designfrage, bestehender Test legt das heutige Verhalten fest.* → Einmalige Stunde darf eine reguläre überlagern (mit Hinweis „ersetzt 7b an diesem Tag“).
+- [x] **M7** 🟠 **Stundenplanwechsel zum Halbjahr verändert die Vergangenheit:** Tag ändern verschiebt *alle* alten Notizen/HA auf den neuen Tag (`moveLessonData`); auf einmalig/zweiwöchentlich stellen blendet alte Notizen aus; Löschen löscht alle Notizen des Jahres, die Rückfrage sagt das nicht. *Nur Code.* → „Ab diesem Datum ändern/beenden“ (Enddatum an der Stunde); mindestens Anzahl Notizen in der Rückfrage.
+- [x] **M8** 🟢 Freie Stunde: „Notenübersicht“ und „Schüler bewerten“ sichtbar, tun nichts. *Test.* → Ausblenden wie den Sitzplan-Link.
+- [x] **M9** 🟢 „Schüler bewerten“ zeigt fest „Nachname, Vorname“ („, Max“ ohne Nachnamen), Rest von I12 (~Z. 4096). *Test.* → `studentListName(s)`.
+- [x] **M10** 🟢 „Schüler bewerten“ → jemanden als fehlend markieren: „Heute fehlen“ im offenen Stunden-Fenster bleibt leer. *Test.*
+- [x] **M11** 🟢 Tagesansicht: Sprung auf einen Samstag zeigt den **Montag davor** statt danach (`jumpToDate`/`timetableDayDate` ~Z. 404). *Test.*
+- [x] **M12** 🟢 Wochenkopf über Neujahr: „KW 53 · 28.12. – 01.01. 2026“ (~Z. 428). *Test.* → Jahr vom Freitag bzw. beide Jahre.
+- [x] **M13** 🟢 Stunde ohne `color` (Alt-/Fremddaten) → `hexToRgba(undefined)` wirft, ganzer Stundenplan leer (`buildTimetableCell`). *Test.* → Ersatzfarbe bzw. `migrateDB`.
+- [x] **M14** 🟢 Datums-Picker (KW-Anzeige, Sitzplan-Kalender) wird nie auf das aktuelle Datum gesetzt → dasselbe Datum ein zweites Mal wählen löst kein `change` aus, nichts passiert. *Nur Code.*
+- [x] **M15** 🟢 HA/Test im Stunden-Fenster per Index gelöscht (`removeItem(type, ${i})`, Regel 9). *Nur Code.*
 
 ## N. Review 25.09.2026: Sitzplan
 
@@ -331,3 +333,17 @@ Priorität: 🔴 Datenverlust / App kaputt · 🟠 falsche Anzeige / nervig · �
 | L10 | Schülerakte: `gradeText`, „Punkte“ bei 0–15, Abschnitt „Hausaufgaben vergessen“; Klasse aus `currentGroupId` statt `currentOverviewGroupId` | Block L |
 | L11 | CSV über `csvCell()` (Anführungszeichen verdoppelt) | Block L |
 | L12 | Avatar: nur Grundfarbe `--avatar` inline, helle/dunkle Töne per `color-mix` in style.css (≥ 6,3:1 statt ~2,5:1) | Block L |
+| M1 | `renderScheduleViews()` (Stundenplan + Dashboard) nach Speichern, Ausfall, HA, Stunde ändern/löschen, Einstellungen; Minuten-Timer auch fürs Dashboard; `data-slot` an der Karte „Nächste Stunde“ | Block M |
+| M3 | `relatedSlots(slot)`: eine Regel für Vorschläge und Fälligkeit (freie Stunden über den Fachnamen) | Block M |
+| M4 | `findUpcomingLessonDates` über `lessonsOnDate`, ohne Ausfall und ersetzte Stunden | Block M |
+| M5 | `getIncomingItems`/`dueItemsFor` nur bei eingeschaltetem HA-/Test-Schalter | Block M |
+| M6 | Vertretung darf regelmäßige Stunde überlagern, Toast „ersetzt … an diesem Tag“ | Block M |
+| M7 | `validFrom`/`validUntil` (`slotValidOn`, `slotRangesOverlap`), `splitSlotFrom`, Auswahl-Fenster `askChoice`; Löschen „ab der Woche beenden“ oder komplett mit Anzahl; beendete Stunden geben ihren Platz frei und fehlen auf der Klassenkarte | Block M |
+| M8 | Freie Stunde: „Notenübersicht“/„Schüler bewerten“ ausgeblendet | Block M |
+| M9 | „Schüler bewerten“ über `studentListName` | Block M |
+| M10 | `renderLessonAbsent()`, auch aus `refreshStudentViews` bei offenem Stunden-Fenster | Block M |
+| M11 | `jumpToDate` über `setTimetableDay` (Wochenende → Montag danach) | Block M |
+| M12 | Wochenkopf nennt über Neujahr beide Jahre | Block M |
+| M13 | `safeColor()`: fehlende/kaputte Farbe → Standardfarbe | Block M |
+| M14 | Datums-Picker (Stundenplan, Sitzplan) stehen auf dem angezeigten Datum | Block M |
+| M15 | HA/Test im Stunden-Fenster per Referenz löschen | Block M |

@@ -45,7 +45,8 @@ db = {
                   subject, room, color, groupId,
                   recurring /*'weekly'|'biweekly'|'none' (Altdaten: true/false)*/,
                   startDate /*biweekly: Datum in einer A-Woche*/, startWeek /*veraltet, nur für alte App-Versionen*/,
-                  specificDate /*einmalig, liegt immer auf `day`*/ }],
+                  specificDate /*einmalig, liegt immer auf `day`*/,
+                  validFrom, validUntil /*optional, YYYY-MM-DD inkl.: Stundenplanwechsel „ab dieser Woche“*/ }],
   lessonData: { '<slotId>_<YYYY-MM-DD>': { done, notes, ausfall, hwEnabled, testEnabled, … } },
   groups: [{ id, subject, className, year, color, schularbeitWeight /*0–100*/, gradeScale /*'1-6' (Standard, fehlt bei Altdaten) | '0-15'*/,
              seatingRows, seatingCols, teacherDeskX, teacherDeskY, seatingPlan: [{ studentId, … }],
@@ -122,6 +123,11 @@ Datumswerte sind Strings `YYYY-MM-DD` in **lokaler** Zeit (`formatDate()`). Nie 
 
 38. **Nach Änderungen an Schülerdaten `refreshStudentViews(groupId)` aufrufen** (bzw. `refreshGradeViews` bei Noten), nicht nur die Ansicht, aus der die Änderung kam. Die Schnellbewertung öffnet sich auch über Tabelle und Stunden-Fenster.
 39. **Farben mit Hell/Dunkel-Varianten als Grundfarbe in eine CSS-Variable legen** (`style="--avatar:#…"`) und die Töne in style.css per `color-mix` je Modus mischen, statt zwei feste Farben inline zu setzen (die überstimmen jede Modus-Regel).
+
+40. **Stunden haben einen optionalen Gültigkeitszeitraum** (`validFrom`/`validUntil`). Wer prüft, ob eine Stunde an einem Datum stattfindet oder mit einer anderen kollidiert, geht über `slotOccursOn`/`slotsShareDate` (beachten ihn). Stundenplanwechsel mit Einträgen aus früheren Wochen: `splitSlotFrom`, nie rückwirkend verschieben.
+41. **„Dieselbe Klasse“ für Stunden nur über `relatedSlots(slot)`** (mit Klasse: alle Stunden der Klasse; freie Stunden: gleicher Fachname). Datumsvorschläge und Fälligkeit müssen dieselbe Regel nutzen.
+42. **Nach Änderungen an Stunden oder Stundendaten `renderScheduleViews()`** statt nur `renderTimetable()`, damit das Dashboard mitkommt.
+43. **Rückfragen mit mehr als Ja/Nein über `askChoice(titel, text, [{label, value, primary|danger}])`** (liefert eine Promise, `null` = abgebrochen). Die aufrufende Funktion ist dann `async`; nach dem `await` prüfen, ob das bearbeitete Objekt noch in `db` ist.
 
 ## Arbeitsablauf
 

@@ -38,7 +38,7 @@
       }
     } catch(e) {}
   </script>
-  <link rel="stylesheet" href="style.css?v=217" />
+  <link rel="stylesheet" href="style.css?v=218" />
   <script>
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
@@ -1155,13 +1155,27 @@
     </div>
   </div>
 
+  <!-- Auswahl zwischen mehreren Wegen (askChoice); liegt im Markup zuletzt, also über allen anderen Fenstern -->
+  <div id="modal-choice" class="modal-overlay hidden" onclick="closeModalOnOverlay(event,'modal-choice')">
+    <div class="modal modal-small" onclick="event.stopPropagation()" style="max-width:460px;">
+      <div class="modal-header">
+        <h2 id="modal-choice-title"></h2>
+        <button class="modal-close" aria-label="Abbrechen" onclick="answerChoice(null)">×</button>
+      </div>
+      <div class="modal-body">
+        <p id="modal-choice-text" style="font-size:13px; line-height:1.5; color:var(--text-secondary); white-space:pre-line;"></p>
+      </div>
+      <div class="modal-footer" id="modal-choice-buttons" style="flex-direction:column; align-items:stretch; gap:10px; display:flex;"></div>
+    </div>
+  </div>
+
   <script src="lib/crypto-js.min.js"></script>
-  <script src="crypto-helper.js?v=217"></script>
+  <script src="crypto-helper.js?v=218"></script>
   <script src="lib/firebase-app-compat.js"></script>
   <script src="lib/firebase-auth-compat.js"></script>
   <script src="lib/firebase-firestore-compat.js"></script>
-  <script src="firebase-config.js?v=217"></script>
-  <script src="sync-manager.js?v=217"></script>
-  <script src="app.js?v=217"></script>
+  <script src="firebase-config.js?v=218"></script>
+  <script src="sync-manager.js?v=218"></script>
+  <script src="app.js?v=218"></script>
 </body>
 </html>

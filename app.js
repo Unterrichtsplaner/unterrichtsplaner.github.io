@@ -351,8 +351,20 @@ function sameWeekParity(dateStrA, dateStrB) { return (weekIndex(dateStrA) - week
 function isOneOffSlot(slot) { return slot.recurring === false || slot.recurring === 'none'; }
 // Zweiwöchig ohne Startdatum (Altdaten ohne KW) wurde schon immer jede Woche angezeigt
 function isABSlot(slot) { return slot.recurring === 'biweekly' && !!slot.startDate; }
+// Gültigkeitszeitraum (BUGS M7): Stundenplanwechsel „ab dieser Woche“ beendet die alte Stunde (validUntil)
+// und legt eine neue an (validFrom), damit frühere Wochen samt Notizen bleiben, wie sie waren.
+// Beides fehlt bei den meisten Stunden = unbegrenzt. Ältere App-Versionen kennen die Felder nicht.
+function slotValidOn(slot, dateStr) {
+  return (!slot.validFrom || dateStr >= slot.validFrom) && (!slot.validUntil || dateStr <= slot.validUntil);
+}
+function slotRangesOverlap(a, b) {
+  if (a.validUntil && b.validFrom && a.validUntil < b.validFrom) return false;
+  if (b.validUntil && a.validFrom && b.validUntil < a.validFrom) return false;
+  return true;
+}
 function slotOccursOn(slot, dateStr) {
   if (slot.day !== (parseDate(dateStr).getDay() + 6) % 7) return false;
+  if (!slotValidOn(slot, dateStr)) return false;
   if (isOneOffSlot(slot)) return slot.specificDate === dateStr;
   if (isABSlot(slot)) return sameWeekParity(dateStr, slot.startDate);
   return true;
@@ -364,6 +376,7 @@ function partsOverlap(p, q) {
 // Können zwei Stunden je am selben Tag im selben Block liegen?
 function slotsShareDate(a, b) {
   if (a.day !== b.day || a.block !== b.block) return false;
+  if (!slotRangesOverlap(a, b)) return false;
   if (isOneOffSlot(a)) return slotOccursOn(b, a.specificDate);
   if (isOneOffSlot(b)) return slotOccursOn(a, b.specificDate);
   if (isABSlot(a) && isABSlot(b)) return sameWeekParity(a.startDate, b.startDate);
@@ -422,22 +435,8 @@ function jumpToDate(dateStr) {
   if (!dateStr) return;
   const targetDate = parseDate(dateStr);
   if (isNaN(targetDate.getTime())) return;
-  const now = new Date();
-  const dayOfWeek = now.getDay();
-  const adjustedNow = new Date(now);
-  if (dayOfWeek === 6) adjustedNow.setDate(now.getDate() + 2);
-  if (dayOfWeek === 0) adjustedNow.setDate(now.getDate() + 1);
-  
-  const mondayNow = new Date(adjustedNow);
-  mondayNow.setDate(mondayNow.getDate() - ((mondayNow.getDay() + 6) % 7));
-  mondayNow.setHours(0,0,0,0);
-
-  const mondayTarget = new Date(targetDate);
-  mondayTarget.setDate(mondayTarget.getDate() - ((mondayTarget.getDay() + 6) % 7));
-  mondayTarget.setHours(0,0,0,0);
-  currentWeekOffset = Math.round((mondayTarget - mondayNow) / 86400000 / 7);
-  if (isSchoolDay(targetDate)) timetableDay = formatDate(targetDate);
-  else timetableDay = null;
+  // Wochenende → nächster Montag, wie überall (BUGS M11); die Woche läuft mit
+  setTimetableDay(targetDate);
   renderTimetable();
 }
 
@@ -452,6 +451,9 @@ function renderTimetable() {
   if (nextBtn) nextBtn.title = dayView ? 'Nächster Tag' : 'Nächste Woche';
   if (dayView) renderTimetableDay(grid);
   else renderTimetableWeek(grid);
+  // Datumsauswahl auf das Angezeigte stellen, sonst löst dasselbe Datum ein zweites Mal kein change aus (BUGS M14)
+  const picker = document.getElementById('week-date-picker');
+  if (picker) picker.value = formatDate(dayView ? timetableDayDate() : getWeekDates(currentWeekOffset)[0]);
 }
 
 function renderTimetableWeek(grid) {
@@ -459,8 +461,11 @@ function renderTimetableWeek(grid) {
   const blocks = getBlocks();
 
   const weekNo = getWeekNumber(dates[0]);
-  document.getElementById('week-label').textContent =
-    `KW ${weekNo}  ·  ${formatDateDE(dates[0])} – ${formatDateDE(dates[4])} ${dates[0].getFullYear()}`;
+  // Woche über Neujahr: beide Jahre nennen (BUGS M12)
+  const y0 = dates[0].getFullYear(), y4 = dates[4].getFullYear();
+  document.getElementById('week-label').textContent = y0 === y4
+    ? `KW ${weekNo}  ·  ${formatDateDE(dates[0])} – ${formatDateDE(dates[4])} ${y4}`
+    : `KW ${weekNo}  ·  ${formatDateDE(dates[0])}${y0} – ${formatDateDE(dates[4])}${y4}`;
 
   // "Heute" button + week-label only glow on the current week
   const heuteBtn = document.querySelector('button[onclick="goToCurrentWeek()"]');
@@ -555,16 +560,23 @@ function buildTimeLabel(block) {
 function timetableClock(now = new Date()) {
   return { todayStr: formatDate(now), nowMins: now.getHours() * 60 + now.getMinutes(), next: findNextLesson(now) };
 }
-// Läuft gerade eine Stunde bzw. ändert sich die „nächste“: jede Minute neu zeichnen
+// Läuft gerade eine Stunde bzw. ändert sich die „nächste“: jede Minute neu zeichnen.
+// Gilt für Stundenplan und Dashboard („läuft noch …“, über Nacht „Heute“, BUGS M1).
 let timetableClockMinute = null;
 function refreshTimetableClock() {
-  const view = document.getElementById('view-timetable');
-  if (!view || !view.classList.contains('active') || document.hidden) return;
+  if (document.hidden) return;
+  const active = id => document.getElementById(id)?.classList.contains('active');
+  if (!active('view-timetable') && !active('view-dashboard')) return;
   const now = new Date();
   const minute = formatDate(now) + ' ' + now.getHours() + ':' + now.getMinutes();
   if (minute === timetableClockMinute) return;
   timetableClockMinute = minute;
+  renderScheduleViews();
+}
+// Nach Änderungen an Stunden/Stundendaten: Stundenplan und, falls offen, Dashboard neu zeichnen (BUGS M1)
+function renderScheduleViews() {
   renderTimetable();
+  if (document.getElementById('view-dashboard')?.classList.contains('active')) renderDashboard();
 }
 setInterval(refreshTimetableClock, 20000);
 document.addEventListener('visibilitychange', refreshTimetableClock);
@@ -615,7 +627,7 @@ function buildTimetableCell(d, dayIdx, block, clock = timetableClock()) {
                 : isNext ? `<span class="tt-lesson-badge">als Nächstes</span>` : '';
 
     return `<div class="tt-lesson${isAusfall?' ausfall-lesson':''}${running?' running':''}${isNext?' next':''}"
-           style="background:${hexToRgba(lesson.color,0.15)};--lesson-color:${escHtml(lesson.color)}"
+           style="background:${hexToRgba(lesson.color,0.15)};--lesson-color:${escHtml(safeColor(lesson.color))}"
            onclick="openLessonDetail(${jsArg(lesson.id)},${jsArg(dateStr)})">
         <div class="tt-lesson-head">
           <div class="tt-lesson-class">${escHtml(t.main)}</div>
@@ -676,7 +688,11 @@ function handleTimetableSwipe(dx, dy) {
   });
 })();
 
+// Fehlt die Farbe oder ist sie kaputt (Alt-/Fremddaten), Standardfarbe statt Absturz (BUGS M13)
+const DEFAULT_LESSON_COLOR = '#6366f1';
+function safeColor(hex) { return /^#[0-9a-f]{6}$/i.test(hex || '') ? hex : DEFAULT_LESSON_COLOR; }
 function hexToRgba(hex, alpha) {
+  hex = safeColor(hex);
   const r=parseInt(hex.slice(1,3),16), g=parseInt(hex.slice(3,5),16), b=parseInt(hex.slice(5,7),16);
   return `rgba(${r},${g},${b},${alpha})`;
 }
@@ -687,28 +703,31 @@ function getGroupSlots(groupId) {
 }
 
 // ─── Incoming items (HW / Tests assigned FROM other sessions TO this date) ──
+// Welche Stunden gehören zur selben Klasse? Mit Klasse: alle Stunden der Klasse; ohne Klasse (freie
+// Eingabe): alle freien Stunden mit demselben Fachnamen. Dieselbe Regel für Datumsvorschläge und
+// Fälligkeit, sonst landet eine HA in einer Stunde, die sie nie anzeigt (BUGS M3).
+function relatedSlots(slot) {
+  if (!slot) return [];
+  if (slot.groupId) return getGroupSlots(slot.groupId);
+  const name = (slot.subject || '').trim().toLowerCase();
+  return db.lessonSlots.filter(s => !s.groupId && (s.subject || '').trim().toLowerCase() === name);
+}
+
 function getIncomingItems(slotId, targetDateStr) {
   const currentSlot = db.lessonSlots.find(s => s.id === slotId);
   const result = { hw: [], tests: [] };
-
-  // Determine which slot IDs count as "same class"
-  let siblingIds;
-  if (currentSlot && currentSlot.groupId) {
-    // All slots sharing the same group (covers Mon + Wed of the same class)
-    siblingIds = new Set(getGroupSlots(currentSlot.groupId).map(s => s.id));
-  } else {
-    // No group link – only look at this exact slot
-    siblingIds = new Set([slotId]);
-  }
+  const siblingIds = new Set(currentSlot ? relatedSlots(currentSlot).map(s => s.id) : [slotId]);
 
   Object.entries(db.lessonData).forEach(([key, data]) => {
-    const [keySlotId, fromDate] = key.split('_'); // UIDs have no underscores; date is YYYY-MM-DD
+    const sep = key.lastIndexOf('_');
+    const keySlotId = key.slice(0, sep), fromDate = key.slice(sep + 1);
     if (!siblingIds.has(keySlotId)) return;
     if (fromDate === targetDateStr) return; // skip self
-    (data.hwItems || []).forEach(item => {
+    // Ausgeschalteter HA-/Test-Schalter: dort unsichtbar, also auch hier nicht fällig (BUGS M5)
+    if (data.hwEnabled) (data.hwItems || []).forEach(item => {
       if (item.targetDate === targetDateStr) result.hw.push({ ...item, from: fromDate });
     });
-    (data.testItems || []).forEach(item => {
+    if (data.testEnabled) (data.testItems || []).forEach(item => {
       if (item.targetDate === targetDateStr) result.tests.push({ ...item, from: fromDate });
     });
   });
@@ -872,7 +891,7 @@ function openEditLesson() {
   openModal('modal-add-lesson');
 }
 
-function saveLessonSlot() {
+async function saveLessonSlot() {
   let subject     = document.getElementById('new-lesson-subject').value.trim();
   const day       = parseInt(document.getElementById('new-lesson-day').value);
   const block     = parseInt(document.getElementById('new-lesson-block').value);
@@ -892,6 +911,7 @@ function saveLessonSlot() {
   // Datum am gewählten Wochentag in der Woche der angeklickten Stunde (bzw. der angezeigten Woche)
   const refDate = currentSpecificDate ? parseDate(currentSpecificDate) : getWeekDates(currentWeekOffset)[0];
   const targetDateStr = formatDate(addDays(mondayOf(refDate), day));
+  const weekStart = formatDate(mondayOf(refDate));
 
   let recurring = false, startDate = null, startWeek = null, specificDate = null;
   if (recurringVal === 'weekly') {
@@ -904,37 +924,94 @@ function saveLessonSlot() {
     recurring = false;
     specificDate = targetDateStr;
   }
+  const fields = { subject, day, block, room, recurring, startDate, startWeek, specificDate, color: selectedLessonColor, groupId, part };
+
+  // Stundenplanwechsel mit Einträgen aus früheren Wochen: nur ab dieser Woche ändern oder alle? (BUGS M7)
+  const slot = editingSlotId ? db.lessonSlots.find(s => s.id === editingSlotId) : null;
+  let splitFrom = null;
+  if (slot && !isOneOffSlot(slot) && scheduleChanged(slot, fields) && lessonEntryDates(slot.id).some(d => d < weekStart)) {
+    const choice = await askChoice('Stunde ändern',
+      `Für diese Stunde gibt es Notizen oder Hausaufgaben aus früheren Wochen.\n\nSoll die Änderung erst ab der Woche vom ${formatDateDE(parseDate(weekStart))} gelten? Frühere Stunden bleiben dann, wie sie waren.`,
+      [{ label: `Ab der Woche vom ${formatDateDE(parseDate(weekStart))} ändern`, value: 'from', primary: true },
+       { label: 'Alle Stunden ändern, auch frühere', value: 'all' }]);
+    if (!choice) return;
+    if (!db.lessonSlots.includes(slot)) { showToast('Diese Stunde gibt es nicht mehr (z. B. durch Sync)', 'error'); return; }
+    if (choice === 'from') splitFrom = weekStart;
+  }
 
   // --- Überschneidung: nur Stunden, die wirklich am selben Tag im selben Platz liegen ---
-  const candidate = { day, block, recurring, startDate, specificDate, part };
+  const candidate = { day, block, recurring, startDate, specificDate, part, validFrom: splitFrom || undefined };
   const today = formatDate(new Date());
+  const endedBefore = s => s.validUntil && s.validUntil < weekStart;
   const conflicting = db.lessonSlots.find(s => {
-    if (editingSlotId && s.id === editingSlotId) return false;
+    if (slot && s.id === slot.id) return false;
     if (!slotsShareDate(candidate, s) || !partsOverlap(part, s.part)) return false;
     // Vergangene Vertretung sperrt den Platz nicht für neue regelmäßige Stunden (an ihrem Tag gilt sie weiter)
     if (isOneOffSlot(s) && !isOneOffSlot(candidate) && s.specificDate < today) return false;
+    // Eine Vertretung darf eine regelmäßige Stunde an ihrem Tag ersetzen (lessonsAt, BUGS M6)
+    if (isOneOffSlot(candidate) && !isOneOffSlot(s)) return false;
+    // Eine vor dieser Woche beendete Stunde gibt ihren Platz frei; die neue gilt dann ab dieser Woche
+    if (!isOneOffSlot(candidate) && endedBefore(s)) return false;
     return true;
   });
   if (conflicting) {
     showToast(part === 'full' ? 'Block ist bereits belegt! Ganzer Block nicht möglich.' : 'Dieser Platz ist im Block bereits belegt!', 'error');
     return;
   }
+  const replaced = isOneOffSlot(candidate) && db.lessonSlots.find(s => s !== slot && !isOneOffSlot(s)
+    && s.block === block && slotOccursOn(s, specificDate) && partsOverlap(part, s.part));
+  if (!isOneOffSlot(candidate) && !splitFrom && db.lessonSlots.some(s => s !== slot && endedBefore(s)
+      && slotsShareDate({ ...candidate, validFrom: undefined }, s) && partsOverlap(part, s.part))) {
+    candidate.validFrom = weekStart; // sonst überschnitte sie sich rückwirkend mit der beendeten
+  }
 
-  if (editingSlotId) {
-    const slot = db.lessonSlots.find(s => s.id === editingSlotId);
-    if (slot) {
-      if (day !== slot.day) moveLessonData(slot.id, day - slot.day);
-      Object.assign(slot, { subject, day, block, room, recurring, startDate, startWeek, specificDate, color: selectedLessonColor, groupId, part });
-    }
+  if (slot && splitFrom) {
+    splitSlotFrom(slot, splitFrom, fields);
+    showToast(`Stunde ab der Woche vom ${formatDateDE(parseDate(splitFrom))} geändert ✓`);
+  } else if (slot) {
+    if (day !== slot.day) moveLessonData(slot.id, day - slot.day);
+    Object.assign(slot, fields);
     showToast('Stunde gespeichert ✓');
   } else {
-    db.lessonSlots.push({ id: uid(), day, block, subject, room, color: selectedLessonColor, recurring, startDate, startWeek, specificDate, groupId, part });
-    showToast('Stunde hinzugefügt ✓');
+    const newSlot = { id: uid(), ...fields };
+    if (candidate.validFrom) newSlot.validFrom = candidate.validFrom;
+    db.lessonSlots.push(newSlot);
+    showToast(replaced ? `Stunde hinzugefügt ✓ – ersetzt ${lessonTitle(replaced).main} an diesem Tag` : 'Stunde hinzugefügt ✓');
   }
   saveDB();
   closeModal('modal-add-lesson');
-  renderTimetable();
+  renderScheduleViews();
   editingSlotId = null;
+}
+
+// Hat sich an Tag, Block, Hälfte oder Rhythmus etwas geändert? (Raum, Farbe usw. zählen nicht)
+function scheduleChanged(slot, f) {
+  const rec = s => isOneOffSlot(s) ? 'none' : s.recurring;
+  return slot.day !== f.day || slot.block !== f.block || (slot.part || 'full') !== f.part || rec(slot) !== rec(f)
+    || (f.recurring === 'biweekly' && !!slot.startDate && !sameWeekParity(slot.startDate, f.startDate));
+}
+
+// Daten der Stunden mit Einträgen (Notizen, Inhalt, HA, Tests, Ausfall) dieser Stunde
+function lessonEntryDates(slotId) {
+  const prefix = slotId + '_';
+  return Object.keys(db.lessonData).filter(k => k.startsWith(prefix))
+    .filter(k => { const d = db.lessonData[k]; return d && Object.values(d).some(v => Array.isArray(v) ? v.length : !!v); })
+    .map(k => k.slice(prefix.length));
+}
+
+// Stunde ab einer Woche ändern: alte endet davor, neue beginnt dort; Einträge ab dann ziehen um (BUGS M7)
+function splitSlotFrom(slot, fromDateStr, fields) {
+  const newSlot = { ...slot, ...fields, id: uid(), validFrom: fromDateStr };
+  slot.validUntil = formatDate(addDays(parseDate(fromDateStr), -1));
+  const shift = fields.day - slot.day;
+  const prefix = slot.id + '_';
+  Object.keys(db.lessonData).filter(k => k.startsWith(prefix) && k.slice(prefix.length) >= fromDateStr).forEach(k => {
+    const newDate = formatDate(addDays(parseDate(k.slice(prefix.length)), shift));
+    db.lessonData[newSlot.id + '_' + newDate] = db.lessonData[k];
+    delete db.lessonData[k];
+  });
+  db.lessonSlots.push(newSlot);
+  return newSlot;
 }
 
 // Stunde auf anderen Wochentag verschoben: Notizen/HA (`lessonData[slotId_Datum]`) wandern um
@@ -948,53 +1025,88 @@ function moveLessonData(slotId, dayShift) {
   });
 }
 
-function deleteLessonSlotFromEdit() {
-  if (!editingSlotId) return;
-  if (!confirm('Diese Unterrichtsstunde komplett löschen?')) return;
-  db.lessonSlots = db.lessonSlots.filter(s => s.id !== editingSlotId);
-  Object.keys(db.lessonData).forEach(k => {
-    if (k.startsWith(editingSlotId + '_')) delete db.lessonData[k];
-  });
+async function deleteLessonSlotFromEdit() {
+  const slot = editingSlotId && db.lessonSlots.find(s => s.id === editingSlotId);
+  if (!slot) return;
+  const refDate = currentSpecificDate ? parseDate(currentSpecificDate) : getWeekDates(currentWeekOffset)[0];
+  const weekStart = formatDate(mondayOf(refDate));
+  const dates = lessonEntryDates(slot.id);
+  const n = dates.length, before = dates.filter(d => d < weekStart).length;
+  const withNotes = n === 1 ? '1 Stunde mit Notizen oder Hausaufgaben' : `${n} Stunden mit Notizen oder Hausaufgaben`;
+
+  let choice;
+  if (!isOneOffSlot(slot) && before > 0) {
+    // Stunde fällt z. B. zum Halbjahr weg: beenden statt löschen, frühere Notizen bleiben (BUGS M7)
+    choice = await askChoice('Stunde löschen',
+      `Zu dieser Stunde gibt es ${withNotes}, davon ${before} aus früheren Wochen.\n\nSoll die Stunde nur ab der Woche vom ${formatDateDE(parseDate(weekStart))} wegfallen?`,
+      [{ label: `Ab der Woche vom ${formatDateDE(parseDate(weekStart))} beenden`, value: 'from', primary: true },
+       { label: `Komplett löschen (mit allen ${n} Stunden mit Einträgen)`, value: 'all', danger: true }]);
+  } else {
+    choice = confirm(n ? `Diese Unterrichtsstunde komplett löschen?\n\nDamit werden auch ${withNotes} gelöscht.` : 'Diese Unterrichtsstunde komplett löschen?') ? 'all' : null;
+  }
+  if (!choice || !db.lessonSlots.includes(slot)) return;
+
+  const prefix = slot.id + '_';
+  if (choice === 'from') {
+    slot.validUntil = formatDate(addDays(parseDate(weekStart), -1));
+    Object.keys(db.lessonData).forEach(k => { if (k.startsWith(prefix) && k.slice(prefix.length) >= weekStart) delete db.lessonData[k]; });
+  } else {
+    db.lessonSlots = db.lessonSlots.filter(s => s !== slot);
+    Object.keys(db.lessonData).forEach(k => { if (k.startsWith(prefix)) delete db.lessonData[k]; });
+  }
   saveDB();
   editingSlotId = null;
   closeModal('modal-add-lesson');
-  renderTimetable();
-  showToast('Stunde gelöscht');
+  renderScheduleViews();
+  showToast(choice === 'from' ? 'Stunde beendet' : 'Stunde gelöscht');
+}
+
+// Auswahl zwischen mehreren Wegen, z. B. „ab dieser Woche“ / „alle“. Liefert den Wert des Knopfs
+// oder null (Abbrechen, Escape, daneben tippen).
+let choiceResolve = null;
+function askChoice(title, text, choices) {
+  if (choiceResolve) answerChoice(null);
+  document.getElementById('modal-choice-title').textContent = title;
+  document.getElementById('modal-choice-text').textContent = text;
+  const box = document.getElementById('modal-choice-buttons');
+  box.innerHTML = '';
+  [...choices, { label: 'Abbrechen', value: null }].forEach(c => {
+    const btn = document.createElement('button');
+    btn.className = c.primary ? 'btn-primary' : c.danger ? 'btn-danger-outline' : 'btn-secondary';
+    btn.style.width = '100%';
+    btn.textContent = c.label;
+    btn.onclick = () => answerChoice(c.value);
+    box.appendChild(btn);
+  });
+  openModal('modal-choice');
+  return new Promise(resolve => { choiceResolve = resolve; });
+}
+function answerChoice(value) {
+  closeModal('modal-choice');
+  const resolve = choiceResolve;
+  choiceResolve = null;
+  if (resolve) resolve(value);
 }
 
 // ─── Find all upcoming lesson dates for this subject ─────────────────────
 // If the slot is group-linked, searches ALL slots of that group (correct multi-day support).
 // Otherwise falls back to subject name matching.
+// Nur Stunden, die wirklich stattfinden: kein Ausfall, nicht von einer Vertretung ersetzt (BUGS M4)
 function findUpcomingLessonDates(slotId, fromDateStr, maxCount = 4) {
   const currentSlot = db.lessonSlots.find(s => s.id === slotId);
   if (!currentSlot) return [];
+  const ids = new Set(relatedSlots(currentSlot).map(s => s.id));
 
-  let relatedSlots;
-  if (currentSlot.groupId) {
-    relatedSlots = getGroupSlots(currentSlot.groupId);
-  } else {
-    relatedSlots = db.lessonSlots.filter(s =>
-      s.subject.trim().toLowerCase() === currentSlot.subject.trim().toLowerCase()
-    );
-  }
-  if (!relatedSlots.length) return [];
-
-  const from = new Date(fromDateStr + 'T12:00:00');
   const results = [];
-  const seenDates = new Set();
-
+  let d = parseDate(fromDateStr);
   for (let i = 1; i <= 60 && results.length < maxCount; i++) {
-    const candidate = new Date(from);
-    candidate.setDate(from.getDate() + i);
-    const dateStr = formatDate(candidate);
-    for (const slot of relatedSlots) {
-      if (slotOccursOn(slot, dateStr) && !seenDates.has(dateStr)) {
-        seenDates.add(dateStr);
-        results.push({ dateStr, slotId: slot.id });
-      }
-    }
+    d = addDays(d, 1);
+    if (!isSchoolDay(d)) continue;
+    const dateStr = formatDate(d);
+    const hit = lessonsOnDate(dateStr).find(l => ids.has(l.slot.id) && !l.ausfall);
+    if (hit) results.push({ dateStr, slotId: hit.slot.id });
   }
-  return results.sort((a, b) => a.dateStr.localeCompare(b.dateStr));
+  return results;
 }
 
 // ─── Lesson Detail ───────────────────────────────────────────────────────
@@ -1018,24 +1130,7 @@ function openLessonDetail(slotId, dateStr) {
   document.getElementById('hw-date-chips').innerHTML   = '';
   document.getElementById('test-date-chips').innerHTML = '';
 
-  // ── Show Absent Students ──
-  const absentContainer = document.getElementById('lesson-absent-container');
-  const absentList = document.getElementById('lesson-absent-list');
-  absentContainer.classList.add('hidden');
-  absentList.innerHTML = '';
-  if (slot.groupId && db.students[slot.groupId]) {
-    const absent = db.students[slot.groupId].filter(s => 
-      (s.attendance || []).some(a => a.date === dateStr && (a.type === 'abwesend' || a.type === 'entschuldigt'))
-    );
-    if (absent.length > 0) {
-      absentList.innerHTML = absent.map(s => {
-        const excused = (s.attendance || []).some(a => a.date === dateStr && a.type === 'entschuldigt');
-        return `<li><span>${escHtml(s.firstName)} ${escHtml(s.lastName)}</span>` +
-          `<span class="absent-type ${excused ? 'excused' : 'unexcused'}">${excused ? 'entschuldigt' : 'unentschuldigt'}</span></li>`;
-      }).join('');
-      absentContainer.classList.remove('hidden');
-    }
-  }
+  renderLessonAbsent(slot, dateStr);
 
   // ── Find upcoming lesson dates (all slots with same subject) ──
   _upcomingDates = findUpcomingLessonDates(slotId, dateStr);
@@ -1064,11 +1159,9 @@ function openLessonDetail(slotId, dateStr) {
     block ? block.label + ' (' + block.start + '–' + block.end + ')' : '',
     d.toLocaleDateString('de-DE',{day:'2-digit',month:'long',year:'numeric'}), slot.room].filter(Boolean).join(' · ');
 
-  if (slot.groupId) {
-    document.getElementById('lesson-seating-link-container').classList.remove('hidden');
-  } else {
-    document.getElementById('lesson-seating-link-container').classList.add('hidden');
-  }
+  // Ohne Klasse gibt es weder Sitzplan noch Noten oder Schüler (BUGS M8)
+  ['lesson-seating-link-container', 'lesson-btn-overview', 'lesson-btn-students'].forEach(id =>
+    document.getElementById(id).classList.toggle('hidden', !slot.groupId));
 
   // Next lesson banner (first upcoming)
   if (_upcomingDates.length) {
@@ -1097,6 +1190,25 @@ function openLessonDetail(slotId, dateStr) {
   updateAusfallDisplay(!!data.ausfall);
 
   openModal('modal-lesson');
+}
+
+// „Heute fehlen“ im Stunden-Fenster; auch nach Einträgen über „Schüler bewerten“ neu (BUGS M10)
+function renderLessonAbsent(slot, dateStr) {
+  const absentContainer = document.getElementById('lesson-absent-container');
+  const absentList = document.getElementById('lesson-absent-list');
+  absentContainer.classList.add('hidden');
+  absentList.innerHTML = '';
+  if (!slot.groupId || !db.students[slot.groupId]) return;
+  const absent = db.students[slot.groupId].filter(s =>
+    (s.attendance || []).some(a => a.date === dateStr && (a.type === 'abwesend' || a.type === 'entschuldigt'))
+  );
+  if (!absent.length) return;
+  absentList.innerHTML = absent.map(s => {
+    const excused = (s.attendance || []).some(a => a.date === dateStr && a.type === 'entschuldigt');
+    return `<li><span>${escHtml([s.firstName, s.lastName].filter(Boolean).join(' '))}</span>` +
+      `<span class="absent-type ${excused ? 'excused' : 'unexcused'}">${excused ? 'entschuldigt' : 'unentschuldigt'}</span></li>`;
+  }).join('');
+  absentContainer.classList.remove('hidden');
 }
 
 function setToggle(checkboxId, bodyId, value) {
@@ -1157,15 +1269,16 @@ function renderItemList(listId, items, type, incoming, incomingId) {
   if (!items.length) {
     list.innerHTML = `<div style="color:var(--text-muted);font-size:12px;padding:4px 0">Noch keine Einträge.</div>`;
   } else {
-    items.forEach((item, i) => {
+    items.forEach(item => {
       const el = document.createElement('div');
       el.className = 'entry-item';
       const targetLabel = item.targetDate ? `<span class="entry-item-target">${formatDateLong(item.targetDate)}</span>` : '';
       el.innerHTML = `
         <span class="entry-item-text">${escHtml(item.text)}</span>
         ${targetLabel}
-        <button class="entry-item-delete" aria-label="Löschen" onclick="removeItem(${jsArg(type)}, ${i})">✕</button>
+        <button class="entry-item-delete" aria-label="Löschen">✕</button>
       `;
+      el.querySelector('.entry-item-delete').onclick = () => removeItem(type, item); // per Referenz (Regel 9, BUGS M15)
       list.appendChild(el);
     });
   }
@@ -1199,7 +1312,7 @@ function addHWItem() {
   // Reset ONLY the text field, keep the date for quick follow-up entries
   document.getElementById('new-hw-text').value = '';
   renderHWItems(data.hwItems, getIncomingItems(activeLessonId, activeLessonDate).hw);
-  renderTimetable();
+  renderScheduleViews();
 }
 
 function addTestItem() {
@@ -1214,17 +1327,18 @@ function addTestItem() {
   // Reset ONLY the text field, keep the date for quick follow-up entries
   document.getElementById('new-test-text').value = '';
   renderTestItems(data.testItems, getIncomingItems(activeLessonId, activeLessonDate).tests);
-  renderTimetable();
+  renderScheduleViews();
 }
 
-function removeItem(type, idx) {
+function removeItem(type, item) {
   const data = ensureLessonData();
   const key  = type + 'Items';
-  if (data[key]) { data[key].splice(idx, 1); saveDB(); }
+  const idx = (data[key] || []).indexOf(item);
+  if (idx !== -1) { data[key].splice(idx, 1); saveDB(); } // -1: inzwischen weg (Sync) → nichts löschen
   const incoming = getIncomingItems(activeLessonId, activeLessonDate);
   if (type === 'hw')   renderHWItems(data.hwItems || [], incoming.hw);
   if (type === 'test') renderTestItems(data.testItems || [], incoming.tests);
-  renderTimetable();
+  renderScheduleViews();
 }
 
 function ensureLessonData() {
@@ -1250,11 +1364,12 @@ function storeLessonForm() {
   if (!changed) return;
   Object.assign(ensureLessonData(), form);
   saveDB();
-  renderTimetable();
+  renderScheduleViews();
 }
 
 function saveLessonDataAndClose() {
   storeLessonForm();
+  renderScheduleViews(); // auch ohne Formular-Änderung: HA per „+“, Ausfall …
   closeModal('modal-lesson');
   showToast('Gespeichert ✓');
 }
@@ -1272,7 +1387,7 @@ function toggleAusfall() {
   data.ausfall = !data.ausfall;
   saveDB();
   updateAusfallDisplay(data.ausfall);
-  renderTimetable();
+  renderScheduleViews();
 }
 
 function updateAusfallDisplay(isAusfall) {
@@ -1381,7 +1496,9 @@ function renderSubjectGroups() {
       const scale = gradeScale(g);
 
       // Linked timetable slots → show which days this class meets
-      const linkedSlots = db.lessonSlots.filter(s => s.groupId === g.id && !isOneOffSlot(s)); // Vertretungen nicht (BUGS L9)
+      const todayStr = formatDate(new Date());
+      // Vertretungen (L9) und beendete Stunden (M7) nicht
+      const linkedSlots = db.lessonSlots.filter(s => s.groupId === g.id && !isOneOffSlot(s) && (!s.validUntil || s.validUntil >= todayStr));
       const scheduledDays = [...new Set(linkedSlots.map(s => s.day))].sort();
       const dayBadges = scheduledDays.map(d =>
         `<span class="sgc-day-badge">${DAY_SHORT[d]}</span>`
@@ -3059,7 +3176,9 @@ function saveSettings() {
 
   saveDB();
   closeModal('modal-settings');
-  renderTimetable();
+  // Offene Ansicht mit den neuen Einstellungen zeichnen (Warnschwellen, Sortierung, Namensformat; BUGS M1/O4)
+  renderScheduleViews();
+  if (document.getElementById('view-students')?.classList.contains('active') && currentGroupId) refreshStudentViews(currentGroupId);
   showToast('Einstellungen gespeichert ✓');
 }
 
@@ -3331,6 +3450,8 @@ function renderSeatingDateStrip() {
   container.innerHTML = '';
   
   const baseDate = nextSchoolDay(currentSeatingDateStr ? parseDate(currentSeatingDateStr) : new Date());
+  const picker = document.getElementById('seating-date-hidden');
+  if (picker) picker.value = formatDate(baseDate); // wie beim Stundenplan (BUGS M14)
   
   const days = ['So','Mo','Di','Mi','Do','Fr','Sa'];
   for(let i = -2; i <= 2; i++) {
@@ -4306,6 +4427,9 @@ function refreshStudentViews(groupId) {
   }
   if (active('view-seating') && currentSeatingGroupId === groupId) renderSeatingPlan();
   if (active('view-dashboard')) renderDashboard();
+  const lessonSlot = !document.getElementById('modal-lesson').classList.contains('hidden')
+    && db.lessonSlots.find(s => s.id === activeLessonId);
+  if (lessonSlot && lessonSlot.groupId === groupId) renderLessonAbsent(lessonSlot, activeLessonDate);
 }
 
 // ─── Lesson Quick Access ──────────────────────────────────────────────────
@@ -4331,7 +4455,7 @@ function openQuickStudentListFromLesson() {
     sorted.forEach(s => {
       const row = document.createElement('div');
       row.style.cssText = 'padding:12px 16px; border-bottom:1px solid var(--border); cursor:pointer; font-weight:500;';
-      row.textContent = `${s.lastName}, ${s.firstName}`;
+      row.textContent = studentListName(s); // Namensformat nach Einstellung (BUGS M9)
       row.onclick = () => {
         closeModal('modal-lesson-students');
         openSeatingStudentModal(s.id, slot.groupId, activeLessonDate);
@@ -4503,6 +4627,7 @@ const MODAL_CLOSE_ACTIONS = {
   'modal-lesson': () => saveLessonDataAndClose(),   // wie „Schließen“: Notizen nicht verwerfen
   'modal-grade-form': () => closeGradeForm(),
   'modal-sync-conflict': null,                       // Entscheidung nötig, nicht wegdrückbar
+  'modal-choice': () => answerChoice(null),          // Wegdrücken = Abbrechen
 };
 function closeModalLikeButton(id) {
   const action = id in MODAL_CLOSE_ACTIONS ? MODAL_CLOSE_ACTIONS[id] : () => closeModal(id);
@@ -4751,8 +4876,8 @@ function lessonsOnDate(dateStr) {
 function dueItemsFor(slotId, dateStr) {
   const incoming = getIncomingItems(slotId, dateStr);
   const own = db.lessonData[slotId + '_' + dateStr] || {};
-  const onDate = items => (items || []).filter(i => i.targetDate === dateStr);
-  return { hw: [...incoming.hw, ...onDate(own.hwItems)], tests: [...incoming.tests, ...onDate(own.testItems)] };
+  const onDate = (enabled, items) => enabled ? (items || []).filter(i => i.targetDate === dateStr) : [];
+  return { hw: [...incoming.hw, ...onDate(own.hwEnabled, own.hwItems)], tests: [...incoming.tests, ...onDate(own.testEnabled, own.testItems)] };
 }
 
 // Nächste Stunde, die noch nicht begonnen hat und nicht ausfällt (bis zu 3 Wochen voraus)
@@ -4883,7 +5008,7 @@ function renderDashboardToday() {
     const body = (data.notes ? `<div class="dash-next-notes">${escHtml(data.notes)}</div>` : '')
       + itemList('Hausaufgaben fällig', 'hw', due.hw) + itemList('Test', 'test', due.tests);
     html += `<section class="dash-section">
-      <div class="dash-next" style="--lesson-color:${escHtml(next.slot.color || '#6366f1')}" onclick="openLessonDetail(${jsArg(next.slot.id)},${jsArg(next.dateStr)})">
+      <div class="dash-next" data-slot="${escHtml(next.slot.id)}" style="--lesson-color:${escHtml(next.slot.color || '#6366f1')}" onclick="openLessonDetail(${jsArg(next.slot.id)},${jsArg(next.dateStr)})">
         <div class="dash-next-label">Nächste Stunde · ${escHtml(when)} · ${escHtml(next.block.label)}</div>
         <div class="dash-next-title">${escHtml(t.main)}${t.sub ? ` <span>${escHtml(t.sub)}</span>` : ''}${next.slot.room ? ` <span>· ${escHtml(next.slot.room)}</span>` : ''}</div>
         ${body || '<div class="dash-empty">Keine Notizen, nichts fällig.</div>'}

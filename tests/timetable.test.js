@@ -145,9 +145,12 @@ describe('D3: Überschneidungsprüfung beachtet Datum und A/B-Woche', () => {
     expect(toasts()).toContain('belegt');
   });
 
-  it('wöchentliche Stunde kollidiert weiterhin mit allem im selben Block', () => {
-    expect(addLesson({ date: '2026-10-05', day: 0, block: 1, recurring: 'none' })).toBe(null);
+  it('wöchentliche Stunde kollidiert mit anderen regelmäßigen Stunden im selben Block', () => {
     expect(addLesson({ date: '2026-10-16', day: 2, block: 2, recurring: 'weekly' })).toBe(null);
+  });
+
+  it('Vertretung darf eine wöchentliche Stunde an ihrem Tag ersetzen (BUGS M6)', () => {
+    expect(addLesson({ date: '2026-10-05', day: 0, block: 1, recurring: 'none' })).not.toBe(null);
   });
 
   it('vergangene Vertretung sperrt den Block nicht für eine neue wöchentliche Stunde; an ihrem Tag gilt die Vertretung', () => {
