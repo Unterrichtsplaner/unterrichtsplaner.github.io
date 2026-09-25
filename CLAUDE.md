@@ -120,6 +120,9 @@ Datumswerte sind Strings `YYYY-MM-DD` in **lokaler** Zeit (`formatDate()`). Nie 
 36. **Tabellen-Eingaben: nur ein leeres Feld löscht.** Unbekannte Eingaben werden mit Hinweis abgelehnt und die Zelle zurückgesetzt (wie `updateInlineGrade`, `updateInlineAttendance`).
 37. **`persistDB()` kann scheitern** (Speicher voll) und meldet das selbst (`reportSaveFailure`). Kein `localStorage.setItem` für die DB an anderer Stelle.
 
+38. **Nach Änderungen an Schülerdaten `refreshStudentViews(groupId)` aufrufen** (bzw. `refreshGradeViews` bei Noten), nicht nur die Ansicht, aus der die Änderung kam. Die Schnellbewertung öffnet sich auch über Tabelle und Stunden-Fenster.
+39. **Farben mit Hell/Dunkel-Varianten als Grundfarbe in eine CSS-Variable legen** (`style="--avatar:#…"`) und die Töne in style.css per `color-mix` je Modus mischen, statt zwei feste Farben inline zu setzen (die überstimmen jede Modus-Regel).
+
 ## Arbeitsablauf
 
 1. Aufgabe aus `BUGS.md` wählen (ein Block pro Sitzung).

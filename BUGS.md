@@ -171,18 +171,20 @@ Priorität: 🔴 Datenverlust / App kaputt · 🟠 falsche Anzeige / nervig · �
 
 ## L. Review 25.09.2026: Noten, Anwesenheit, Klassen
 
-- [ ] **L1** 🟠 **Tabellen veralten nach Schnellbewertung/Profil:** `setSeatingAbsence`, `setSeatingLate`, `setSeatingHomework`, `addParticipationSmiley` zeichnen nur den Sitzplan; `addAttendanceEntry`, `deleteAttendance`, `deleteParticipation`, `deleteCurrentStudent` nur die Schülerliste. Reiter „Anwesenheit“ → Name antippen → „Unentschuldigt“ → Tabelle zeigt weiter 0. *Test.* → Gemeinsame Auffrischung wie `refreshGradeViews`, inkl. `renderOverviewTable()`.
-- [ ] **L2** 🟠 **Anwesenheitsspalte mit Bezeichnung doppelt** (`renderOverviewTable` ~Z. 1706): Spalte „10.09. Wandertag“ + „F“ → zwei Spalten „10.09. Wandertag“ und „10.09.“. *Test.* → Nach Datum zusammenführen, Bezeichnung als Zusatz.
-- [ ] **L3** 🟠 **Fehlzeit in der Tabelle ändern pflegt den Hinweis „… hat letzte Stunde gefehlt“ nicht** (Regel 25, `updateInlineAttendance`): „F“ aus dem Sitzplan in „E“/leer ändern → Hinweis bleibt; „F“ in der Tabelle → kein Hinweis. *Test.* → `addAbsenceNote`/`removeAbsenceNote` aufrufen.
-- [ ] **L4** 🟠 **Hinweis bei Schülern mit nur einem Namen wird nie entfernt** (`absenceNoteText` ~Z. 3633: „ Max hat …“ mit führendem Leerzeichen, `removeAbsenceNote` vergleicht getrimmt). *Test.* → `[first,last].filter(Boolean).join(' ')`.
-- [ ] **L5** 🟠 **Noten-/Anwesenheitsspalten lassen sich nicht löschen** (`editOverviewColumns` wird nie aufgerufen, kein Knopf im Spalten-Dialog). Versehentliche Spalte bleibt für immer. → „Spalte löschen“ mit Rückfrage (Anzahl Einträge), per Referenz.
-- [ ] **L6** 🟠 **Notentabelle: Enter springt nicht nach unten.** Eine Klassenarbeit für 25 Schüler eintragen: Tab geht seitlich in die nächste Spalte, Enter tut nichts (auch „Return“ auf der iPad-Tastatur). *Browser.* → Enter/Return = nächster Schüler in derselben Spalte (Shift+Enter hoch).
-- [ ] **L7** 🟢 **Klasse bearbeiten dreht den Kopf der Klassenansicht um** (Rest von I13, `saveSubjectGroup` ~Z. 1455): danach „Mathe | Klasse 7b“ statt „7b | Mathe · 2026/27“. *Test.* → Wie `openGroupStudents`.
-- [ ] **L8** 🟢 **Schüler mit nur einem Namen (Import „Max“) nicht mehr bearbeitbar** (`saveStudent` verlangt beide Namen) → Notiz „LRS“ lässt sich nicht speichern. *Test.* → Mindestens einen Namen verlangen.
-- [ ] **L9** 🟢 **Vertretung erscheint als fester Tag auf der Klassenkarte** (`renderSubjectGroups` ~Z. 1331 filtert `s.recurring`, `'none'` ist truthy). *Test.* → `!isOneOffSlot(s)`.
-- [ ] **L10** 🟢 **Schülerakte (Export):** „Note: 2.5“ mit Punkt, bei 0–15 „Note“ statt „Punkte“, Hausaufgaben fehlen ganz (`exportCurrentStudent` ~Z. 2586, Rest von I14). *Test.* → `gradeText`, Beschriftung nach Skala, Abschnitt „Hausaufgaben vergessen“.
-- [ ] **L11** 🟢 **CSV-Export:** `"` im Namen wird nicht verdoppelt → Zeile zerfällt (`exportGradesCSV` ~Z. 2872). *Nur Code.*
-- [ ] **L12** 🟢 **Avatare in der Schülerliste:** Initialen in Akzentfarbe auf dunkler Variante derselben Farbe, ~2,5:1 (z. B. `#6366f1` auf `#312e81`), in beiden Modi (`AVATAR_COLORS`). *Browser.* → Hellere Schrift bzw. im hellen Modus helle Fläche + dunkle Schrift.
+> Behoben (v217). Tests: `tests/block-l.test.js`.
+
+- [x] **L1** 🟠 **Tabellen veralten nach Schnellbewertung/Profil:** `setSeatingAbsence`, `setSeatingLate`, `setSeatingHomework`, `addParticipationSmiley` zeichnen nur den Sitzplan; `addAttendanceEntry`, `deleteAttendance`, `deleteParticipation`, `deleteCurrentStudent` nur die Schülerliste. Reiter „Anwesenheit“ → Name antippen → „Unentschuldigt“ → Tabelle zeigt weiter 0. *Test.* → Gemeinsame Auffrischung wie `refreshGradeViews`, inkl. `renderOverviewTable()`.
+- [x] **L2** 🟠 **Anwesenheitsspalte mit Bezeichnung doppelt** (`renderOverviewTable` ~Z. 1706): Spalte „10.09. Wandertag“ + „F“ → zwei Spalten „10.09. Wandertag“ und „10.09.“. *Test.* → Nach Datum zusammenführen, Bezeichnung als Zusatz.
+- [x] **L3** 🟠 **Fehlzeit in der Tabelle ändern pflegt den Hinweis „… hat letzte Stunde gefehlt“ nicht** (Regel 25, `updateInlineAttendance`): „F“ aus dem Sitzplan in „E“/leer ändern → Hinweis bleibt; „F“ in der Tabelle → kein Hinweis. *Test.* → `addAbsenceNote`/`removeAbsenceNote` aufrufen.
+- [x] **L4** 🟠 **Hinweis bei Schülern mit nur einem Namen wird nie entfernt** (`absenceNoteText` ~Z. 3633: „ Max hat …“ mit führendem Leerzeichen, `removeAbsenceNote` vergleicht getrimmt). *Test.* → `[first,last].filter(Boolean).join(' ')`.
+- [x] **L5** 🟠 **Noten-/Anwesenheitsspalten lassen sich nicht löschen** (`editOverviewColumns` wird nie aufgerufen, kein Knopf im Spalten-Dialog). Versehentliche Spalte bleibt für immer. → „Spalte löschen“ mit Rückfrage (Anzahl Einträge), per Referenz.
+- [x] **L6** 🟠 **Notentabelle: Enter springt nicht nach unten.** Eine Klassenarbeit für 25 Schüler eintragen: Tab geht seitlich in die nächste Spalte, Enter tut nichts (auch „Return“ auf der iPad-Tastatur). *Browser.* → Enter/Return = nächster Schüler in derselben Spalte (Shift+Enter hoch).
+- [x] **L7** 🟢 **Klasse bearbeiten dreht den Kopf der Klassenansicht um** (Rest von I13, `saveSubjectGroup` ~Z. 1455): danach „Mathe | Klasse 7b“ statt „7b | Mathe · 2026/27“. *Test.* → Wie `openGroupStudents`.
+- [x] **L8** 🟢 **Schüler mit nur einem Namen (Import „Max“) nicht mehr bearbeitbar** (`saveStudent` verlangt beide Namen) → Notiz „LRS“ lässt sich nicht speichern. *Test.* → Mindestens einen Namen verlangen.
+- [x] **L9** 🟢 **Vertretung erscheint als fester Tag auf der Klassenkarte** (`renderSubjectGroups` ~Z. 1331 filtert `s.recurring`, `'none'` ist truthy). *Test.* → `!isOneOffSlot(s)`.
+- [x] **L10** 🟢 **Schülerakte (Export):** „Note: 2.5“ mit Punkt, bei 0–15 „Note“ statt „Punkte“, Hausaufgaben fehlen ganz (`exportCurrentStudent` ~Z. 2586, Rest von I14). *Test.* → `gradeText`, Beschriftung nach Skala, Abschnitt „Hausaufgaben vergessen“.
+- [x] **L11** 🟢 **CSV-Export:** `"` im Namen wird nicht verdoppelt → Zeile zerfällt (`exportGradesCSV` ~Z. 2872). *Nur Code.*
+- [x] **L12** 🟢 **Avatare in der Schülerliste:** Initialen in Akzentfarbe auf dunkler Variante derselben Farbe, ~2,5:1 (z. B. `#6366f1` auf `#312e81`), in beiden Modi (`AVATAR_COLORS`). *Browser.* → Hellere Schrift bzw. im hellen Modus helle Fläche + dunkle Schrift.
 
 ## M. Review 25.09.2026: Stundenplan, Stunden-Fenster, Dashboard
 
@@ -317,3 +319,15 @@ Priorität: 🔴 Datenverlust / App kaputt · 🟠 falsche Anzeige / nervig · �
 | K13 | Export: `persistDB()` statt `saveDB()` | Block K |
 | K14 | `UnsupportedFormatError(format, 'device')`: eigene Meldung „Gerät zu alt“ | Block K |
 | K15 | `clearAllData` entfernt auch `lehrerapp_v3_defekt_*`; `resetViewSelection()` nach Import/Löschen/Cloud-Übernahme (auch M2) | Block K |
+| L1 | `refreshStudentViews(groupId)`: Schnellbewertung, Profil (Anwesenheit, Mitarbeit, HA, Schüler löschen) zeichnen Tabelle/Schülerliste/Sitzplan/Dashboard der Klasse neu; `refreshGradeViews` nutzt es | Block L |
+| L2 | Anwesenheitstabelle: eine Spalte pro Tag, Bezeichnung der angelegten Spalte steht dabei | Block L |
+| L3 | `updateInlineAttendance` und `addAttendanceEntry` pflegen den Hinweis für die nächste Stunde (`addAbsenceNote`/`removeAbsenceNote`) | Block L |
+| L4 | `absenceNoteText` ohne führendes Leerzeichen bei nur einem Namen | Block L |
+| L5 | „Spalte löschen“ im Spalten-Dialog (`deleteOverviewColumn`) für alle vier Reiter, Rückfrage mit Anzahl, per Referenz; toter Code `editOverviewColumns` entfernt | Block L |
+| L6 | Enter/Return in den Tabellen = nächster Schüler in derselben Spalte (Shift = hoch), `enterkeyhint="next"`; unveränderte Zelle speichert nicht | Block L |
+| L7 | `setClassViewHeader(g)` auch nach dem Bearbeiten der Klasse | Block L |
+| L8 | `saveStudent`: ein Name genügt | Block L |
+| L9 | Klassenkarte: Wochentage nur aus regelmäßigen Stunden (`!isOneOffSlot`) | Block L |
+| L10 | Schülerakte: `gradeText`, „Punkte“ bei 0–15, Abschnitt „Hausaufgaben vergessen“; Klasse aus `currentGroupId` statt `currentOverviewGroupId` | Block L |
+| L11 | CSV über `csvCell()` (Anführungszeichen verdoppelt) | Block L |
+| L12 | Avatar: nur Grundfarbe `--avatar` inline, helle/dunkle Töne per `color-mix` in style.css (≥ 6,3:1 statt ~2,5:1) | Block L |

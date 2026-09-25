@@ -17,11 +17,8 @@ const APP_COLORS = [
   '#22c55e','#14b8a6','#06b6d4','#3b82f6',
   '#64748b'
 ];
-const AVATAR_COLORS = [
-  ['#6366f1','#312e81'],['#ec4899','#831843'],
-  ['#f59e0b','#78350f'],['#22c55e','#14532d'],['#06b6d4','#164e63'],
-  ['#3b82f6','#1e3a8a'],['#f97316','#7c2d12'],
-];
+// Grundfarbe je Avatar; helle/dunkle Töne mit genug Kontrast mischt style.css (.student-avatar, BUGS L12)
+const AVATAR_COLORS = ['#6366f1', '#ec4899', '#f59e0b', '#22c55e', '#06b6d4', '#3b82f6', '#f97316'];
 
 // ─── Icons ───────────────────────────────────────────────────────────────
 // Linien-Icons wie im Menü, keine Emojis in Knöpfen/Reitern (Ausnahme: 😊😐☹️ bei der Mitarbeit).
@@ -1384,7 +1381,7 @@ function renderSubjectGroups() {
       const scale = gradeScale(g);
 
       // Linked timetable slots → show which days this class meets
-      const linkedSlots = db.lessonSlots.filter(s => s.groupId === g.id && s.recurring);
+      const linkedSlots = db.lessonSlots.filter(s => s.groupId === g.id && !isOneOffSlot(s)); // Vertretungen nicht (BUGS L9)
       const scheduledDays = [...new Set(linkedSlots.map(s => s.day))].sort();
       const dayBadges = scheduledDays.map(d =>
         `<span class="sgc-day-badge">${DAY_SHORT[d]}</span>`
@@ -1508,8 +1505,7 @@ function saveSubjectGroup() {
   if (editingGroupId && currentGroupId === editingGroupId) {
     const g = db.groups.find(x => x.id === editingGroupId);
     if (g) {
-      document.getElementById('student-view-title').textContent = g.subject;
-      document.getElementById('student-view-subtitle').textContent = `Klasse ${g.className}${g.year?' · '+g.year:''}`;
+      setClassViewHeader(g);
       renderStudents(); // Schnitte/Farben nach Gewichtung oder Skala
     }
   }
@@ -1677,7 +1673,7 @@ function renderOverviewTable() {
       gradeEvents.forEach(ev => {
         const grade = findColumnGrade(s, ev);
         const val = grade ? grade.value : '';
-        html += `<td style="padding:4px;"><input type="text" class="form-input" style="width:100%; text-align:center; padding:6px; font-weight:600; color:${val ? gradeColor(gradeNumber(val), scale) : 'inherit'}" value="${escHtml(gradeText(val))}" placeholder="-" onchange="updateInlineGrade(${jsArg(s.id)}, ${jsArg(ev.date)}, ${jsArg(ev.label)}, this.value, ${jsArg(ev.type)}, ${ev.nth})" /></td>`;
+        html += `<td style="padding:4px;"><input type="text" enterkeyhint="next" class="form-input" style="width:100%; text-align:center; padding:6px; font-weight:600; color:${val ? gradeColor(gradeNumber(val), scale) : 'inherit'}" value="${escHtml(gradeText(val))}" placeholder="-" onchange="updateInlineGrade(${jsArg(s.id)}, ${jsArg(ev.date)}, ${jsArg(ev.label)}, this.value, ${jsArg(ev.type)}, ${ev.nth})" /></td>`;
       });
       html += `</tr>`;
     });
@@ -1749,10 +1745,15 @@ function renderOverviewTable() {
     });
 
   } else if (currentOverviewTab === 'attendance') {
+    // Eine Spalte pro Tag; die Bezeichnung einer angelegten Spalte steht dabei (BUGS L2)
     const attEventsMap = new Map();
-    (group.attendanceEvents || []).forEach(ev => attEventsMap.set(`${ev.date}_${ev.label}`, { date: ev.date, label: ev.label }));
+    (group.attendanceEvents || []).forEach(ev => {
+      const col = attEventsMap.get(ev.date);
+      if (!col) attEventsMap.set(ev.date, { date: ev.date, label: ev.label || '' });
+      else if (!col.label) col.label = ev.label || '';
+    });
     sortedStudents.forEach(s => {
-      (s.attendance || []).forEach(a => attEventsMap.set(`${a.date}_`, { date: a.date, label: '' }));
+      (s.attendance || []).forEach(a => { if (!attEventsMap.has(a.date)) attEventsMap.set(a.date, { date: a.date, label: '' }); });
     });
     const attDates = Array.from(attEventsMap.values()).sort((a,b) => a.date.localeCompare(b.date));
     
@@ -1772,7 +1773,7 @@ function renderOverviewTable() {
         const status = aIdx !== -1 ? s.attendance[aIdx].type : ''; // 'abwesend', 'entschuldigt', 'zuspät'
         const displayVal = ATTENDANCE_SHORT[status] || '';
 
-        html += `<td style="padding:4px;"><input type="text" class="form-input" style="width:100%; text-align:center; padding:6px; font-weight:600; color:${status==='abwesend' ? 'var(--danger)' : status==='entschuldigt' ? 'var(--success)' : 'inherit'}" value="${displayVal}" placeholder="-" onchange="updateInlineAttendance(${jsArg(s.id)}, ${jsArg(ev.date)}, this.value)" /></td>`;
+        html += `<td style="padding:4px;"><input type="text" enterkeyhint="next" class="form-input" style="width:100%; text-align:center; padding:6px; font-weight:600; color:${status==='abwesend' ? 'var(--danger)' : status==='entschuldigt' ? 'var(--success)' : 'inherit'}" value="${displayVal}" placeholder="-" onchange="updateInlineAttendance(${jsArg(s.id)}, ${jsArg(ev.date)}, this.value)" /></td>`;
       });
       html += `</tr>`;
     });
@@ -1798,7 +1799,7 @@ function renderOverviewTable() {
       hwDates.forEach(ev => {
         const hIdx = (s.homework||[]).findIndex(x => x.date === ev.date && (x.note||'') === (ev.label||''));
         const hasMissed = hIdx !== -1;
-        html += `<td style="padding:4px;"><input type="text" class="form-input" style="width:100%; text-align:center; padding:6px; font-weight:800; color:var(--danger);" value="${hasMissed ? 'X' : ''}" placeholder="-" onchange="updateInlineHomework(${jsArg(s.id)}, ${jsArg(ev.date)}, ${jsArg(ev.label||'')}, this.value)" /></td>`;
+        html += `<td style="padding:4px;"><input type="text" enterkeyhint="next" class="form-input" style="width:100%; text-align:center; padding:6px; font-weight:800; color:var(--danger);" value="${hasMissed ? 'X' : ''}" placeholder="-" onchange="updateInlineHomework(${jsArg(s.id)}, ${jsArg(ev.date)}, ${jsArg(ev.label||'')}, this.value)" /></td>`;
       });
       html += `</tr>`;
     });
@@ -1881,15 +1882,19 @@ function updateInlineAttendance(studentId, date, value) {
     renderOverviewTable(); // Eingabe zurücksetzen
     return;
   }
+  const wasUnexcused = idx !== -1 && s.attendance[idx].type === 'abwesend';
   if (!status) {
     if (idx !== -1) s.attendance.splice(idx, 1);
   } else {
     if (idx !== -1) {
       s.attendance[idx].type = status;
     } else {
-      s.attendance.push({ date, type: status, note: '' });
+      s.attendance.push({ id: uid(), date, type: status, note: '' });
     }
   }
+  // Hinweis „… hat letzte Stunde unentschuldigt gefehlt“ wie im Sitzplan pflegen (BUGS L3, Regel 25)
+  if (wasUnexcused && status !== 'abwesend') removeAbsenceNote(currentOverviewGroupId, date, s);
+  if (!wasUnexcused && status === 'abwesend') addAbsenceNote(currentOverviewGroupId, date, s);
   saveDB();
   renderOverviewTable();
 }
@@ -1955,12 +1960,31 @@ function gradeColumns(group, students) {
   return [...cols.values()].sort((a, b) => a.date.localeCompare(b.date));
 }
 
+// Enter/Return in den Tabellen: Eingabe übernehmen und eine Zeile tiefer in dieselbe Spalte,
+// Shift+Enter eine Zeile höher. So trägt man eine Klassenarbeit für die ganze Klasse ein (BUGS L6).
+// Das onchange zeichnet die Tabelle neu; die Position wird deshalb vorher gemerkt.
+document.getElementById('overview-content').addEventListener('keydown', e => {
+  const input = e.target;
+  if (e.key !== 'Enter' || input.tagName !== 'INPUT') return;
+  const row = input.closest('tr'), cell = input.closest('td');
+  const rows = [...document.querySelectorAll('#overview-content tbody tr')];
+  const r = rows.indexOf(row), c = [...row.children].indexOf(cell);
+  if (r === -1 || c === -1) return;
+  e.preventDefault();
+  if (input.value !== input.defaultValue) input.dispatchEvent(new Event('change', { bubbles: true }));
+  const targetRow = document.querySelectorAll('#overview-content tbody tr')[r + (e.shiftKey ? -1 : 1)];
+  const target = targetRow && targetRow.children[c] && targetRow.children[c].querySelector('input');
+  if (target) { target.focus(); target.select(); }
+  else if (document.activeElement === input) input.blur();
+});
+
 // ─── Column Management ───────────────────────────────────────────────────
 let editingColumnCtx = null;
 
 function openAddColumnModal() {
   editingColumnCtx = null;
   document.getElementById('column-modal-title').textContent = 'Neue Spalte';
+  document.getElementById('btn-delete-column').classList.add('hidden');
   document.getElementById('new-col-date').value = formatDate(new Date());
   document.getElementById('new-col-label').value = '';
   
@@ -1978,6 +2002,7 @@ function openAddColumnModal() {
 function openEditColumnModal(oldDate, oldLabel, oldType, nth = 0) {
   editingColumnCtx = { oldDate, oldLabel, oldType: gradeColumnType(oldType), nth };
   document.getElementById('column-modal-title').textContent = 'Spalte bearbeiten';
+  document.getElementById('btn-delete-column').classList.remove('hidden');
   document.getElementById('new-col-date').value = oldDate;
   document.getElementById('new-col-label').value = oldLabel;
   
@@ -2071,16 +2096,60 @@ function saveOverviewColumn() {
   renderOverviewTable();
 }
 
-function editOverviewColumns() {
-  if (confirm("Möchtest du alle explizit angelegten Spalten für diesen Bereich entfernen? (Bereits eingetragene Daten bei Schülern bleiben erhalten!)")) {
-    const group = db.groups.find(g => g.id === currentOverviewGroupId);
-    if (currentOverviewTab === 'grades') group.gradeEvents = [];
-    if (currentOverviewTab === 'participation') group.participationEvents = [];
-    if (currentOverviewTab === 'attendance') group.attendanceEvents = [];
-    if (currentOverviewTab === 'homework') group.homeworkEvents = [];
-    saveDB();
-    renderOverviewTable();
-  }
+// Spalte samt ihren Einträgen löschen, nach Rückfrage mit Anzahl (BUGS L5). Gelöscht wird per Referenz.
+function deleteOverviewColumn() {
+  const ctx = editingColumnCtx;
+  const group = db.groups.find(g => g.id === currentOverviewGroupId);
+  if (!ctx || !group) return;
+  const tab = currentOverviewTab;
+  const students = db.students[currentOverviewGroupId] || [];
+  const { oldDate: date, oldLabel: label, oldType, nth } = ctx;
+  const sameLabel = (a, b) => (a || '') === (b || '');
+  const COLUMN_KINDS = {
+    grades: {
+      list: 'grades', events: 'gradeEvents', nouns: ['Note', 'Noten'],
+      entries: s => { const g = findColumnGrade(s, { date, label, type: oldType, nth }); return g ? [g] : []; },
+      isEvent: e => e.date === date && e.label === label && gradeColumnType(e.type) === oldType,
+    },
+    attendance: {
+      list: 'attendance', events: 'attendanceEvents', nouns: ['Fehlzeit', 'Fehlzeiten'],
+      entries: s => (s.attendance || []).filter(a => a.date === date),
+      isEvent: e => e.date === date,
+    },
+    participation: {
+      list: 'participation', events: 'participationEvents', nouns: ['Mitarbeit-Eintrag', 'Mitarbeit-Einträge'],
+      entries: s => (s.participation || []).filter(p => p.date === date && sameLabel(p.label, label)),
+      isEvent: e => e.date === date && sameLabel(e.label, label),
+    },
+    homework: {
+      list: 'homework', events: 'homeworkEvents', nouns: ['Eintrag', 'Einträge'],
+      entries: s => (s.homework || []).filter(h => h.date === date && sameLabel(h.note, label)),
+      isEvent: e => e.date === date && sameLabel(e.label, label),
+    },
+  };
+  const kind = COLUMN_KINDS[tab];
+  if (!kind) return;
+  const found = students.map(s => [s, kind.entries(s)]);
+  const n = found.reduce((sum, [, list]) => sum + list.length, 0);
+  const title = formatDateShort(date) + (label ? ` „${label}“` : '');
+  const msg = n
+    ? `Spalte ${title} löschen?\n\nDamit werden ${n} ${n === 1 ? kind.nouns[0] : kind.nouns[1]} gelöscht. Das lässt sich nicht rückgängig machen.`
+    : `Leere Spalte ${title} löschen?`;
+  if (!confirm(msg)) return;
+
+  found.forEach(([s, list]) => list.forEach(entry => {
+    const arr = s[kind.list];
+    const idx = arr.indexOf(entry);
+    if (idx === -1) return;
+    arr.splice(idx, 1);
+    if (tab === 'attendance' && entry.type === 'abwesend') removeAbsenceNote(currentOverviewGroupId, entry.date, s);
+  }));
+  if (group[kind.events]) group[kind.events] = group[kind.events].filter(e => !kind.isEvent(e));
+  saveDB();
+  editingColumnCtx = null;
+  closeModal('modal-add-column');
+  renderOverviewTable();
+  showToast('Spalte gelöscht');
 }
 
 // ─── Students ─────────────────────────────────────────────────────────────
@@ -2092,11 +2161,15 @@ function openGroupStudents(groupId, initialTab = 'students') {
   }
   const g = db.groups.find(x => x.id === groupId);
   if (!g) return;
-  // Klasse groß, Fach klein wie in Stundenplan und Klassenkarten (BUGS I13)
-  document.getElementById('student-view-title').textContent = g.className;
-  document.getElementById('student-view-subtitle').textContent = `${g.subject}${g.year?' · '+g.year:''}`;
+  setClassViewHeader(g);
   switchView('students');
   switchClassDashboardTab(initialTab);
+}
+
+// Klasse groß, Fach klein wie in Stundenplan und Klassenkarten (BUGS I13); auch nach dem Bearbeiten (L7)
+function setClassViewHeader(g) {
+  document.getElementById('student-view-title').textContent = g.className;
+  document.getElementById('student-view-subtitle').textContent = `${g.subject}${g.year ? ' · ' + g.year : ''}`;
 }
 
 // Nach dem Austausch der ganzen DB (Import, „Alle Daten löschen“, Cloud-Übernahme): gemerkte Klassen
@@ -2142,7 +2215,7 @@ function renderStudents() {
     const initials = (first[0]||'') + (last[0]||'');
     // Schüler können nur einen Namen haben (Import „Max“) → leere Teile zählen als 0
     const avatarIdx = ((first.charCodeAt(0)||0) + (last.charCodeAt(0)||0)) % AVATAR_COLORS.length;
-    const [fg,bg] = AVATAR_COLORS[avatarIdx];
+    const avatarColor = AVATAR_COLORS[avatarIdx];
     const attUnexcused = (s.attendance||[]).filter(a => a.type==='abwesend').length;
     const attExcused = (s.attendance||[]).filter(a => a.type==='entschuldigt').length;
     const partPos = (s.participation||[]).filter(p => p.value==='positive').length;
@@ -2159,7 +2232,7 @@ function renderStudents() {
     row.className = 'student-row';
     row.innerHTML = `
       ${isStudentEditMode ? `<input type="checkbox" class="student-select-cb" data-id="${escHtml(s.id)}" onclick="event.stopPropagation(); updateMassDeleteBar()" style="margin-right: 12px; width: 18px; height: 18px; cursor: pointer;">` : ''}
-      <div class="student-avatar" style="background:${bg};color:${fg}">${escHtml(initials.toUpperCase())}</div>
+      <div class="student-avatar" style="--avatar:${avatarColor}">${escHtml(initials.toUpperCase())}</div>
       <div class="student-info">
         <div class="student-name">${escHtml(studentListName(s))}</div>
         <div class="student-quick-notes">${s.notes ? escHtml(s.notes) : grades.length+' Note'+(grades.length!==1?'n':'')}</div>
@@ -2413,7 +2486,8 @@ function saveStudent() {
   const firstName = document.getElementById('new-student-first').value.trim();
   const lastName  = document.getElementById('new-student-last').value.trim();
   const notes     = document.getElementById('new-student-notes').value.trim();
-  if (!firstName || !lastName) { showToast('Bitte Vor- und Nachname eingeben', 'error'); return; }
+  // Ein Name genügt: der Import erlaubt Schüler mit nur einem Namen, die müssen bearbeitbar bleiben (BUGS L8)
+  if (!firstName && !lastName) { showToast('Bitte einen Namen eingeben', 'error'); return; }
   if (!db.students[currentGroupId]) db.students[currentGroupId] = [];
   if (editingStudentId) {
     const s = db.students[currentGroupId].find(x => x.id === editingStudentId);
@@ -2573,8 +2647,9 @@ function addAttendanceEntry() {
   if (!date) { showToast('Bitte Datum wählen', 'error'); return; }
   const s = getCurrentStudent(); if (!s) return;
   if (!s.attendance) s.attendance=[];
-  s.attendance.push({ date, type, note });
-  saveDB(); renderAttendanceList(s); renderStudents();
+  s.attendance.push({ id: uid(), date, type, note });
+  if (type === 'abwesend') addAbsenceNote(currentGroupId, date, s); // wie im Sitzplan (BUGS L3, Regel 25)
+  saveDB(); renderAttendanceList(s); refreshStudentViews(currentGroupId);
   document.getElementById('new-att-date').value='';
   document.getElementById('new-att-note').value='';
 }
@@ -2585,7 +2660,7 @@ function deleteAttendance(a) {
   if (idx === -1) { renderAttendanceList(s); return; }
   // Schülerdetail gehört zu currentGroupId (getCurrentStudent), nicht zur Klassenübersicht
   if (a.type === 'abwesend') removeAbsenceNote(currentGroupId, a.date, s);
-  s.attendance.splice(idx,1); saveDB(); renderAttendanceList(s); renderStudents();
+  s.attendance.splice(idx,1); saveDB(); renderAttendanceList(s); refreshStudentViews(currentGroupId);
 }
 
 function renderStudentParticipationList(s) {
@@ -2615,7 +2690,7 @@ function deleteParticipation(p) {
   const s = getCurrentStudent(); if (!s) return;
   const idx = (s.participation||[]).indexOf(p);
   if (idx === -1) { renderStudentParticipationList(s); return; }
-  s.participation.splice(idx, 1); saveDB(); renderStudentParticipationList(s); renderStudents();
+  s.participation.splice(idx, 1); saveDB(); renderStudentParticipationList(s); refreshStudentViews(currentGroupId);
 }
 
 function renderStudentHomeworkList(s) {
@@ -2650,7 +2725,7 @@ function addStudentHomework() {
   s.homework.push({ id: uid(), date: date, note: note });
   saveDB();
   renderStudentHomeworkList(s);
-  if (typeof renderOverviewTable === 'function') renderOverviewTable();
+  refreshStudentViews(currentGroupId);
   document.getElementById('new-hw-student-date').value = '';
   document.getElementById('new-hw-student-note').value = '';
 }
@@ -2661,13 +2736,13 @@ function deleteStudentHomework(id) {
   s.homework = s.homework.filter(h => h.id !== id);
   saveDB();
   renderStudentHomeworkList(s);
-  if (typeof renderOverviewTable === 'function') renderOverviewTable();
+  refreshStudentViews(currentGroupId);
 }
 
 function deleteCurrentStudent() {
   if (!confirm('Schüler wirklich löschen?')) return;
   db.students[currentGroupId]=(db.students[currentGroupId]||[]).filter(s=>s.id!==currentStudentId);
-  saveDB(); closeModal('modal-student-detail'); renderStudents(); renderSubjectGroups();
+  saveDB(); closeModal('modal-student-detail'); refreshStudentViews(currentGroupId); renderSubjectGroups();
   showToast('Schüler gelöscht');
 }
 
@@ -2685,8 +2760,10 @@ function openEditStudent() {
 function exportCurrentStudent() {
   const s = getCurrentStudent();
   if (!s) return;
-  const group = db.groups.find(g => g.id === currentOverviewGroupId);
+  // Das Profil gehört zu currentGroupId (getCurrentStudent), nicht zur zuletzt geöffneten Tabelle
+  const group = db.groups.find(g => g.id === currentGroupId);
   const subjName = group ? (group.subject + ' ' + group.className) : 'Unbekannte Klasse';
+  const points = gradeScale(group).higherIsBetter;
   
   let txt = `SCHÜLERAKTE: ${s.firstName} ${s.lastName}\n`;
   txt += `Klasse/Fach: ${subjName}\n`;
@@ -2701,13 +2778,13 @@ function exportCurrentStudent() {
   const byDate = (a,b) => (a.date||'').localeCompare(b.date||'');
   const dateStr = d => d ? formatDateLong(d) : 'ohne Datum';
 
-  const avg = calculateStudentAverage(s, currentOverviewGroupId);
-  const avgText = avg === null ? '-' : gradeScale(group).higherIsBetter ? formatGradeAverage(avg) + ' Punkte' : formatGradeAverage(avg, 2);
+  const avg = calculateStudentAverage(s, currentGroupId);
+  const avgText = avg === null ? '-' : points ? formatGradeAverage(avg) + ' Punkte' : formatGradeAverage(avg, 2);
   txt += `=== NOTEN (Aktueller Schnitt: ${avgText}) ===\n`;
   if (s.grades && s.grades.length > 0) {
     const sortedGrades = [...s.grades].sort(byDate);
     sortedGrades.forEach(g => {
-      txt += `${dateStr(g.date)} | ${g.note || gradeTypeName(g.type)} | ${gradeCategory(g.type) === 'schularbeit' ? 'Klassenarbeit' : 'Sonstige Leistung'} | Note: ${g.value}\n`;
+      txt += `${dateStr(g.date)} | ${g.note || gradeTypeName(g.type)} | ${gradeCategory(g.type) === 'schularbeit' ? 'Klassenarbeit' : 'Sonstige Leistung'} | ${points ? 'Punkte' : 'Note'}: ${gradeText(g.value)}\n`;
     });
   } else {
     txt += `Keine Noten eingetragen.\n`;
@@ -2741,6 +2818,14 @@ function exportCurrentStudent() {
   }
   txt += `\n`;
   
+  txt += `=== HAUSAUFGABEN VERGESSEN ===\n`;
+  if (s.homework && s.homework.length > 0) {
+    [...s.homework].sort(byDate).forEach(h => { txt += `${dateStr(h.date)}${h.note ? ' | ' + h.note : ''}\n`; });
+  } else {
+    txt += `Keine vergessenen Hausaufgaben eingetragen.\n`;
+  }
+  txt += `\n`;
+
   txt += `=== VERHALTENSNOTIZEN ===\n`;
   if (s.studentNotes && s.studentNotes.length > 0) {
     const sortedNotes = [...s.studentNotes].sort(byDate);
@@ -2978,6 +3063,9 @@ function saveSettings() {
   showToast('Einstellungen gespeichert ✓');
 }
 
+// CSV-Feld in Anführungszeichen; Anführungszeichen im Wert werden verdoppelt (BUGS L11)
+function csvCell(v) { return '"' + String(v ?? '').replace(/"/g, '""') + '"'; }
+
 function exportGradesCSV() {
   if (!currentGroupId) return;
   const g = db.groups.find(x => x.id === currentGroupId);
@@ -2993,7 +3081,7 @@ function exportGradesCSV() {
     // Spalten wie die Gewichtung der Klasse (gradeCategory), damit sich die Gesamtnote daraus ergibt
     const parts = calculateGradeCategoryAverages(s);
     const total = calculateStudentAverage(s, g.id);
-    csvContent += `"${s.lastName || ''}";"${s.firstName || ''}";"${fmt(parts.schularbeit)}";"${fmt(parts.sonstige)}";"${fmt(total)}"\n`;
+    csvContent += [s.lastName, s.firstName, fmt(parts.schularbeit), fmt(parts.sonstige), fmt(total)].map(csvCell).join(';') + '\n';
   });
   
   const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
@@ -3774,7 +3862,8 @@ function onToggleShowGridAlways(checked) {
 }
 
 // ─── Hinweis „hat letzte Stunde unentschuldigt gefehlt“ in der nächsten Stunde (BUGS E4) ─────
-function absenceNoteText(s) { return `${s.firstName} ${s.lastName} hat letzte Stunde unentschuldigt gefehlt`; }
+// Bei nur einem Namen („Max“) ohne führendes Leerzeichen, sonst findet removeAbsenceNote den Hinweis nie (BUGS L4)
+function absenceNoteText(s) { return `${[s.firstName, s.lastName].filter(Boolean).join(' ')} hat letzte Stunde unentschuldigt gefehlt`; }
 // Nächste Stunde der Klasse nach dateStr, die wirklich stattfindet (A/B-Woche, Vertretung, Ausfall)
 function nextLessonOfGroup(groupId, dateStr) {
   let d = parseDate(dateStr);
@@ -3800,7 +3889,7 @@ function addAbsenceNote(groupId, dateStr, s) {
 function removeAbsenceNote(groupId, dateStr, s) {
   const notes = [absenceNoteText(s)];
   // Ältere Versionen schrieben nur den Vornamen – den nur entfernen, wenn er in der Klasse eindeutig ist
-  if ((db.students[groupId] || []).filter(x => x.firstName === s.firstName).length === 1) {
+  if (s.firstName && (db.students[groupId] || []).filter(x => x.firstName === s.firstName).length === 1) {
     notes.push(`${s.firstName} hat letzte Stunde unentschuldigt gefehlt`);
   }
   const slotIds = new Set(db.lessonSlots.filter(slot => slot.groupId === groupId).map(slot => slot.id));
@@ -3831,7 +3920,7 @@ function setSeatingAbsence(type) {
     }
     s.attendance.splice(existingIdx, 1);
     saveDB();
-    renderSeatingPlan();
+    refreshStudentViews(groupId);
     closeModal('modal-seating-student');
     showToast('Eintrag entfernt');
     return;
@@ -3852,7 +3941,7 @@ function setSeatingAbsence(type) {
   if (type === 'abwesend') addAbsenceNote(groupId, dateStr, s);
 
   saveDB();
-  renderSeatingPlan();
+  refreshStudentViews(groupId);
   closeModal('modal-seating-student');
   showToast(type === 'abwesend' ? 'Unentschuldigt eingetragen' : 'Entschuldigt eingetragen');
 }
@@ -3869,7 +3958,7 @@ function setSeatingLate() {
   if (existing) {
     s.attendance.splice(s.attendance.indexOf(existing), 1);
     saveDB();
-    renderSeatingPlan();
+    refreshStudentViews(groupId);
     closeModal('modal-seating-student');
     showToast('Eintrag entfernt');
     return;
@@ -3882,7 +3971,7 @@ function setSeatingLate() {
   s.attendance = s.attendance.filter(a => a.date !== dateStr || (a.type !== 'abwesend' && a.type !== 'entschuldigt'));
   s.attendance.push({ id: uid(), date: dateStr, type: 'zuspät', note: '' });
   saveDB();
-  renderSeatingPlan();
+  refreshStudentViews(groupId);
   closeModal('modal-seating-student');
   showToast('Zu spät eingetragen', 'warning');
 }
@@ -3898,13 +3987,13 @@ function setSeatingHomework() {
   if (existingIdx === -1) {
     s.homework.push({ id: uid(), date: dateStr, note: '' });
     saveDB();
-    renderSeatingPlan();
+    refreshStudentViews(groupId);
     closeModal('modal-seating-student');
     showToast('Hausaufgabe vergessen eingetragen', 'warning');
   } else {
     s.homework.splice(existingIdx, 1);
     saveDB();
-    renderSeatingPlan();
+    refreshStudentViews(groupId);
     closeModal('modal-seating-student');
     showToast('Eintrag entfernt');
   }
@@ -4201,19 +4290,22 @@ function deleteGradeFromForm() {
 
 // Nach Änderungen im Notenformular alles neu zeichnen, was gerade sichtbar ist und Noten zeigt
 function refreshGradeViews(s, groupId) {
-  const overview = document.getElementById('overview-content');
-  if (overview && !overview.classList.contains('hidden') && currentOverviewGroupId === groupId) {
-    renderOverviewTable();
-  }
   const detailModal = document.getElementById('modal-student-detail');
-  if (detailModal && !detailModal.classList.contains('hidden') && currentGroupId === groupId) {
-    renderGradesList(s);
-    renderStudents();
+  if (detailModal && !detailModal.classList.contains('hidden') && currentGroupId === groupId) renderGradesList(s);
+  refreshStudentViews(groupId);
+}
+
+// Nach jeder Änderung an Schülern einer Klasse (Noten, Anwesenheit, Mitarbeit, HA): alle offenen
+// Ansichten dieser Klasse neu zeichnen, egal von wo die Änderung kam (BUGS L1).
+function refreshStudentViews(groupId) {
+  const active = id => document.getElementById(id)?.classList.contains('active');
+  if (active('view-students') && currentGroupId === groupId) {
+    const overview = document.getElementById('overview-content');
+    if (overview && !overview.classList.contains('hidden') && currentOverviewGroupId === groupId) renderOverviewTable();
+    else renderStudents();
   }
-  if (document.getElementById('view-seating')?.classList.contains('active') && currentSeatingGroupId === groupId) {
-    renderSeatingPlan();
-  }
-  if (document.getElementById('view-dashboard')?.classList.contains('active')) renderDashboard();
+  if (active('view-seating') && currentSeatingGroupId === groupId) renderSeatingPlan();
+  if (active('view-dashboard')) renderDashboard();
 }
 
 // ─── Lesson Quick Access ──────────────────────────────────────────────────
@@ -4263,7 +4355,7 @@ function addParticipationSmiley(type) {
     if (s.participation[existingIdx].value === type) {
       s.participation.splice(existingIdx, 1);
       saveDB();
-      renderSeatingPlan();
+      refreshStudentViews(groupId);
       showToast('Eintrag entfernt');
       closeModal('modal-seating-student');
       return;
@@ -4275,7 +4367,7 @@ function addParticipationSmiley(type) {
   }
   
   saveDB();
-  renderSeatingPlan();
+  refreshStudentViews(groupId);
   showToast('Mitarbeit gespeichert');
   closeModal('modal-seating-student');
 }
