@@ -247,10 +247,11 @@ input[type="date"] { min-height: 1.2em; } /* Fix iOS Safari date input collapse 
 .sgc-class{font-size:24px;font-weight:800;letter-spacing:-1px;color:var(--card-color,var(--accent));overflow-wrap:anywhere;}
 .sgc-subject{font-size:14px;font-weight:600;margin-top:3px;}
 .sgc-year{font-size:11px;color:var(--text-muted);margin-top:2px;font-weight:500;}
-.sgc-stats{display:flex;gap:16px;margin-top:auto;}
-.sgc-stat{display:flex;flex-direction:column;gap:2px;}
+/* Drei gleich breite Spalten, die schrumpfen dürfen: in einer starren Reihe lief „NOTEN“ auf dem iPad (breitere Systemschrift) rechts aus der Karte */
+.sgc-stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-top:auto;}
+.sgc-stat{display:flex;flex-direction:column;gap:2px;min-width:0;}
 .sgc-stat-value{font-size:17px;font-weight:700;}
-.sgc-stat-label{font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.3px;}
+.sgc-stat-label{font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.3px;overflow-wrap:anywhere;}
 .sgc-permanent-edit-btn{position:absolute;top:12px;right:12px;width:34px;height:34px;border-radius:99px;background:var(--bg-elevated);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;color:var(--text-secondary);cursor:pointer;transition:all var(--transition);font-size:14px;z-index:2;}
 .sgc-permanent-edit-btn:hover{color:var(--text-primary);background:var(--bg-card-hover);border-color:var(--accent);transform:scale(1.05);}
 

@@ -63,6 +63,15 @@ describe('I2: Klassenkarten schneiden nichts ab', () => {
     expect(rulesFor('.sgc-class')).toMatch(/overflow-wrap:\s*anywhere/);
   });
 
+  it('Zahlenreihe bleibt in der Karte (iPad: „NOTEN“ lief rechts hinaus, seit overflow:hidden weg ist)', () => {
+    // drei gleich breite Spalten, die schrumpfen dürfen; lange Beschriftungen brechen um
+    const r = rulesFor('.sgc-stats');
+    expect(r).toMatch(/display:\s*grid/);
+    expect(r).toMatch(/grid-template-columns:\s*repeat\(3,\s*minmax\(0,\s*1fr\)\)/);
+    expect(rulesFor('.sgc-stat')).toMatch(/min-width:\s*0/);
+    expect(rulesFor('.sgc-stat-label')).toMatch(/overflow-wrap:\s*anywhere/);
+  });
+
   it('Karte zeigt weiterhin alle Teile inkl. Sitzplan-Knopf', () => {
     app('switchView("classes")');
     const card = document.querySelector('.subject-group-card');
