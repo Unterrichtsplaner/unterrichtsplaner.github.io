@@ -227,7 +227,8 @@ function switchView(name) {
   document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
   document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
   const viewEl = document.getElementById('view-' + name);
-  const navEl = document.getElementById('nav-' + name);
+  // Die Klassenansicht gehört zu „Klassen“ (BUGS I11: sonst war kein Menüpunkt markiert)
+  const navEl = document.getElementById('nav-' + (name === 'students' ? 'classes' : name));
   if (viewEl) viewEl.classList.add('active');
   if (navEl) navEl.classList.add('active');
 
@@ -984,7 +985,11 @@ function openLessonDetail(slotId, dateStr) {
       (s.attendance || []).some(a => a.date === dateStr && (a.type === 'abwesend' || a.type === 'entschuldigt'))
     );
     if (absent.length > 0) {
-      absentList.innerHTML = absent.map(s => `• ${escHtml(s.firstName)} ${escHtml(s.lastName)}`).join('<br>');
+      absentList.innerHTML = absent.map(s => {
+        const excused = (s.attendance || []).some(a => a.date === dateStr && a.type === 'entschuldigt');
+        return `<li><span>${escHtml(s.firstName)} ${escHtml(s.lastName)}</span>` +
+          `<span class="absent-type ${excused ? 'excused' : 'unexcused'}">${excused ? 'entschuldigt' : 'unentschuldigt'}</span></li>`;
+      }).join('');
       absentContainer.classList.remove('hidden');
     }
   }
@@ -1693,7 +1698,7 @@ function renderOverviewTable() {
     });
     const attDates = Array.from(attEventsMap.values()).sort((a,b) => a.date.localeCompare(b.date));
     
-    html += '<th>Summe</th>';
+    html += '<th title="Unentschuldigt (F) + entschuldigt (E), ohne zu spät (Z)">Fehltage</th>';
     attDates.forEach(ev => {
       html += `<th style="cursor:pointer;" title="Klicken zum Bearbeiten" onclick="openEditColumnModal(${jsArg(ev.date)}, ${jsArg(ev.label)})"><div>${formatDateShort(ev.date)}</div>${ev.label ? `<div style="font-weight:400;font-size:11px;">${escHtml(ev.label)}</div>` : ''}</th>`;
     });
@@ -1702,14 +1707,14 @@ function renderOverviewTable() {
     sortedStudents.forEach(s => {
       html += `<tr><td class="ov-name-col ov-name" onclick="openSeatingStudentModal(${jsArg(s.id)}, ${jsArg(currentOverviewGroupId)}, ${jsArg(formatDate(new Date()))})"><span class="ov-name-text" title="${escHtml(s.lastName)}, ${escHtml(s.firstName)}">${escHtml(s.lastName)}, ${escHtml(s.firstName)}</span></td>`;
       const totalMissed = (s.attendance||[]).filter(a => a.type === 'abwesend' || a.type === 'entschuldigt').length;
-      html += `<td style="text-align:center;font-weight:600;">${totalMissed}</td>`;
+      html += `<td style="text-align:center;font-weight:600;${totalMissed ? '' : 'color:var(--text-muted);'}">${totalMissed}</td>`;
 
       attDates.forEach(ev => {
         const aIdx = (s.attendance||[]).findIndex(x => x.date === ev.date);
         const status = aIdx !== -1 ? s.attendance[aIdx].type : ''; // 'abwesend', 'entschuldigt', 'zuspät'
         const displayVal = ATTENDANCE_SHORT[status] || '';
 
-        html += `<td style="padding:4px;"><input type="text" class="form-input" style="width:100%; text-align:center; padding:6px; font-weight:600; color:${status==='abwesend' ? 'var(--danger)' : 'inherit'}" value="${displayVal}" placeholder="-" onchange="updateInlineAttendance(${jsArg(s.id)}, ${jsArg(ev.date)}, this.value)" /></td>`;
+        html += `<td style="padding:4px;"><input type="text" class="form-input" style="width:100%; text-align:center; padding:6px; font-weight:600; color:${status==='abwesend' ? 'var(--danger)' : status==='entschuldigt' ? 'var(--success)' : 'inherit'}" value="${displayVal}" placeholder="-" onchange="updateInlineAttendance(${jsArg(s.id)}, ${jsArg(ev.date)}, this.value)" /></td>`;
       });
       html += `</tr>`;
     });
@@ -1721,7 +1726,7 @@ function renderOverviewTable() {
     });
     const hwDates = Array.from(hwEventsMap.values()).sort((a,b) => a.date.localeCompare(b.date));
     
-    html += '<th>Summe</th>';
+    html += '<th title="Wie oft die Hausaufgaben gefehlt haben">Vergessen</th>';
     hwDates.forEach(ev => {
       html += `<th style="cursor:pointer;" title="Klicken zum Bearbeiten" onclick="openEditColumnModal(${jsArg(ev.date)}, ${jsArg(ev.label)})"><div>${formatDateShort(ev.date)}</div>${ev.label ? `<div style="font-weight:400;font-size:11px;">${escHtml(ev.label)}</div>` : ''}</th>`;
     });
@@ -1730,7 +1735,7 @@ function renderOverviewTable() {
     sortedStudents.forEach(s => {
       html += `<tr><td class="ov-name-col ov-name" onclick="openSeatingStudentModal(${jsArg(s.id)}, ${jsArg(currentOverviewGroupId)}, ${jsArg(formatDate(new Date()))})"><span class="ov-name-text" title="${escHtml(s.lastName)}, ${escHtml(s.firstName)}">${escHtml(s.lastName)}, ${escHtml(s.firstName)}</span></td>`;
       const totalMissed = (s.homework||[]).length;
-      html += `<td style="text-align:center;font-weight:600;color:var(--danger);">${totalMissed}</td>`;
+      html += `<td style="text-align:center;font-weight:600;color:${totalMissed ? 'var(--danger)' : 'var(--text-muted)'};">${totalMissed}</td>`;
 
       hwDates.forEach(ev => {
         const hIdx = (s.homework||[]).findIndex(x => x.date === ev.date && (x.note||'') === (ev.label||''));
@@ -3844,10 +3849,10 @@ function openSeatingStudentModal(studentId, groupId, dateStr) {
   const partPos = (s.participation||[]).filter(p => p.value==='positive').length;
   const partNeutral = (s.participation||[]).filter(p => p.value==='neutral').length;
   const partNeg = (s.participation||[]).filter(p => p.value==='negative').length;
-  document.getElementById('seating-student-participation-summary').innerHTML = `
-    <span style="color:var(--success)">${partPos}</span> : 
-    <span style="color:var(--warning)">${partNeutral}</span> : 
-    <span style="color:var(--danger)">${partNeg}</span>
+  document.getElementById('seating-student-participation-summary').innerHTML = `Mitarbeit bisher:
+    <span style="color:var(--success)">😊 ${partPos}</span> ·
+    <span style="color:var(--warning)">😐 ${partNeutral}</span> ·
+    <span style="color:var(--danger)">☹️ ${partNeg}</span>
   `;
 
   renderSeatingStudentGrades(seatingShowGrades);
@@ -4659,8 +4664,12 @@ window.jumpToStudentDetailFromSeating = function() {
   if (!window.currentSeatingStudent) return;
   const { studentId, groupId } = window.currentSeatingStudent;
   closeModal('modal-seating-student');
-  switchView('classes');
-  openGroupStudents(groupId);
+  // Aus der Klassenansicht derselben Klasse: dort bleiben, sonst sprang sie auf den Reiter „Schüler“ (BUGS I10)
+  const inClassView = document.getElementById('view-students').classList.contains('active') && currentGroupId === groupId;
+  if (!inClassView) {
+    switchView('classes');
+    openGroupStudents(groupId);
+  }
   openStudentDetail(studentId);
 };
 

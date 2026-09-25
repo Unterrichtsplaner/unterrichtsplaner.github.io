@@ -38,7 +38,7 @@
       }
     } catch(e) {}
   </script>
-  <link rel="stylesheet" href="style.css?v=209" />
+  <link rel="stylesheet" href="style.css?v=210" />
   <script>
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
@@ -357,6 +357,15 @@
     <!-- Notes form -->
     <div id="lesson-notes-form" class="lesson-notes-form">
 
+      <!-- Heute fehlen (BUGS I18: normaler Abschnitt ganz oben statt roter Kasten zwischen HA und Test) -->
+      <div id="lesson-absent-container" class="notes-section lesson-absent hidden">
+        <div class="notes-section-header">
+          <span class="notes-section-icon"><i data-icon="attendance"></i></span>
+          <span class="notes-section-label">Heute fehlen</span>
+        </div>
+        <ul id="lesson-absent-list" class="lesson-absent-list"></ul>
+      </div>
+
       <!-- Unterrichtsinhalt -->
       <div class="notes-section">
         <div class="notes-section-header">
@@ -390,15 +399,6 @@
             </button>
           </div>
         </div>
-      </div>
-
-      <!-- Absent students banner -->
-      <div id="lesson-absent-container" class="hidden" style="margin-bottom:20px; padding:10px 14px; background:var(--danger-soft); border:1px solid rgba(239,68,68,.3); border-radius:10px;">
-        <div style="font-size:12px; font-weight:700; color:var(--danger); margin-bottom:4px; display:flex; align-items:center; gap:6px;">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
-          Fehlend / Entschuldigt
-        </div>
-        <div id="lesson-absent-list" style="font-size:13px; color:var(--text-primary); line-height:1.4;"></div>
       </div>
 
       <!-- Test / Prüfung -->
@@ -1074,11 +1074,14 @@
       </div>
       <div class="modal-body" style="padding:16px;">
         <div style="text-align:center; margin-bottom:16px;">
+          <div class="seating-part-block">
           <div style="font-size:14px; color:var(--text-secondary); margin-bottom:8px;" id="seating-student-date-label"></div>
           <div style="display:flex; justify-content:center; gap:12px;">
             <button class="btn-secondary" style="width:48px; height:48px; padding:0; display:flex; align-items:center; justify-content:center; font-size:26px; border-radius:99px;" onclick="addParticipationSmiley('positive')">😊</button>
             <button class="btn-secondary" style="width:48px; height:48px; padding:0; display:flex; align-items:center; justify-content:center; font-size:26px; border-radius:99px;" onclick="addParticipationSmiley('neutral')">😐</button>
             <button class="btn-secondary" style="width:48px; height:48px; padding:0; display:flex; align-items:center; justify-content:center; font-size:26px; border-radius:99px;" onclick="addParticipationSmiley('negative')">☹️</button>
+          </div>
+          <div id="seating-student-participation-summary" class="seating-part-summary" title="Mitarbeit bisher (positiv · neutral · negativ)"></div>
           </div>
           <div style="display:flex; flex-direction:column; gap:8px; margin-top:16px;">
             <div style="display:flex; gap:8px;">
@@ -1092,10 +1095,7 @@
           </div>
         </div>
         <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--border); padding-bottom:6px; margin-bottom:10px;">
-          <div style="display:flex; gap: 12px; align-items: center;">
-            <h3 style="font-size:13px; font-weight:600; color:var(--text-secondary); margin:0;">Bisherige Noten</h3>
-            <div id="seating-student-participation-summary" style="font-size:11px; font-weight:700; padding:3px 6px; background:var(--bg-elevated); border-radius:4px;" title="Mitarbeit (Positiv : Neutral : Negativ)">0 : 0 : 0</div>
-          </div>
+          <h3 style="font-size:13px; font-weight:600; color:var(--text-secondary); margin:0;">Bisherige Noten</h3>
           <button class="btn-secondary" onclick="openGradeFormForCurrentStudent()"><i data-icon="plus"></i>Neue Note</button>
         </div>
         <div id="seating-student-grades" style="max-height:200px; overflow-y:auto; display:flex; flex-direction:column; gap:8px;"></div>
@@ -1143,12 +1143,12 @@
   </div>
 
   <script src="lib/crypto-js.min.js"></script>
-  <script src="crypto-helper.js?v=209"></script>
+  <script src="crypto-helper.js?v=210"></script>
   <script src="lib/firebase-app-compat.js"></script>
   <script src="lib/firebase-auth-compat.js"></script>
   <script src="lib/firebase-firestore-compat.js"></script>
-  <script src="firebase-config.js?v=209"></script>
-  <script src="sync-manager.js?v=209"></script>
-  <script src="app.js?v=209"></script>
+  <script src="firebase-config.js?v=210"></script>
+  <script src="sync-manager.js?v=210"></script>
+  <script src="app.js?v=210"></script>
 </body>
 </html>

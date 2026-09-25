@@ -380,6 +380,12 @@ input[type="date"] { min-height: 1.2em; } /* Fix iOS Safari date input collapse 
 .notes-section-icon{font-size:15px;flex-shrink:0;}
 .notes-section-label{font-size:13px;font-weight:600;flex:1;}
 .notes-section-body{margin-top:10px;animation:fadeIn .14s ease;}
+.lesson-absent-list{list-style:none;margin-top:8px;display:flex;flex-direction:column;gap:4px;font-size:13px;}
+.lesson-absent-list li{display:flex;justify-content:space-between;gap:10px;}
+.absent-type{font-size:12px;font-weight:600;white-space:nowrap;}
+.absent-type.unexcused{color:var(--danger);}
+.absent-type.excused{color:var(--text-secondary);}
+.seating-part-summary{margin-top:8px;font-size:12px;font-weight:600;color:var(--text-secondary);}
 .notes-textarea{width:100%;background:var(--bg-input);border:1px solid var(--border);border-radius:var(--radius-md);color:var(--text-primary);font-family:inherit;font-size:13px;padding:10px 12px;resize:vertical;transition:border-color var(--transition);line-height:1.6;min-height:80px;}
 .notes-textarea-sm{min-height:56px;}
 .notes-textarea:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 2px var(--accent-glow);}

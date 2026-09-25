@@ -273,3 +273,78 @@ describe('I21: Toasts verdecken keine Knöpfe', () => {
     expect(document.getElementById('toast-container').getAttribute('aria-live')).toBe('polite');
   });
 });
+
+describe('Paket 4: Klassenansicht und Fenster', () => {
+  const TODAY = '2026-09-24';
+  beforeAll(() => {
+    const st = app('db.students.g1');
+    st[0].attendance = [{ id: 'a1', date: TODAY, type: 'abwesend', note: '' }, { id: 'a2', date: '2026-09-17', type: 'zuspät', note: '' }];
+    st[1].attendance = [{ id: 'a3', date: TODAY, type: 'entschuldigt', note: '' }];
+    st[0].homework = []; st[1].homework = [{ id: 'h1', date: TODAY, note: '' }];
+    st[0].participation = [{ id: 'p1', date: TODAY, value: 'positive' }];
+  });
+  const row = name => [...document.querySelectorAll('#overview-content tbody tr')].find(r => r.textContent.includes(name));
+
+  it('I8: Anwesenheit – Spalte heißt „Fehltage“ und erklärt, dass Verspätungen nicht zählen; E grün', () => {
+    app('openGroupStudents("g1", "attendance")');
+    const head = [...document.querySelectorAll('#overview-content thead th')][1];
+    expect(head.textContent).toBe('Fehltage');
+    expect(head.title).toMatch(/entschuldigt.*ohne.*zu spät/i);
+    const e = [...row('Muster').querySelectorAll('input')].find(i => i.value === 'E');
+    expect(e.getAttribute('style')).toContain('var(--success)');
+  });
+
+  it('I8: Hausaufgaben – 0 ist nicht rot, nur vergessene HA', () => {
+    app('openGroupStudents("g1", "homework")');
+    const head = [...document.querySelectorAll('#overview-content thead th')][1];
+    expect(head.textContent).toBe('Vergessen');
+    const sumCell = name => row(name).querySelectorAll('td')[1];
+    expect(sumCell('Fischer').textContent).toBe('0');
+    expect(sumCell('Fischer').getAttribute('style')).not.toContain('danger');
+    expect(sumCell('Muster').textContent).toBe('1');
+    expect(sumCell('Muster').getAttribute('style')).toContain('var(--danger)');
+  });
+
+  it('I9: Mitarbeit-Bilanz steht beschriftet bei den Smileys, nicht neben „Bisherige Noten“', () => {
+    app(`openSeatingStudentModal("s1", "g1", "${TODAY}")`);
+    const sum = document.getElementById('seating-student-participation-summary');
+    expect(sum.closest('.seating-part-block')).not.toBeNull();
+    expect(sum.textContent).toMatch(/Mitarbeit bisher/);
+    const gradesHead = [...document.querySelectorAll('#modal-seating-student h3')].find(h => h.textContent.includes('Noten'));
+    expect(gradesHead.parentElement.contains(sum)).toBe(false);
+    app('closeModal("modal-seating-student")');
+  });
+
+  it('I10: „Zum Profil“ aus einem Reiter der Klassenansicht bleibt auf diesem Reiter', () => {
+    app('openGroupStudents("g1", "homework")');
+    app(`openSeatingStudentModal("s1", "g1", "${TODAY}")`);
+    app('jumpToStudentDetailFromSeating()');
+    expect(app('currentClassDashboardTab')).toBe('homework');
+    expect(document.getElementById('overview-tab-homework').classList.contains('active')).toBe(true);
+    app('closeModal("modal-student-detail")');
+  });
+
+  it('I11: Klassenansicht markiert „Klassen“ in der Navigation, auch aus dem Stunden-Fenster', () => {
+    app('switchView("timetable"); openClassOverview("g1")');
+    expect([...document.querySelectorAll('.nav-item.active')].map(n => n.id)).toEqual(['nav-classes']);
+  });
+
+  it('I18: „Heute fehlen“ ist ein normaler Abschnitt ganz oben und nennt die Art', () => {
+    app(`openLessonDetail("sR", "${TODAY}")`);
+    const box = document.getElementById('lesson-absent-container');
+    expect(box.classList.contains('hidden')).toBe(false);
+    expect(box.classList.contains('notes-section')).toBe(true);
+    expect(box.getAttribute('style')).toBeNull();
+    const sections = [...box.parentElement.querySelectorAll(':scope > .notes-section')];
+    expect(sections[0]).toBe(box);
+    expect(box.textContent).toContain('Heute fehlen');
+    const items = [...box.querySelectorAll('li')].map(li => li.textContent.replace(/\s+/g, ' ').trim());
+    const typeOf = name => [...box.querySelectorAll('li')].find(li => li.textContent.includes(name)).querySelector('.absent-type').textContent;
+    expect(items).toHaveLength(2);
+    expect(typeOf('David')).toBe('unentschuldigt');
+    expect(typeOf('Anna')).toBe('entschuldigt');
+    expect(box.querySelector('.absent-type.unexcused')).not.toBeNull();
+    expect(box.querySelector('.absent-type.excused')).not.toBeNull();
+    app('closeModal("modal-lesson")');
+  });
+});
