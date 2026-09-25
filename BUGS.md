@@ -208,19 +208,21 @@ Priorität: 🔴 Datenverlust / App kaputt · 🟠 falsche Anzeige / nervig · �
 
 ## N. Review 25.09.2026: Sitzplan
 
-- [ ] **N1** 🟠 **Raster verkleinern verschiebt Schüler dauerhaft** – `renderSeatingPlan` (~Z. 3322) schreibt Ausweichplätze in `s.gridX/Y`. 6 → 3 → 6 Spalten: Anna sitzt woanders (und das geht in die Cloud). Mehr Schüler als Plätze → Überzählige alle auf (0,0), nach dem Vergrößern übereinander, nur einer antippbar. *Test.* → Ausweichplätze nur für die Anzeige, Warnung „Raster zu klein“.
-- [ ] **N2** 🟠 **Negative Spaltenzahl legt den Sitzplan lahm** (`saveSeatingGrid` ~Z. 3186): `-3` → `RangeError`, Sitzplan leer, wird synchronisiert; `0` wird still zu 10. *Test.* → 1…N erzwingen.
-- [ ] **N3** 🟠 **Lehrerpult verschwindet nach dem Verkleinern** (außerhalb der Fläche, nicht mehr zurückziehbar). *Test.* → Beim Zeichnen ins Raster klemmen.
-- [ ] **N4** 🟠 **Schüler lässt sich unter das Lehrerpult ziehen** (und umgekehrt) → Karte im Unterricht nicht antippbar (`makeDraggable` dragEnd). *Test.* → Drop ablehnen oder tauschen.
-- [ ] **N5** 🟠 **Abgebrochene Touch-Geste** (Mitteilung, Systemgeste) lässt die Listener auf `document` hängen: nächstes Wischen irgendwo verschiebt die Karte und speichert einen Zufallsplatz (kein `touchcancel`). *Test.*
-- [ ] **N6** 🟠 **Schnellbewertung zeigt nicht, was heute schon gesetzt ist**; zweites Tippen auf 😊 oder „Unentschuldigt“ *löscht* den Eintrag (nur Toast „Eintrag entfernt“, kein Rückgängig). Zweiter guter Beitrag → erster weg. *Browser.* → Aktiven Knopf markieren (`aria-pressed`), Toast mit „Rückgängig“.
-- [ ] **N7** 🟢 „Neue Note“ aus der Schnellbewertung nimmt immer heute, Anwesenheit/Mitarbeit das gewählte Sitzplan-Datum (`openGradeFormForCurrentStudent` ~Z. 3932).
-- [ ] **N8** 🟢 Gleiche Vornamen im Sitzplan nicht unterscheidbar (auch Tooltip). → Bei Doppel „Anna M.“.
-- [ ] **N9** 🟢 Klassenwahl zeigt nur „7b“ – bei 7b in zwei Fächern unklar, welcher Plan offen ist.
-- [ ] **N10** 🟢 Datumsleiste zeigt auch Tage, an denen die Klasse keinen Unterricht hat (7b am Mittwoch). *Browser.* → Unterrichtstage der Klasse hervorheben oder nur diese zeigen.
-- [ ] **N11** 🟢 Tippflächen 32–34 px (Datums-Chips, Werkzeug- und Timer-Knöpfe), Raster-Felder 32×26 px; Datums-Chips und Klassenmenü sind `div`s ohne Tastatur-/Screenreader-Zugang. → ≥ 44 px, `button`.
-- [ ] **N12** 🟢 Timer-Ende: nur 2,5-s-Toast, kein Ton, keine bleibende Markierung; Start bei 00:00 ohne Rückmeldung.
-- [ ] **N13** 🟢 Toter Code: `window.currentRandomStudent` (gesetzt, nie gelesen – der gezogene Schüler hat keine Aktion), `.sc-absent-toggle` in CSS/`makeDraggable`; Noten-Bearbeiten im Schüler-Fenster per `g._origIdx` (Regel 9).
+> Behoben (v220). Tests: `tests/block-n.test.js`. Sitzplätze werden beim Zeichnen nur noch berechnet, nicht gespeichert; gespeichert wird erst, wenn jemand im Bearbeiten-Modus umordnet. Rasterbreite 2–20, Reihen 2–6. Tippflächen im Sitzplan auf Touch-Geräten 44 px (bei 375/1024 px nachgemessen, kein seitliches Scrollen).
+
+- [x] **N1** 🟠 **Raster verkleinern verschiebt Schüler dauerhaft** – `renderSeatingPlan` (~Z. 3322) schreibt Ausweichplätze in `s.gridX/Y`. 6 → 3 → 6 Spalten: Anna sitzt woanders (und das geht in die Cloud). Mehr Schüler als Plätze → Überzählige alle auf (0,0), nach dem Vergrößern übereinander, nur einer antippbar. *Test.* → Ausweichplätze nur für die Anzeige, Warnung „Raster zu klein“.
+- [x] **N2** 🟠 **Negative Spaltenzahl legt den Sitzplan lahm** (`saveSeatingGrid` ~Z. 3186): `-3` → `RangeError`, Sitzplan leer, wird synchronisiert; `0` wird still zu 10. *Test.* → 1…N erzwingen.
+- [x] **N3** 🟠 **Lehrerpult verschwindet nach dem Verkleinern** (außerhalb der Fläche, nicht mehr zurückziehbar). *Test.* → Beim Zeichnen ins Raster klemmen.
+- [x] **N4** 🟠 **Schüler lässt sich unter das Lehrerpult ziehen** (und umgekehrt) → Karte im Unterricht nicht antippbar (`makeDraggable` dragEnd). *Test.* → Drop ablehnen oder tauschen.
+- [x] **N5** 🟠 **Abgebrochene Touch-Geste** (Mitteilung, Systemgeste) lässt die Listener auf `document` hängen: nächstes Wischen irgendwo verschiebt die Karte und speichert einen Zufallsplatz (kein `touchcancel`). *Test.*
+- [x] **N6** 🟠 **Schnellbewertung zeigt nicht, was heute schon gesetzt ist**; zweites Tippen auf 😊 oder „Unentschuldigt“ *löscht* den Eintrag (nur Toast „Eintrag entfernt“, kein Rückgängig). Zweiter guter Beitrag → erster weg. *Browser.* → Aktiven Knopf markieren (`aria-pressed`), Toast mit „Rückgängig“.
+- [x] **N7** 🟢 „Neue Note“ aus der Schnellbewertung nimmt immer heute, Anwesenheit/Mitarbeit das gewählte Sitzplan-Datum (`openGradeFormForCurrentStudent` ~Z. 3932).
+- [x] **N8** 🟢 Gleiche Vornamen im Sitzplan nicht unterscheidbar (auch Tooltip). → Bei Doppel „Anna M.“.
+- [x] **N9** 🟢 Klassenwahl zeigt nur „7b“ – bei 7b in zwei Fächern unklar, welcher Plan offen ist.
+- [x] **N10** 🟢 Datumsleiste zeigt auch Tage, an denen die Klasse keinen Unterricht hat (7b am Mittwoch). *Browser.* → Unterrichtstage der Klasse hervorheben oder nur diese zeigen.
+- [x] **N11** 🟢 Tippflächen 32–34 px (Datums-Chips, Werkzeug- und Timer-Knöpfe), Raster-Felder 32×26 px; Datums-Chips und Klassenmenü sind `div`s ohne Tastatur-/Screenreader-Zugang. → ≥ 44 px, `button`.
+- [x] **N12** 🟢 Timer-Ende: nur 2,5-s-Toast, kein Ton, keine bleibende Markierung; Start bei 00:00 ohne Rückmeldung.
+- [x] **N13** 🟢 Toter Code: `window.currentRandomStudent` (gesetzt, nie gelesen – der gezogene Schüler hat keine Aktion), `.sc-absent-toggle` in CSS/`makeDraggable`; Noten-Bearbeiten im Schüler-Fenster per `g._origIdx` (Regel 9).
 
 ## O. Review 25.09.2026: Fenster, Einstellungen, Navigation
 
@@ -347,3 +349,16 @@ Priorität: 🔴 Datenverlust / App kaputt · 🟠 falsche Anzeige / nervig · �
 | M13 | `safeColor()`: fehlende/kaputte Farbe → Standardfarbe | Block M |
 | M14 | Datums-Picker (Stundenplan, Sitzplan) stehen auf dem angezeigten Datum | Block M |
 | M15 | HA/Test im Stunden-Fenster per Referenz löschen | Block M |
+| N1 | `seatingLayout()`: Plätze nur für die Anzeige, Überzählige mit Hinweis `#seating-overflow-hint`; `materializeSeatingLayout` erst beim Umordnen | Block N |
+| N2 | `saveSeatingGrid`: nur ganze Zahlen 2–20 / 2–6, sonst Hinweis; `seatingGridSize()` für gespeicherte Werte | Block N |
+| N3 | `seatingDesk()`: Pult immer ganz im Raster | Block N |
+| N4 | Schüler aufs Pult ziehen abgelehnt; Pult auf Schüler: diese bekommen freie Plätze | Block N |
+| N5 | `touchcancel` setzt die Karte zurück und entfernt die Listener | Block N |
+| N6 | Schnellbewertung markiert den heutigen Stand (`aria-pressed`, `.is-set`); Entfernen per zweitem Tippen mit „Rückgängig“ (`showUndoToast`, `restoreSeatingEntry`, stellt auch den Hinweis für die nächste Stunde wieder her) | Block N |
+| N7 | „Neue Note“ mit dem Sitzplan-Datum | Block N |
+| N8 | Doppelte Vornamen: „Anna M.“; Tooltip mit vollem Namen | Block N |
+| N9 | Klassenwahl: Fach dabei, wenn die Klasse mehrfach vorkommt | Block N |
+| N10 | Datums-Chips: Unterrichtstage der Klasse umrandet, andere abgeschwächt | Block N |
+| N11 | Datums-Chips und Klassenmenü als `button` mit `aria-label`; Inline-Größen in Klassen, `@media (pointer: coarse)` 44 px | Block N |
+| N12 | Timer-Ende: blinkende Anzeige bis „Zurücksetzen“, kurzer Ton (beim Start freigeschaltet); Start bei 00:00 mit Hinweis | Block N |
+| N13 | `currentRandomStudent`, `.sc-absent-toggle` entfernt; Note bearbeiten per Referenz; Gruppen „nach Sitznähe“ über `seatOf()` | Block N |

@@ -345,7 +345,6 @@ input[type="date"] { min-height: 1.2em; } /* Fix iOS Safari date input collapse 
 .seating-card.compact .sc-gpa { font-size: 10px; }
 .seating-card.tiny { padding: 2px; }
 .seating-card.tiny .sc-name { font-size: 10px; max-width: 100%; word-break: normal; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin: 0; }
-.seating-card.compact .sc-absent-toggle { width: 18px; height: 18px; font-size: 10px; top: -6px; right: -6px; }
 
 /* ─── Overview Table ─── */
 .overview-table-wrapper {
@@ -877,4 +876,33 @@ select option{background:var(--bg-secondary);}
   #seating-date-strip { order: 10; flex-basis: 100%; justify-content: center; }
   .seating-tools-bar { padding: 8px 10px; gap: 8px 10px; }
   .seating-live-btn { height: 40px; padding: 0 14px; font-size: 14px; }
+}
+
+/* ─── Sitzplan (BUGS N1, N6, N10–N12) ─── */
+.seating-overflow-hint{margin:8px 20px 0;padding:8px 12px;border:1px solid var(--warning);border-radius:var(--radius-md);background:var(--warning-soft);color:var(--warning);font-size:13px;font-weight:600;text-align:center;}
+.seating-tool-slot{position:relative;width:34px;height:34px;flex-shrink:0;}
+.seating-tool-btn{width:34px;height:34px;}
+#seating-group-trigger{height:34px;}
+.seating-grid-input{width:32px;height:26px;padding:0;font-size:12px;text-align:center;border-radius:99px;}
+.tool-play-btn{background:var(--accent-soft);color:var(--text-accent);border-radius:50%;width:32px;height:32px;}
+button.date-chip{font-family:inherit;padding:0;}
+.date-chip.has-lesson:not(.active){border-color:var(--accent);color:var(--text-primary);}
+.date-chip:not(.has-lesson):not(.active){opacity:.6;}
+.seating-group-item{width:100%;}
+/* Schnellbewertung: heute schon eingetragen */
+#modal-seating-student [data-action].is-set{background:var(--accent-soft);box-shadow:0 0 0 2px var(--accent);}
+/* Timer abgelaufen: bleibt sichtbar bis „Zurücksetzen“ */
+.tool-display.timer-done{color:var(--danger);animation:timerDone 1s ease-in-out infinite;}
+@keyframes timerDone{50%{opacity:.35;}}
+/* Toast mit „Rückgängig“ muss antippbar sein (Container lässt Klicks sonst durch) */
+.toast-undo{pointer-events:auto;}
+.toast-undo button{margin-left:6px;padding:4px 10px;border-radius:99px;border:1px solid currentColor;background:transparent;color:inherit;font:inherit;font-weight:700;cursor:pointer;}
+/* Touch (iPad): Tippflächen mindestens 44 px (BUGS N11) */
+@media (pointer: coarse){
+  .date-chip, .date-chip.active{width:44px;height:44px;}
+  .seating-tool-slot, .seating-tool-btn, #seating-group-trigger{width:44px;height:44px;}
+  #seating-group-trigger{width:auto;}
+  .tool-play-btn, .tool-widget .btn-icon{width:44px;height:44px;}
+  .seating-grid-input{width:44px;height:40px;font-size:16px;}
+  .seating-group-item{min-height:44px !important;}
 }

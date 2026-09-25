@@ -107,6 +107,6 @@ describe('H13: Namen auf kleinen Sitzplan-Karten', () => {
     expect(css).toMatch(/\.seating-card\.tiny \.sc-name\s*\{[^}]*white-space:\s*nowrap[^}]*text-overflow:\s*ellipsis/);
     // vollständiger Name bleibt per Tooltip/Vorlesefunktion erreichbar
     const maxi = cards.find(c => c.textContent.includes('Maximiliane'));
-    expect(maxi.querySelector('.sc-name').title).toBe('Maximiliane');
+    expect(maxi.querySelector('.sc-name').title).toMatch(/^Maximiliane/); // seit N8 mit Nachnamen
   });
 });

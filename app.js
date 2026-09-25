@@ -3367,7 +3367,9 @@ function renderSeatingGroupSelect() {
   
   const activeGroup = db.groups.find(g => g.id === currentSeatingGroupId);
   if (activeGroup) {
-    label.textContent = activeGroup.className;
+    // Gibt es die Klasse in mehreren Fächern, steht das Fach dabei (BUGS N9)
+    const twin = db.groups.some(g => g !== activeGroup && g.className === activeGroup.className);
+    label.textContent = twin ? `${activeGroup.className} ${activeGroup.subject}` : activeGroup.className;
   } else {
     label.textContent = 'Klasse';
   }
@@ -3396,7 +3398,12 @@ function renderSeatingGroupSelect() {
     const classes = grouped[subject].sort((a,b) => a.className.localeCompare(b.className, undefined, { numeric: true }));
     
     classes.forEach(g => {
-      const item = document.createElement('div');
+      const item = document.createElement('button'); // Knopf: per Tastatur/Screenreader erreichbar (BUGS N11)
+      item.type = 'button';
+      item.className = 'seating-group-item';
+      item.style.border = 'none';
+      item.style.fontFamily = 'inherit';
+      item.style.minHeight = '36px';
       item.style.padding = '6px 12px';
       item.style.fontSize = '13px';
       item.style.fontWeight = '600';
@@ -3420,6 +3427,7 @@ function renderSeatingGroupSelect() {
         currentSeatingGroupId = g.id;
         menu.classList.add('hidden');
         renderSeatingGroupSelect();
+        renderSeatingDateStrip(); // Unterrichtstage gehören zur Klasse
         renderSeatingPlan();
       };
       
@@ -3458,10 +3466,16 @@ function renderSeatingDateStrip() {
     const d = addSchoolDays(baseDate, i);
     const dStr = formatDate(d);
     
-    const chip = document.createElement('div');
+    const chip = document.createElement('button');
+    chip.type = 'button';
     chip.className = 'date-chip';
     if (dStr === currentSeatingDateStr) chip.classList.add('active');
-    
+    // Tage mit Unterricht dieser Klasse markieren (BUGS N10)
+    const hasLesson = !!currentSeatingGroupId && lessonsOnDate(dStr).some(l => l.slot.groupId === currentSeatingGroupId && !l.ausfall);
+    chip.classList.toggle('has-lesson', hasLesson);
+    chip.setAttribute('aria-label', d.toLocaleDateString('de-DE', { weekday: 'long', day: '2-digit', month: '2-digit' }) + (hasLesson ? ', Unterricht' : ''));
+    if (dStr === currentSeatingDateStr) chip.setAttribute('aria-current', 'date');
+
     const dayLabel = days[d.getDay()];
     const dateNum = d.getDate();
     
@@ -3531,14 +3545,71 @@ document.addEventListener('click', (e) => {
   }
 });
 
+const SEATING_MIN = 2, SEATING_MAX_COLS = 20, SEATING_MAX_ROWS = 6; // Pult ist 2 Zellen breit
+
+// Rastergröße einer Klasse; ungültige gespeicherte Werte (Altdaten, Sync) fallen auf den Standard
+function seatingGridSize(g) {
+  const ok = (v, max) => Number.isInteger(v) && v >= SEATING_MIN && v <= max;
+  return { cols: ok(g.seatingCols, SEATING_MAX_COLS) ? g.seatingCols : 10, rows: ok(g.seatingRows, SEATING_MAX_ROWS) ? g.seatingRows : 5 };
+}
+// Lehrerpult (2 Zellen breit), immer ganz im Raster (BUGS N3)
+function seatingDesk(g, cols, rows) {
+  const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+  const x = Number.isInteger(g.teacherDeskX) ? g.teacherDeskX : Math.floor(cols / 2) - 1;
+  const y = Number.isInteger(g.teacherDeskY) ? g.teacherDeskY : rows - 1;
+  return { x: clamp(x, 0, cols - 2), y: clamp(y, 0, rows - 1) };
+}
+// Plätze für die Anzeige (BUGS N1): Ein gespeicherter Platz im Raster und nicht auf dem Pult bleibt;
+// wer keinen gültigen hat, bekommt für die Anzeige den nächsten freien. In die Daten wird nichts
+// geschrieben – so kommt nach Verkleinern und Vergrößern jeder wieder auf seinen Platz.
+function seatingLayout(students, cols, rows, desk) {
+  const key = (x, y) => x + ',' + y;
+  const taken = new Set([key(desk.x, desk.y), key(desk.x + 1, desk.y)]);
+  const seats = new Map(), unplaced = [], overflow = [];
+  students.forEach(s => {
+    const ok = Number.isInteger(s.gridX) && Number.isInteger(s.gridY) && s.gridX >= 0 && s.gridY >= 0
+      && s.gridX < cols && s.gridY < rows && !taken.has(key(s.gridX, s.gridY));
+    if (ok) { taken.add(key(s.gridX, s.gridY)); seats.set(s.id, { x: s.gridX, y: s.gridY }); }
+    else unplaced.push(s);
+  });
+  unplaced.forEach(s => {
+    let spot = null;
+    for (let r = 0; r < rows && !spot; r++) for (let c = 0; c < cols && !spot; c++) if (!taken.has(key(c, r))) spot = { x: c, y: r };
+    if (spot) { taken.add(key(spot.x, spot.y)); seats.set(s.id, spot); } else overflow.push(s);
+  });
+  return { seats, overflow, desk, cols, rows };
+}
+let lastSeatingLayout = null;
+// Angezeigter Platz eines Schülers (für Gruppen nach Sitznähe)
+function seatOf(s) {
+  const seat = lastSeatingLayout && lastSeatingLayout.seats.get(s.id);
+  return seat || { x: s.gridX || 0, y: s.gridY || 0 };
+}
+// Der Nutzer ordnet gerade um: den angezeigten Plan so übernehmen, wie er ihn sieht
+function materializeSeatingLayout(groupId, layout) {
+  (db.students[groupId] || []).forEach(s => {
+    const seat = layout.seats.get(s.id);
+    if (seat) { s.gridX = seat.x; s.gridY = seat.y; }
+  });
+}
+
 function saveSeatingGrid() {
   const groupId = currentSeatingGroupId;
   if (!groupId) return;
   const g = db.groups.find(x => x.id === groupId);
   if (!g) return;
-  g.seatingCols = parseInt(document.getElementById('seating-cols').value) || 10;
-  let rows = parseInt(document.getElementById('seating-rows').value) || 5;
-  if (rows > 6) rows = 6;
+  // Nur ganze Zahlen im erlaubten Bereich; alles andere wird abgelehnt statt still ersetzt (BUGS N2)
+  const read = (id, max) => {
+    const v = document.getElementById(id).value.trim();
+    return /^\d+$/.test(v) && +v >= SEATING_MIN && +v <= max ? +v : null;
+  };
+  const cols = read('seating-cols', SEATING_MAX_COLS), rows = read('seating-rows', SEATING_MAX_ROWS);
+  if (cols === null || rows === null) {
+    showToast(cols === null ? `Spalten: bitte eine Zahl von ${SEATING_MIN} bis ${SEATING_MAX_COLS}` : `Reihen: bitte eine Zahl von ${SEATING_MIN} bis ${SEATING_MAX_ROWS}`, 'error');
+    renderSeatingPlan(); // Felder auf die gespeicherten Werte zurücksetzen
+    return;
+  }
+  g.seatingCols = cols;
   g.seatingRows = rows;
   saveDB();
   renderSeatingPlan();
@@ -3581,17 +3652,26 @@ function renderSeatingPlan() {
   const g = db.groups.find(x => x.id === groupId);
   if (!g) return;
 
-  const cols = g.seatingCols || 10;
-  const rows = g.seatingRows || 5;
+  const { cols, rows } = seatingGridSize(g);
   document.getElementById('seating-cols').value = cols;
   document.getElementById('seating-rows').value = rows;
 
+  const overflowHint = document.getElementById('seating-overflow-hint');
+  overflowHint.classList.add('hidden');
   const students = db.students[groupId] || [];
   if (!students.length) {
     emptyState.classList.remove('hidden');
     return;
   }
   emptyState.classList.add('hidden');
+  const desk = seatingDesk(g, cols, rows);
+  const layout = seatingLayout(students, cols, rows, desk);
+  lastSeatingLayout = layout;
+  if (layout.overflow.length) {
+    const n = layout.overflow.length;
+    overflowHint.textContent = `Raster zu klein: ${n} Schüler ${n === 1 ? 'hat' : 'haben'} keinen Platz (${layout.overflow.map(s => s.firstName || s.lastName).join(', ')}). Bitte das Raster vergrößern.`;
+    overflowHint.classList.remove('hidden');
+  }
 
   // Reset canvas size temporarily to get an accurate width without old scrollbars
   canvas.style.minWidth = '0px';
@@ -3638,16 +3718,13 @@ function renderSeatingPlan() {
     }
   }
 
-  // Occupied matrix to find next free spot if a student has no coords
-  const occupied = Array(rows).fill(null).map(() => Array(cols).fill(false));
-  students.forEach(s => {
-    if (s.gridX !== undefined && s.gridX < cols && s.gridY !== undefined && s.gridY < rows) {
-      occupied[s.gridY][s.gridX] = true;
-    }
-  });
-
   const scale = gradeScale(groupId);
+  // Gleiche Vornamen: Anfangsbuchstabe des Nachnamens dazu (BUGS N8)
+  const firstCount = {};
+  students.forEach(s => { firstCount[s.firstName] = (firstCount[s.firstName] || 0) + 1; });
   students.forEach((s) => {
+    const seat = layout.seats.get(s.id);
+    if (!seat) return; // kein Platz im Raster: steht im Hinweis darüber
     const rawAvg = calculateStudentAverage(s, groupId);
     const avg = formatGradeAverage(rawAvg);
     
@@ -3667,27 +3744,7 @@ function renderSeatingPlan() {
     }
     card.dataset.id = s.id;
     
-    // Position
-    let gx = s.gridX;
-    let gy = s.gridY;
-    
-    // Assign next free slot if out of bounds or not set
-    if (gx === undefined || gy === undefined || gx >= cols || gy >= rows) {
-      let found = false;
-      for (let r = 0; r < rows && !found; r++) {
-        for (let c = 0; c < cols && !found; c++) {
-          if (!occupied[r][c]) {
-            gx = c; gy = r;
-            occupied[r][c] = true;
-            found = true;
-          }
-        }
-      }
-      if (!found) { gx = 0; gy = 0; } // Fallback overlapping
-    }
-    
-    s.gridX = gx;
-    s.gridY = gy;
+    const gx = seat.x, gy = seat.y;
 
     // Set dataset for grid pos
     card.dataset.gridX = gx;
@@ -3715,8 +3772,11 @@ function renderSeatingPlan() {
       partHtml = `<div class="sc-part" style="position:absolute; top:-6px; right:-6px; font-size:16px; font-weight:800; background:var(--bg-elevated); padding:0 6px; border-radius:8px; border:2px solid var(--border); box-shadow:0 2px 6px rgba(0,0,0,0.3); line-height:1.2; z-index:10;">${valLabels[participation.value] || escHtml(participation.value)}</div>`;
     }
 
+    const fullName = [s.firstName, s.lastName].filter(Boolean).join(' ');
+    const shortName = !s.firstName ? (s.lastName || '')
+      : firstCount[s.firstName] > 1 && s.lastName ? `${s.firstName} ${s.lastName[0]}.` : s.firstName;
     card.innerHTML = `
-      <div class="sc-name" title="${escHtml(s.firstName)}">${escHtml(s.firstName)}</div>
+      <div class="sc-name" title="${escHtml(fullName)}">${escHtml(shortName)}</div>
       ${seatingShowGrades ? `<div class="sc-gpa" style="color:${gradeColor(rawAvg, scale)}">${avg}</div>` : ''}
       ${late ? '<div class="sc-late-note">Zu spät</div>' : ''}
       ${forgotHw ? '<div class="sc-hw-note">Keine HA</div>' : ''}
@@ -3724,7 +3784,7 @@ function renderSeatingPlan() {
     `;
 
     if (seatingEditMode) {
-      makeDraggable(card, s.id, groupId, cellWidth, cellHeight, cols, rows, offsetX);
+      makeDraggable(card, s.id, groupId, cellWidth, cellHeight, cols, rows, offsetX, 1, layout);
       card.classList.add('draggable-mode');
     } else {
       card.addEventListener('click', (e) => {
@@ -3753,8 +3813,7 @@ function renderSeatingPlan() {
 
   // Render Teacher Desk
   if (g) {
-    const tdX = g.teacherDeskX !== undefined ? g.teacherDeskX : Math.floor(cols/2) - 1;
-    const tdY = g.teacherDeskY !== undefined ? g.teacherDeskY : rows - 1;
+    const tdX = desk.x, tdY = desk.y;
 
     const tDesk = document.createElement('div');
     tDesk.className = 'teacher-desk';
@@ -3772,7 +3831,7 @@ function renderSeatingPlan() {
     tDesk.innerHTML = 'Lehrerpult';
 
     if (seatingEditMode) {
-      makeDraggable(tDesk, 'teacherDesk', groupId, cellWidth, cellHeight, cols, rows, offsetX, 2);
+      makeDraggable(tDesk, 'teacherDesk', groupId, cellWidth, cellHeight, cols, rows, offsetX, 2, layout);
       tDesk.classList.add('draggable-mode');
     }
     
@@ -3845,7 +3904,6 @@ function startSeatingRandomizer() {
       
       seatingRandomizerRunning = false;
       lastSelectedRandomStudentId = finalStudent.id;
-      window.currentRandomStudent = { studentId: finalStudent.id, groupId, dateStr };
 
       document.querySelectorAll('.seating-card').forEach(card => {
         card.classList.remove('random-highlight');
@@ -3929,8 +3987,8 @@ function generateSeatingGroups() {
         for (let i = 0; i < ungrouped.length; i++) {
           const candidate = ungrouped[i];
           const dist = Math.sqrt(
-            Math.pow((current.gridX || 0) - (candidate.gridX || 0), 2) +
-            Math.pow((current.gridY || 0) - (candidate.gridY || 0), 2)
+            Math.pow(seatOf(current).x - seatOf(candidate).x, 2) +
+            Math.pow(seatOf(current).y - seatOf(candidate).y, 2)
           );
           if (dist < minDist) {
             minDist = dist;
@@ -4039,11 +4097,12 @@ function setSeatingAbsence(type) {
     if (type === 'abwesend') {
       removeAbsenceNote(groupId, dateStr, s);
     }
-    s.attendance.splice(existingIdx, 1);
+    const [removed] = s.attendance.splice(existingIdx, 1);
     saveDB();
     refreshStudentViews(groupId);
     closeModal('modal-seating-student');
-    showToast('Eintrag entfernt');
+    showUndoToast('Fehlzeit entfernt', () => restoreSeatingEntry(groupId, s, 'attendance', removed,
+      () => { if (removed.type === 'abwesend') addAbsenceNote(groupId, removed.date, s); }));
     return;
   }
   
@@ -4081,7 +4140,7 @@ function setSeatingLate() {
     saveDB();
     refreshStudentViews(groupId);
     closeModal('modal-seating-student');
-    showToast('Eintrag entfernt');
+    showUndoToast('„Zu spät“ entfernt', () => restoreSeatingEntry(groupId, s, 'attendance', existing));
     return;
   }
 
@@ -4112,98 +4171,112 @@ function setSeatingHomework() {
     closeModal('modal-seating-student');
     showToast('Hausaufgabe vergessen eingetragen', 'warning');
   } else {
-    s.homework.splice(existingIdx, 1);
+    const [removed] = s.homework.splice(existingIdx, 1);
     saveDB();
     refreshStudentViews(groupId);
     closeModal('modal-seating-student');
-    showToast('Eintrag entfernt');
+    showUndoToast('Hausaufgaben-Eintrag entfernt', () => restoreSeatingEntry(groupId, s, 'homework', removed));
   }
 }
 
-function makeDraggable(el, studentId, groupId, cellWidth, cellHeight, maxCols, maxRows, offsetX = 0, widthCells = 1) {
+function makeDraggable(el, studentId, groupId, cellWidth, cellHeight, maxCols, maxRows, offsetX = 0, widthCells = 1, layout = null) {
   let isDragging = false;
   let startX, startY, initialLeft, initialTop;
 
+  const point = e => e.type.includes('mouse') ? e : e.touches[0];
+  function listen(on) {
+    const fn = on ? 'addEventListener' : 'removeEventListener';
+    document[fn]('mousemove', drag, { passive: false });
+    document[fn]('mouseup', dragEnd);
+    document[fn]('touchmove', drag, { passive: false });
+    document[fn]('touchend', dragEnd);
+    document[fn]('touchcancel', dragCancel);
+  }
+
   function dragStart(e) {
-    if (e.target.closest('.sc-absent-toggle')) return;
     isDragging = true;
-    const clientX = e.type.includes('mouse') ? e.clientX : e.touches[0].clientX;
-    const clientY = e.type.includes('mouse') ? e.clientY : e.touches[0].clientY;
-    startX = clientX;
-    startY = clientY;
+    startX = point(e).clientX;
+    startY = point(e).clientY;
     initialLeft = parseFloat(el.style.left) || 0;
     initialTop = parseFloat(el.style.top) || 0;
     el.classList.add('dragging');
-
-    document.addEventListener('mousemove', drag, {passive: false});
-    document.addEventListener('mouseup', dragEnd);
-    document.addEventListener('touchmove', drag, {passive: false});
-    document.addEventListener('touchend', dragEnd);
+    listen(true);
   }
 
   function drag(e) {
     if (!isDragging) return;
+    if (!e.type.includes('mouse') && !(e.touches && e.touches.length)) return;
     e.preventDefault();
-    const clientX = e.type.includes('mouse') ? e.clientX : e.touches[0].clientX;
-    const clientY = e.type.includes('mouse') ? e.clientY : e.touches[0].clientY;
-    
+    const { clientX, clientY } = point(e);
     if (Math.abs(clientX - startX) > 3 || Math.abs(clientY - startY) > 3) {
       el.dataset.dragged = 'true';
     }
-
-    const currentX = initialLeft + (clientX - startX);
-    const currentY = initialTop + (clientY - startY);
-    el.style.left = currentX + 'px';
-    el.style.top = currentY + 'px';
+    el.style.left = initialLeft + (clientX - startX) + 'px';
+    el.style.top = initialTop + (clientY - startY) + 'px';
   }
 
-  function dragEnd(e) {
+  // Abgebrochene Geste (Mitteilung, Systemgeste auf dem iPad): zurück an den Platz, nichts speichern (BUGS N5)
+  function dragCancel() {
+    isDragging = false;
+    listen(false);
+    el.classList.remove('dragging');
+    delete el.dataset.dragged;
+    el.style.left = initialLeft + 'px';
+    el.style.top = initialTop + 'px';
+  }
+
+  function dragEnd() {
     if (!isDragging) return;
     isDragging = false;
     el.classList.remove('dragging');
+    listen(false);
+    if (!el.dataset.dragged) return;
 
-    document.removeEventListener('mousemove', drag);
-    document.removeEventListener('mouseup', dragEnd);
-    document.removeEventListener('touchmove', drag);
-    document.removeEventListener('touchend', dragEnd);
-    
-    if (el.dataset.dragged) {
-      // Calculate closest grid snap relative to centered grid
-      const centerX = parseFloat(el.style.left) + (el.offsetWidth / 2);
-      const centerY = parseFloat(el.style.top) + (el.offsetHeight / 2);
-      
-      // Ein Element über mehrere Zellen (Lehrerpult: 2) hat seine Mitte auf der Grenze zwischen
-      // seinen Zellen – daher halbe Überbreite abziehen, sonst springt es eine Spalte nach rechts (BUGS E3)
-      let gridX = Math.floor((centerX - offsetX) / cellWidth - (widthCells - 1) / 2);
-      let gridY = Math.floor(centerY / cellHeight);
-      
-      // Clamp bounds
-      if (gridX < 0) gridX = 0; if (gridX + widthCells > maxCols) gridX = maxCols - widthCells;
-      if (gridY < 0) gridY = 0; if (gridY >= maxRows) gridY = maxRows - 1;
+    // Calculate closest grid snap relative to centered grid
+    const centerX = parseFloat(el.style.left) + (el.offsetWidth / 2);
+    const centerY = parseFloat(el.style.top) + (el.offsetHeight / 2);
+    // Ein Element über mehrere Zellen (Lehrerpult: 2) hat seine Mitte auf der Grenze zwischen
+    // seinen Zellen – daher halbe Überbreite abziehen, sonst springt es eine Spalte nach rechts (BUGS E3)
+    let gridX = Math.floor((centerX - offsetX) / cellWidth - (widthCells - 1) / 2);
+    let gridY = Math.floor(centerY / cellHeight);
+    if (gridX < 0) gridX = 0; if (gridX + widthCells > maxCols) gridX = maxCols - widthCells;
+    if (gridY < 0) gridY = 0; if (gridY >= maxRows) gridY = maxRows - 1;
 
-      if (studentId === 'teacherDesk') {
-        const g = db.groups.find(x => x.id === groupId);
-        if (g) {
-          g.teacherDeskX = gridX;
-          g.teacherDeskY = gridY;
-          saveDB();
-          renderSeatingPlan();
-        }
-      } else {
-        const s = db.students[groupId].find(x => x.id === studentId);
-        if (s) {
-          const otherStudent = db.students[groupId].find(x => x.id !== studentId && x.gridX === gridX && x.gridY === gridY);
-          if (otherStudent) {
-            otherStudent.gridX = s.gridX;
-            otherStudent.gridY = s.gridY;
-          }
-          s.gridX = gridX;
-          s.gridY = gridY;
-          saveDB();
-          renderSeatingPlan();
-        }
+    const g = db.groups.find(x => x.id === groupId);
+    const students = db.students[groupId] || [];
+    if (!g || !layout) { renderSeatingPlan(); return; }
+    // Wer umordnet, übernimmt den Plan so, wie er ihn sieht (Ausweichplätze inklusive, BUGS N1)
+    materializeSeatingLayout(groupId, layout);
+
+    if (studentId === 'teacherDesk') {
+      g.teacherDeskX = gridX;
+      g.teacherDeskY = gridY;
+      // Schüler auf den neuen Pult-Zellen bekommen freie Plätze (BUGS N4)
+      const onDesk = st => st.gridY === gridY && (st.gridX === gridX || st.gridX === gridX + 1);
+      const displaced = students.filter(onDesk);
+      if (displaced.length) {
+        displaced.forEach(st => { delete st.gridX; delete st.gridY; });
+        const { cols, rows } = seatingGridSize(g);
+        materializeSeatingLayout(groupId, seatingLayout(students, cols, rows, seatingDesk(g, cols, rows)));
       }
+    } else {
+      const s = students.find(x => x.id === studentId);
+      if (!s) { renderSeatingPlan(); return; }
+      if (gridY === layout.desk.y && (gridX === layout.desk.x || gridX === layout.desk.x + 1)) {
+        showToast('Dort steht das Lehrerpult', 'error'); // sonst läge die Karte unter dem Pult (BUGS N4)
+        renderSeatingPlan();
+        return;
+      }
+      const otherStudent = students.find(x => x.id !== studentId && x.gridX === gridX && x.gridY === gridY);
+      if (otherStudent) {
+        otherStudent.gridX = s.gridX;
+        otherStudent.gridY = s.gridY;
+      }
+      s.gridX = gridX;
+      s.gridY = gridY;
     }
+    saveDB();
+    renderSeatingPlan();
   }
 
   el.addEventListener('mousedown', dragStart);
@@ -4231,8 +4304,22 @@ function openSeatingStudentModal(studentId, groupId, dateStr) {
   `;
 
   renderSeatingStudentGrades(seatingShowGrades);
+  markSeatingStudentState(s, dateStr);
 
   openModal('modal-seating-student');
+}
+
+// Was heute schon eingetragen ist, ist markiert – ein zweites Tippen nimmt es zurück (BUGS N6)
+function markSeatingStudentState(s, dateStr) {
+  const set = new Set();
+  (s.participation || []).filter(p => p.date === dateStr).forEach(p => set.add(p.value));
+  (s.attendance || []).filter(a => a.date === dateStr).forEach(a => set.add(a.type));
+  if ((s.homework || []).some(h => h.date === dateStr)) set.add('homework');
+  document.querySelectorAll('#modal-seating-student [data-action]').forEach(btn => {
+    const on = set.has(btn.dataset.action);
+    btn.classList.toggle('is-set', on);
+    btn.setAttribute('aria-pressed', on ? 'true' : 'false');
+  });
 }
 
 // Notenliste im Schüler-Fenster des Sitzplans. Datenschutz (BUGS H1): Solange die Noten im Sitzplan
@@ -4259,7 +4346,7 @@ function renderSeatingStudentGrades(show) {
     return;
   }
   // Sort chronologically (descending)
-  const sortedGrades = s.grades.map((g, idx) => ({...g, _origIdx: idx})).sort((a,b) => (b.date||'').localeCompare(a.date||''));
+  const sortedGrades = [...s.grades].sort((a,b) => (b.date||'').localeCompare(a.date||''));
   sortedGrades.forEach(g => {
     const el = document.createElement('div');
     el.style.cssText = 'display:flex; justify-content:space-between; align-items:center; background:var(--bg-secondary); padding:8px 12px; border-radius:8px; font-size:13px;';
@@ -4271,19 +4358,25 @@ function renderSeatingStudentGrades(show) {
       </div>
       <div style="display:flex; align-items:center; gap:12px;">
         <div style="font-weight:800; font-size:15px; color:${valColor}">${escHtml(gradeText(g.value))}</div>
-        <button class="btn-icon" style="padding:4px;" onclick="openGradeForm(${jsArg(studentId)}, ${jsArg(groupId)}, ${g._origIdx})">
+        <button class="btn-icon" style="padding:4px;" aria-label="Note bearbeiten">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
         </button>
       </div>
     `;
+    // Per Referenz: der Index kann sich bis zum Antippen verschoben haben (Regel 9, BUGS N13)
+    el.querySelector('button').onclick = () => {
+      const idx = s.grades.indexOf(g);
+      if (idx === -1) { showToast('Diese Note gibt es nicht mehr (z. B. durch Sync)', 'error'); return; }
+      openGradeForm(studentId, groupId, idx);
+    };
     gradesContainer.appendChild(el);
   });
 }
 
 function openGradeFormForCurrentStudent() {
-  const { studentId, groupId } = window.currentSeatingStudent;
+  const { studentId, groupId, dateStr } = window.currentSeatingStudent;
   if (studentId && groupId) {
-    openGradeForm(studentId, groupId, -1);
+    openGradeForm(studentId, groupId, -1, dateStr || ''); // Datum wie Anwesenheit/Mitarbeit (BUGS N7)
   }
 }
 
@@ -4477,10 +4570,10 @@ function addParticipationSmiley(type) {
   const existingIdx = s.participation.findIndex(p => p.date === dateStr);
   if (existingIdx !== -1) {
     if (s.participation[existingIdx].value === type) {
-      s.participation.splice(existingIdx, 1);
+      const [removed] = s.participation.splice(existingIdx, 1);
       saveDB();
       refreshStudentViews(groupId);
-      showToast('Eintrag entfernt');
+      showUndoToast('Mitarbeit entfernt', () => restoreSeatingEntry(groupId, s, 'participation', removed));
       closeModal('modal-seating-student');
       return;
     } else {
@@ -4512,6 +4605,28 @@ function openModal(id)  { const m = document.getElementById(id); if(m) m.classLi
 function closeModal(id) { const m = document.getElementById(id); if(m) m.classList.add('hidden'); }
 // Tippen neben ein Fenster: wie sein Schließen-Knopf, also z. B. Stunden-Notizen speichern (BUGS G13)
 function closeModalOnOverlay(event, id) { if (event.target === document.getElementById(id)) closeModalLikeButton(id); }
+
+// Toast mit „Rückgängig“ (klickbar, anders als normale Toasts) für Einträge, die ein zweites Tippen entfernt (BUGS N6)
+function showUndoToast(msg, undo) {
+  const t = Object.assign(document.createElement('div'), { className: 'toast success toast-undo' });
+  t.appendChild(Object.assign(document.createElement('span'), { textContent: msg }));
+  const btn = Object.assign(document.createElement('button'), { type: 'button', textContent: 'Rückgängig' });
+  let done = false;
+  btn.onclick = () => { if (done) return; done = true; t.remove(); undo(); };
+  t.appendChild(btn);
+  document.getElementById('toast-container').appendChild(t);
+  setTimeout(() => { t.style.cssText = 'opacity:0;transition:opacity .3s'; setTimeout(() => t.remove(), 300); }, 6000);
+}
+// Eintrag wiederherstellen, sofern der Schüler noch da ist (Sync kann die DB inzwischen ersetzt haben)
+function restoreSeatingEntry(groupId, s, list, entry, after) {
+  if (!(db.students[groupId] || []).includes(s)) { showToast('Nicht mehr möglich – die Daten wurden inzwischen ersetzt', 'error'); return; }
+  if (!s[list]) s[list] = [];
+  s[list].push(entry);
+  if (after) after();
+  saveDB();
+  refreshStudentViews(groupId);
+  showToast('Wiederhergestellt');
+}
 
 function showToast(msg, type='success') {
   const t = Object.assign(document.createElement('div'), { className:`toast ${type}`, textContent: msg });
@@ -5111,9 +5226,35 @@ function updateTimerDisplay() {
 
 function adjustTimer(mins) {
   if (timerIsRunning) return;
+  document.getElementById('timer-display').classList.remove('timer-done');
   timerSeconds += mins * 60;
   if (timerSeconds < 0) timerSeconds = 0;
   updateTimerDisplay();
+}
+
+// Ton am Timer-Ende. iOS erlaubt Audio nur nach einer Berührung: beim Start freischalten.
+let timerAudio = null;
+function unlockTimerSound() {
+  try {
+    const Ctx = window.AudioContext || window.webkitAudioContext;
+    if (!Ctx) return;
+    if (!timerAudio) timerAudio = new Ctx();
+    if (timerAudio.state === 'suspended') timerAudio.resume();
+  } catch (e) { timerAudio = null; }
+}
+function playTimerSound() {
+  try {
+    if (!timerAudio) return;
+    [0, 0.35, 0.7].forEach(offset => {
+      const osc = timerAudio.createOscillator(), gain = timerAudio.createGain();
+      osc.frequency.value = 880;
+      gain.gain.setValueAtTime(0.25, timerAudio.currentTime + offset);
+      gain.gain.exponentialRampToValueAtTime(0.001, timerAudio.currentTime + offset + 0.3);
+      osc.connect(gain).connect(timerAudio.destination);
+      osc.start(timerAudio.currentTime + offset);
+      osc.stop(timerAudio.currentTime + offset + 0.3);
+    });
+  } catch (e) { /* kein Ton möglich: Markierung und Toast reichen */ }
 }
 
 function timerTick() {
@@ -5124,6 +5265,9 @@ function timerTick() {
     clearInterval(timerInterval);
     timerIsRunning = false;
     setPlayButton('btn-timer-toggle', false, 'Timer');
+    // Bleibt markiert, bis zurückgesetzt wird; kurzer Ton, falls der Browser ihn zulässt (BUGS N12)
+    document.getElementById('timer-display').classList.add('timer-done');
+    playTimerSound();
     showToast('Timer abgelaufen!');
   }
 }
@@ -5135,7 +5279,8 @@ function toggleTimer() {
     timerIsRunning = false;
     setPlayButton('btn-timer-toggle', false, 'Timer');
   } else {
-    if (timerSeconds <= 0) return;
+    if (timerSeconds <= 0) { showToast('Bitte zuerst eine Zeit einstellen (+/−)', 'error'); return; }
+    unlockTimerSound();
     timerIsRunning = true;
     timerEndsAt = Date.now() + timerSeconds * 1000;
     setPlayButton('btn-timer-toggle', true, 'Timer');
@@ -5144,6 +5289,7 @@ function toggleTimer() {
 }
 
 function resetTimer() {
+  document.getElementById('timer-display').classList.remove('timer-done');
   clearInterval(timerInterval);
   timerIsRunning = false;
   timerSeconds = 300;

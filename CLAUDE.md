@@ -129,6 +129,9 @@ Datumswerte sind Strings `YYYY-MM-DD` in **lokaler** Zeit (`formatDate()`). Nie 
 42. **Nach Änderungen an Stunden oder Stundendaten `renderScheduleViews()`** statt nur `renderTimetable()`, damit das Dashboard mitkommt.
 43. **Rückfragen mit mehr als Ja/Nein über `askChoice(titel, text, [{label, value, primary|danger}])`** (liefert eine Promise, `null` = abgebrochen). Die aufrufende Funktion ist dann `async`; nach dem `await` prüfen, ob das bearbeitete Objekt noch in `db` ist.
 
+44. **Sitzplätze: `renderSeatingPlan` schreibt nie in `gridX/gridY`.** Angezeigte Plätze kommen aus `seatingLayout()` (gespeicherter Platz, sonst nächster freier, Pult-Zellen ausgenommen); gespeichert wird nur beim Umordnen (`materializeSeatingLayout`). Pult-Position über `seatingDesk()`, Rastergröße über `seatingGridSize()`.
+45. **Wer per zweitem Tippen etwas entfernt, bietet „Rückgängig“ an** (`showUndoToast`). Normale Toasts lassen Klicks durch und können keinen Knopf tragen.
+
 ## Arbeitsablauf
 
 1. Aufgabe aus `BUGS.md` wählen (ein Block pro Sitzung).
