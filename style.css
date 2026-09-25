@@ -52,7 +52,14 @@ input[type="date"] { min-height: 1.2em; } /* Fix iOS Safari date input collapse 
 /* Mittig per margin:auto statt align-items:center: Ist #app höher als sichtbar, ragte es sonst oben unerreichbar
    hinaus – auf dem iPhone fehlte die Leiste oben. 100dvh = sichtbare Höhe (100vh ist in Safari die mit
    eingefahrener Leiste, also zu hoch). */
-#app{display:flex;height:100vh;height:100dvh;width:100vw;margin:auto;min-height:650px;max-width:1180px;max-height:820px;background:var(--bg-primary);border-radius:12px;border:1px solid rgba(255,255,255,0.05);box-shadow:0 20px 60px rgba(0,0,0,0.6);overflow-x:auto;overflow-y:hidden;padding-top:env(safe-area-inset-top);padding-left:env(safe-area-inset-left);padding-right:env(safe-area-inset-right);padding-bottom:env(safe-area-inset-bottom);}
+#app{display:flex;height:100vh;height:100dvh;width:100vw;margin:auto;min-height:650px;background:var(--bg-primary);overflow-x:auto;overflow-y:hidden;padding-top:env(safe-area-inset-top);padding-left:env(safe-area-inset-left);padding-right:env(safe-area-inset-right);padding-bottom:env(safe-area-inset-bottom);}
+
+/* Als Karte mit Rahmen nur in großen Fenstern mit Maus (Desktop). Auf dem iPad blieb sonst rundum bis zu einem
+   Drittel schwarz (BUGS X1). Die Schwelle liegt über dem iPad Pro 13″ quer (1376 × 1032), das mit Trackpad auch
+   hover/fine meldet. */
+@media (hover: hover) and (pointer: fine) and (min-width: 1440px) and (min-height: 960px) {
+  #app{max-width:1180px;max-height:820px;border-radius:12px;border:1px solid rgba(255,255,255,0.05);box-shadow:0 20px 60px rgba(0,0,0,0.6);}
+}
 
 /* ─── Sidebar ────────────────────────── */
 #sidebar{width:var(--sidebar-width);background:var(--sidebar-bg);border-right:1px solid var(--border);display:flex;flex-direction:column;padding:0;flex-shrink:0;z-index:100;position:sticky;left:0;transition:width var(--transition), padding var(--transition);overflow:hidden;}
