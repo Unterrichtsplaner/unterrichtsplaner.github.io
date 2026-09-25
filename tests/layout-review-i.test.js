@@ -330,7 +330,11 @@ describe('Paket 4: Klassenansicht und Fenster', () => {
   });
 
   it('I18: „Heute fehlen“ ist ein normaler Abschnitt ganz oben und nennt die Art', () => {
+    // „Heute fehlen“ steht nur bei der Stunde von heute (BUGS V7), also „heute“ festlegen
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date(`${TODAY}T10:00:00`));
     app(`openLessonDetail("sR", "${TODAY}")`);
+    vi.useRealTimers();
     const box = document.getElementById('lesson-absent-container');
     expect(box.classList.contains('hidden')).toBe(false);
     expect(box.classList.contains('notes-section')).toBe(true);

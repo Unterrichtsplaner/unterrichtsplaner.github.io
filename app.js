@@ -759,6 +759,11 @@ function buildTimetableCell(d, dayIdx, block, clock = timetableClock()) {
     // Split block
     const first = lessons.find(l => l.part === 'first');
     const second = lessons.find(l => l.part === 'second');
+    if (lessons.some(l => l !== first && l !== second)) {
+      // Keine sauberen Hälften (z. B. zwei ganze Stunden aus einem alten Stand): alle zeigen, nie „+“ darüber (BUGS V1)
+      cell.innerHTML = `<div class="tt-split-container">${lessons.map(l => `<div class="tt-split-half">${renderLessonHTML(l)}</div>`).join('')}</div>`;
+      return cell;
+    }
     cell.innerHTML = `<div class="tt-split-container">
       <div class="tt-split-half">${first ? renderLessonHTML(first) : renderEmptyHTML('first')}</div>
       <div class="tt-split-half">${second ? renderLessonHTML(second) : renderEmptyHTML('second')}</div>
@@ -914,27 +919,38 @@ function updateLessonDateHint() {
   if (!el) return;
   const rec = document.getElementById('new-lesson-recurring').value;
   const date = lessonTargetDate(parseInt(document.getElementById('new-lesson-day').value, 10) || 0);
+  // Beim Bearbeiten läuft die Stunde schon: „erstmals am …“ wäre falsch (BUGS V9)
   el.textContent = rec === 'none' ? `Findet statt am ${formatDateLong(date)}.`
-    : rec === 'biweekly' ? `Alle zwei Wochen, erstmals am ${formatDateLong(date)} (A-Woche).` : '';
+    : rec === 'biweekly' ? (editingSlotId ? `Alle zwei Wochen, u. a. am ${formatDateLong(date)} (A-Woche).`
+                                          : `Alle zwei Wochen, erstmals am ${formatDateLong(date)} (A-Woche).`) : '';
   el.classList.toggle('hidden', !el.textContent);
+  refreshLessonPartOptions();
+}
+// „Stunde hinzufügen“: Hälften, die am gewählten Tag im gewählten Block schon belegt sind, sperren – neu bei
+// jedem Wechsel von Tag oder Block, nicht nur für die angetippte Kachel (BUGS V8). Beim Bearbeiten: openEditLesson.
+function refreshLessonPartOptions() {
+  if (editingSlotId) return;
+  const day = parseInt(document.getElementById('new-lesson-day').value, 10) || 0;
+  const block = parseInt(document.getElementById('new-lesson-block').value, 10);
+  const halves = lessonsAt(lessonTargetDate(day), block).map(s => s.part || 'full').filter(p => p !== 'full');
+  const radios = [...document.getElementsByName('new-lesson-part')];
+  radios.forEach(r => {
+    const off = halves.length > 0 && (r.value === 'full' || halves.includes(r.value));
+    r.disabled = off;
+    r.parentElement.style.opacity = off ? '0.4' : '1';
+    r.parentElement.title = off ? 'Diese Hälfte ist bereits belegt' : '';
+  });
+  const checked = radios.find(r => r.checked);
+  if (!checked || checked.disabled) {
+    const free = radios.find(r => !r.disabled);
+    if (free) free.checked = true;
+  }
 }
 
 // ─── Add / Edit lesson slot ───────────────────────────────────────────────
 function openAddLessonSlot(preDay = null, preBlock = null, specificDateStr = null, part = 'full') {
-  const radios = document.getElementsByName('new-lesson-part');
-  for(let r of radios) {
-    r.disabled = false;
-    r.parentElement.style.opacity = '1';
-    r.parentElement.title = '';
-    
-    if (r.value === part) r.checked = true;
-    
-    if (part !== 'full' && r.value !== part) {
-      r.disabled = true;
-      r.parentElement.style.opacity = '0.4';
-      r.parentElement.title = 'Diese Hälfte ist bereits belegt';
-    }
-  }
+  // Gesperrte Hälften setzt updateLessonDateHint → refreshLessonPartOptions (unten)
+  for (const r of document.getElementsByName('new-lesson-part')) r.checked = r.value === part;
   currentSpecificDate = specificDateStr;
   editingSlotId = null;
   document.getElementById('add-lesson-title').textContent = 'Stunde hinzufügen';
@@ -984,8 +1000,10 @@ function openEditLesson() {
 
   const radios = document.getElementsByName('new-lesson-part');
   // Eine Vertretung ersetzt die regelmäßige Stunde nur an ihrem Tag (lessonsAt) und sperrt deren Hälften nicht (BUGS R9)
+  // Eine vor der Woche der geöffneten Stunde beendete Hälfte gibt den Platz frei, wie in saveLessonSlot (BUGS V5)
+  const openedWeek = formatDate(mondayOf(parseDate(currentSpecificDate || formatDate(new Date()))));
   const partner = db.lessonSlots.find(s => s.id !== slot.id && slotsShareDate(s, slot) && s.part && s.part !== 'full'
-    && !(isOneOffSlot(s) && !isOneOffSlot(slot)));
+    && !(isOneOffSlot(s) && !isOneOffSlot(slot)) && !(s.validUntil && s.validUntil < openedWeek));
   
   for(let r of radios) {
     r.disabled = false;
@@ -1101,10 +1119,23 @@ async function saveLessonSlot() {
   }
   const replaced = isOneOffSlot(candidate) && db.lessonSlots.find(s => s !== slot && !isOneOffSlot(s)
     && s.block === block && slotOccursOn(s, specificDate) && partsOverlap(part, s.part));
-  if (!isOneOffSlot(candidate) && !splitFrom && db.lessonSlots.some(s => s !== slot && endedBefore(s)
-      && slotsShareDate({ ...candidate, validFrom: undefined }, s) && partsOverlap(part, s.part))) {
+  // Vertretung über schon vorbereiteten Notizen: die wären bis zum Löschen der Vertretung unsichtbar (BUGS V6)
+  if (replaced && lessonEntryDates(replaced.id).includes(specificDate)
+      && !confirm(`Für ${lessonTitle(replaced).main} am ${formatDateLong(specificDate)} gibt es schon Notizen oder Hausaufgaben. `
+        + 'Solange die Vertretung dort liegt, sind sie nicht zu sehen (sie bleiben aber gespeichert).\n\nVertretung trotzdem anlegen?')) return;
+  const endedHere = !isOneOffSlot(candidate) && !splitFrom && db.lessonSlots.find(s => s !== slot && endedBefore(s)
+      && slotsShareDate({ ...candidate, validFrom: undefined }, s) && partsOverlap(part, s.part));
+  if (endedHere) {
+    // Eine bestehende Stunde mit früheren Einträgen läge in früheren Wochen auf dem Platz der beendeten: dort
+    // zeigte der Stundenplan beide nicht mehr (BUGS V1). Dann nur „ab …“ ändern.
+    if (slot && lessonEntryDates(slot.id).some(d => d < weekStart)) {
+      showToast(`In früheren Wochen liegt hier ${lessonTitle(endedHere).main}. Bitte „${capitalize(fromPhrase(from))} ändern“ wählen.`, 'error');
+      return;
+    }
     candidate.validFrom = weekStart; // sonst überschnitte sie sich rückwirkend mit der beendeten
   }
+  // HA/Tests, die auf Termine dieser Stunde zeigen – fallen welche weg, wird danach gefragt (BUGS V3)
+  const dueBefore = changesSchedule ? dueItemsOnSlot(slot) : [];
 
   if (slot && splitFrom) {
     retargetDueItems(slot, fields, splitFrom);
@@ -1116,6 +1147,7 @@ async function saveLessonSlot() {
       moveLessonData(slot.id, day - slot.day);
     }
     Object.assign(slot, fields);
+    if (candidate.validFrom && !slot.validFrom) slot.validFrom = candidate.validFrom; // BUGS V1
     showToast('Stunde gespeichert ✓');
   } else {
     const newSlot = { id: uid(), ...fields };
@@ -1128,6 +1160,45 @@ async function saveLessonSlot() {
   closeModal('modal-add-lesson');
   renderScheduleViews();
   editingSlotId = null;
+  if (dueBefore.length) await offerRetargetHanging(dueBefore, slot);
+}
+
+// HA/Tests der Klasse, die ab heute auf einen Termin dieser Stunde zeigen (vor einer Änderung merken, BUGS V3)
+function dueItemsOnSlot(slot) {
+  const today = formatDate(new Date());
+  const ids = new Set(relatedSlots(slot).map(s => s.id));
+  const result = [];
+  Object.entries(db.lessonData).forEach(([key, data]) => {
+    if (!ids.has(key.slice(0, key.lastIndexOf('_')))) return;
+    [['hwItems', data.hwEnabled], ['testItems', data.testEnabled]].forEach(([list, enabled]) => {
+      if (!enabled) return;
+      (data[list] || []).forEach(item => {
+        if (item.targetDate && item.targetDate >= today && slotOccursOn(slot, item.targetDate)) result.push({ item, key, list });
+      });
+    });
+  });
+  return result;
+}
+// Nach Löschen/Beenden/Umstellen einer Stunde: Einträge, an deren Termin keine Stunde der Klasse mehr liegt,
+// wären nirgends fällig. Anbieten, sie auf die jeweils nächste Stunde zu verschieben (BUGS V3).
+async function offerRetargetHanging(candidates, slot) {
+  const ids = new Set(relatedSlots(slot).map(s => s.id));
+  const hanging = candidates.filter(c => {
+    const list = (db.lessonData[c.key] || {})[c.list] || [];
+    return list.includes(c.item) && !lessonsOnDate(c.item.targetDate).some(l => ids.has(l.slot.id) && !l.ausfall);
+  });
+  if (!hanging.length) return;
+  const anyId = [...ids][0];
+  const moves = hanging.map(c => ({ c, next: anyId ? findUpcomingLessonDates(anyId, formatDate(addDays(parseDate(c.item.targetDate), -1)), 1)[0] : null }));
+  const lines = moves.map(({ c, next }) => `• ${c.item.text} (fällig ${formatDateLong(c.item.targetDate)}) → `
+    + (next ? formatDateLong(next.dateStr) : 'keine weitere Stunde'));
+  const choice = await askChoice('Hausaufgaben und Tests',
+    `An diesen Terminen findet jetzt keine Stunde der Klasse mehr statt:\n${lines.join('\n')}\n\nAuf die jeweils nächste Stunde verschieben?`,
+    [{ label: 'Auf die nächste Stunde verschieben', value: 'move', primary: true }, { label: 'So lassen', value: 'keep' }]);
+  if (choice !== 'move') return;
+  moves.forEach(({ c, next }) => { if (next) c.item.targetDate = next.dateStr; });
+  saveDB();
+  renderScheduleViews();
 }
 
 // Hat sich an Tag, Block, Hälfte oder Rhythmus etwas geändert? (Raum, Farbe usw. zählen nicht)
@@ -1164,7 +1235,7 @@ function capitalize(t) { return t.charAt(0).toUpperCase() + t.slice(1); }
 // Fr → Mo ab Mittwoch heißt nächster Montag, nicht der vergangene.
 function shiftedEntryDate(dateStr, shift, from) {
   let d = addDays(parseDate(dateStr), shift);
-  if (from && formatDate(d) < from) d = addDays(d, 7);
+  while (from && formatDate(d) < from) d = addDays(d, 7);
   return formatDate(d);
 }
 // Tage mit Einträgen, die nach der Änderung auf keinen Termin der Stunde mehr fallen (BUGS R10)
@@ -1183,13 +1254,19 @@ function retargetDueItems(slot, fields, splitFrom) {
   if (!shift) return;
   const others = relatedSlots(slot).filter(s => s.id !== slot.id);
   const ids = new Set(relatedSlots(slot).map(s => s.id));
+  const today = formatDate(new Date());
   Object.entries(db.lessonData).forEach(([key, data]) => {
-    if (!ids.has(key.slice(0, key.lastIndexOf('_')))) return;
+    const sep = key.lastIndexOf('_');
+    if (!ids.has(key.slice(0, sep))) return;
+    // Nie vor den Tag nach der Stunde, in der die HA gestellt wurde, und nie vor heute: Fr → Mo hieße sonst
+    // „fällig am Montag davor“ (BUGS V4). Schon vergangene Termine wandern einfach mit.
+    const givenAfter = formatDate(addDays(parseDate(key.slice(sep + 1)), 1));
     [...(data.hwItems || []), ...(data.testItems || [])].forEach(item => {
       const t = item.targetDate;
       if (!t || (splitFrom && t < splitFrom) || !slotOccursOn(slot, t)) return;
       if (others.some(o => slotOccursOn(o, t))) return;
-      item.targetDate = shiftedEntryDate(t, shift, splitFrom);
+      const notBefore = splitFrom || (t >= today ? (givenAfter > today ? givenAfter : today) : null);
+      item.targetDate = shiftedEntryDate(t, shift, notBefore);
     });
   });
 }
@@ -1244,6 +1321,7 @@ async function deleteLessonSlotFromEdit() {
   }
   if (!choice || !db.lessonSlots.includes(slot)) return;
 
+  const dueBefore = dueItemsOnSlot(slot); // BUGS V3
   const prefix = slot.id + '_';
   if (choice === 'from') {
     slot.validUntil = formatDate(addDays(parseDate(weekStart), -1));
@@ -1257,6 +1335,7 @@ async function deleteLessonSlotFromEdit() {
   closeModal('modal-add-lesson');
   renderScheduleViews();
   showToast(choice === 'from' ? 'Stunde beendet' : 'Stunde gelöscht');
+  await offerRetargetHanging(dueBefore, slot);
 }
 
 // Auswahl zwischen mehreren Wegen, z. B. „ab dieser Woche“ / „alle“. Liefert den Wert des Knopfs
@@ -1404,6 +1483,9 @@ function renderLessonAbsent(slot, dateStr) {
     (s.attendance || []).some(a => a.date === dateStr && (a.type === 'abwesend' || a.type === 'entschuldigt'))
   );
   if (!absent.length) return;
+  const today = formatDate(new Date());
+  document.querySelector('#lesson-absent-container .notes-section-label').textContent = dateStr === today ? 'Heute fehlen'
+    : `${dateStr < today ? 'Gefehlt' : 'Fehlen'} am ${formatDateDE(parseDate(dateStr))}`; // BUGS V7
   absentList.innerHTML = absent.map(s => {
     const excused = (s.attendance || []).some(a => a.date === dateStr && a.type === 'entschuldigt');
     return `<li><span>${escHtml([s.firstName, s.lastName].filter(Boolean).join(' '))}</span>` +
@@ -1488,7 +1570,9 @@ function renderItemList(listId, items, type, incoming, incomingId) {
   const incomingEl = document.getElementById(incomingId);
   if (incoming && incoming.length) {
     incomingEl.classList.remove('hidden');
-    incomingEl.innerHTML = `<div class="incoming-title">Fällig heute (von früheren Stunden)</div>`;
+    // „heute“ nur bei der Stunde von heute (BUGS V7)
+    const when = activeLessonDate === formatDate(new Date()) ? 'Fällig heute' : 'Fällig in dieser Stunde';
+    incomingEl.innerHTML = `<div class="incoming-title">${when} (von früheren Stunden)</div>`;
     incoming.forEach(item => {
       const div = document.createElement('div');
       div.className = 'incoming-item';
@@ -1507,8 +1591,9 @@ function confirmTargetHasLesson(targetDate, fromClose) {
   if (!targetDate || fromClose) return true;
   const slot = db.lessonSlots.find(s => s.id === activeLessonId);
   const ids = new Set(relatedSlots(slot).map(x => x.id));
-  if (lessonsOnDate(targetDate).some(l => ids.has(l.slot.id))) return true;
-  return confirm(`Am ${formatDateLong(targetDate)} hat die Klasse keine Stunde – dort würde der Eintrag nirgends als fällig angezeigt.\n\nTrotzdem eintragen?`);
+  // Eine ausfallende Stunde zählt nicht: dort hinge der Eintrag fest (BUGS V9)
+  if (lessonsOnDate(targetDate).some(l => ids.has(l.slot.id) && !l.ausfall)) return true;
+  return confirm(`Am ${formatDateLong(targetDate)} hat die Klasse keine Stunde (oder sie fällt aus) – dort würde der Eintrag nirgends als fällig angezeigt.\n\nTrotzdem eintragen?`);
 }
 
 function addHWItem(fromClose = false) {
@@ -1575,7 +1660,12 @@ function storeLessonForm() {
   const changed = (form.done !== (old.done || '')) || (form.notes !== (old.notes || ''))
     || (form.hwEnabled !== lessonTogglesShown.hwEnabled) || (form.testEnabled !== lessonTogglesShown.testEnabled);
   if (!changed) return;
-  Object.assign(ensureLessonData(), form);
+  // Schalter nur speichern, wenn er umgelegt wurde: Angezeigt wird er auch wegen einer fälligen HA eingeschaltet,
+  // und das schaltete sonst eine zurückgenommene eigene HA wieder ein (BUGS V2)
+  const update = { done: form.done, notes: form.notes };
+  if (form.hwEnabled !== lessonTogglesShown.hwEnabled) update.hwEnabled = form.hwEnabled;
+  if (form.testEnabled !== lessonTogglesShown.testEnabled) update.testEnabled = form.testEnabled;
+  Object.assign(ensureLessonData(), update);
   // Gespeicherter Stand = neuer Vergleichsstand: Das Fenster kann offen bleiben (Verlassen der App, BUGS T3)
   lessonTogglesShown = { hwEnabled: form.hwEnabled, testEnabled: form.testEnabled };
   saveDB();
