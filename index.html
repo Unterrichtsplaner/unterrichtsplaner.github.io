@@ -38,7 +38,7 @@
       }
     } catch(e) {}
   </script>
-  <link rel="stylesheet" href="style.css?v=231" />
+  <link rel="stylesheet" href="style.css?v=232" />
   <script>
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
@@ -552,7 +552,7 @@
         </select>
       </div>
       <div class="form-group">
-        <label class="form-label" id="gf-value-label">Note / Wert (z.B. 1, 2.5, 2-, +)</label>
+        <label class="form-label" id="gf-value-label">Note / Wert (z. B. 1, 2,5, 2-, +)</label>
         <input type="text" id="gf-value" class="form-input" placeholder="z.B. 1 oder +">
       </div>
       <div class="form-group">
@@ -560,8 +560,10 @@
         <input type="date" id="gf-date" class="form-input">
       </div>
       <div class="form-group">
-        <label class="form-label">Anlass / Bemerkung (optional)</label>
-        <input type="text" id="gf-label" class="form-input" placeholder="z.B. 1. Test, Buchvorstellung...">
+        <label class="form-label" for="gf-label">Spalte / Titel (optional)</label>
+        <input type="text" id="gf-label" class="form-input" list="gf-column-titles" placeholder="z. B. KA 1, Vokabeltest, Referat">
+        <datalist id="gf-column-titles"></datalist>
+        <div class="form-hint">Noten mit gleichem Datum, Titel und Art stehen in der Notentabelle in einer Spalte.</div>
       </div>
     </div>
     <div class="modal-footer" style="display:flex; justify-content:space-between; align-items:center;">
@@ -1191,12 +1193,12 @@
   </div>
 
   <script src="lib/crypto-js.min.js"></script>
-  <script src="crypto-helper.js?v=231"></script>
+  <script src="crypto-helper.js?v=232"></script>
   <script src="lib/firebase-app-compat.js"></script>
   <script src="lib/firebase-auth-compat.js"></script>
   <script src="lib/firebase-firestore-compat.js"></script>
-  <script src="firebase-config.js?v=231"></script>
-  <script src="sync-manager.js?v=231"></script>
-  <script src="app.js?v=231"></script>
+  <script src="firebase-config.js?v=232"></script>
+  <script src="sync-manager.js?v=232"></script>
+  <script src="app.js?v=232"></script>
 </body>
 </html>

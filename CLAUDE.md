@@ -137,7 +137,7 @@ Datumswerte sind Strings `YYYY-MM-DD` in **lokaler** Zeit (`formatDate()`). Nie 
 43. **Rückfragen mit mehr als Ja/Nein über `askChoice(titel, text, [{label, value, primary|danger}])`** (liefert eine Promise, `null` = abgebrochen). Die aufrufende Funktion ist dann `async`; nach dem `await` prüfen, ob das bearbeitete Objekt noch in `db` ist.
 
 44. **Sitzplätze: `renderSeatingPlan` schreibt nie in `gridX/gridY`.** Angezeigte Plätze kommen aus `seatingLayout()` (gespeicherter Platz, sonst nächster freier, Pult-Zellen ausgenommen); gespeichert wird nur beim Umordnen (`materializeSeatingLayout`). Pult-Position über `seatingDesk()`, Rastergröße über `seatingGridSize()`.
-45. **Wer per zweitem Tippen etwas entfernt, bietet „Rückgängig“ an** (`showUndoToast`). Normale Toasts lassen Klicks durch und können keinen Knopf tragen.
+45. **Wer per zweitem Tippen oder per ✕ etwas entfernt, bietet „Rückgängig“ an** (`showUndoToast`; im Profil `offerProfileUndo`). Normale Toasts lassen Klicks durch und können keinen Knopf tragen. Wiederhergestellt wird über `restoreSeatingEntry`: Es lehnt ab, wenn es für denselben Tag/dieselbe Spalte inzwischen einen neuen Eintrag gibt (Regel 50), und zeichnet das offene Profil neu.
 
 46. **Fenster nur über `openModal`/`closeModal` öffnen und schließen** (Fokus-Übergabe und -Rückgabe, `role="dialog"` setzt `labelModals()` beim Start). Ein Fenster, das eine Vorschau zeigt (Einstellungen), verwirft sie beim Schließen ohne Speichern (`MODAL_CLOSE_ACTIONS`).
 47. **Knöpfe, die auf dem Handy nur als Symbol erscheinen, haben ein `aria-label`**; der Text steht in `.btn-label` (Klassenkopf) bzw. `.tab-long`/`.tab-short` (Reiter) und wird per CSS umgeschaltet, nie per `aria-hidden`.
@@ -151,6 +151,7 @@ Datumswerte sind Strings `YYYY-MM-DD` in **lokaler** Zeit (`formatDate()`). Nie 
 55. **Klickbare Elemente, die kein `<button>` sind** (Karten, Farbfelder, Tabellenzellen), bekommen `role="button"`, `tabindex="0"` und einen Namen; Enter/Leertaste löst ein globaler Handler aus. Formulare mit Eingaben merken sich beim Öffnen ihren Stand und fragen beim Schließen nur bei Änderungen (`settingsSnapshot`, `gradeFormSnapshot`).
 56. **Nie per `align-items:center`/`justify-content:center` zentrieren, was höher oder breiter als sein Behälter werden kann** (App, Sitzplan-Raster): Der Überschuss ragt dann auf beiden Seiten hinaus, und oben/links ist nicht erreichbar. Stattdessen `margin:auto` am Kind. Bildschirmhöhen mit `100dvh` (nach `100vh` als Rückfall), nie nur `100vh` – Safari auf dem iPhone rechnet `100vh` mit eingefahrener Leiste (S18).
 57. **Formulare mit Eingaben blockieren den Pull, solange etwas eingetippt ist** (`inputModalOpen`; Einstellungen nur bei `settingsDirty()`). Ein neues Formular, dessen Felder aus `db` stammen, gehört dazu – sonst ersetzt ein Pull die Eingaben still oder das Formular schreibt beim Speichern den alten Stand zurück (P1, T5).
+58. **Datumsfelder für neue Einträge stehen auf heute** (am Wochenende letzter Schultag, `profileDefaultDate`), auch nach dem Eintragen – nie leer lassen. Notenwerte werden mit bis zu zwei Nachkommastellen gespeichert (`parseGradeInput`), im Formular mit Komma angezeigt (`gradeText`).
 
 ## Arbeitsablauf
 

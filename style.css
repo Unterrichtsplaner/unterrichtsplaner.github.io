@@ -945,6 +945,7 @@ button.date-chip{font-family:inherit;padding:0;}
   .seating-group-item{min-height:44px !important;}
   .modal-close{width:44px;height:44px;}
   .seating-reveal-btn, .seating-grade-edit-btn{min-height:44px;min-width:44px;}
+  .entry-item-delete{width:44px;height:44px;font-size:14px;}   /* ✕ im Schülerprofil (BUGS U3) */
 }
 
 /* Zufallsauswahl: die Karten im Sitzplan leuchten mit, also nicht abdunkeln/verwischen (BUGS S11) */

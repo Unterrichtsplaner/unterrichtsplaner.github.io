@@ -2244,6 +2244,13 @@ function updateInlineGrade(studentId, date, label, value, type = 'test', nth = 0
   if (!s.grades) s.grades = [];
 
   const grade = findColumnGrade(s, { date, label, type, nth });
+  // Weitere Spalte gleichen Namens (nth > 0), aber in den vorigen fehlt noch etwas: Die Note landete nach dem
+  // Neuzeichnen in der ersten Spalte (BUGS U7)
+  if (!grade && value && nth > 0 && !findColumnGrade(s, { date, label, type, nth: nth - 1 })) {
+    showToast('Bitte zuerst die erste Spalte „' + label + '“ ausfüllen – gleichnamige Spalten füllen sich von links', 'error');
+    renderOverviewTable();
+    return;
+  }
 
   if (!value) {
     if (grade) s.grades.splice(s.grades.indexOf(grade), 1);
@@ -2538,7 +2545,13 @@ function saveOverviewColumn() {
         if (pIdx !== -1) { s.participation[pIdx].date = newDate; s.participation[pIdx].label = newLabel; }
       } else if (currentOverviewTab === 'attendance') {
         const aIdx = (s.attendance||[]).findIndex(a => a.date === oldDate);
-        if (aIdx !== -1) { s.attendance[aIdx].date = newDate; }
+        if (aIdx !== -1) {
+          const a = s.attendance[aIdx];
+          // Fehl-Hinweis wandert mit in die Stunde nach dem neuen Datum (Regel 25, BUGS U5)
+          if (a.type === 'abwesend' && newDate !== oldDate) removeAbsenceNote(currentOverviewGroupId, oldDate, s);
+          a.date = newDate;
+          if (a.type === 'abwesend' && newDate !== oldDate) addAbsenceNote(currentOverviewGroupId, newDate, s);
+        }
       } else if (currentOverviewTab === 'homework') {
         const hIdx = (s.homework||[]).findIndex(h => h.date === oldDate && (h.note||'') === (oldLabel||''));
         if (hIdx !== -1) { s.homework[hIdx].date = newDate; s.homework[hIdx].note = newLabel; }
@@ -2678,7 +2691,11 @@ function renderStudents() {
     container.innerHTML = `<div class="empty-state">
       <div class="empty-state-icon">${icon('student')}</div>
       <div class="empty-state-title">Noch keine Schüler</div>
-      <div class="empty-state-desc">Klicke auf "+ Schüler" um Schüler hinzuzufügen.</div>
+      <div class="empty-state-desc">Einzeln anlegen oder eine Namensliste einfügen (z. B. aus Excel).</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin-top:12px">
+        <button class="btn-primary" onclick="openAddStudent()">Schüler hinzufügen</button>
+        <button class="btn-secondary" onclick="openImportStudentsModal()">Liste einfügen</button>
+      </div>
     </div>`;
     return;
   }
@@ -2813,14 +2830,17 @@ function toggleStudentEditMode() {
       btn.classList.remove('btn-icon');
       btn.style.width = 'auto';
       btn.title = 'Bearbeiten beenden';
+      btn.setAttribute('aria-label', 'Bearbeiten beenden');
       // Change onclick so it directly exits edit mode instead of opening modal
       btn.onclick = toggleStudentEditMode;
     } else {
-      btn.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>`;
+      // Wieder wie in index.html: Listen-Symbol (der Stift sah aus wie „Klasse bearbeiten“, BUGS U9)
+      btn.innerHTML = icon('list');
       btn.classList.remove('btn-primary');
       btn.classList.add('btn-icon');
       btn.style.width = '';
-      btn.title = 'Aktionen';
+      btn.title = 'Schüler hinzufügen, importieren …';
+      btn.setAttribute('aria-label', 'Schüler hinzufügen, importieren und mehr');
       btn.onclick = openStudentActionsModal;
     }
   }
@@ -2883,10 +2903,12 @@ function importStudentsFromGroup() {
   const fromStudents = db.students[fromId] || [];
   if (!db.students[currentGroupId]) db.students[currentGroupId] = [];
   
+  // Nur gegen Schüler prüfen, die schon vorher in der Klasse waren: zwei „Lukas Meier“ sind zwei Kinder (BUGS U4)
+  const before = [...db.students[currentGroupId]];
   let count = 0;
   fromStudents.forEach(s => {
     if (skipDups) {
-      const exists = db.students[currentGroupId].some(existing => 
+      const exists = before.some(existing => 
         existing.firstName === s.firstName && existing.lastName === s.lastName
       );
       if (exists) return;
@@ -2992,13 +3014,31 @@ function openStudentDetail(studentId, initialTab = 'grades') {
   const group = db.groups.find(g => g.id === currentGroupId);
   document.getElementById('sdetail-name').textContent = `${s.firstName || ''} ${s.lastName || ''}`.trim();
   document.getElementById('sdetail-group').textContent = group ? `${group.subject} · Klasse ${group.className}` : '';
+  renderStudentDetailLists(s);
+  resetProfileDates();
+  switchStudentTab(initialTab);
+  openModal('modal-student-detail');
+}
+// Alle Listen im offenen Schülerprofil neu zeichnen (z. B. nach „Rückgängig“)
+function renderStudentDetailLists(s) {
   renderGradesList(s);
   renderStudentNotesList(s);
   renderAttendanceList(s);
   renderStudentParticipationList(s);
   renderStudentHomeworkList(s);
-  switchStudentTab(initialTab);
-  openModal('modal-student-detail');
+}
+function refreshOpenProfile(s) {
+  if (document.getElementById('modal-student-detail').classList.contains('hidden')) return;
+  const cur = getCurrentStudent();
+  if (cur && cur === s) renderStudentDetailLists(s);
+}
+// Datumsfelder im Profil: heute, am Wochenende der letzte Schultag – meist trägt man für den Tag selbst ein
+function profileDefaultDate(now = new Date()) {
+  return formatDate(isSchoolDay(now) ? now : addSchoolDays(now, -1));
+}
+function resetProfileDates() {
+  const d = profileDefaultDate();
+  ['new-att-date', 'new-hw-student-date', 'new-student-note-date'].forEach(id => { document.getElementById(id).value = d; });
 }
 
 function switchStudentTab(tab) {
@@ -3099,6 +3139,12 @@ function deleteStudentNote(note) {
   const idx = (s.studentNotes||[]).indexOf(note);
   if (idx === -1) { renderStudentNotesList(s); return; }
   s.studentNotes.splice(idx,1); saveDB(); renderStudentNotesList(s);
+  offerProfileUndo('Anmerkung gelöscht', s, 'studentNotes', note);
+}
+// Ein Tipp aufs ✕ löscht sofort – deshalb „Rückgängig“ wie im Sitzplan (BUGS U3, Regel 45)
+function offerProfileUndo(msg, s, list, entry, after) {
+  const groupId = currentGroupId;
+  showUndoToast(msg, () => restoreSeatingEntry(groupId, s, list, entry, after));
 }
 
 function addStudentNote() {
@@ -3110,7 +3156,7 @@ function addStudentNote() {
   s.studentNotes.push({ text, date: date||formatDate(new Date()) });
   saveDB(); renderStudentNotesList(s); renderStudents();
   document.getElementById('new-student-note-text').value='';
-  document.getElementById('new-student-note-date').value='';
+  document.getElementById('new-student-note-date').value=profileDefaultDate();
 }
 
 function renderAttendanceList(s) {
@@ -3118,12 +3164,14 @@ function renderAttendanceList(s) {
   const list = document.getElementById('attendance-list');
   list.innerHTML='';
   if (!att.length) { list.innerHTML='<div style="color:var(--text-muted);font-size:13px;padding:6px 0">Keine Einträge.</div>'; return; }
-  const typeColors = { abwesend:'var(--danger)', entschuldigt:'var(--warning)', 'zuspät':'var(--text-secondary)' };
+  // Wie in Tabelle und Auswahl: „Unentschuldigt“, „Entschuldigt“ grün, „Zu spät“ (BUGS U10)
+  const typeColors = { abwesend:'var(--danger)', entschuldigt:'var(--success)', 'zuspät':'var(--warning)' };
+  const typeNames = { abwesend:'Unentschuldigt', entschuldigt:'Entschuldigt', 'zuspät':'Zu spät' };
   [...att].sort((a,b)=>(b.date||'').localeCompare(a.date||'')).forEach(a => {
     const el = document.createElement('div');
     el.className='entry-item';
     el.innerHTML=`
-      <span style="color:${typeColors[a.type]||'inherit'};font-weight:600;min-width:86px;font-size:12px">${escHtml(a.type.charAt(0).toUpperCase()+a.type.slice(1))}</span>
+      <span style="color:${typeColors[a.type]||'inherit'};font-weight:600;min-width:86px;font-size:12px">${escHtml(typeNames[a.type] || a.type)}</span>
       <span class="entry-item-text">${escHtml(a.note||'')}</span>
       <span class="entry-item-date">${a.date?formatDateShort(a.date):''}</span>
       <button class="entry-item-delete" aria-label="Löschen">✕</button>`;
@@ -3153,7 +3201,7 @@ function addAttendanceEntry() {
   if (!wasUnexcused && type === 'abwesend') addAbsenceNote(currentGroupId, date, s); // wie im Sitzplan (BUGS L3, Regel 25)
   saveDB(); renderAttendanceList(s); refreshStudentViews(currentGroupId);
   if (existing) showToast('Eintrag vom ' + formatDateShort(date) + ' geändert');
-  document.getElementById('new-att-date').value='';
+  document.getElementById('new-att-date').value=profileDefaultDate();
   document.getElementById('new-att-note').value='';
 }
 
@@ -3162,8 +3210,10 @@ function deleteAttendance(a) {
   const idx = (s.attendance||[]).indexOf(a);
   if (idx === -1) { renderAttendanceList(s); return; }
   // Schülerdetail gehört zu currentGroupId (getCurrentStudent), nicht zur Klassenübersicht
-  if (a.type === 'abwesend') removeAbsenceNote(currentGroupId, a.date, s);
-  s.attendance.splice(idx,1); saveDB(); renderAttendanceList(s); refreshStudentViews(currentGroupId);
+  const groupId = currentGroupId;
+  if (a.type === 'abwesend') removeAbsenceNote(groupId, a.date, s);
+  s.attendance.splice(idx,1); saveDB(); renderAttendanceList(s); refreshStudentViews(groupId);
+  offerProfileUndo('Fehlzeit gelöscht', s, 'attendance', a, a.type === 'abwesend' ? () => addAbsenceNote(groupId, a.date, s) : null);
 }
 
 function renderStudentParticipationList(s) {
@@ -3194,6 +3244,7 @@ function deleteParticipation(p) {
   const idx = (s.participation||[]).indexOf(p);
   if (idx === -1) { renderStudentParticipationList(s); return; }
   s.participation.splice(idx, 1); saveDB(); renderStudentParticipationList(s); refreshStudentViews(currentGroupId);
+  offerProfileUndo('Mitarbeit gelöscht', s, 'participation', p);
 }
 
 function renderStudentHomeworkList(s) {
@@ -3221,11 +3272,13 @@ function renderStudentHomeworkList(s) {
         <div style="font-weight:600; color:var(--warning); font-size:14px;">Hausaufgabe vergessen</div>
         ${h.note ? `<div style="font-size:12px; color:var(--text-secondary); margin-top:2px;">${escHtml(h.note)}</div>` : ''}
       </div>
-      <button class="btn-icon btn-danger-icon" aria-label="Löschen" onclick="deleteStudentHomework(${jsArg(h.id)})">
+      <button class="btn-icon btn-danger-icon" aria-label="Löschen">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/></svg>
       </button>
     </div>`;
   }).join('');
+  // Per Closure mit dem Eintrag, nicht per Inline-Handler (Regel 9)
+  list.querySelectorAll('.btn-danger-icon').forEach((btn, i) => { btn.onclick = () => deleteStudentHomework(sorted[i].id); });
 }
 
 function addStudentHomework() {
@@ -3234,21 +3287,28 @@ function addStudentHomework() {
   if (!date) { showToast('Bitte Datum wählen', 'error'); return; }
   const s = getCurrentStudent(); if (!s) return;
   if (!s.homework) s.homework = [];
+  // Gleicher Tag + gleiche Spalte gibt es schon (z. B. im Sitzplan eingetragen): sonst zählte er doppelt (BUGS U1)
+  if (s.homework.some(h => h.date === date && (h.note || '') === note)) {
+    showToast('Für den ' + formatDateShort(date) + ' ist das schon eingetragen', 'error');
+    return;
+  }
   s.homework.push({ id: uid(), date: date, note: note });
   saveDB();
   renderStudentHomeworkList(s);
   refreshStudentViews(currentGroupId);
-  document.getElementById('new-hw-student-date').value = '';
+  document.getElementById('new-hw-student-date').value = profileDefaultDate();
   document.getElementById('new-hw-student-note').value = '';
 }
 
 function deleteStudentHomework(id) {
   const s = getCurrentStudent(); if (!s) return;
-  if (!s.homework) return;
-  s.homework = s.homework.filter(h => h.id !== id);
+  const entry = (s.homework || []).find(h => h.id === id);
+  if (!entry) { renderStudentHomeworkList(s); return; }
+  s.homework.splice(s.homework.indexOf(entry), 1);
   saveDB();
   renderStudentHomeworkList(s);
   refreshStudentViews(currentGroupId);
+  offerProfileUndo('Eintrag gelöscht', s, 'homework', entry);
 }
 
 function deleteCurrentStudent() {
@@ -4849,6 +4909,13 @@ function openGradeForm(studentId, groupId, gradeIdx, defaultDateStr = '', defaul
     currentGradeFormCtx.wasDetailModalOpen = true;
   }
 
+  // Das Feld ist der Spaltentitel in der Notentabelle: vorhandene Titel der Klasse vorschlagen (BUGS U2)
+  const group = db.groups.find(g => g.id === groupId);
+  const titles = new Set([...(group && group.gradeEvents || []).map(e => e.label || ''),
+    ...(db.students[groupId] || []).flatMap(st => (st.grades || []).map(g => g.note || ''))]);
+  titles.delete('');
+  document.getElementById('gf-column-titles').innerHTML = [...titles].sort().map(t => `<option value="${escHtml(t)}"></option>`).join('');
+
   const scale = gradeScale(groupId);
   document.getElementById('gf-value-label').textContent = scale.inputLabel;
   document.getElementById('gf-value').placeholder = scale.placeholder;
@@ -4858,7 +4925,7 @@ function openGradeForm(studentId, groupId, gradeIdx, defaultDateStr = '', defaul
     const g = currentGradeFormCtx.grade;
     document.getElementById('grade-form-title').textContent = 'Note bearbeiten';
     setGradeTypeSelect(document.getElementById('gf-type'), g.type || 'test');
-    document.getElementById('gf-value').value = g.value || '';
+    document.getElementById('gf-value').value = gradeText(g.value || ''); // mit Komma wie überall (BUGS U10)
     document.getElementById('gf-date').value = g.date || formatDate(new Date());
     document.getElementById('gf-label').value = g.note || '';
     btnDelete.style.display = 'block';
@@ -4951,11 +5018,12 @@ function deleteGradeFromForm() {
   const { s, groupId, idx } = target;
   if (idx === -1) { showToast('Diese Note gibt es nicht mehr (z. B. durch Sync) – bitte neu öffnen', 'error'); return; }
 
-  s.grades.splice(idx, 1);
+  const [removed] = s.grades.splice(idx, 1);
   saveDB();
-  showToast('Note gelöscht');
   closeGradeForm();
   refreshGradeViews(s, groupId);
+  // „Löschen“ steht direkt neben „Abbrechen“: Rückgängig statt endgültig (BUGS U3)
+  showUndoToast('Note gelöscht', () => restoreSeatingEntry(groupId, s, 'grades', removed));
 }
 
 // Nach Änderungen im Notenformular alles neu zeichnen, was gerade sichtbar ist und Noten zeigt
@@ -5130,10 +5198,19 @@ function showUndoToast(msg, undo) {
 function restoreSeatingEntry(groupId, s, list, entry, after) {
   if (!(db.students[groupId] || []).includes(s)) { showToast('Nicht mehr möglich – die Daten wurden inzwischen ersetzt', 'error'); return; }
   if (!s[list]) s[list] = [];
+  // Inzwischen neu eingetragen (z. B. „Entschuldigt“ statt des entfernten „Unentschuldigt“): nicht zwei Einträge
+  // für denselben Tag anlegen (Regel 50, BUGS W4)
+  const clash = list === 'attendance' ? DAY_ATTENDANCE_TYPES.includes(entry.type)
+      && s.attendance.some(a => a.date === entry.date && DAY_ATTENDANCE_TYPES.includes(a.type))
+    : list === 'participation' ? s.participation.some(p => p.date === entry.date && (p.label || '') === (entry.label || ''))
+    : list === 'homework' ? s.homework.some(h => h.date === entry.date && (h.note || '') === (entry.note || ''))
+    : false;
+  if (clash) { showToast('Nicht wiederhergestellt – für den ' + formatDateShort(entry.date) + ' gibt es schon einen Eintrag', 'error'); return; }
   s[list].push(entry);
   if (after) after();
   saveDB();
   refreshStudentViews(groupId);
+  refreshOpenProfile(s);
   showToast('Wiederhergestellt');
 }
 
@@ -5163,7 +5240,7 @@ function formatDateShort(dateStr) {
 // Bei Punkten gilt „höher = besser“. Alles, was Noten prüft, färbt oder bewertet, fragt die Skala der Klasse.
 const GRADE_SCALES = {
   '1-6':  { id: '1-6',  min: 1, max: 6,  higherIsBetter: false, integer: false, unit: '',       label: 'Noten 1–6',
-            inputLabel: 'Note / Wert (z.B. 1, 2.5, 2-, +)', placeholder: 'z.B. 1 oder +',
+            inputLabel: 'Note / Wert (z. B. 1, 2,5, 2-, +)', placeholder: 'z. B. 1 oder +',
             inputError: 'Bitte eine Note zwischen 1 und 6 eingeben (z. B. 2, 2,5 oder 2-)' },
   '0-15': { id: '0-15', min: 0, max: 15, higherIsBetter: true,  integer: true,  unit: 'Punkte', label: 'Punkte 0–15 (Oberstufe)',
             inputLabel: 'Punkte (0–15) oder Text wie +', placeholder: 'z.B. 11',
@@ -5241,7 +5318,10 @@ function parseGradeInput(input, scale = GRADE_SCALES['1-6']) {
   if (number < scale.min || number > scale.max) return null;
   if (scale.integer) return (m[2] || !Number.isInteger(number)) ? null : { value: String(number), number };
   const tendency = m[2];
-  const value = tendency ? String(Math.round(number * 10) / 10) + tendency : number.toFixed(1);
+  // Bis zu zwei Nachkommastellen (1,75), sonst eine (2.0): nicht still auf 1,8 runden (BUGS U8)
+  const rounded = Math.round(number * 100) / 100;
+  const value = tendency ? String(Math.round(number * 10) / 10) + tendency
+    : (Number.isInteger(rounded * 10) ? rounded.toFixed(1) : rounded.toFixed(2));
   return { value, number };
 }
 
@@ -5551,6 +5631,8 @@ function warningSignature(s, type) {
 function warningAcknowledged(ack, s, type, count) {
   const n = ack[`${s.id}_${type}`];
   if (!(count <= (n || 0))) return false;
+  // Weniger als beim Quittieren (z. B. ein Fehltag nachträglich entschuldigt): Es ist besser geworden (BUGS U6)
+  if (type !== 'grade' && count < n) return true;
   const sig = ack[`${s.id}_${type}_sig`];
   return !sig || sig === warningSignature(s, type);
 }
@@ -5581,7 +5663,11 @@ function collectWarnings() {
         const avg = calculateStudentAverage(s, group.id);
         const points = gradeScale(group).higherIsBetter;
         const critical = avg !== null && (points ? warnPoints > 0 && avg < warnPoints : warnGrade > 0 && avg >= warnGrade);
-        if (critical && !warningAcknowledged(ack, s, 'grade', grades.length)) {
+        // Quittiert und seitdem nicht schlechter geworden (z. B. Note zum Besseren korrigiert): bleibt quittiert (BUGS U6)
+        const ackAvg = ack[`${s.id}_grade_avg`];
+        const notWorse = ack[`${s.id}_grade`] !== undefined && typeof ackAvg === 'number'
+          && (points ? avg >= ackAvg : avg <= ackAvg);
+        if (critical && !notWorse && !warningAcknowledged(ack, s, 'grade', grades.length)) {
           warnings.push({ student: s, group, type: 'grade', count: grades.length,
             title: 'Kritischer Notenstand',
             desc: `${name} steht aktuell auf ${points ? formatGradeAverage(avg) + ' Punkten' : formatGradeAverage(avg, 2)}.` });
@@ -5707,6 +5793,11 @@ window.acknowledgeWarning = function(studentId, type, count) {
   db.acknowledgedWarnings[`${studentId}_${type}`] = count; // Anzahl: lesen auch ältere App-Versionen
   const s = Object.values(db.students).flat().find(x => x && x.id === studentId);
   if (s) db.acknowledgedWarnings[`${studentId}_${type}_sig`] = warningSignature(s, type);
+  if (s && type === 'grade') {
+    const groupId = Object.keys(db.students).find(g => (db.students[g] || []).includes(s));
+    const avg = calculateStudentAverage(s, groupId);
+    if (avg !== null) db.acknowledgedWarnings[`${studentId}_grade_avg`] = avg;
+  }
   saveDB();
   renderDashboard();
 };
