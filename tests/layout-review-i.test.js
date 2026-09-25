@@ -437,3 +437,52 @@ describe('Paket 5b: Einheitlichkeit', () => {
     app('closeModal("modal-lesson")');
   });
 });
+
+describe('Paket 5c: Knöpfe, Einstellungen, Formular', () => {
+  it('I17: je Bereich nur ein Hauptknopf', () => {
+    // Stundenplan: KW-Anzeige ist keine zweite gefüllte Pille neben „Heute“
+    expect(rulesFor('.week-label.active')).not.toMatch(/background:\s*var\(--accent\)/);
+    // Klassenkopf: „Zum Sitzplan“ nebenrangig
+    const seatBtn = [...document.querySelectorAll('#view-students .header-actions button')].find(b => b.textContent.includes('Zum Sitzplan'));
+    expect(seatBtn.classList.contains('btn-secondary')).toBe(true);
+    // Profil: „Fertig“ nebenrangig neben „+ Neue Note eintragen“
+    const fertig = [...document.querySelectorAll('#modal-student-detail .modal-footer button')].find(b => b.textContent.trim() === 'Fertig');
+    expect(fertig.classList.contains('btn-secondary')).toBe(true);
+    // Stunden-Fenster: „Notenübersicht“ wie „Schüler bewerten“, Hauptknopf ist „Speichern & Schließen“
+    expect(document.getElementById('lesson-btn-overview').classList.contains('btn-secondary')).toBe(true);
+  });
+
+  it('I22: Standard-Akzentfarbe ist wählbar und wird markiert', () => {
+    app('db.settings.themeAccent = undefined; openSettings()');
+    const sel = document.querySelector('.settings-swatch-accent.selected');
+    expect(sel).not.toBeNull();
+    expect(sel.dataset.color).toBe('#6366f1');
+    app('closeModal("modal-settings")');
+  });
+
+  it('I22: Einstellungen zeigen die App-Version', () => {
+    // gleiche Nummer wie app.js?v=N in index.html (setzt npm run bump)
+    const v = html.match(/app\.js\?v=(\d+)/)[1];
+    app('openSettings()');
+    expect(document.getElementById('app-version-label').textContent).toBe(`Version ${v}`);
+    app('closeModal("modal-settings")');
+  });
+
+  it('I22: Datenverwaltung (Backup) steht oben, direkt nach „Anzeige“', () => {
+    const heads = [...document.querySelectorAll('#modal-settings .settings-section h3')].map(h => h.textContent.trim());
+    expect(heads.indexOf('Datenverwaltung')).toBe(heads.indexOf('Anzeige') + 1);
+  });
+
+  it('I22: Beschriftungen einheitlich auf Deutsch, Hinweis zu „Speichern“', () => {
+    const t = document.getElementById('modal-settings').textContent;
+    for (const bad of ['Theme & Farben', 'Google Login', 'Einloggen', 'App Version', 'Klicke hier']) expect(t, bad).not.toContain(bad);
+    for (const good of ['Darstellung', 'Mit Google anmelden', 'Anmelden', 'App-Version']) expect(t, good).toContain(good);
+    expect(document.querySelector('#modal-settings .modal-footer').textContent).toMatch(/erst mit „Speichern“/);
+  });
+
+  it('I23: Farbauswahl in gleich langen Reihen, „Wiederholung“ ohne Fragezeichen', () => {
+    expect(app('APP_COLORS.length') % 7).toBe(0);
+    expect(css).toMatch(/#lesson-color-picker[^{]*\{[^}]*grid-template-columns:\s*repeat\(7,/);
+    expect(document.getElementById('modal-add-lesson').textContent).not.toContain('Wiederholung?');
+  });
+});

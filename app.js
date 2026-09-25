@@ -2704,9 +2704,18 @@ function openSettings() {
   document.getElementById('settings-radius').value       = radVal;
   document.getElementById('settings-radius-val').textContent = radVal + 'px';
   document.getElementById('settings-sort-order').value = db.settings.studentSortOrder || 'firstName';
+  const v = appVersion();
+  document.getElementById('app-version-label').textContent = v ? `Version ${v}` : '';
   blocksDraft = getBlocks().map(b => ({ ...b }));
   renderBlocksEditor();
   openModal('modal-settings');
+}
+
+// Versionsnummer aus index.html (app.js?v=N, gesetzt von npm run bump), für Rückfragen bei Problemen (BUGS I22)
+function appVersion() {
+  const src = [...document.querySelectorAll('script[src]')].map(e => e.getAttribute('src')).find(x => /(^|\/)app\.js\?v=/.test(x));
+  const m = src && src.match(/v=(\d+)/);
+  return m ? m[1] : '';
 }
 
 function applyThemePreview() {

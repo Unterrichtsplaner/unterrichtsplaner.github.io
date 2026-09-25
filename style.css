@@ -83,7 +83,8 @@ input[type="date"] { min-height: 1.2em; } /* Fix iOS Safari date input collapse 
 .view-header h1{font-size:20px;font-weight:700;letter-spacing:-.4px;}
 .header-actions{display:flex;align-items:center;gap:8px;margin-left:auto;}
 .week-label{font-size:13px;font-weight:600;color:var(--text-secondary);padding:8px 13px;background:var(--bg-card);border-radius:99px;border:1px solid var(--border);min-width:200px;text-align:center;transition:all var(--transition);}
-.week-label.active{color:white;border-color:var(--accent);background:var(--accent);}
+/* Aktuelle Woche dezent: gefüllt ist nur „Heute“ (BUGS I17) */
+.week-label.active{color:var(--text-accent);border-color:var(--border-active);background:var(--accent-soft);}
 .btn-heute{padding:8px 16px;background:var(--bg-elevated);color:var(--text-secondary);border:1px solid var(--border);border-radius:99px;font-family:inherit;font-size:13px;font-weight:600;cursor:pointer;transition:all var(--transition);white-space:nowrap;}
 .btn-heute.active{background:var(--accent);color:white;border-color:var(--accent);box-shadow:var(--shadow-accent);}
 .breadcrumb-info{flex:1;}.breadcrumb-info h1{font-size:18px;}
@@ -554,6 +555,9 @@ input[name="new-lesson-part"]:hover:not(:checked) + .duration-btn {
 
 /* ─── Color picker ───────────────────── */
 .color-picker{display:flex;gap:7px;flex-wrap:wrap;padding:3px 0;}
+/* 14 Klassenfarben in zwei gleich langen Reihen statt 13 + 1 (BUGS I23) */
+#lesson-color-picker,#group-color-picker{display:grid;grid-template-columns:repeat(7,26px);gap:10px 12px;}
+.settings-footer-hint{font-size:12px;color:var(--text-muted);}
 .color-swatch{width:26px;height:26px;border-radius:50%;cursor:pointer;border:2.5px solid transparent;transition:all var(--transition);position:relative;}
 .color-swatch:hover{transform:scale(1.15);}
 .color-swatch.selected{border-color:white !important;box-shadow:0 0 0 2px var(--swatch-color),0 2px 8px rgba(0,0,0,.4);transform:scale(1.12);}
