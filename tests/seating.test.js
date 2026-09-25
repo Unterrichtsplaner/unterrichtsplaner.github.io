@@ -167,3 +167,28 @@ describe('H9: Datumsleiste nur Mo–Fr', () => {
     }
   });
 });
+
+// Regression aus F1: Die Mitarbeit-Markierung ist fertiges HTML (<span style="color:…">+</span>) und wurde
+// zusätzlich escaped → auf der Karte stand der Quelltext statt eines farbigen „+“.
+describe('Mitarbeit-Markierung auf der Sitzplan-Karte', () => {
+  const badge = () => {
+    app('switchView("seating"); currentSeatingGroupId = "g1"; currentSeatingDateStr = "2026-09-10"; renderSeatingPlan()');
+    return document.querySelector('.seating-card[data-id="s1"] .sc-part');
+  };
+
+  it.each([['positive', '+', 'success'], ['neutral', '=', 'warning'], ['negative', '-', 'danger']])(
+    '%s zeigt „%s“ farbig, nicht als Quelltext', (value, sign, color) => {
+      anna().participation.push({ id: 'p1', date: '2026-09-10', value });
+      const b = badge();
+      expect(b.textContent.trim()).toBe(sign);
+      expect(b.textContent).not.toContain('<span');
+      expect(b.querySelector('span').getAttribute('style')).toContain(`var(--${color})`);
+    });
+
+  it('unbekannter Wert (z. B. aus Import/Sync) wird weiter escaped', () => {
+    anna().participation.push({ id: 'p1', date: '2026-09-10', value: '<img src=x onerror=alert(1)>' });
+    const b = badge();
+    expect(b.querySelector('img')).toBeNull();
+    expect(b.textContent).toContain('<img');
+  });
+});

@@ -77,6 +77,7 @@ Priorität: 🔴 Datenverlust / App kaputt · 🟠 falsche Anzeige / nervig · �
 ## F. Sicherheit (XSS)
 
 - [x] **F1** 🟠 `escHtml` escaped keine `'` und `"` → Spaltennamen wie „Peter's Test“ zerstören `onclick`-Handler; mit präparierten Namen läuft fremdes JavaScript. Außerdem ungeschützt: `g.value` (~Z. 1952, 3347), `participation.value` (~Z. 2865), `desc` (~Z. 2058). Über Import/Sync können solche Werte auf andere Geräte kommen.
+- [x] **F2** 🟠 (Regression aus F1, beim Testen mit echten Daten aufgefallen) Sitzplan: Die Mitarbeit-Markierung zeigte den Quelltext `<span style="color:var(--success)">+</span>` statt eines farbigen „+“, weil das fertige HTML aus `valLabels` zusätzlich durch `escHtml` lief. Jetzt wird nur ein unbekannter Rohwert escaped. Test: `tests/seating.test.js`.
 
 ## G. PWA, Oberfläche, Aufräumen
 

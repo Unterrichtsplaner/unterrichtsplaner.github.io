@@ -3332,7 +3332,8 @@ function renderSeatingPlan() {
     let partHtml = '';
     if (participation) {
       const valLabels = { 'positive':'<span style="color:var(--success)">+</span>', 'neutral':'<span style="color:var(--warning)">=</span>', 'negative':'<span style="color:var(--danger)">-</span>' };
-      partHtml = `<div style="position:absolute; top:-6px; right:-6px; font-size:16px; font-weight:800; background:var(--bg-elevated); padding:0 6px; border-radius:8px; border:2px solid var(--border); box-shadow:0 2px 6px rgba(0,0,0,0.3); line-height:1.2; z-index:10;">${escHtml(valLabels[participation.value] || participation.value)}</div>`;
+      // valLabels ist fertiges HTML; nur ein unbekannter Wert (Import/Sync) stammt aus den Daten und wird escaped
+      partHtml = `<div class="sc-part" style="position:absolute; top:-6px; right:-6px; font-size:16px; font-weight:800; background:var(--bg-elevated); padding:0 6px; border-radius:8px; border:2px solid var(--border); box-shadow:0 2px 6px rgba(0,0,0,0.3); line-height:1.2; z-index:10;">${valLabels[participation.value] || escHtml(participation.value)}</div>`;
     }
 
     card.innerHTML = `
