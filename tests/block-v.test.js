@@ -95,6 +95,18 @@ describe('V1: Stunde auf den Platz einer beendeten Stunde', () => {
     expect(toasts()).toMatch(/früheren Wochen/);
   });
 
+  it('Nachfolge-Stunde (eigener Beginn nach der beendeten) mit früheren Einträgen: Raum ändern geht', async () => {
+    // 8a liegt seit dem 21.09. auf dem Platz der 7b und hat schon eine gehaltene Stunde (Nachtrag V1)
+    app(`db.lessonSlots.push({ id: 'mo8a', day: 0, block: 1, part: 'full', subject: 'Physik', color: '#f59e0b', groupId: 'g2', recurring: 'weekly', validFrom: '2026-09-21', room: 'A1' })`);
+    data()['mo8a_2026-09-21'] = { notes: 'Einstieg' };
+    editLesson('mo8a', '2026-10-05');
+    document.getElementById('new-lesson-room').value = 'B2';
+    await app('saveLessonSlot()');
+    expect(slot('mo8a').room).toBe('B2');
+    expect(slot('mo8a').validFrom).toBe('2026-09-21');
+    expect(toasts()).not.toMatch(/früheren Wochen/);
+  });
+
   it('Kachel mit zwei ganzen Stunden (z. B. alter Stand) zeigt beide statt zweier „+“', () => {
     app(`db.lessonSlots.push({ id: 'x', day: 0, block: 1, part: 'full', subject: 'Physik', color: '#f59e0b', groupId: 'g2', recurring: 'weekly' })`);
     const cell = cellFor('2026-09-14', 1);

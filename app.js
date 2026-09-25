@@ -1123,8 +1123,10 @@ async function saveLessonSlot() {
   if (replaced && lessonEntryDates(replaced.id).includes(specificDate)
       && !confirm(`Für ${lessonTitle(replaced).main} am ${formatDateLong(specificDate)} gibt es schon Notizen oder Hausaufgaben. `
         + 'Solange die Vertretung dort liegt, sind sie nicht zu sehen (sie bleiben aber gespeichert).\n\nVertretung trotzdem anlegen?')) return;
+  // Mit dem eigenen Beginn der Stunde: Eine Nachfolgerin, die erst nach der beendeten beginnt, überschneidet
+  // sich nie mit ihr und darf weiter bearbeitet werden (Nachtrag BUGS V1)
   const endedHere = !isOneOffSlot(candidate) && !splitFrom && db.lessonSlots.find(s => s !== slot && endedBefore(s)
-      && slotsShareDate({ ...candidate, validFrom: undefined }, s) && partsOverlap(part, s.part));
+      && slotsShareDate(candidate, s) && partsOverlap(part, s.part));
   if (endedHere) {
     // Eine bestehende Stunde mit früheren Einträgen läge in früheren Wochen auf dem Platz der beendeten: dort
     // zeigte der Stundenplan beide nicht mehr (BUGS V1). Dann nur „ab …“ ändern.
