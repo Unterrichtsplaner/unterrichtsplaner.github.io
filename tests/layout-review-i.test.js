@@ -391,3 +391,49 @@ describe('Paket 5a: Texte', () => {
     expect(html).toMatch(/<option value="mitarbeit">Mitarbeitsnote<\/option>/);
   });
 });
+
+describe('Paket 5b: Einheitlichkeit', () => {
+  const firstCellNames = () => [...document.querySelectorAll('#overview-content tbody .ov-name-text')].map(e => e.textContent);
+  afterEach(() => app('db.settings.studentSortOrder = "firstName"'));
+
+  it('I12: alle Listen und Tabellen zeigen Namen wie in den Einstellungen gewählt', () => {
+    for (const order of ['firstName', 'lastName']) {
+      app(`db.settings.studentSortOrder = "${order}"`);
+      const want = order === 'firstName' ? 'Anna Muster' : 'Muster, Anna';
+      for (const tab of ['grades', 'participation', 'attendance', 'homework']) {
+        app(`openGroupStudents("g1", "${tab}")`);
+        expect(firstCellNames(), `${order}/${tab}`).toContain(want);
+      }
+      app('openGroupStudents("g1", "students")');
+      expect([...document.querySelectorAll('#students-container .student-name')].map(e => e.textContent.trim()), order).toContain(want);
+    }
+  });
+
+  it('I12: ohne Nachnamen kein „, Max“', () => {
+    app('db.settings.studentSortOrder = "lastName"');
+    expect(app('studentListName({ firstName: "Max", lastName: "" })')).toBe('Max');
+  });
+
+  it('I12: Überschriften (Profil, Schnellbewertung) immer „Vorname Nachname“', () => {
+    app('db.settings.studentSortOrder = "lastName"');
+    app('openGroupStudents("g1"); openStudentDetail("s1")');
+    expect(document.getElementById('sdetail-name').textContent).toBe('David Fischer-Weißenberger');   // s1
+    app('closeModal("modal-student-detail")');
+  });
+
+  it('I13: Klassenansicht wie Kacheln und Karten: Klasse groß, Fach klein', () => {
+    app('openGroupStudents("g1")');
+    expect(document.getElementById('student-view-title').textContent).toBe('Q1 Leistungskurs');
+    expect(document.getElementById('student-view-subtitle').textContent).toMatch(/^Mathematik/);
+  });
+
+  it('I13: Stunden-Fenster: Klasse als Titel, Fach vorn in der Unterzeile; Monat auf Deutsch (nicht „Jänner“)', () => {
+    app('openLessonDetail("sR", "2027-01-14")');
+    expect(document.getElementById('lesson-modal-title').textContent).toBe('Q1 Leistungskurs');
+    const sub = document.getElementById('lesson-modal-subtitle').textContent;
+    expect(sub).toMatch(/^Mathematik · Donnerstag/);
+    expect(sub).toContain('Januar');
+    expect(sub).not.toContain('Jänner');
+    app('closeModal("modal-lesson")');
+  });
+});

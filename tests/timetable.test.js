@@ -256,7 +256,7 @@ describe('D7: Titel nach Umbenennen der Klasse', () => {
   it('Stundenfenster zeigt den aktuellen Fachnamen', () => {
     app('db').groups[0].subject = 'Mathematik';
     app(`openLessonDetail('slotA', '2026-10-05')`);
-    expect(document.getElementById('lesson-modal-title').textContent).toContain('Mathematik');
+    expect(document.getElementById('lesson-modal-subtitle').textContent).toContain('Mathematik');   // Fach klein (I13)
     expect(document.getElementById('lesson-modal-title').textContent).toContain('1A');
   });
 

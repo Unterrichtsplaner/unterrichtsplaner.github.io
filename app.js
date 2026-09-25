@@ -199,6 +199,14 @@ function persistDB() {
 }
 function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2,6); }
 
+// Name in Listen und Tabellen, passend zur Sortierung in den Einstellungen (BUGS I12). Unescaped.
+// Überschriften (Profil, Schnellbewertung) zeigen immer „Vorname Nachname“.
+function studentListName(s) {
+  const first = s.firstName || '', last = s.lastName || '';
+  if (!last || !first) return first || last;
+  return (db.settings && db.settings.studentSortOrder) === 'lastName' ? `${last}, ${first}` : `${first} ${last}`;
+}
+
 function sortStudents(studentsArr) {
   const order = (db.settings && db.settings.studentSortOrder) || 'firstName';
   return [...studentsArr].sort((a, b) => {
@@ -335,10 +343,10 @@ function lessonsAt(dateStr, blockNum) {
   return lessons.filter(s => isOneOffSlot(s) || !oneOffs.some(o => partsOverlap(o.part, s.part)));
 }
 
-function formatDateDE(d) { return d.toLocaleDateString('de-AT',{day:'2-digit',month:'2-digit'}); }
+function formatDateDE(d) { return d.toLocaleDateString('de-DE',{day:'2-digit',month:'2-digit'}); }
 function formatDateLong(dateStr) {
   const d = new Date(dateStr + 'T00:00:00');
-  return d.toLocaleDateString('de-AT',{weekday:'short',day:'2-digit',month:'2-digit',year:'numeric'});
+  return d.toLocaleDateString('de-DE',{weekday:'short',day:'2-digit',month:'2-digit',year:'numeric'});
 }
 function isToday(d) {
   const t = new Date();
@@ -1014,9 +1022,12 @@ function openLessonDetail(slotId, dateStr) {
   const d = new Date(dateStr + 'T12:00:00');
   document.getElementById('lesson-color-dot').style.background = slot.color || '#6366f1';
   const group = slot.groupId && db.groups.find(g => g.id === slot.groupId);
-  document.getElementById('lesson-modal-title').textContent = group ? `${group.subject} ${group.className}` : slot.subject;
-  document.getElementById('lesson-modal-subtitle').textContent =
-    `${DAYS[slot.day]}  ·  ${block ? block.label + ' (' + block.start + '–' + block.end + ')' : ''}  ·  ${d.toLocaleDateString('de-AT',{day:'2-digit',month:'long',year:'numeric'})}${slot.room ? '  ·  ' + slot.room : ''}`;
+  // Klasse als Titel, Fach vorn in der Unterzeile (BUGS I13); ohne Klasse ist das Fach der Titel
+  const t = lessonTitle(slot);
+  document.getElementById('lesson-modal-title').textContent = t.main;
+  document.getElementById('lesson-modal-subtitle').textContent = [t.sub, DAYS[slot.day],
+    block ? block.label + ' (' + block.start + '–' + block.end + ')' : '',
+    d.toLocaleDateString('de-DE',{day:'2-digit',month:'long',year:'numeric'}), slot.room].filter(Boolean).join(' · ');
 
   if (slot.groupId) {
     document.getElementById('lesson-seating-link-container').classList.remove('hidden');
@@ -1611,7 +1622,7 @@ function renderOverviewTable() {
       const rawAvg = calculateStudentAverage(s, currentOverviewGroupId);
       const avg = formatGradeAverage(rawAvg);
       
-      const nameDisplay = (db.settings.studentSortOrder==='lastName') ? escHtml(s.lastName)+', '+escHtml(s.firstName) : escHtml(s.firstName)+' '+escHtml(s.lastName);
+      const nameDisplay = escHtml(studentListName(s));
       html += `<tr><td class="ov-name-col ov-name" onclick="openSeatingStudentModal(${jsArg(s.id)}, ${jsArg(currentOverviewGroupId)}, ${jsArg(formatDate(new Date()))})"><span class="ov-name-text" title="${nameDisplay}">${nameDisplay}</span></td>`;
       html += `<td style="font-weight:700;color:${gradeColor(rawAvg, scale)};text-align:center;">${avg}</td>`;
       
@@ -1661,7 +1672,7 @@ function renderOverviewTable() {
     html += '</tr></thead><tbody>';
 
     sortedStudents.forEach(s => {
-      html += `<tr><td class="ov-name-col ov-name" onclick="openSeatingStudentModal(${jsArg(s.id)}, ${jsArg(currentOverviewGroupId)}, ${jsArg(formatDate(new Date()))})"><span class="ov-name-text" title="${escHtml(s.lastName)}, ${escHtml(s.firstName)}">${escHtml(s.lastName)}, ${escHtml(s.firstName)}</span></td>`;
+      html += `<tr><td class="ov-name-col ov-name" onclick="openSeatingStudentModal(${jsArg(s.id)}, ${jsArg(currentOverviewGroupId)}, ${jsArg(formatDate(new Date()))})"><span class="ov-name-text" title="${escHtml(studentListName(s))}">${escHtml(studentListName(s))}</span></td>`;
       
       let pos = 0, neu = 0, neg = 0;
       partDates.forEach(ev => {
@@ -1705,7 +1716,7 @@ function renderOverviewTable() {
     html += '</tr></thead><tbody>';
 
     sortedStudents.forEach(s => {
-      html += `<tr><td class="ov-name-col ov-name" onclick="openSeatingStudentModal(${jsArg(s.id)}, ${jsArg(currentOverviewGroupId)}, ${jsArg(formatDate(new Date()))})"><span class="ov-name-text" title="${escHtml(s.lastName)}, ${escHtml(s.firstName)}">${escHtml(s.lastName)}, ${escHtml(s.firstName)}</span></td>`;
+      html += `<tr><td class="ov-name-col ov-name" onclick="openSeatingStudentModal(${jsArg(s.id)}, ${jsArg(currentOverviewGroupId)}, ${jsArg(formatDate(new Date()))})"><span class="ov-name-text" title="${escHtml(studentListName(s))}">${escHtml(studentListName(s))}</span></td>`;
       const totalMissed = (s.attendance||[]).filter(a => a.type === 'abwesend' || a.type === 'entschuldigt').length;
       html += `<td style="text-align:center;font-weight:600;${totalMissed ? '' : 'color:var(--text-muted);'}">${totalMissed}</td>`;
 
@@ -1733,7 +1744,7 @@ function renderOverviewTable() {
     html += '</tr></thead><tbody>';
 
     sortedStudents.forEach(s => {
-      html += `<tr><td class="ov-name-col ov-name" onclick="openSeatingStudentModal(${jsArg(s.id)}, ${jsArg(currentOverviewGroupId)}, ${jsArg(formatDate(new Date()))})"><span class="ov-name-text" title="${escHtml(s.lastName)}, ${escHtml(s.firstName)}">${escHtml(s.lastName)}, ${escHtml(s.firstName)}</span></td>`;
+      html += `<tr><td class="ov-name-col ov-name" onclick="openSeatingStudentModal(${jsArg(s.id)}, ${jsArg(currentOverviewGroupId)}, ${jsArg(formatDate(new Date()))})"><span class="ov-name-text" title="${escHtml(studentListName(s))}">${escHtml(studentListName(s))}</span></td>`;
       const totalMissed = (s.homework||[]).length;
       html += `<td style="text-align:center;font-weight:600;color:${totalMissed ? 'var(--danger)' : 'var(--text-muted)'};">${totalMissed}</td>`;
 
@@ -1974,8 +1985,9 @@ function openGroupStudents(groupId, initialTab = 'students') {
   }
   const g = db.groups.find(x => x.id === groupId);
   if (!g) return;
-  document.getElementById('student-view-title').textContent = g.subject;
-  document.getElementById('student-view-subtitle').textContent = `Klasse ${g.className}${g.year?' · '+g.year:''}`;
+  // Klasse groß, Fach klein wie in Stundenplan und Klassenkarten (BUGS I13)
+  document.getElementById('student-view-title').textContent = g.className;
+  document.getElementById('student-view-subtitle').textContent = `${g.subject}${g.year?' · '+g.year:''}`;
   switchView('students');
   switchClassDashboardTab(initialTab);
 }
@@ -2025,7 +2037,7 @@ function renderStudents() {
       ${isStudentEditMode ? `<input type="checkbox" class="student-select-cb" data-id="${escHtml(s.id)}" onclick="event.stopPropagation(); updateMassDeleteBar()" style="margin-right: 12px; width: 18px; height: 18px; cursor: pointer;">` : ''}
       <div class="student-avatar" style="background:${bg};color:${fg}">${escHtml(initials.toUpperCase())}</div>
       <div class="student-info">
-        <div class="student-name">${(db.settings.studentSortOrder==='lastName') ? escHtml(s.lastName)+', '+escHtml(s.firstName) : escHtml(s.firstName)+' '+escHtml(s.lastName)}</div>
+        <div class="student-name">${escHtml(studentListName(s))}</div>
         <div class="student-quick-notes">${s.notes ? escHtml(s.notes) : grades.length+' Note'+(grades.length!==1?'n':'')}</div>
       </div>
       <div class="student-counters">
@@ -2298,7 +2310,7 @@ function openStudentDetail(studentId, initialTab = 'grades') {
   if (!s) return;
   currentStudentId = studentId;
   const group = db.groups.find(g => g.id === currentGroupId);
-  document.getElementById('sdetail-name').textContent = s.lastName + ', ' + s.firstName;
+  document.getElementById('sdetail-name').textContent = `${s.firstName || ''} ${s.lastName || ''}`.trim();
   document.getElementById('sdetail-group').textContent = group ? `${group.subject} · Klasse ${group.className}` : '';
   renderGradesList(s);
   renderStudentNotesList(s);
@@ -4148,7 +4160,7 @@ function jsArg(v) {
 
 function formatDateShort(dateStr) {
   if (!dateStr) return '';
-  return new Date(dateStr+'T00:00:00').toLocaleDateString('de-AT',{day:'2-digit',month:'2-digit',year:'numeric'});
+  return new Date(dateStr+'T00:00:00').toLocaleDateString('de-DE',{day:'2-digit',month:'2-digit',year:'numeric'});
 }
 
 // ─── Notenskala pro Klasse (BUGS H7) ─────────────────────────────────────
