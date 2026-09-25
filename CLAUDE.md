@@ -139,6 +139,9 @@ Datumswerte sind Strings `YYYY-MM-DD` in **lokaler** Zeit (`formatDate()`). Nie 
 46. **Fenster nur über `openModal`/`closeModal` öffnen und schließen** (Fokus-Übergabe und -Rückgabe, `role="dialog"` setzt `labelModals()` beim Start). Ein Fenster, das eine Vorschau zeigt (Einstellungen), verwirft sie beim Schließen ohne Speichern (`MODAL_CLOSE_ACTIONS`).
 47. **Knöpfe, die auf dem Handy nur als Symbol erscheinen, haben ein `aria-label`**; der Text steht in `.btn-label` (Klassenkopf) bzw. `.tab-long`/`.tab-short` (Reiter) und wird per CSS umgeschaltet, nie per `aria-hidden`.
 48. **Migrationen fassen nie Werte an, die der Nutzer selbst einstellen kann** (Blockzeiten, Farben …). `migrateDB` läuft bei jedem Laden, Import und Pull; eine Regel wie „sieht aus wie der alte Standard“ trifft irgendwann echte Einstellungen (P3).
+49. **Sitzplan und Schnellbewertung fassen nur Mitarbeit/HA-Einträge ohne Titel an.** Einträge mit Titel („Referat“, HA-Spalte „Arbeitsheft“) gehören zu Spalten der Tabelle (Q8).
+50. **Pro Schüler und Tag höchstens ein Eintrag aus `DAY_ATTENDANCE_TYPES`** (F/E/Z). Wer einträgt, stellt einen vorhandenen um, damit sein Grund bleibt, statt einen zweiten anzulegen (Q2, Q11). Fehl-Hinweise beim Löschen von Schülern über `cleanUpDeletedStudents`, beim Umbenennen über `renameAbsenceNotes`.
+51. **Tabellen der Klassenansicht werden bei jeder Eingabe neu gezeichnet.** Wohin der Fokus danach soll, merkt sich `overviewFocusTarget` (Antippen, Tab); Enter/Tab, die per `change` übernehmen, setzen `overviewCommittedInput`. Neue Eingabe-Reiter nutzen dieselben Wege, sonst geht auf dem iPad nach jeder Zelle die Tastatur zu (Q3).
 
 ## Arbeitsablauf
 

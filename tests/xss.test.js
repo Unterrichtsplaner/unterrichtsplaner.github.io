@@ -25,7 +25,7 @@ function evilDB() {
     students: {
       [g]: [{
         id: s, firstName: X, lastName: X,
-        grades: [{ type: 'test', value: X, date: '2026-09-01', note: X }],
+        grades: [{ type: 'test', value: X, date: '2026-09-01', note: X }, { type: X, value: '2', date: '2026-09-02', note: X }], // präparierter Typ: BUGS Q1
         attendance: [{ id: ID('a'), date: '2026-09-03', type: 'absent', note: X }],
         participation: [{ id: ID('p'), date: '2026-09-02', value: X, label: X }, { id: ID('p2'), date: '2026-09-21', value: X }],
         homework: [{ id: ID('h'), date: '2026-09-04', note: X }],

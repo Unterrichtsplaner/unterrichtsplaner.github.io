@@ -1635,7 +1635,7 @@ function saveSubjectGroup() {
     const g = db.groups.find(x => x.id === editingGroupId);
     if (g) {
       setClassViewHeader(g);
-      renderStudents(); // Schnitte/Farben nach Gewichtung oder Skala
+      refreshStudentViews(g.id); // Schnitte/Farben nach Gewichtung oder Skala, auch in der offenen Tabelle (BUGS Q4)
     }
   }
   showToast(editingGroupId ? 'Geändert ✓' : 'Klasse hinzugefügt ✓');
@@ -1764,6 +1764,16 @@ function switchOverviewTab(tabName) {
 function renderOverviewTable() {
   if (!currentOverviewGroupId) return;
   const content = document.getElementById('overview-content');
+  // Hat ein Feld der alten Tabelle noch den Fokus, entfernte das Ersetzen es, und der Browser feuerte dabei sein
+  // change mitten im Ersetzen (NotFoundError). Deshalb vorher den Fokus nehmen: Eine laufende Eingabe wird dabei
+  // übernommen (change zeichnet selbst neu, danach zeichnen wir mit dem neuen Stand). Ein Feld, das Enter/Tab
+  // schon per change übernommen hat, verliert vorher seinen Handler, sonst käme es doppelt.
+  const focused = document.activeElement;
+  if (focused && focused.tagName === 'INPUT' && content.contains(focused)) {
+    if (focused === overviewCommittedInput) focused.onchange = null;
+    overviewCommittedInput = null;
+    focused.blur();
+  }
   const group = db.groups.find(g => g.id === currentOverviewGroupId);
   const students = db.students[currentOverviewGroupId] || [];
   
@@ -1936,11 +1946,40 @@ function renderOverviewTable() {
 
   html += '</tbody></table></div>';
   content.innerHTML = html;
+  restoreOverviewFocus(content);
 }
+
+// Neu zeichnen nimmt der Zelle, in die man gerade tippt/tabbt, den Fokus (auf dem iPad geht die Tastatur zu).
+// Deshalb merken wir uns beim Antippen bzw. bei Tab, wohin der Fokus soll, und setzen ihn nach dem Zeichnen
+// wieder an dieselbe Stelle (BUGS Q3). Enter hat seine eigene Behandlung (L6).
+let overviewFocusTarget = null; // { row, col, at }
+let overviewCommittedInput = null; // Feld, dessen Eingabe Enter/Tab gerade per change übernimmt
+function overviewCellPos(el) {
+  const cell = el && el.closest('#overview-content td');
+  if (!cell) return null;
+  const rows = [...document.querySelectorAll('#overview-content tbody tr')];
+  const row = rows.indexOf(cell.parentElement);
+  return row === -1 ? null : { row, col: [...cell.parentElement.children].indexOf(cell), at: Date.now() };
+}
+function restoreOverviewFocus(content) {
+  const t = overviewFocusTarget;
+  overviewFocusTarget = null;
+  if (!t || Date.now() - t.at > 1000) return;
+  const row = content.querySelectorAll('tbody tr')[t.row];
+  const el = row && row.children[t.col] && row.children[t.col].querySelector('input, button');
+  if (!el) return;
+  el.focus();
+  if (el.select) el.select();
+}
+document.getElementById('overview-content').addEventListener('pointerdown', e => {
+  if (e.target.closest('input, button')) overviewFocusTarget = overviewCellPos(e.target);
+}, true);
 
 // ─── Inline Updates ────────────────────────────────────────────────────────
 // Kürzel in der Anwesenheits-Tabelle (Eingabe und Anzeige)
 const ATTENDANCE_SHORT = { abwesend: 'F', entschuldigt: 'E', 'zuspät': 'Z' };
+// Pro Schüler und Tag höchstens einer dieser Einträge
+const DAY_ATTENDANCE_TYPES = ['abwesend', 'entschuldigt', 'zuspät'];
 
 function updateInlineGrade(studentId, date, label, value, type = 'test', nth = 0) {
   value = value.trim();
@@ -1954,12 +1993,14 @@ function updateInlineGrade(studentId, date, label, value, type = 'test', nth = 0
     if (grade) s.grades.splice(s.grades.indexOf(grade), 1);
   } else {
     const scale = gradeScale(currentOverviewGroupId);
+    // Wie im Notenformular: Text ohne Ziffern („+“, „n. b.“) bleibt stehen und zählt nicht (BUGS B, Q13)
     const parsed = parseGradeInput(value, scale);
-    if (!parsed || parsed.number === null) {
+    if (!parsed) {
       showToast(scale.inputError, 'error');
       renderOverviewTable(); // Reset input
       return;
     }
+    if (parsed.number === null) showToast(`„${parsed.value}“ gespeichert – zählt nicht im Schnitt`);
     const finalValue = parsed.value;
     if (grade) {
       grade.value = finalValue; // Typ gehört zur Spalte und bleibt (BUGS K4)
@@ -2035,7 +2076,13 @@ function updateInlineHomework(studentId, date, label, value) {
   if (!s.homework) s.homework = [];
 
   const idx = s.homework.findIndex(h => h.date === date && (h.note||'') === (label||''));
-  if (value === 'X' || value === 'HA') {
+  // Nur ein leeres Feld löscht (Regel 36, BUGS Q9)
+  if (value && value !== 'X' && value !== 'HA') {
+    showToast('Bitte X eingeben (leer = Eintrag löschen)', 'error');
+    renderOverviewTable(); // Eingabe zurücksetzen
+    return;
+  }
+  if (value) {
     if (idx === -1) s.homework.push({ date: date, id: uid(), note: label||'' });
   } else {
     if (idx !== -1) s.homework.splice(idx, 1);
@@ -2094,13 +2141,24 @@ function gradeColumns(group, students) {
 // Das onchange zeichnet die Tabelle neu; die Position wird deshalb vorher gemerkt.
 document.getElementById('overview-content').addEventListener('keydown', e => {
   const input = e.target;
+  if (e.key === 'Tab' && input.tagName === 'INPUT') {
+    // Nächste/vorige Eingabezelle selbst ansteuern: Die Tabelle wird beim Übernehmen neu gezeichnet (BUGS Q3)
+    const inputs = [...document.querySelectorAll('#overview-content tbody input')];
+    const target = inputs[inputs.indexOf(input) + (e.shiftKey ? -1 : 1)];
+    if (!target) return; // am Rand: normales Tab verlässt die Tabelle
+    e.preventDefault();
+    overviewFocusTarget = overviewCellPos(target);
+    if (input.value !== input.defaultValue) { overviewCommittedInput = input; input.dispatchEvent(new Event('change', { bubbles: true })); }
+    if (overviewFocusTarget) { overviewFocusTarget = null; target.focus(); target.select(); } // nichts neu gezeichnet
+    return;
+  }
   if (e.key !== 'Enter' || input.tagName !== 'INPUT') return;
   const row = input.closest('tr'), cell = input.closest('td');
   const rows = [...document.querySelectorAll('#overview-content tbody tr')];
   const r = rows.indexOf(row), c = [...row.children].indexOf(cell);
   if (r === -1 || c === -1) return;
   e.preventDefault();
-  if (input.value !== input.defaultValue) input.dispatchEvent(new Event('change', { bubbles: true }));
+  if (input.value !== input.defaultValue) { overviewCommittedInput = input; input.dispatchEvent(new Event('change', { bubbles: true })); }
   const targetRow = document.querySelectorAll('#overview-content tbody tr')[r + (e.shiftKey ? -1 : 1)];
   const target = targetRow && targetRow.children[c] && targetRow.children[c].querySelector('input');
   if (target) { target.focus(); target.select(); }
@@ -2161,6 +2219,18 @@ function saveOverviewColumn() {
     const clash = gradeColumns(group, students).some(c => c.nth === 0 && same(c, newDate, newLabel, type)
       && !(ctx && same(c, ctx.oldDate, ctx.oldLabel, ctx.oldType)));
     if (clash) { showToast('Diese Spalte gibt es schon (gleiches Datum, gleicher Titel und Typ)', 'error'); return; }
+  } else {
+    // Mitarbeit/HA: Spalte = Datum + Titel, Anwesenheit: Datum. Eine zweite Spalte gleichen Schlüssels ließe
+    // Einträge verschmelzen (doppelt zählen, nur einer löschbar; BUGS Q6)
+    const keyOf = (d, l) => currentOverviewTab === 'attendance' ? d : `${d}_${l || ''}`;
+    const newKey = keyOf(newDate, newLabel);
+    const ctx = editingColumnCtx;
+    if (!ctx || keyOf(ctx.oldDate, ctx.oldLabel) !== newKey) {
+      if (overviewColumnKeys(group, students).has(newKey)) {
+        showToast('Diese Spalte gibt es schon (gleiches Datum' + (currentOverviewTab === 'attendance' ? ')' : ' und gleicher Titel)'), 'error');
+        return;
+      }
+    }
   }
 
   if (!editingColumnCtx) {
@@ -2223,6 +2293,23 @@ function saveOverviewColumn() {
   saveDB();
   closeModal('modal-add-column');
   renderOverviewTable();
+}
+
+// Schlüssel der vorhandenen Spalten im aktuellen Reiter (außer Noten): angelegte Spalten und Einträge
+function overviewColumnKeys(group, students) {
+  const keys = new Set();
+  const tab = currentOverviewTab;
+  if (tab === 'attendance') {
+    (group.attendanceEvents || []).forEach(e => keys.add(e.date));
+    students.forEach(st => (st.attendance || []).forEach(a => keys.add(a.date)));
+  } else if (tab === 'participation') {
+    (group.participationEvents || []).forEach(e => keys.add(`${e.date}_${e.label || ''}`));
+    students.forEach(st => (st.participation || []).forEach(p => keys.add(`${p.date}_${p.label || ''}`)));
+  } else if (tab === 'homework') {
+    (group.homeworkEvents || []).forEach(e => keys.add(`${e.date}_${e.label || ''}`));
+    students.forEach(st => (st.homework || []).forEach(h => keys.add(`${h.date}_${h.note || ''}`)));
+  }
+  return keys;
 }
 
 // Spalte samt ihren Einträgen löschen, nach Rückfrage mit Anzahl (BUGS L5). Gelöscht wird per Referenz.
@@ -2501,15 +2588,10 @@ function deleteSelectedStudents() {
   if (!confirm(`Möchtest du wirklich ${checkboxes.length} Schüler endgültig löschen? Alle Noten und Einträge dieser Schüler werden unwiderruflich entfernt.`)) return;
   
   const idsToDelete = new Set(Array.from(checkboxes).map(cb => cb.getAttribute('data-id')));
+  const removed = db.students[currentGroupId].filter(s => idsToDelete.has(s.id));
   db.students[currentGroupId] = db.students[currentGroupId].filter(s => !idsToDelete.has(s.id));
+  cleanUpDeletedStudents(currentGroupId, removed); // auch Sitzplätze (BUGS Q10)
   
-  // Also clean up any seating plan layout data for these students
-  if (db.groups) {
-    const group = db.groups.find(g => g.id === currentGroupId);
-    if (group && group.seatingPlan) {
-      group.seatingPlan = group.seatingPlan.filter(item => !idsToDelete.has(item.studentId));
-    }
-  }
   
   saveDB();
   renderStudents();
@@ -2572,11 +2654,19 @@ function importStudentsFromText() {
   const lines = text.split('\n').map(l => l.trim()).filter(l => l);
   if (!db.students[currentGroupId]) db.students[currentGroupId] = [];
   
+  // Doppelte nur gegen Schüler prüfen, die schon vorher in der Klasse waren: zwei „Lukas Meier“ in derselben
+  // Liste sind zwei Kinder (BUGS Q14)
+  const before = [...db.students[currentGroupId]];
   let count = 0;
   lines.forEach(line => {
-    // Aus Excel kopiert: Spalten sind durch Tabs getrennt (Vorname | Nachname), sonst letztes Wort = Nachname
+    // Aus Excel kopiert: Spalten sind durch Tabs getrennt (Vorname | Nachname), sonst letztes Wort = Nachname.
+    // „Nachname, Vorname“ (übliches Format in Schullisten): vor dem Komma steht der Nachname (BUGS Q7).
     let firstName, lastName;
-    if (line.includes('\t')) {
+    if (!line.includes('\t') && line.includes(',')) {
+      const [last, ...rest] = line.split(',');
+      lastName = last.trim();
+      firstName = rest.join(' ').trim().replace(/\s+/g, ' ');
+    } else if (line.includes('\t')) {
       const cols = line.split('\t').map(c => c.trim()).filter(c => c);
       lastName = cols.pop();
       firstName = cols.join(' ');
@@ -2587,7 +2677,7 @@ function importStudentsFromText() {
     }
     if (lastName) {
       if (skipDups) {
-        const exists = db.students[currentGroupId].some(existing => 
+        const exists = before.some(existing => 
           existing.firstName === (firstName || '') && existing.lastName === lastName
         );
         if (exists) return;
@@ -2620,13 +2710,17 @@ function saveStudent() {
   if (!db.students[currentGroupId]) db.students[currentGroupId] = [];
   if (editingStudentId) {
     const s = db.students[currentGroupId].find(x => x.id === editingStudentId);
-    if (s) Object.assign(s, { firstName, lastName, notes });
+    if (s) {
+      const oldStudent = { firstName: s.firstName, lastName: s.lastName };
+      Object.assign(s, { firstName, lastName, notes });
+      renameAbsenceNotes(currentGroupId, oldStudent, s);
+    }
   } else {
     db.students[currentGroupId].push({ id:uid(), firstName, lastName, notes, grades:[], studentNotes:[], attendance:[] });
   }
   saveDB();
   closeModal('modal-add-student');
-  renderStudents();
+  refreshStudentViews(currentGroupId); // auch eine offene Tabelle (BUGS Q4)
   showToast(editingStudentId ? 'Schüler geändert ✓' : 'Schüler hinzugefügt ✓');
   editingStudentId = null;
 }
@@ -2693,7 +2787,7 @@ function renderGradesList(s) {
         const ta = vals.reduce((a,b)=>a+b,0)/vals.length;
         return `<div class="grade-summary-item">
           <div style="font-size:15px;font-weight:700;color:${gradeColor(ta, scale)}">${formatGradeAverage(ta)}</div>
-          <div class="grade-avg-label">${gradeTypeName(type)} (${vals.length})</div>
+          <div class="grade-avg-label">${escHtml(gradeTypeName(type))} (${vals.length})</div>
         </div>`;
       }).join('')}`;
   }
@@ -2701,16 +2795,26 @@ function renderGradesList(s) {
   list.innerHTML = '';
   if (!grades.length) { list.innerHTML='<div style="color:var(--text-muted);font-size:13px;padding:6px 0">Noten erscheinen hier.</div>'; return; }
   [...grades].sort((a,b)=>(b.date||'').localeCompare(a.date||'')).forEach((g,i) => {
-    const originalIdx = s.grades.indexOf(g);
     const color = gradeColor(gradeNumber(g.value), scale);
     const el = document.createElement('div');
     el.className = 'grade-item';
     el.style.cursor = 'pointer';
     el.title = 'Klicken zum Bearbeiten';
-    el.onclick = () => openGradeForm(s.id, currentGroupId, originalIdx);
+    // Beim Antippen per Referenz im aktuellen Stand suchen: Ist die DB inzwischen ersetzt (Import, Cloud), stimmt ein
+    // beim Zeichnen gemerkter Index nicht mehr und öffnete eine andere Note (BUGS Q5, Regel 9)
+    el.onclick = () => {
+      const cur = getCurrentStudent();
+      const idx = cur && cur.id === s.id ? (cur.grades || []).indexOf(g) : -1;
+      if (idx === -1) {
+        showToast('Die Liste war veraltet und wurde neu geladen – bitte noch einmal tippen', 'error');
+        if (cur) renderGradesList(cur);
+        return;
+      }
+      openGradeForm(s.id, currentGroupId, idx);
+    };
     el.innerHTML = `
       <div class="grade-value" style="color:${color}">${escHtml(gradeText(g.value))}</div>
-      <div class="grade-type-badge">${gradeTypeName(g.type)}</div>
+      <div class="grade-type-badge">${escHtml(gradeTypeName(g.type))}</div>
       <div class="grade-label">${escHtml(g.note||'')}</div>
       <div class="grade-date">${g.date ? formatDateShort(g.date) : ''}</div>
       <div style="color:var(--text-muted); font-size:16px;">✎</div>`;
@@ -2776,9 +2880,20 @@ function addAttendanceEntry() {
   if (!date) { showToast('Bitte Datum wählen', 'error'); return; }
   const s = getCurrentStudent(); if (!s) return;
   if (!s.attendance) s.attendance=[];
-  s.attendance.push({ id: uid(), date, type, note });
-  if (type === 'abwesend') addAbsenceNote(currentGroupId, date, s); // wie im Sitzplan (BUGS L3, Regel 25)
+  // Fehlen, entschuldigt und „zu spät“ schließen sich am selben Tag aus. Ein nachgetragener Grund („Attest“)
+  // ersetzt das „Unentschuldigt“ aus dem Sitzplan, statt einen zweiten Eintrag anzulegen (BUGS Q2).
+  const existing = s.attendance.find(a => a.date === date && DAY_ATTENDANCE_TYPES.includes(a.type));
+  const wasUnexcused = !!existing && existing.type === 'abwesend';
+  if (existing) {
+    existing.type = type;
+    if (note) existing.note = note;
+  } else {
+    s.attendance.push({ id: uid(), date, type, note });
+  }
+  if (wasUnexcused && type !== 'abwesend') removeAbsenceNote(currentGroupId, date, s);
+  if (!wasUnexcused && type === 'abwesend') addAbsenceNote(currentGroupId, date, s); // wie im Sitzplan (BUGS L3, Regel 25)
   saveDB(); renderAttendanceList(s); refreshStudentViews(currentGroupId);
+  if (existing) showToast('Eintrag vom ' + formatDateShort(date) + ' geändert');
   document.getElementById('new-att-date').value='';
   document.getElementById('new-att-note').value='';
 }
@@ -2825,6 +2940,15 @@ function deleteParticipation(p) {
 function renderStudentHomeworkList(s) {
   const list = document.getElementById('student-homework-list');
   if (!list) return;
+  // Die Bemerkung ist der Spaltentitel in der HA-Tabelle: vorhandene Titel vorschlagen (BUGS Q15)
+  const titles = document.getElementById('hw-column-titles');
+  if (titles) {
+    const group = db.groups.find(g => g.id === currentGroupId);
+    const labels = new Set([...(group && group.homeworkEvents || []).map(e => e.label || ''),
+      ...(db.students[currentGroupId] || []).flatMap(st => (st.homework || []).map(h => h.note || ''))]);
+    labels.delete('');
+    titles.innerHTML = [...labels].sort().map(l => `<option value="${escHtml(l)}"></option>`).join('');
+  }
   const hw = s.homework || [];
   if (!hw.length) {
     list.innerHTML = '<span style="color:var(--text-muted);font-size:13px">Keine Hausaufgaben vergessen.</span>';
@@ -2870,7 +2994,9 @@ function deleteStudentHomework(id) {
 
 function deleteCurrentStudent() {
   if (!confirm('Schüler wirklich löschen?')) return;
+  const removed = (db.students[currentGroupId]||[]).filter(s=>s.id===currentStudentId);
   db.students[currentGroupId]=(db.students[currentGroupId]||[]).filter(s=>s.id!==currentStudentId);
+  cleanUpDeletedStudents(currentGroupId, removed);
   saveDB(); closeModal('modal-student-detail'); refreshStudentViews(currentGroupId); renderSubjectGroups();
   showToast('Schüler gelöscht');
 }
@@ -3752,7 +3878,8 @@ function renderSeatingPlan() {
     const absence = (s.attendance||[]).find(a => a.date === dateStr && (a.type === 'abwesend' || a.type === 'entschuldigt'));
     const late = (s.attendance||[]).some(a => a.date === dateStr && a.type === 'zuspät');
     const forgotHw = (s.homework||[]).some(h => h.date === dateStr);
-    const participation = (s.participation||[]).find(p => p.date === dateStr);
+    const participation = (s.participation||[]).find(p => p.date === dateStr && !p.label)
+      || (s.participation||[]).find(p => p.date === dateStr);
 
     const card = document.createElement('div');
     card.className = 'seating-card';
@@ -4086,6 +4213,16 @@ function addAbsenceNote(groupId, dateStr, s) {
 // Entfernt den Hinweis aus allen Stunden der Klasse in den 4 Wochen danach – so wird er auch gefunden,
 // wenn sich der Stundenplan seit dem Eintragen geändert hat (Ausfall, Vertretung).
 function removeAbsenceNote(groupId, dateStr, s) {
+  // Fehlt ein gleichnamiger Schüler am selben Tag weiter unentschuldigt, gilt der Hinweis auch für ihn (BUGS Q10)
+  const text = absenceNoteText(s);
+  const twin = (db.students[groupId] || []).some(x => x !== s && absenceNoteText(x) === text
+    && (x.attendance || []).some(a => a.date === dateStr && a.type === 'abwesend'));
+  if (twin) return;
+  replaceAbsenceNoteLines(groupId, dateStr, s, null);
+}
+// Hinweis-Zeilen dieses Schülers in den Stunden der Klasse bis 4 Wochen nach dateStr ersetzen (newText) oder
+// entfernen (null). Zeilenweise, nie per replace auf dem ganzen Text (Regel 25).
+function replaceAbsenceNoteLines(groupId, dateStr, s, newText) {
   const notes = [absenceNoteText(s)];
   // Ältere Versionen schrieben nur den Vornamen – den nur entfernen, wenn er in der Klasse eindeutig ist
   if (s.firstName && (db.students[groupId] || []).filter(x => x.firstName === s.firstName).length === 1) {
@@ -4100,9 +4237,33 @@ function removeAbsenceNote(groupId, dateStr, s) {
     const entry = db.lessonData[key];
     if (!entry || !entry.notes) return;
     const lines = entry.notes.split('\n');
-    const kept = lines.filter(l => !notes.includes(l.trim()));
-    if (kept.length !== lines.length) entry.notes = kept.join('\n').trim();
+    const kept = newText === null
+      ? lines.filter(l => !notes.includes(l.trim()))
+      : lines.map(l => notes.includes(l.trim()) ? newText : l);
+    if (kept.join('\n') !== lines.join('\n')) entry.notes = kept.join('\n').trim();
   });
+}
+// Schüler umbenannt: offene Hinweise auf den neuen Namen umschreiben, sonst bleiben sie beim Entfernen stehen (BUGS Q10)
+function renameAbsenceNotes(groupId, oldStudent, s) {
+  const newText = absenceNoteText(s);
+  if (absenceNoteText(oldStudent) === newText) return;
+  (s.attendance || []).filter(a => a.type === 'abwesend')
+    .forEach(a => replaceAbsenceNoteLines(groupId, a.date, oldStudent, newText));
+}
+// Gelöschte Schüler: Hinweise, Sitzplätze und quittierte Warnungen mit aufräumen (Regel 10, BUGS Q10)
+function cleanUpDeletedStudents(groupId, removed) {
+  const remaining = db.students[groupId] || [];
+  removed.forEach(s => (s.attendance || []).filter(a => a.type === 'abwesend')
+    .forEach(a => {
+      const twin = remaining.some(x => absenceNoteText(x) === absenceNoteText(s)
+        && (x.attendance || []).some(b => b.date === a.date && b.type === 'abwesend'));
+      if (!twin) replaceAbsenceNoteLines(groupId, a.date, s, null);
+    }));
+  const ids = new Set(removed.map(s => s.id));
+  const group = db.groups.find(g => g.id === groupId);
+  if (group && group.seatingPlan) group.seatingPlan = group.seatingPlan.filter(item => !ids.has(item.studentId));
+  const ack = db.acknowledgedWarnings;
+  if (ack) Object.keys(ack).forEach(k => { if (ids.has(k.slice(0, k.lastIndexOf('_')))) delete ack[k]; });
 }
 
 function setSeatingAbsence(type) {
@@ -4126,16 +4287,17 @@ function setSeatingAbsence(type) {
     return;
   }
   
-  // Remove existing
   const wasAbwesend = s.attendance.some(a => a.date === dateStr && a.type === 'abwesend');
   if (wasAbwesend && type !== 'abwesend') {
     removeAbsenceNote(groupId, dateStr, s);
   }
-  // Fehlen und „zu spät“ schließen sich am selben Tag aus
-  s.attendance = s.attendance.filter(a => a.date !== dateStr || (a.type !== 'abwesend' && a.type !== 'entschuldigt' && a.type !== 'zuspät'));
+  // Fehlen und „zu spät“ schließen sich am selben Tag aus. Ein vorhandener Eintrag wird umgestellt,
+  // damit sein Grund („Arztattest“) bleibt (BUGS Q11).
+  const keep = s.attendance.find(a => a.date === dateStr && (a.type === 'abwesend' || a.type === 'entschuldigt'));
+  s.attendance = s.attendance.filter(a => a === keep || a.date !== dateStr || !DAY_ATTENDANCE_TYPES.includes(a.type));
   
-  // Add new
-  s.attendance.push({ id: uid(), date: dateStr, type: type, note: '' });
+  if (keep) keep.type = type;
+  else s.attendance.push({ id: uid(), date: dateStr, type: type, note: '' });
 
   // If unexcused, add note to next lesson
   if (type === 'abwesend') addAbsenceNote(groupId, dateStr, s);
@@ -4183,7 +4345,13 @@ function setSeatingHomework() {
   if (!s) return;
   if (!s.homework) s.homework = [];
   
-  const existingIdx = s.homework.findIndex(h => h.date === dateStr);
+  // Nur den Eintrag ohne Bemerkung; einer mit Bemerkung gehört zu einer Spalte der Tabelle (BUGS Q8)
+  const existingIdx = s.homework.findIndex(h => h.date === dateStr && !h.note);
+  const labelled = s.homework.find(h => h.date === dateStr && h.note);
+  if (existingIdx === -1 && labelled) {
+    showToast(`Steht schon in der HA-Spalte „${labelled.note}“ – bitte in der Tabelle ändern`, 'error');
+    return;
+  }
   if (existingIdx === -1) {
     s.homework.push({ id: uid(), date: dateStr, note: '' });
     saveDB();
@@ -4332,7 +4500,7 @@ function openSeatingStudentModal(studentId, groupId, dateStr) {
 // Was heute schon eingetragen ist, ist markiert – ein zweites Tippen nimmt es zurück (BUGS N6)
 function markSeatingStudentState(s, dateStr) {
   const set = new Set();
-  (s.participation || []).filter(p => p.date === dateStr).forEach(p => set.add(p.value));
+  (s.participation || []).filter(p => p.date === dateStr && !p.label).forEach(p => set.add(p.value)); // wie addParticipationSmiley
   (s.attendance || []).filter(a => a.date === dateStr).forEach(a => set.add(a.type));
   if ((s.homework || []).some(h => h.date === dateStr)) set.add('homework');
   document.querySelectorAll('#modal-seating-student [data-action]').forEach(btn => {
@@ -4488,6 +4656,7 @@ function saveGradeFromForm() {
   const label = document.getElementById('gf-label').value.trim();
 
   if (!value) { showToast('Bitte einen Wert eingeben', 'error'); return; }
+  if (!dateStr) { showToast('Bitte ein Datum wählen', 'error'); return; } // sonst Spalte ohne Kopf (BUGS Q12)
   const scale = gradeScale(groupId);
   const parsed = parseGradeInput(value, scale);
   if (!parsed) { showToast(scale.inputError, 'error'); return; }
@@ -4586,8 +4755,8 @@ function addParticipationSmiley(type) {
   
   if (!s.participation) s.participation = [];
   
-  // check if a smiley already exists for this date, if so, override it, else push new
-  const existingIdx = s.participation.findIndex(p => p.date === dateStr);
+  // Nur den Eintrag ohne Titel: einer mit Titel („Referat“) gehört zu einer Spalte der Tabelle (BUGS Q8)
+  const existingIdx = s.participation.findIndex(p => p.date === dateStr && !p.label);
   if (existingIdx !== -1) {
     if (s.participation[existingIdx].value === type) {
       const [removed] = s.participation.splice(existingIdx, 1);
