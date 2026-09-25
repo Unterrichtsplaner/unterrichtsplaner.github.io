@@ -158,6 +158,34 @@ const SyncManager = {
   },
 
   /**
+   * Mail zum Zurücksetzen des Anmelde-Passworts (nicht des Master-Passworts, BUGS P9)
+   */
+  async sendLoginPasswordReset(email) {
+    if (!this.isInitialized) throw new Error("Firebase ist nicht initialisiert.");
+    return this.auth.sendPasswordResetEmail(email);
+  },
+
+  /**
+   * Überschreibt die Cloud mit diesem Stand, verschlüsselt mit einem neuen Master-Passwort – für ein
+   * vergessenes oder zu änderndes Passwort (BUGS P9). Der alte Cloud-Stand wird dafür nicht entschlüsselt,
+   * nur seine Versionskennung gelesen; schreibt ein anderes Gerät dazwischen, gibt es CloudChangedError.
+   * @returns {number} die neue Versionskennung
+   */
+  async overwriteCloud(rawDataString, newPassword) {
+    if (!newPassword) throw new Error("Master-Passwort fehlt.");
+    const payload = await this.getCloudData();
+    const expected = payload ? payload.lastModified : null;
+    const previous = this.masterPassword;
+    this.masterPassword = newPassword;
+    try {
+      return await this.saveToCloud(rawDataString, expected);
+    } catch (e) {
+      this.masterPassword = previous;
+      throw e;
+    }
+  },
+
+  /**
    * Logout
    */
   async logout() {

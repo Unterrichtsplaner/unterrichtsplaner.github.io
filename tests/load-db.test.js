@@ -42,6 +42,8 @@ describe('loadDB mit unlesbaren Daten', () => {
 
   it('ist der Speicher voll, wird der alte Stand nicht überschrieben, bis er heruntergeladen ist', () => {
     const orig = Storage.prototype.setItem;
+    // Ohne vorhandene Kopie (eine gleiche würde wiederverwendet, BUGS P11)
+    Object.keys(localStorage).filter(k => k.startsWith('lehrerapp_v3_defekt_')).forEach(k => localStorage.removeItem(k));
     localStorage.setItem('lehrerapp_v3', KAPUTT);
     Storage.prototype.setItem = function(k, v) {
       if (k.startsWith('lehrerapp_v3_defekt_')) throw new DOMException('voll', 'QuotaExceededError');

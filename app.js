@@ -69,6 +69,7 @@ fillIcons(document);
 // ─── State ───────────────────────────────────────────────────────────────
 // Gespeicherte Daten, die sich nicht lesen ließen (G12): Rohtext bleibt erhalten, statt beim nächsten Speichern überschrieben zu werden.
 let dbLoadFailure = null; // { raw, key /*Kopie in localStorage, null = Kopie gescheitert*/, error }
+let lastRescueOffer = 0;   // wann persistDB zuletzt angeboten hat, die unlesbaren Daten herunterzuladen
 let db = loadDB();
 let currentWeekOffset = 0;
 let activeLessonId    = null;
@@ -110,8 +111,13 @@ function emptyDB() {
 // Unlesbaren Speicherstand unter eigenem Schlüssel sichern. Klappt das nicht (Speicher voll),
 // wird der alte Schlüssel nicht mehr überschrieben, bis der Nutzer die Datei heruntergeladen hat.
 function rescueUnreadableDB(raw, error) {
-  let key = 'lehrerapp_v3_defekt_' + Date.now();
-  try { localStorage.setItem(key, raw); } catch(e) { key = null; }
+  // Gleicher Inhalt liegt schon als Kopie da (voriger Start): keine weitere anlegen, sonst läuft der Speicher voll (BUGS P11)
+  let key = rescueCopyKeys().find(k => { try { return localStorage.getItem(k) === raw; } catch (e) { return false; } });
+  if (!key) {
+    key = 'lehrerapp_v3_defekt_' + Date.now();
+    for (let n = 2; localStorage.getItem(key) !== null; n++) key = 'lehrerapp_v3_defekt_' + Date.now() + '_' + n;
+    try { localStorage.setItem(key, raw); } catch(e) { key = null; }
+  }
   dbLoadFailure = { raw, key, error: String(error && error.message || error) };
   setTimeout(showDBLoadFailure, 0);
 }
@@ -163,12 +169,9 @@ function migrateDB(data) {
       if (fixed !== slot.specificDate) slot.specificDate = fixed;
     }
   });
-  // Alte Standard-Blöcke (5 Stück ab 08:00) durch die heutigen ersetzen – nur, wenn der 5. Block leer ist
-  const b = data.settings && data.settings.blocks;
-  if (b && b.length === 5 && b[0].start === '08:00' && b[1].start === '09:45'
-      && !(data.lessonSlots || []).some(slot => slot.block === 5)) {
-    data.settings.blocks = DEFAULT_BLOCKS.map(x => ({ ...x }));
-  }
+  // Hier stand früher eine Migration „alte Standard-Blöcke (5 ab 08:00) → heutige“. Sie traf auch selbst
+  // eingestellte Zeiten und lief bei jedem Laden (BUGS P3); Geräte mit den uralten Blöcken hat schon die
+  // App-Version vom Juni 2026 umgestellt. Blöcke werden deshalb nie mehr automatisch verändert.
   // Sync-Stand alter App-Versionen (ohne `syncedLocalModified`): gilt als synchron, wenn der Stand direkt
   // aus der Cloud kam (gleiche Kennung) oder das alte `saveDB(true)` ihn kurz nach dem Upload neu gestempelt hat.
   // Sonst bleibt er „lokal geändert“ – das ist der sichere Fall.
@@ -190,6 +193,7 @@ function saveDB() {
   if (typeof SyncManager !== 'undefined' && SyncManager.isInitialized && SyncManager.currentUser && SyncManager.masterPassword) {
     if (window.syncTimeout) clearTimeout(window.syncTimeout);
     window.syncTimeout = setTimeout(() => {
+      window.syncTimeout = null;
       triggerSyncInternal();
     }, 3000); // 3 Sekunden Verzögerung nach der letzten Eingabe
   }
@@ -198,7 +202,15 @@ function saveDB() {
 function persistDB() {
   if (dbLoadFailure && !dbLoadFailure.key) {
     showToast('Nicht gespeichert: alte Daten zuerst herunterladen', 'error');
-    return;
+    // Auch in der laufenden Sitzung einen Weg zum Herunterladen anbieten, höchstens einmal pro Minute (BUGS P11)
+    if (Date.now() - lastRescueOffer > 60000) {
+      lastRescueOffer = Date.now();
+      if (confirm('Deine Eingabe wurde nicht gespeichert: Auf diesem Gerät liegen noch unlesbare alte Daten, und der Speicher ist voll.\n\nDie alten Daten jetzt herunterladen? Danach wird wieder gespeichert.')) {
+        downloadUnreadableDB();
+        if (!dbLoadFailure) return persistDB();
+      }
+    }
+    return false;
   }
   try {
     localStorage.setItem('lehrerapp_v3', JSON.stringify(db));
@@ -3003,6 +3015,11 @@ function selectThemeBg(el, bg, mode, card) {
 
 // ─── Settings ─────────────────────────────────────────────────────────────
 function openSettings() {
+  fillSettingsForm();
+  openModal('modal-settings');
+}
+// Felder und Blöcke-Entwurf aus db füllen – beim Öffnen und nach einer Cloud-Übernahme (BUGS P2)
+function fillSettingsForm() {
   document.getElementById('settings-teacher-name').value = db.settings.teacherName||'';
   document.getElementById('settings-school').value       = db.settings.school||'';
   document.getElementById('settings-seating-buffer').value = db.settings.seatingBufferMins !== undefined ? db.settings.seatingBufferMins : 5;
@@ -3017,7 +3034,6 @@ function openSettings() {
   document.getElementById('app-version-label').textContent = v ? `Version ${v}` : '';
   blocksDraft = getBlocks().map(b => ({ ...b }));
   renderBlocksEditor();
-  openModal('modal-settings');
 }
 
 // Versionsnummer aus index.html (app.js?v=N, gesetzt von npm run bump), für Rückfragen bei Problemen (BUGS I22)
@@ -4629,6 +4645,7 @@ function closeModal(id) {
   if (wasOpen && back && back.isConnected && (m.contains(document.activeElement) || document.activeElement === document.body)) {
     try { back.focus({ preventScroll: true }); } catch (e) { /* Element nicht fokussierbar */ }
   }
+  if (wasOpen) syncAfterModalsClosed(); // Cloud-Stand, der auf das Schließen gewartet hat (BUGS P1)
 }
 // Fenster als Dialog auszeichnen (Rolle, Titel) – für Screenreader (BUGS O8)
 function labelModals() {
@@ -5454,7 +5471,10 @@ function initSync() {
 
   // Zurück in der App bzw. wieder online: gleich abgleichen, nicht erst bei der nächsten Eingabe.
   // Sonst trägt man morgens auf dem iPad ein, was abends am Laptop geändert wurde → Konflikt (BUGS K6).
-  document.addEventListener('visibilitychange', () => { if (!document.hidden) triggerSyncInternal(); });
+  // Beim Verlassen (iPad zuklappen, App wechseln) eine noch wartende Eingabe sofort übertragen: Im Hintergrund
+  // läuft der 3-s-Timer nicht, und am nächsten Morgen gäbe es sonst einen Konflikt (BUGS P8).
+  document.addEventListener('visibilitychange', () => { if (document.hidden) flushPendingSync(); else triggerSyncInternal(); });
+  window.addEventListener('pagehide', flushPendingSync);
   window.addEventListener('online', () => triggerSyncInternal());
 
   SyncManager.callbacks.onSyncStatusChanged = (status) => {
@@ -5483,18 +5503,10 @@ function initSync() {
     }
   };
 
-  SyncManager.callbacks.onConflictDetected = (conflictInfo) => {
-    // Öffne das Konflikt-Modal und fülle die Zeiten aus.
-    // Bewusst kein „(aktueller)“: Die Uhren verschiedener Geräte sind nicht vergleichbar.
-    const fmt = ts => ts ? new Date(ts).toLocaleString('de-DE') : 'Unbekannt';
-    document.getElementById('conflict-local-time').textContent = 'geändert ' + fmt(db.settings.lastModified);
-    document.getElementById('conflict-cloud-time').textContent = 'geändert ' + fmt(conflictInfo.cloudTimestamp);
-
-    // Solange der Konflikt offen ist, pausiert der automatische Sync (siehe triggerSyncInternal)
-    window.currentConflict = conflictInfo;
-
-    openModal('modal-sync-conflict');
-  };
+  // Konflikte meldet triggerSyncInternal selbst (showSyncConflict), erst nachdem es geprüft hat, dass die
+  // DB während des Syncs nicht ersetzt wurde. Über den Rückruf des SyncManagers ging das Fenster auch für
+  // eine inzwischen geleerte DB auf, und „Dieses Gerät hochladen“ leerte die Cloud (BUGS P4).
+  SyncManager.callbacks.onConflictDetected = null;
 
   // 3. UI updaten
   updateSyncUI();
@@ -5518,10 +5530,13 @@ function updateSyncUI() {
     loggedInPanel.classList.remove('hidden');
     cryptoSection.classList.remove('hidden');
     
-    // Letzter Sync-Zeitpunkt anzeigen
-    if (db.syncSettings && db.syncSettings.lastSyncedCloudTimestamp) {
-      const d = new Date(db.syncSettings.lastSyncedCloudTimestamp);
-      lastTimeEl.textContent = `Zuletzt synchronisiert: ${d.toLocaleString('de-DE')}`;
+    // Letzter Abgleich dieses Geräts. Die Versionskennung der Cloud ist die Uhrzeit des Geräts, das zuletzt
+    // hochgeladen hat – nach einem Abgleich stand dort sonst z. B. „vor 10 Tagen“ (BUGS P10).
+    const ss = db.syncSettings;
+    if (ss && ss.lastSyncCheck) {
+      lastTimeEl.textContent = `Zuletzt synchronisiert: ${new Date(ss.lastSyncCheck).toLocaleString('de-DE')}`;
+    } else if (ss && ss.lastSyncedCloudTimestamp) {
+      lastTimeEl.textContent = `Cloud-Stand vom ${new Date(ss.lastSyncedCloudTimestamp).toLocaleString('de-DE')}`;
     } else {
       lastTimeEl.textContent = 'Noch nie synchronisiert';
     }
@@ -5644,6 +5659,78 @@ function confirmNewMasterPassword(pwd) {
   triggerSyncInternal({ manual: true });
 }
 
+// ─── Master-Passwort vergessen oder ändern (BUGS P9) ──────────────────────
+// Ohne diesen Weg war ein vergessenes Master-Passwort eine Sackgasse: jeder Sync meldete „falsches Passwort“.
+// Die Cloud wird mit den Daten dieses Geräts und einem neuen, zweimal eingegebenen Passwort überschrieben.
+async function startCloudPasswordReset() {
+  if (!SyncManager.currentUser) return;
+  if (isLocalDBEmpty()) {
+    alert('Auf diesem Gerät sind keine Daten. Die Cloud damit zu überschreiben, würde alles löschen.\n\nBitte auf dem Gerät ausführen, auf dem deine Daten sind.');
+    return;
+  }
+  const answer = await askChoice('Master-Passwort neu festlegen',
+    'Die Cloud wird mit den Daten DIESES Geräts und einem neuen Master-Passwort überschrieben.\n\n'
+    + 'Was nur in der Cloud liegt (Änderungen anderer Geräte, die hier noch fehlen), geht dabei verloren. '
+    + 'Kennst du das alte Passwort noch, vorher „Jetzt synchronisieren“.\n\nAndere Geräte fragen danach nach dem neuen Passwort.',
+    [{ label: 'Neues Passwort festlegen', value: 'reset', danger: true }]);
+  if (answer !== 'reset') return;
+  document.getElementById('sync-reset-group').classList.remove('hidden');
+  document.getElementById('sync-reset-password').focus();
+}
+function cancelCloudPasswordReset() {
+  document.getElementById('sync-reset-group').classList.add('hidden');
+  document.getElementById('sync-reset-password').value = '';
+  document.getElementById('sync-reset-password-confirm').value = '';
+}
+async function confirmCloudPasswordReset() {
+  const pwd = document.getElementById('sync-reset-password').value;
+  const again = document.getElementById('sync-reset-password-confirm').value;
+  if (!pwd) { showToast('Bitte ein neues Master-Passwort eingeben', 'error'); return; }
+  if (pwd !== again) {
+    alert('❌ Die beiden Passwörter stimmen nicht überein.\n\nEs wurde nichts geändert.');
+    return;
+  }
+  if (isLocalDBEmpty()) { alert('Auf diesem Gerät sind keine Daten. Es wurde nichts geändert.'); return; }
+  if (syncRunning) { showToast('Gerade läuft ein Sync – bitte gleich noch einmal versuchen', 'error'); return; }
+  syncRunning = true;
+  const dbAtStart = db;
+  const localModified = db.settings.lastModified;
+  try {
+    const newTimestamp = await SyncManager.overwriteCloud(JSON.stringify(db), pwd);
+    storeMasterPassword(pwd);
+    confirmedNewCloudPassword = pwd;
+    cancelNewCloudPassword();
+    const passInput = document.getElementById('sync-master-password');
+    if (passInput) passInput.value = pwd;
+    if (window.currentConflict) { window.currentConflict = null; closeModal('modal-sync-conflict'); }
+    if (db === dbAtStart) markSynced(newTimestamp, localModified); // sonst: DB inzwischen ersetzt (Regel 32)
+    cancelCloudPasswordReset();
+    updateSyncAttention();
+    updateSyncUI();
+    warnIfCloudNearlyFull();
+    showToast('Cloud mit neuem Master-Passwort gespeichert ✓');
+  } catch (e) {
+    if (e.name === 'CloudChangedError') alert('Gerade hat ein anderes Gerät hochgeladen. Es wurde nichts geändert – bitte noch einmal versuchen.');
+    else if (e.name === 'CloudTooLargeError') showSyncProblem(e, true);
+    else alert('Fehler: ' + e.message);
+  } finally {
+    syncRunning = false;
+    if (syncQueued) { syncQueued = false; triggerSyncInternal(); }
+  }
+}
+
+// Anmelde-Passwort (Firebase-Konto) vergessen: Mail zum Zurücksetzen
+async function resetLoginPassword() {
+  const email = document.getElementById('sync-email').value.trim();
+  if (!email) { showToast('Bitte zuerst die E-Mail-Adresse eingeben', 'error'); return; }
+  try {
+    await SyncManager.sendLoginPasswordReset(email);
+    alert('📧 Falls es zu ' + email + ' ein Konto gibt, kommt gleich eine E-Mail zum Zurücksetzen des Anmelde-Passworts.\n\nDas Master-Passwort ist davon nicht betroffen.');
+  } catch (e) {
+    alert('Fehler: ' + e.message);
+  }
+}
+
 // Angemeldet, aber der Sync läuft nicht (kein Master-Passwort, oder es wartet auf Bestätigung):
 // Punkt am Menüpunkt „Einstellungen“, sonst fällt das niemandem auf (BUGS K7).
 function syncNeedsAttention() {
@@ -5679,6 +5766,24 @@ function isLocalDBEmpty() {
   return !(db.groups && db.groups.length) && !(db.lessonSlots && db.lessonSlots.length) && !hasStudents;
 }
 
+// Letzter gemeinsamer Stand mit der Cloud DIESES Kontos, sonst null. Ein anderes Konto (Abmelden, mit
+// zweitem Konto anmelden) zählt wie „nie synchronisiert“: Konflikt statt stillem Pull (BUGS P7).
+// Alte Stände ohne `uid` gelten als zum angemeldeten Konto gehörig.
+function syncBaseline() {
+  const s = db.syncSettings;
+  if (!s || s.lastSyncedCloudTimestamp === undefined || s.lastSyncedCloudTimestamp === null) return null;
+  const user = SyncManager.currentUser;
+  if (s.uid && user && s.uid !== user.uid) return null;
+  return s;
+}
+
+// Leer UND nie synchronisiert: neues Gerät, „Alle Daten löschen“, unlesbarer Speicherstand. So ein Gerät
+// lädt nie hoch, sonst wäre die Cloud leer (A2, K1). Wer dagegen alle Klassen einzeln gelöscht hat, hat einen
+// Sync-Stand – diese Löschung soll in die Cloud, sonst kämen die Schülerdaten zurück (BUGS P6).
+function isFreshEmptyDB() {
+  return isLocalDBEmpty() && !syncBaseline();
+}
+
 // Hat der Nutzer seit dem letzten erfolgreichen Sync etwas geändert?
 // Verglichen wird nur auf Gleichheit – die Uhrzeit anderer Geräte spielt keine Rolle.
 function isLocalDBChanged() {
@@ -5691,6 +5796,8 @@ function markSynced(cloudTimestamp, localModified) {
   if (!db.syncSettings) db.syncSettings = {};
   db.syncSettings.lastSyncedCloudTimestamp = cloudTimestamp;
   db.syncSettings.syncedLocalModified = localModified;
+  db.syncSettings.lastSyncCheck = Date.now();
+  if (SyncManager.currentUser) db.syncSettings.uid = SyncManager.currentUser.uid;
   persistDB();
 }
 
@@ -5738,6 +5845,8 @@ function applyCloudData(dataString, cloudTimestamp) {
   db = migrateDB(parsed);
   markSynced(cloudTimestamp, db.settings.lastModified);
   updateAppliedThemeFromDB();
+  // Offene Einstellungen zeigen sonst den alten Stand, und „Speichern“ schriebe ihn samt alter Blöcke zurück (BUGS P2)
+  if (!document.getElementById('modal-settings').classList.contains('hidden')) fillSettingsForm();
   renderTimetable();
   renderSubjectGroups();
   resetViewSelection();
@@ -5748,14 +5857,47 @@ function applyCloudData(dataString, cloudTimestamp) {
 // läuft er direkt im Anschluss.
 let syncRunning = false;
 let syncQueued = false;
-const SYNC_TIMEOUT_MS = 30000;
+let syncAfterModalClose = false; // Cloud-Stand wartet, bis alle Eingabefenster zu sind (BUGS P1)
+let syncSlowNoticeMs = 30000;
 
-function withTimeout(promise, ms) {
-  let timer;
-  const timeout = new Promise((_, reject) => {
-    timer = setTimeout(() => reject(new Error('Zeitüberschreitung – bitte Internetverbindung prüfen.')), ms);
-  });
-  return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
+// Dauert ein Sync ungewöhnlich lange, nur Bescheid geben – nicht abbrechen. Ein abgebrochener Sync schrieb
+// trotzdem in die Cloud, ohne dass das Gerät es sich merkte → Konflikt mit den eigenen Daten, und die Sperre
+// war frei für einen zweiten, parallelen Sync (BUGS P5).
+function noticeSlowSync(promise) {
+  const timer = setTimeout(() => showToast('Der Sync dauert ungewöhnlich lange – bitte Internetverbindung prüfen.', 'error'), syncSlowNoticeMs);
+  return promise.finally(() => clearTimeout(timer));
+}
+
+// Offene Fenster, deren Inhalt aus `db` stammt (Stunde, Klasse, Schüler, Note, Rückfrage …). Ein Cloud-Stand, der
+// jetzt `db` ersetzt, passt nicht mehr zu ihren Feldern; beim Schließen würde z. B. das Stunden-Fenster die
+// Notizen des anderen Geräts mit seinen leeren Feldern überschreiben (BUGS P1). Die Einstellungen werden nach
+// dem Pull neu befüllt (applyCloudData), der Konflikt-Dialog ist Teil des Syncs.
+function inputModalOpen() {
+  return [...document.querySelectorAll('.modal-overlay:not(.hidden)')]
+    .some(m => m.id !== 'modal-settings' && m.id !== 'modal-sync-conflict');
+}
+function syncAfterModalsClosed() {
+  if (!syncAfterModalClose || inputModalOpen()) return;
+  syncAfterModalClose = false;
+  triggerSyncInternal();
+}
+
+// Eine Eingabe wartet noch auf den Autosave-Timer: sofort übertragen (App wird verlassen, BUGS P8)
+function flushPendingSync() {
+  if (!window.syncTimeout) return;
+  clearTimeout(window.syncTimeout);
+  window.syncTimeout = null;
+  triggerSyncInternal();
+}
+
+function showSyncConflict(conflictInfo) {
+  // Bewusst kein „(aktueller)“: Die Uhren verschiedener Geräte sind nicht vergleichbar.
+  const fmt = ts => ts ? new Date(ts).toLocaleString('de-DE') : 'Unbekannt';
+  document.getElementById('conflict-local-time').textContent = 'geändert ' + fmt(db.settings.lastModified);
+  document.getElementById('conflict-cloud-time').textContent = 'geändert ' + fmt(conflictInfo.cloudTimestamp);
+  // Solange der Konflikt offen ist, pausiert der automatische Sync (siehe triggerSyncInternal)
+  window.currentConflict = conflictInfo;
+  openModal('modal-sync-conflict');
 }
 
 // Führt den eigentlichen Sync im Hintergrund durch
@@ -5771,20 +5913,29 @@ async function triggerSyncInternal({ manual = false } = {}) {
     const dbAtStart = db;
     const localDataString = JSON.stringify(db);
     const localModified = db.settings.lastModified;
+    const baseline = syncBaseline();
+    const freshEmpty = isFreshEmptyDB();
 
-    const result = await withTimeout(SyncManager.sync(localDataString, {
-      localChanged: isLocalDBChanged(),
-      localIsEmpty: isLocalDBEmpty(),
-      lastSyncedCloudTimestamp: db.syncSettings ? db.syncSettings.lastSyncedCloudTimestamp : undefined,
+    const result = await noticeSlowSync(SyncManager.sync(localDataString, {
+      localChanged: !baseline || isLocalDBChanged(),
+      localIsEmpty: freshEmpty,
+      lastSyncedCloudTimestamp: baseline ? baseline.lastSyncedCloudTimestamp : undefined,
       sameAsLocal: cloudData => cloudMatchesLocal(cloudData, localDataString),
       canCreateCloud: confirmedNewCloudPassword === SyncManager.masterPassword,
-    }), SYNC_TIMEOUT_MS);
+    }));
 
     if (db !== dbAtStart) {
       // Während des Syncs wurde die ganze DB ersetzt („Alle Daten löschen“, Import, Cloud-Übernahme).
       // Das Ergebnis gehört zum alten Stand; in die neue DB geschrieben, würde sie als „synchron“
-      // gelten und beim nächsten Mal die Cloud überschreiben (BUGS K1). Einfach neu prüfen.
+      // gelten und beim nächsten Mal die Cloud überschreiben (BUGS K1). Auch keinen Konflikt melden:
+      // „Dieses Gerät hochladen“ lüde die neue, evtl. leere DB hoch (BUGS P4). Einfach neu prüfen.
       syncQueued = true;
+    } else if ((result.status === 'pulled' || result.status === 'conflict') && !freshEmpty && inputModalOpen()) {
+      // Erst übernehmen bzw. fragen, wenn alle Eingabefenster zu sind (BUGS P1)
+      syncAfterModalClose = true;
+      if (manual) showToast('Neuer Stand in der Cloud – wird übernommen, sobald das Fenster geschlossen ist.');
+    } else if (result.status === 'conflict') {
+      showSyncConflict(result);
     } else if (result.status === 'pulled') {
       if (db.settings.lastModified !== localModified) {
         // Während des Downloads wurde lokal etwas eingetragen – nicht überschreiben!
@@ -5839,6 +5990,11 @@ async function resolveConflict(decision) {
   const conflict = window.currentConflict;
   if (!conflict) return;
 
+  if (decision === 'push' && isFreshEmptyDB()) {
+    // Z. B. „Alle Daten löschen“, während der Dialog offen war: Hochladen würde die Cloud leeren (BUGS P4)
+    alert('Auf diesem Gerät sind keine Daten (mehr). Hochladen würde die Cloud für alle Geräte leeren.\n\nBitte „Cloud laden“ wählen.');
+    return;
+  }
   if (decision === 'pull') {
     if (!confirm("Bist du dir sicher, dass du die Version aus der Cloud laden willst?\n\n⚠️ Alle deine lokalen Änderungen, die du auf diesem Gerät offline gemacht hast, gehen dabei verloren!")) return;
   } else if (decision === 'push') {

@@ -75,6 +75,10 @@ db = {
 - In app.js läuft immer nur ein Sync gleichzeitig (`syncRunning`/`syncQueued`). Ist ein Konflikt offen (`window.currentConflict`), pausiert der Auto-Sync.
 - Sync läuft nach jeder Eingabe (3 s später), beim Login, beim Zurückkehren in die App (`visibilitychange`) und bei `online`.
 - Das Master-Passwort liegt dauerhaft im `localStorage` (`sync_master_password`, bewusst: die Daten liegen dort ohnehin im Klartext). Nur über `storeMasterPassword()` setzen/löschen; Abmelden und falsches Passwort löschen es.
+- „Leeres Gerät“ (lädt nie hoch, holt immer) heißt: leer **und** ohne Sync-Stand dieses Kontos (`isFreshEmptyDB`, `syncBaseline`). Wer alle Klassen einzeln löscht, hat einen Sync-Stand, und die Löschung geht in die Cloud. `syncSettings.uid` merkt sich das Konto; ein anderes Konto zählt wie „nie synchronisiert“.
+- Solange ein Eingabefenster offen ist (`inputModalOpen`: alles außer Einstellungen und Konflikt-Dialog), übernimmt der Sync keinen Cloud-Stand und meldet keinen Konflikt; `closeModal` holt das nach (`syncAfterModalClose`). Offene Einstellungen werden nach einem Pull neu befüllt (`fillSettingsForm`). Konflikte meldet nur `triggerSyncInternal` (`showSyncConflict`), nicht der Rückruf des SyncManagers.
+- Ein Sync wird nie abgebrochen (nach 30 s nur ein Hinweis), sonst schreibt er trotzdem, ohne dass das Gerät es sich merkt. Beim Verlassen der App geht ein wartender Autosave sofort raus (`flushPendingSync`).
+- Master-Passwort vergessen/ändern: `startCloudPasswordReset` → `SyncManager.overwriteCloud` (Cloud = Daten dieses Geräts, neues Passwort zweimal eingegeben, nie von einem leeren Gerät).
 - In eine **leere** Cloud wird erst hochgeladen, wenn das Master-Passwort ein zweites Mal gleich eingegeben wurde (`confirmedNewCloudPassword`, Status `confirm_password`). Ein Tippfehler würde sonst alle Geräte aussperren.
 
 Datumswerte sind Strings `YYYY-MM-DD` in **lokaler** Zeit (`formatDate()`). Nie `toISOString()` für Datumsstrings verwenden, und `new Date('YYYY-MM-DD')` nur mit `+ 'T12:00:00'`.
@@ -134,6 +138,7 @@ Datumswerte sind Strings `YYYY-MM-DD` in **lokaler** Zeit (`formatDate()`). Nie 
 
 46. **Fenster nur über `openModal`/`closeModal` öffnen und schließen** (Fokus-Übergabe und -Rückgabe, `role="dialog"` setzt `labelModals()` beim Start). Ein Fenster, das eine Vorschau zeigt (Einstellungen), verwirft sie beim Schließen ohne Speichern (`MODAL_CLOSE_ACTIONS`).
 47. **Knöpfe, die auf dem Handy nur als Symbol erscheinen, haben ein `aria-label`**; der Text steht in `.btn-label` (Klassenkopf) bzw. `.tab-long`/`.tab-short` (Reiter) und wird per CSS umgeschaltet, nie per `aria-hidden`.
+48. **Migrationen fassen nie Werte an, die der Nutzer selbst einstellen kann** (Blockzeiten, Farben …). `migrateDB` läuft bei jedem Laden, Import und Pull; eine Regel wie „sieht aus wie der alte Standard“ trifft irgendwann echte Einstellungen (P3).
 
 ## Arbeitsablauf
 

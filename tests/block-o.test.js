@@ -40,7 +40,7 @@ describe('O1: Markieren und neben dem Fenster loslassen', () => {
     input.value = 'Testklasse 9z';
     fire(input, 'pointerdown');                                  // Maus im Feld gedrückt …
     const overlay = document.getElementById('modal-add-group');
-    overlay.dispatchEvent(new MouseEvent('click', { bubbles: true })); // … und daneben losgelassen
+    // … und daneben losgelassen. Den click nicht per dispatchEvent feuern: Das Inline-onclick läuft in jsdom ins Leere (Regel 18, BUGS P12)
     app('closeModalOnOverlay')({ target: overlay }, 'modal-add-group');
     expect(hidden('modal-add-group')).toBe(false);
     expect(input.value).toBe('Testklasse 9z');
