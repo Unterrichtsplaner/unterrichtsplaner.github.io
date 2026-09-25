@@ -4985,14 +4985,38 @@ document.addEventListener('visibilitychange', () => { timerTick(); stopwatchTick
 
 // ─── Cloud Sync (E2EE) Implementation ──────────────────────────────────────
 
+// Das Master-Passwort bleibt auf diesem Gerät gespeichert (localStorage). Früher nur im sessionStorage:
+// dann fehlte es nach jedem Neustart, und der Sync lief still nicht (BUGS K7). Die Schülerdaten liegen
+// auf dem Gerät ohnehin unverschlüsselt, das Passwort schützt nur die Kopie in der Cloud.
+const MASTER_PASSWORD_KEY = 'sync_master_password';
+function loadSavedMasterPassword() {
+  try {
+    let pwd = localStorage.getItem(MASTER_PASSWORD_KEY);
+    if (!pwd) {
+      pwd = sessionStorage.getItem(MASTER_PASSWORD_KEY); // aus einer älteren Version übernehmen
+      if (pwd) storeMasterPassword(pwd);
+    }
+    return pwd || '';
+  } catch (e) {
+    return '';
+  }
+}
+function storeMasterPassword(pwd) {
+  try {
+    sessionStorage.removeItem(MASTER_PASSWORD_KEY);
+    if (pwd) localStorage.setItem(MASTER_PASSWORD_KEY, pwd);
+    else localStorage.removeItem(MASTER_PASSWORD_KEY);
+  } catch (e) { /* kein Speicher: gilt dann nur bis zum Neustart */ }
+}
+
 // Initialisiert die Synchronisierung beim Laden der App
 function initSync() {
   // 1. Initialisiere den SyncManager mit der fest verbauten FIREBASE_CONFIG
   if (typeof FIREBASE_CONFIG !== 'undefined') {
     const success = SyncManager.init(FIREBASE_CONFIG);
     if (success) {
-      // Wenn das Passwort im sessionStorage liegt (z.B. nach Page Reload), wiederherstellen
-      const savedPassword = sessionStorage.getItem('sync_master_password');
+      // Gespeichertes Passwort wiederherstellen, auch nach einem Neustart der App
+      const savedPassword = loadSavedMasterPassword();
       if (savedPassword) {
         SyncManager.setMasterPassword(savedPassword);
         const passInput = document.getElementById('sync-master-password');
@@ -5008,7 +5032,7 @@ function initSync() {
       // Automatischer Hintergrund-Sync bei Login
       triggerSyncInternal();
     } else if (user) {
-      // Nach einem Neustart fehlt das Passwort (liegt nur im sessionStorage): Bescheid geben (BUGS K7)
+      // Angemeldet, aber (noch) kein Master-Passwort auf diesem Gerät: Bescheid geben (BUGS K7)
       showToast('Cloud-Sync pausiert: bitte Master-Passwort in den Einstellungen eingeben', 'error');
     }
   };
@@ -5148,7 +5172,9 @@ function loginGoogle() {
 function logoutSync() {
   SyncManager.logout()
     .then(() => {
-      sessionStorage.removeItem('sync_master_password');
+      storeMasterPassword('');
+      SyncManager.setMasterPassword('');
+      updateSyncAttention();
       const passInput = document.getElementById('sync-master-password');
       if (passInput) passInput.value = '';
       showToast('Ausgeloggt.');
@@ -5161,8 +5187,7 @@ function logoutSync() {
 function updateMasterPassword(pwd) {
   cancelNewCloudPassword();
   SyncManager.setMasterPassword(pwd);
-  if (pwd) sessionStorage.setItem('sync_master_password', pwd);
-  else sessionStorage.removeItem('sync_master_password');
+  storeMasterPassword(pwd);
   updateSyncAttention();
   if (pwd && SyncManager.currentUser) triggerSyncInternal({ manual: true });
 }
@@ -5170,7 +5195,7 @@ function updateMasterPassword(pwd) {
 // Falsches Passwort wieder vergessen, damit kein weiterer Sync damit läuft.
 function rejectMasterPassword() {
   SyncManager.setMasterPassword('');
-  sessionStorage.removeItem('sync_master_password');
+  storeMasterPassword('');
   const passInput = document.getElementById('sync-master-password');
   if (passInput) passInput.value = '';
   updateSyncAttention();

@@ -149,7 +149,7 @@ Priorität: 🔴 Datenverlust / App kaputt · 🟠 falsche Anzeige / nervig · �
 
 ## K. Review 25.09.2026: Datenverlust & Sync
 
-> Behoben (v215). Tests: `tests/block-k.test.js`, Sync-Fälle in `tests/sync.test.js`. K7: Passwort bleibt bewusst nur im `sessionStorage`; neu ist ein roter Punkt am Menüpunkt „Einstellungen“ plus Hinweis beim Start, solange angemeldet, aber ohne Passwort (ob iOS den `sessionStorage` beim Beenden leert, ist weiter ungeprüft).
+> Behoben (v215). Tests: `tests/block-k.test.js`, Sync-Fälle in `tests/sync.test.js`. K7: Das Master-Passwort bleibt jetzt dauerhaft auf dem Gerät (`localStorage`, Entscheidung des Autors: die Schülerdaten liegen dort ohnehin unverschlüsselt), bis zum Abmelden oder einem falschen Passwort. Dazu ein roter Punkt am Menüpunkt „Einstellungen“ plus Hinweis beim Start, solange angemeldet, aber ohne Passwort.
 >
 > Viertes Review: Code in vier Bereichen (Sync, Stundenplan, Klassen/Noten, Sitzplan/Fenster) plus Durchklicken mit Beispieldaten bei 375/1024 px, dunkel und hell. „Test“ = mit Vitest nachgestellt. Zeilennummern Stand `5f261aa`.
 
@@ -308,7 +308,7 @@ Priorität: 🔴 Datenverlust / App kaputt · 🟠 falsche Anzeige / nervig · �
 | K4 | Notenspalte = Datum + Titel + Typ (+ `nth` bei mehreren Noten eines Schülers): `gradeColumns`, `findColumnGrade`; gleiche Spalte anlegen/umbenennen wird abgelehnt; Migration: angelegte Spalten ohne Typ bekommen den ihrer Noten | Block K |
 | K5 | Anwesenheitstabelle: nur leeres Feld löscht, sonst Hinweis „F, E oder Z“ | Block K |
 | K6 | Sync bei `visibilitychange` (sichtbar) und `online` | Block K |
-| K7 | Roter Punkt an „Einstellungen“ + Tooltip (`updateSyncAttention`), Hinweis beim Start, wenn angemeldet ohne Master-Passwort | Block K |
+| K7 | Master-Passwort dauerhaft im `localStorage` (`loadSavedMasterPassword`/`storeMasterPassword`, übernimmt alten `sessionStorage`-Wert); roter Punkt an „Einstellungen“ + Tooltip (`updateSyncAttention`), Hinweis beim Start, wenn angemeldet ohne Master-Passwort | Block K |
 | K8 | Leere Cloud: Upload erst nach Wiederholung des Passworts (`confirmNewMasterPassword`, `canCreateCloud`, Status `confirm_password`) | Block K |
 | K9 | `importBackup()`: Rückfrage mit Anzahl Klassen/Schüler, Sync-Stand des Geräts bleibt, Import geht als Änderung in die Cloud | Block K |
 | K10 | `persistDB` fängt Fehler ab (`reportSaveFailure`: Toast, einmal Hinweisfenster mit „Exportieren“) | Block K |

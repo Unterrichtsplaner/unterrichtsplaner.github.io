@@ -73,6 +73,7 @@ db = {
 - Ist ein Stand beidseitig „geändert“, aber inhaltlich gleich (`cloudMatchesLocal`), gibt es keinen Konflikt.
 - In app.js läuft immer nur ein Sync gleichzeitig (`syncRunning`/`syncQueued`). Ist ein Konflikt offen (`window.currentConflict`), pausiert der Auto-Sync.
 - Sync läuft nach jeder Eingabe (3 s später), beim Login, beim Zurückkehren in die App (`visibilitychange`) und bei `online`.
+- Das Master-Passwort liegt dauerhaft im `localStorage` (`sync_master_password`, bewusst: die Daten liegen dort ohnehin im Klartext). Nur über `storeMasterPassword()` setzen/löschen; Abmelden und falsches Passwort löschen es.
 - In eine **leere** Cloud wird erst hochgeladen, wenn das Master-Passwort ein zweites Mal gleich eingegeben wurde (`confirmedNewCloudPassword`, Status `confirm_password`). Ein Tippfehler würde sonst alle Geräte aussperren.
 
 Datumswerte sind Strings `YYYY-MM-DD` in **lokaler** Zeit (`formatDate()`). Nie `toISOString()` für Datumsstrings verwenden, und `new Date('YYYY-MM-DD')` nur mit `+ 'T12:00:00'`.

@@ -38,7 +38,7 @@
       }
     } catch(e) {}
   </script>
-  <link rel="stylesheet" href="style.css?v=215" />
+  <link rel="stylesheet" href="style.css?v=216" />
   <script>
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
@@ -944,7 +944,7 @@
               <label>Master-Passwort (für lokale E2EE-Verschlüsselung)</label>
               <input type="password" id="sync-master-password" class="form-input" placeholder="Master-Passwort festlegen/eingeben" onchange="updateMasterPassword(this.value)" />
               <div style="font-size:11px; color:var(--danger); margin-top:4px; font-weight:600;">
-                ⚠️ WICHTIG: Dieses Passwort verschlüsselt deine Daten lokal auf deinem Gerät. Es wird NIEMALS unverschlüsselt übertragen. Wenn du es verlierst, sind deine Cloud-Daten unlesbar verloren!
+                ⚠️ WICHTIG: Dieses Passwort verschlüsselt deine Daten lokal auf deinem Gerät. Es wird NIEMALS unverschlüsselt übertragen. Wenn du es verlierst, sind deine Cloud-Daten unlesbar verloren! Auf diesem Gerät bleibt es gespeichert, bis du dich abmeldest.
               </div>
             </div>
             <div class="form-group hidden" id="sync-master-password-confirm-group">
@@ -1155,12 +1155,12 @@
   </div>
 
   <script src="lib/crypto-js.min.js"></script>
-  <script src="crypto-helper.js?v=215"></script>
+  <script src="crypto-helper.js?v=216"></script>
   <script src="lib/firebase-app-compat.js"></script>
   <script src="lib/firebase-auth-compat.js"></script>
   <script src="lib/firebase-firestore-compat.js"></script>
-  <script src="firebase-config.js?v=215"></script>
-  <script src="sync-manager.js?v=215"></script>
-  <script src="app.js?v=215"></script>
+  <script src="firebase-config.js?v=216"></script>
+  <script src="sync-manager.js?v=216"></script>
+  <script src="app.js?v=216"></script>
 </body>
 </html>

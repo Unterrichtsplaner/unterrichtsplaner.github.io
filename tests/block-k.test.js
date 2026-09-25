@@ -248,3 +248,26 @@ describe('K15: „Alle Daten löschen“', () => {
     expect(localStorage.getItem('lehrerapp_v3_defekt_123')).toBeNull();
   });
 });
+
+describe('K7: Master-Passwort bleibt auf dem Gerät gespeichert', () => {
+  afterEach(() => { localStorage.removeItem('sync_master_password'); sessionStorage.clear(); app('SyncManager.masterPassword = ""'); });
+
+  it('eingegebenes Passwort übersteht einen Neustart (localStorage statt sessionStorage)', () => {
+    app('updateMasterPassword("geheim")');
+    expect(localStorage.getItem('sync_master_password')).toBe('geheim');
+    app('SyncManager.masterPassword = ""');
+    expect(app('loadSavedMasterPassword()')).toBe('geheim');
+  });
+
+  it('Passwort aus einer alten Version (sessionStorage) wird übernommen', () => {
+    sessionStorage.setItem('sync_master_password', 'alt');
+    expect(app('loadSavedMasterPassword()')).toBe('alt');
+    expect(localStorage.getItem('sync_master_password')).toBe('alt');
+  });
+
+  it('falsches Passwort und Abmelden entfernen es wieder', () => {
+    app('updateMasterPassword("geheim")');
+    app('rejectMasterPassword()');
+    expect(localStorage.getItem('sync_master_password')).toBeNull();
+  });
+});
