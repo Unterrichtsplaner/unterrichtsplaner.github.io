@@ -164,6 +164,8 @@ Datumswerte sind Strings `YYYY-MM-DD` in **lokaler** Zeit (`formatDate()`). Nie 
 
 **So kommt ein Update bei Nutzern an:** Seit v192 (BUGS G2) lädt die Seite online zuerst vom Server, das Update läuft also schon beim **ersten** Öffnen nach dem Deploy (offline oder bei hängendem WLAN nach 3 s die gecachte Version). Geräte, die noch eine ältere Version als v192 installiert haben, verhalten sich beim Sprung auf v192 noch wie früher (in der Generalprobe am 24.09.2026 beobachtet): erstes Öffnen = alte Version aus dem Cache, ab dem zweiten die neue. GitHub Pages lässt Browser Dateien bis zu 10 Minuten zwischenspeichern, direkt nach dem Deploy kann also noch kurz der alte Stand kommen. Neuer Code muss immer mit Daten klarkommen, die die alte Version gerade noch geschrieben hat.
 
+**„Das ist neu“-Fenster** (`WHATS_NEW` in app.js): erscheint einmal pro Gerät, wenn `WHATS_NEW.id` neu ist, nicht bei Geräten ohne Daten. Nur für Updates, bei denen bestehende Nutzer etwas Sichtbares umlernen müssen: `id` ändern (z. B. `'2027-02'`) und die 3–5 Punkte ersetzen. Kleinere Updates brauchen kein Fenster.
+
 Änderungen am Datenmodell brauchen eine Migration in `migrateDB()` (läuft in `loadDB()`, beim Import und bei der Cloud-Übernahme; muss beliebig oft laufen dürfen und setzt kein `lastModified`), damit bestehende Daten weiter funktionieren. Vorher daran denken, dass der Nutzer ein Backup (Export) hat.
 
 ## Tests

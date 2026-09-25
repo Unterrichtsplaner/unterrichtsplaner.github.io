@@ -41,7 +41,7 @@
       }
     } catch(e) {}
   </script>
-  <link rel="stylesheet" href="style.css?v=239" />
+  <link rel="stylesheet" href="style.css?v=240" />
   <script>
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
@@ -1242,6 +1242,22 @@
   </div>
 
   <!-- Auswahl zwischen mehreren Wegen (askChoice); liegt im Markup zuletzt, also über allen anderen Fenstern -->
+  <!-- „Das ist neu“: einmal pro Gerät nach einem großen Update (showWhatsNewIfDue) -->
+  <div id="modal-whats-new" class="modal-overlay hidden" onclick="closeModalOnOverlay(event,'modal-whats-new')">
+    <div class="modal modal-small" onclick="event.stopPropagation()" style="max-width:460px;">
+      <div class="modal-header">
+        <h2>Das ist neu</h2>
+        <button class="modal-close" aria-label="Schließen" onclick="closeWhatsNew()">×</button>
+      </div>
+      <div class="modal-body">
+        <ul id="whats-new-list" class="whats-new-list"></ul>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-primary" style="width:100%; justify-content:center;" onclick="closeWhatsNew()">Verstanden</button>
+      </div>
+    </div>
+  </div>
+
   <div id="modal-choice" class="modal-overlay hidden" onclick="closeModalOnOverlay(event,'modal-choice')">
     <div class="modal modal-small" onclick="event.stopPropagation()" style="max-width:460px;">
       <div class="modal-header">
@@ -1256,12 +1272,12 @@
   </div>
 
   <script src="lib/crypto-js.min.js"></script>
-  <script src="crypto-helper.js?v=239"></script>
+  <script src="crypto-helper.js?v=240"></script>
   <script src="lib/firebase-app-compat.js"></script>
   <script src="lib/firebase-auth-compat.js"></script>
   <script src="lib/firebase-firestore-compat.js"></script>
-  <script src="firebase-config.js?v=239"></script>
-  <script src="sync-manager.js?v=239"></script>
-  <script src="app.js?v=239"></script>
+  <script src="firebase-config.js?v=240"></script>
+  <script src="sync-manager.js?v=240"></script>
+  <script src="app.js?v=240"></script>
 </body>
 </html>

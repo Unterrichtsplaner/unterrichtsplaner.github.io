@@ -58,6 +58,8 @@ const ICONS = {
   alert:        '<path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>',
   'trend-down': '<polyline points="23 18 13.5 8.5 8.5 13.5 1 6"/><polyline points="17 18 23 18 23 12"/>',
   lock:         '<rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>',
+  eye:          '<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>',
+  calendar:     '<rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>',
 };
 function icon(name) {
   if (!ICONS[name]) throw new Error('Unbekanntes Icon: ' + name);
@@ -5431,6 +5433,7 @@ const MODAL_CLOSE_ACTIONS = {
   'modal-sync-conflict': null,                       // Entscheidung nötig, nicht wegdrückbar
   'modal-choice': () => answerChoice(null),          // Wegdrücken = Abbrechen
   'modal-settings': () => cancelSettings(),          // Farbvorschau nicht stehen lassen (BUGS O2)
+  'modal-whats-new': () => closeWhatsNew(),          // Wegdrücken zählt als gelesen
 };
 function closeModalLikeButton(id) {
   const action = id in MODAL_CLOSE_ACTIONS ? MODAL_CLOSE_ACTIONS[id] : () => closeModal(id);
@@ -5601,12 +5604,51 @@ function initAllCustomDropdowns() {
   document.querySelectorAll('select.form-input').forEach(makeCustomFormDropdown);
 }
 
+// ─── „Das ist neu“ ─────────────────────────────────────────────────────────
+// Erscheint einmal pro Gerät, wenn sich mit einem Update für bestehende Nutzer etwas Sichtbares ändert.
+// Für das nächste große Update: `id` ändern und die Punkte ersetzen. Gemerkt wird nur auf diesem Gerät
+// (nicht in `db`, nicht synchronisiert). Neue Nutzer ohne Daten sehen es nie.
+const WHATS_NEW = {
+  id: '2026-09',
+  items: [
+    { icon: 'eye',          title: 'Noten im Sitzplan sind verborgen', text: 'damit die Klasse sie nicht sieht. Einblenden über das Auge oben im Sitzplan.' },
+    { icon: 'lock',         title: 'Cloud-Sync', text: 'Falls du ihn nutzt: Bitte einmal das Master-Passwort neu eingeben (Einstellungen), danach merkt die App es sich.' },
+    { icon: 'calendar',     title: '„Heute“', text: 'zeigt deine Stunden des Tages und die nächste Stunde.' },
+    { icon: 'grades',       title: 'Oberstufe', text: 'Klassen können jetzt 0–15 Punkte verwenden (im Klassen-Dialog).' },
+    { icon: 'check-circle', title: 'Sicherer', text: 'Stärkere Verschlüsselung und viele Fehler behoben.' },
+  ],
+};
+const WHATS_NEW_SEEN_KEY = 'whats_new_seen';
+
+// Browser-Speicher kann gesperrt sein (privater Modus) – dann einfach nichts merken
+function readWhatsNewSeen() { try { return localStorage.getItem(WHATS_NEW_SEEN_KEY); } catch (e) { return null; } }
+function markWhatsNewSeen() { try { localStorage.setItem(WHATS_NEW_SEEN_KEY, WHATS_NEW.id); } catch (e) {} }
+
+function showWhatsNewIfDue(attempt = 0) {
+  if (readWhatsNewSeen() === WHATS_NEW.id) return;
+  if (isLocalDBEmpty()) { markWhatsNewSeen(); return; } // neues Gerät/neuer Nutzer: es gibt nichts „Altes“
+  // Nie über ein anderes Fenster legen (z. B. Konflikt-Dialog); später noch einmal versuchen
+  if (document.querySelector('.modal-overlay:not(.hidden)')) {
+    if (attempt < 20) setTimeout(() => showWhatsNewIfDue(attempt + 1), 2000);
+    return;
+  }
+  document.getElementById('whats-new-list').innerHTML = WHATS_NEW.items.map(item => `
+    <li>${icon(item.icon)}<div><strong>${escHtml(item.title)}</strong> ${escHtml(item.text)}</div></li>`).join('');
+  openModal('modal-whats-new');
+}
+
+function closeWhatsNew() {
+  markWhatsNewSeen();
+  closeModal('modal-whats-new');
+}
+
 // ─── Init ─────────────────────────────────────────────────────────────────
 if (typeof process === 'undefined' || process.env.NODE_ENV !== 'test') {
   updateAppliedThemeFromDB();
   renderTimetable();
   renderSubjectGroups();
   initAllCustomDropdowns();
+  setTimeout(() => showWhatsNewIfDue(), 800); // nach dem ersten Zeichnen, damit die App dahinter schon steht
 }
 
 
@@ -6585,7 +6627,7 @@ function noticeSlowSync(promise) {
 // Einstellungen zählen nur mit, wenn dort etwas eingetippt ist: Sonst ersetzte der Pull die Eingaben still (BUGS T5).
 function inputModalOpen() {
   return [...document.querySelectorAll('.modal-overlay:not(.hidden)')]
-    .some(m => m.id === 'modal-settings' ? settingsDirty() : m.id !== 'modal-sync-conflict');
+    .some(m => m.id === 'modal-settings' ? settingsDirty() : m.id !== 'modal-sync-conflict' && m.id !== 'modal-whats-new');
 }
 function syncAfterModalsClosed() {
   if (!syncAfterModalClose || inputModalOpen()) return;
