@@ -599,6 +599,7 @@ select option{background:var(--bg-secondary);}
   .sidebar-footer{border-top:none;padding:0;}
   .subject-groups-grid{grid-template-columns:1fr;}
   .subject-group-card{min-height:0;}  /* volle Breite: nicht quadratisch hochziehen (BUGS I2) */
+  #sidebar.collapsed{width:100%;padding:8px 12px;}  /* ☰ darf die Leiste oben nicht auf 88 px stauchen */
 }
 
 :root[data-theme="light"] {

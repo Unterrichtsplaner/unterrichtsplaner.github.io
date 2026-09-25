@@ -2626,12 +2626,14 @@ function toggleSidebar(e) {
   sidebar.classList.toggle('collapsed');
 }
 
-function collapseSidebar() {
-  const sidebar = document.getElementById('sidebar');
-  if (!sidebar.classList.contains('collapsed')) {
-    sidebar.classList.add('collapsed');
-  }
+// Die Leiste wird nur über ☰ umgeschaltet (BUGS I3: früher klappte jeder Klick in den Inhalt sie zu,
+// und der Inhalt sprang unter dem Finger nach links). Auf schmalen Bildschirmen (iPad hochkant) startet
+// sie zugeklappt; unter 601 px ist sie ohnehin eine Leiste oben.
+function applyInitialSidebar() {
+  const w = window.innerWidth;
+  document.getElementById('sidebar').classList.toggle('collapsed', w > 600 && w < 1024);
 }
+applyInitialSidebar();
 
 let currentThemeAccent = db.settings.themeAccent || '#6366f1';
 let currentThemeBg = db.settings.themeBg || '#0f1117';

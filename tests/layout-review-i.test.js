@@ -62,3 +62,38 @@ describe('I2: Klassenkarten schneiden nichts ab', () => {
     expect(card.textContent).toContain('Sitzplan');
   });
 });
+
+describe('I3: Seitenleiste nur per ☰', () => {
+  const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+  const sidebar = () => document.getElementById('sidebar');
+  const origWidth = window.innerWidth;
+  afterEach(() => { window.innerWidth = origWidth; sidebar().classList.remove('collapsed'); });
+
+  it('ein Klick in den Inhalt klappt die Leiste nicht mehr zu (Inhalt sprang nach links)', () => {
+    expect(html).not.toMatch(/<main[^>]*onclick/);
+    expect(document.getElementById('main-content').getAttribute('onclick')).toBeNull();
+    document.getElementById('main-content').click();
+    expect(sidebar().classList.contains('collapsed')).toBe(false);
+  });
+
+  it('☰ schaltet weiterhin um', () => {
+    app('toggleSidebar()');
+    expect(sidebar().classList.contains('collapsed')).toBe(true);
+    app('toggleSidebar()');
+    expect(sidebar().classList.contains('collapsed')).toBe(false);
+  });
+
+  it('startet auf schmalen Bildschirmen (iPad hochkant) zugeklappt, sonst offen', () => {
+    for (const [w, collapsed] of [[768, true], [1023, true], [1024, false], [1440, false], [375, false]]) {
+      window.innerWidth = w;
+      sidebar().classList.remove('collapsed');
+      app('applyInitialSidebar()');
+      expect(sidebar().classList.contains('collapsed'), `${w} px`).toBe(collapsed);
+    }
+  });
+
+  it('auf dem Handy bleibt die Leiste oben volle Breite, auch zugeklappt', () => {
+    const phone = css.match(/@media\s*\(max-width:\s*600px\)\s*\{([^@]*?)\n\}/)[1];
+    expect(phone).toMatch(/#sidebar\.collapsed\s*\{[^}]*width:\s*100%/);
+  });
+});
