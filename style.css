@@ -25,6 +25,7 @@
   --border-active: rgba(99,102,241,0.4);
   --success: #22c55e;
   --warning: #f59e0b;
+  --hw-note-text: #1c1300; /* Schrift auf --warning („Keine HA“, BUGS S14) */
   --danger: #ef4444;
   --danger-soft: rgba(239,68,68,0.12);
   --success-soft: rgba(34,197,94,0.12);
@@ -54,13 +55,13 @@ input[type="date"] { min-height: 1.2em; } /* Fix iOS Safari date input collapse 
 #sidebar{width:var(--sidebar-width);background:var(--sidebar-bg);border-right:1px solid var(--border);display:flex;flex-direction:column;padding:0;flex-shrink:0;z-index:100;position:sticky;left:0;transition:width var(--transition), padding var(--transition);overflow:hidden;}
 .sidebar-header{height:68px;box-sizing:border-box;padding:0 12px;border-bottom:1px solid var(--border);margin-bottom:16px;display:flex;justify-content:space-between;align-items:center;}
 .sidebar-toggle-btn{width:36px;height:36px;border-radius:var(--radius-md);background:transparent;border:none;color:var(--text-secondary);cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all var(--transition);}
-.sidebar-toggle-btn:hover{background:var(--bg-card-hover);color:var(--text-primary);}
+@media (hover: hover){.sidebar-toggle-btn:hover{background:var(--bg-card-hover);color:var(--text-primary);}}
 .app-logo{display:flex;align-items:center;gap:10px;}
 .app-logo-block{font-family:inherit;font-weight:700;font-size:20px;background:linear-gradient(135deg, #6366f1, #a78bfa);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;display:flex;align-items:center;justify-content:center;height:40px;box-sizing:border-box;}
 .app-logo-block .logo-short{display:none;}
 .nav-items{display:flex;flex-direction:column;gap:4px;flex:1;padding:0 8px;}
 .nav-item{display:flex;align-items:center;gap:10px;padding:10px 10px;border-radius:99px;background:transparent;border:none;color:var(--text-secondary);cursor:pointer;font-family:inherit;font-size:14px;font-weight:500;transition:all var(--transition);width:100%;text-align:left;}
-.nav-item:hover{background:var(--bg-elevated);color:var(--text-primary);}
+@media (hover: hover){.nav-item:hover{background:var(--bg-elevated);color:var(--text-primary);}}
 .nav-item.active{background:var(--accent-soft);color:var(--text-accent);box-shadow:inset 0 0 0 1px var(--border-active);}
 /* Cloud-Sync pausiert (kein Master-Passwort): Punkt am Menüpunkt „Einstellungen“ (BUGS K7) */
 .nav-item.needs-attention{position:relative;}
@@ -96,18 +97,18 @@ input[type="date"] { min-height: 1.2em; } /* Fix iOS Safari date input collapse 
 
 /* ─── Buttons ────────────────────────── */
 .btn-primary{padding:8px 16px;background:var(--accent);color:white;border:none;border-radius:99px;font-family:inherit;font-size:13px;font-weight:600;cursor:pointer;transition:all var(--transition);white-space:nowrap;}
-.btn-primary:hover{background:var(--accent-hover);box-shadow:var(--shadow-accent);}
+@media (hover: hover){.btn-primary:hover{background:var(--accent-hover);box-shadow:var(--shadow-accent);}}
 .btn-circle{width:34px;height:34px;padding:0;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
 .btn-secondary{padding:8px 13px;background:var(--bg-elevated);color:var(--text-primary);border:1px solid var(--border);border-radius:99px;font-family:inherit;font-size:13px;font-weight:500;cursor:pointer;transition:all var(--transition);white-space:nowrap;}
-.btn-secondary:hover{background:var(--bg-card-hover);border-color:rgba(255,255,255,0.13);}
+@media (hover: hover){.btn-secondary:hover{background:var(--bg-card-hover);border-color:var(--border-active);}}
 .btn-icon{width:34px;height:34px;display:flex;align-items:center;justify-content:center;background:var(--bg-elevated);border:1px solid var(--border);border-radius:99px;color:var(--text-secondary);cursor:pointer;transition:all var(--transition);flex-shrink:0;}
-.btn-icon:hover{color:var(--text-primary);background:var(--bg-card-hover);}
+@media (hover: hover){.btn-icon:hover{color:var(--text-primary);background:var(--bg-card-hover);}}
 .btn-back{display:flex;align-items:center;gap:6px;padding:7px 11px;background:transparent;border:1px solid var(--border);border-radius:99px;color:var(--text-secondary);cursor:pointer;font-family:inherit;font-size:13px;font-weight:500;transition:all var(--transition);flex-shrink:0;}
-.btn-back:hover{color:var(--text-primary);background:var(--bg-elevated);}
+@media (hover: hover){.btn-back:hover{color:var(--text-primary);background:var(--bg-elevated);}}
 .btn-danger-outline{padding:7px 13px;background:transparent;color:var(--danger);border:1px solid var(--danger);border-radius:99px;font-family:inherit;font-size:13px;cursor:pointer;transition:all var(--transition);}
-.btn-danger-outline:hover{background:var(--danger-soft);}
+@media (hover: hover){.btn-danger-outline:hover{background:var(--danger-soft);}}
 .btn-danger-icon{background:var(--danger-soft);border-color:rgba(239,68,68,0.2);color:var(--danger);}
-.btn-danger-icon:hover{background:rgba(239,68,68,0.25);}
+@media (hover: hover){.btn-danger-icon:hover{background:rgba(239,68,68,0.25);}}
 
 /* ─── Timetable ──────────────────────── */
 .timetable-grid-wrapper{flex:1;overflow:auto;padding:24px 24px;display:flex;flex-direction:column;}
@@ -142,7 +143,7 @@ input[type="date"] { min-height: 1.2em; } /* Fix iOS Safari date input collapse 
 .tt-cell{border-radius:var(--radius-md);background:var(--bg-card);border:1px solid var(--border);padding:5px;position:relative;}
 .tt-lesson{color:var(--lesson-color);border-radius:var(--radius-sm);padding:10px 10px;min-width:0;cursor:pointer;transition:all var(--transition);height:100%;display:flex;flex-direction:column;justify-content:space-between;position:relative;overflow:hidden;}
 .tt-lesson::before{content:'';position:absolute;left:0;top:0;bottom:0;width:4px;border-radius:4px 0 0 4px;background:currentColor;opacity:.8;}
-.tt-lesson:hover{transform:translateY(-1px);box-shadow:var(--shadow-md);filter:brightness(1.1);}
+@media (hover: hover){.tt-lesson:hover{transform:translateY(-1px);box-shadow:var(--shadow-md);filter:brightness(1.1);}}
 .tt-lesson:active{transform:scale(.98);}
 .tt-lesson.ausfall-lesson{opacity:.38;text-decoration:line-through;}
 
@@ -186,8 +187,8 @@ input[type="date"] { min-height: 1.2em; } /* Fix iOS Safari date input collapse 
 
 .tt-empty-cell{height:100%;display:flex;align-items:center;justify-content:center;border-radius:var(--radius-sm);border:1.5px dashed transparent;transition:all var(--transition);cursor:pointer;width:100%;}
 .tt-add-icon{font-size:20px;font-weight:200;color:transparent;transition:all var(--transition);}
-.tt-empty-cell:hover{border-color:var(--accent);background:var(--accent-soft);}
-.tt-empty-cell:hover .tt-add-icon{color:var(--accent);transform:scale(1.15);}
+@media (hover: hover){.tt-empty-cell:hover{border-color:var(--accent);background:var(--accent-soft);}}
+@media (hover: hover){.tt-empty-cell:hover .tt-add-icon{color:var(--accent);transform:scale(1.15);}}
 .tt-empty-cell:active{transform:scale(.97);}
 
 /* Split Block Layout */
@@ -258,12 +259,12 @@ input[type="date"] { min-height: 1.2em; } /* Fix iOS Safari date input collapse 
 .sgc-stat-value{font-size:17px;font-weight:700;}
 .sgc-stat-label{font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.3px;overflow-wrap:anywhere;}
 .sgc-permanent-edit-btn{position:absolute;top:12px;right:12px;width:34px;height:34px;border-radius:99px;background:var(--bg-elevated);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;color:var(--text-secondary);cursor:pointer;transition:all var(--transition);font-size:14px;z-index:2;}
-.sgc-permanent-edit-btn:hover{color:var(--text-primary);background:var(--bg-card-hover);border-color:var(--accent);transform:scale(1.05);}
+@media (hover: hover){.sgc-permanent-edit-btn:hover{color:var(--text-primary);background:var(--bg-card-hover);border-color:var(--accent);transform:scale(1.05);}}
 
 /* ─── Students list ──────────────────── */
 .students-list{flex:1;overflow-y:auto;padding:14px 22px;display:flex;flex-direction:column;gap:5px;}
 .student-row{display:flex;align-items:center;gap:11px;padding:11px 14px;background:var(--bg-card);border-radius:var(--radius-md);border:1px solid var(--border);cursor:pointer;transition:all var(--transition);}
-.student-row:hover{background:var(--bg-card-hover);border-color:rgba(255,255,255,0.11);transform:translateX(3px);}
+@media (hover: hover){.student-row:hover{background:var(--bg-card-hover);border-color:var(--border-active);transform:translateX(3px);}}
 .student-avatar{width:38px;height:38px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px;flex-shrink:0;}
 /* Initialen hell auf dunklem Ton (dunkel) bzw. dunkel auf hellem Ton (hell), je ≥ 6:1 (BUGS L12) */
 .student-avatar{background:color-mix(in srgb, var(--avatar) 32%, #000);color:color-mix(in srgb, var(--avatar) 35%, #fff);}
@@ -296,11 +297,13 @@ input[type="date"] { min-height: 1.2em; } /* Fix iOS Safari date input collapse 
 .modal-header h2{font-size:16px;font-weight:700;letter-spacing:-.3px;}
 .modal-subtitle{font-size:11px;color:var(--text-secondary);display:block;margin-top:2px;}
 .modal-close{width:34px;height:34px;border-radius:99px;background:var(--bg-elevated);border:1px solid var(--border);color:var(--text-secondary);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:14px;transition:all var(--transition);flex-shrink:0;}
-.modal-close:hover{color:var(--text-primary);background:var(--bg-card-hover);}
+@media (hover: hover){.modal-close:hover{color:var(--text-primary);background:var(--bg-card-hover);}}
 .modal-tabs{display:flex;gap:6px;padding:12px 18px;border-bottom:1px solid var(--border);flex-shrink:0;overflow-x:auto;scrollbar-width:none;}
 .modal-tabs::-webkit-scrollbar{display:none;}
+/* Weitere Reiter rechts außerhalb: Rand ausblenden, damit man sieht, dass es weitergeht (BUGS S15) */
+.modal-tabs{mask-image:linear-gradient(to right,#000 calc(100% - 28px),transparent);-webkit-mask-image:linear-gradient(to right,#000 calc(100% - 28px),transparent);padding-right:28px;}
 .tab-btn{padding:8px 16px;background:var(--bg-elevated);border:1px solid var(--border);border-radius:20px;color:var(--text-secondary);cursor:pointer;font-family:inherit;font-size:13px;font-weight:500;transition:all var(--transition);white-space:nowrap;}
-.tab-btn:hover{background:var(--bg-card-hover);color:var(--text-primary);}
+@media (hover: hover){.tab-btn:hover{background:var(--bg-card-hover);color:var(--text-primary);}}
 .tab-btn.active{background:var(--accent-soft);color:var(--accent);border-color:var(--accent-soft);font-weight:700;}
 
 /* ─── Seating Plan ───────────────────────────── */
@@ -321,7 +324,7 @@ input[type="date"] { min-height: 1.2em; } /* Fix iOS Safari date input collapse 
 .seating-canvas.edit-mode .seating-grid-cell,
 .seating-canvas.show-grid-always .seating-grid-cell{opacity:0.45;}
 .seating-card{position:absolute;background:var(--bg-card);border-radius:12px;border:1px solid var(--border);box-shadow:var(--shadow-sm);display:flex;flex-direction:column;justify-content:center;align-items:center;padding:8px;text-align:center;cursor:pointer;transition:box-shadow 0.2s, transform 0.2s, border-color 0.2s, left 0.1s, top 0.1s;z-index:10;}
-.seating-card:hover{transform:translateY(-2px);box-shadow:var(--shadow-md);border-color:var(--border-active);}
+@media (hover: hover){.seating-card:hover{transform:translateY(-2px);box-shadow:var(--shadow-md);border-color:var(--border-active);}}
 .teacher-desk{position:absolute;background:var(--bg-elevated);border-radius:12px;border:1.5px solid var(--border);box-shadow:var(--shadow-sm);display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;color:var(--text-secondary);font-weight:700;font-size:13px;cursor:pointer;transition:all 0.2s ease;z-index:10;}
 .teacher-desk.draggable-mode{cursor:grab;user-select:none;touch-action:none;border-color:var(--warning, #fbbf24);box-shadow:0 0 0 2px rgba(251, 191, 36, 0.3);}
 .teacher-desk.draggable-mode.dragging{transition:box-shadow 0.2s, transform 0.2s;z-index:1000 !important;}
@@ -335,7 +338,7 @@ input[type="date"] { min-height: 1.2em; } /* Fix iOS Safari date input collapse 
 .seating-card.is-absent-unexcused .sc-name{text-decoration:line-through;color:var(--danger);}
 .seating-card.is-absent-excused{background:rgba(100,116,139,0.1);border-color:rgba(100,116,139,0.3);opacity:0.5;}
 .seating-card.is-absent-excused .sc-name{text-decoration:line-through;color:var(--text-muted);}
-.seating-card .sc-hw-note{font-size:9px;font-weight:800;color:#fff;background:var(--warning);padding:2px 5px;border-radius:4px;margin-top:4px;text-transform:uppercase;letter-spacing:0.5px;}
+.seating-card .sc-hw-note{font-size:9px;font-weight:800;color:var(--hw-note-text);background:var(--warning);padding:2px 5px;border-radius:4px;margin-top:4px;text-transform:uppercase;letter-spacing:0.5px;}
 .seating-card .sc-late-note{font-size:9px;font-weight:800;color:#fff;background:var(--text-muted);padding:2px 5px;border-radius:4px;margin-top:4px;text-transform:uppercase;letter-spacing:0.5px;}
 #btn-seating-grades.active{background:var(--accent-soft);color:var(--text-accent);border-color:var(--accent);}
 
@@ -359,7 +362,7 @@ input[type="date"] { min-height: 1.2em; } /* Fix iOS Safari date input collapse 
 .overview-table th{background:var(--bg-elevated);color:var(--text-secondary);font-weight:600;padding:12px 16px;border-bottom:1px solid var(--border);border-right:1px solid var(--border);white-space:nowrap;position:sticky;top:0;z-index:1;text-align:center;}
 .overview-table th:first-child, .overview-table td:first-child{text-align:left;}
 .overview-table td{padding:12px 16px;border-bottom:1px solid var(--border);border-right:1px solid var(--border);white-space:nowrap;}
-.overview-table tr:hover td{background:var(--bg-card-hover);}
+@media (hover: hover){.overview-table tr:hover td{background:var(--bg-card-hover);}}
 .overview-table th:last-child, .overview-table td:last-child{border-right:none;}
 .overview-table tr:last-child td{border-bottom:none;}
 .overview-table .col-type{display:inline-block;font-size:10px;font-weight:700;padding:1px 6px;margin-bottom:3px;border-radius:99px;background:var(--bg-card);color:var(--text-muted);border:1px solid var(--border);letter-spacing:.3px;}
@@ -379,7 +382,7 @@ input[type="date"] { min-height: 1.2em; } /* Fix iOS Safari date input collapse 
 }
 
 .modal-body{flex:1;overflow-y:auto;padding:14px 18px;min-height:0;}
-.modal-footer{display:flex;justify-content:flex-end;gap:8px;padding:11px 18px;border-top:1px solid var(--border);flex-shrink:0;}
+.modal-footer{display:flex;justify-content:flex-end;flex-wrap:wrap;gap:8px;padding:11px 18px;border-top:1px solid var(--border);flex-shrink:0;}
 
 /* ─── Lesson notes form ──────────────── */
 .lesson-notes-form{flex:1;overflow-y:auto;display:flex;flex-direction:column;}
@@ -407,7 +410,7 @@ input[type="date"] { min-height: 1.2em; } /* Fix iOS Safari date input collapse 
 .upcoming-chips-row{padding:8px 0 4px;}
 .date-chips-container{display:flex;gap:6px;flex-wrap:wrap;}
 .next-lesson-chip{padding:4px 9px;background:var(--accent-soft);color:var(--text-accent);border:1px solid var(--border-active);border-radius:99px;font-size:11px;font-weight:600;cursor:pointer;transition:all var(--transition);white-space:nowrap;font-family:inherit;}
-.next-lesson-chip:hover{background:var(--accent);color:white;}
+@media (hover: hover){.next-lesson-chip:hover{background:var(--accent);color:white;}}
 .next-lesson-chip.chip-active{background:var(--accent);color:white;box-shadow:0 2px 8px var(--accent-glow);}
 .next-lesson-chip:empty{display:none;}
 
@@ -427,6 +430,7 @@ input[type="date"] { min-height: 1.2em; } /* Fix iOS Safari date input collapse 
 
 /* Segmented Control */
 .duration-btn {
+  white-space: nowrap;
   font-size: 13px;
   font-weight: 600;
   padding: 8px 12px;
@@ -441,9 +445,9 @@ input[name="new-lesson-part"]:checked + .duration-btn {
   background: var(--accent);
   color: white;
 }
-input[name="new-lesson-part"]:hover:not(:checked) + .duration-btn {
+@media (hover: hover){input[name="new-lesson-part"]:hover:not(:checked) + .duration-btn{
   background: var(--bg-card-hover);
-}
+}}
 
 /* ─── Ausfall ────────────────────────── */
 .ausfall-badge{font-size:9px;font-weight:800;letter-spacing:1px;padding:2px 6px;border-radius:4px;background:var(--danger-soft);color:var(--danger);border:1px solid rgba(239,68,68,.3);}
@@ -462,7 +466,7 @@ input[name="new-lesson-part"]:hover:not(:checked) + .duration-btn {
 .entry-item-date{font-size:11px;color:var(--text-muted);flex-shrink:0;}
 .entry-item-target{font-size:10px;font-weight:600;padding:1px 6px;border-radius:99px;background:var(--accent-soft);color:var(--text-accent);flex-shrink:0;}
 .entry-item-delete{width:22px;height:22px;border-radius:4px;background:transparent;border:none;color:var(--text-muted);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:12px;transition:all var(--transition);flex-shrink:0;}
-.entry-item-delete:hover{color:var(--danger);background:var(--danger-soft);}
+@media (hover: hover){.entry-item-delete:hover{color:var(--danger);background:var(--danger-soft);}}
 .add-entry-row{display:flex;gap:7px;align-items:center;flex-wrap:wrap;padding:9px;background:var(--bg-card);border-radius:var(--radius-md);border:1px solid var(--border);}
 
 /* ─── Form ───────────────────────────── */
@@ -534,9 +538,9 @@ input[name="new-lesson-part"]:hover:not(:checked) + .duration-btn {
   color: var(--text-primary);
   transition: background 0.2s, color 0.2s;
 }
-.custom-form-dropdown-item:hover {
+@media (hover: hover){.custom-form-dropdown-item:hover{
   background: var(--bg-card-hover);
-}
+}}
 .custom-form-dropdown-item.selected {
   background: var(--accent-glow);
   color: var(--accent);
@@ -554,7 +558,7 @@ input[name="new-lesson-part"]:hover:not(:checked) + .duration-btn {
 .form-row{display:grid;grid-template-columns:1fr 1fr;gap:11px;}
 .toggle-row{display:flex;align-items:center;gap:10px;}
 
-.entry-input{flex:1;min-width:90px;background:var(--bg-input);border:1px solid var(--border);border-radius:var(--radius-md);color:var(--text-primary);font-family:inherit;font-size:13px;padding:6px 9px;transition:border-color var(--transition);}
+.entry-input{flex:1 1 200px;min-width:0;background:var(--bg-input);border:1px solid var(--border);border-radius:var(--radius-md);color:var(--text-primary);font-family:inherit;font-size:13px;padding:6px 9px;transition:border-color var(--transition);}
 .entry-input:focus{outline:none;border-color:var(--accent);}
 .entry-input::placeholder{color:var(--text-muted);}
 .entry-date{background:var(--bg-input);border:1px solid var(--border);border-radius:var(--radius-md);color:var(--text-primary);font-family:inherit;font-size:12px;padding:6px 8px;cursor:pointer;}
@@ -569,7 +573,7 @@ input[name="new-lesson-part"]:hover:not(:checked) + .duration-btn {
 #lesson-color-picker,#group-color-picker{display:grid;grid-template-columns:repeat(7,26px);gap:10px 12px;}
 .settings-footer-hint{font-size:12px;color:var(--text-muted);}
 .color-swatch{width:26px;height:26px;border-radius:50%;cursor:pointer;border:2.5px solid transparent;transition:all var(--transition);position:relative;}
-.color-swatch:hover{transform:scale(1.15);}
+@media (hover: hover){.color-swatch:hover{transform:scale(1.15);}}
 .color-swatch.selected{border-color:white !important;box-shadow:0 0 0 2px var(--swatch-color),0 2px 8px rgba(0,0,0,.4);transform:scale(1.12);}
 .color-swatch.selected::after{content:'✓';position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:white;}
 
@@ -588,15 +592,15 @@ input[name="new-lesson-part"]:hover:not(:checked) + .duration-btn {
 .settings-section{margin-top:18px;padding-top:18px;border-top:1px solid var(--border);}
 .settings-section-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;}
 .settings-section h3{font-size:14px;font-weight:600;color:var(--text-secondary);}
-.block-row{display:flex;align-items:center;gap:8px;margin-bottom:7px;}
+.block-row{display:flex;align-items:center;gap:8px;margin-bottom:7px;flex-wrap:wrap;}
 .block-row-label{font-size:12px;font-weight:600;color:var(--text-secondary);width:60px;flex-shrink:0;}
-.block-name-input{flex:1;min-width:0;background:var(--bg-input);border:1px solid var(--border);border-radius:var(--radius-md);color:var(--text-primary);font-family:inherit;font-size:12px;padding:6px 9px;}
+.block-name-input{flex:1 1 140px;min-width:0;background:var(--bg-input);border:1px solid var(--border);border-radius:var(--radius-md);color:var(--text-primary);font-family:inherit;font-size:12px;padding:6px 9px;}
 .block-name-input:focus{outline:none;border-color:var(--accent);}
 .block-time-input{width:105px;background:var(--bg-input);border:1px solid var(--border);border-radius:var(--radius-md);color:var(--text-primary);font-family:inherit;font-size:12px;padding:6px 8px;}
 .block-time-input:focus{outline:none;border-color:var(--accent);}
 .block-sep{font-size:11px;color:var(--text-muted);}
 .block-delete-btn{width:24px;height:24px;border-radius:4px;background:transparent;border:1px solid var(--border);color:var(--text-muted);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:12px;transition:all var(--transition);}
-.block-delete-btn:hover{color:var(--danger);background:var(--danger-soft);}
+@media (hover: hover){.block-delete-btn:hover{color:var(--danger);background:var(--danger-soft);}}
 
 /* ─── Empty state ────────────────────── */
 .empty-state{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:11px;padding:55px 20px;color:var(--text-muted);text-align:center;}
@@ -627,7 +631,7 @@ input[name="new-lesson-part"]:hover:not(:checked) + .duration-btn {
 ::-webkit-scrollbar{width:4px;height:4px;}
 ::-webkit-scrollbar-track{background:transparent;}
 ::-webkit-scrollbar-thumb{background:rgba(255,255,255,0.09);border-radius:99px;}
-::-webkit-scrollbar-thumb:hover{background:rgba(255,255,255,0.18);}
+@media (hover: hover){::-webkit-scrollbar-thumb:hover{background:rgba(255,255,255,0.18);}}
 .hidden{display:none !important;}
 .class-level{display:flex;flex-direction:column;height:100%;}
 select option{background:var(--bg-secondary);}
@@ -670,7 +674,7 @@ select option{background:var(--bg-secondary);}
   /* Notenfarben: die hellen Töne des dunklen Modus hatten auf hellem Grund nur 1,5–2,9:1 Kontrast (BUGS I4) */
   --grade-1:#15803d;--grade-2:#4d7c0f;--grade-3:#b45309;--grade-4:#c2410c;--grade-5:#b91c1c;
   /* Statusfarben (Toasts, Knöpfe, HA/Test-Symbole): die hellen Töne hatten 1,7–3:1, jetzt ≥ 5:1 (BUGS J2) */
-  --success:#166534;--warning:#92400e;--danger:#b91c1c;
+  --success:#166534;--warning:#92400e;--danger:#b91c1c;--hw-note-text:#fff;
 }
 /* Klassenfarben als Text: im hellen Modus zur Hälfte mit Schwarz gemischt, sonst z. B. Gelb auf Salbeigrün 1,4:1.
    Mit 50 % mindestens 4,8:1 für alle 14 Klassenfarben auf allen hellen Hintergründen (BUGS I4). */
@@ -683,10 +687,10 @@ select option{background:var(--bg-secondary);}
 .scroll-chips-container { display: flex; gap: 8px; overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; max-width: 100%; align-items: center; }
 .scroll-chips-container::-webkit-scrollbar { display: none; }
 .filter-chip { padding: 8px 16px; border-radius: 20px; background: var(--bg-elevated); border: 1px solid var(--border); color: var(--text-secondary); font-size: 13px; font-weight: 600; cursor: pointer; white-space: nowrap; transition: all var(--transition); user-select: none; }
-.filter-chip:hover { background: var(--bg-card-hover); color: var(--text-primary); }
+@media (hover: hover){.filter-chip:hover{ background: var(--bg-card-hover); color: var(--text-primary); }}
 .filter-chip.active { background: var(--accent); color: #fff; border-color: var(--accent); box-shadow: var(--shadow-sm); }
 .date-chip { display: flex; flex-direction: column; align-items: center; justify-content: center; width: 34px; height: 34px; border-radius: 99px; background: var(--bg-elevated); border: 1px solid var(--border); color: var(--text-secondary); cursor: pointer; transition: all var(--transition); user-select: none; flex-shrink: 0; }
-.date-chip:hover { background: var(--bg-card-hover); }
+@media (hover: hover){.date-chip:hover{ background: var(--bg-card-hover); }}
 .date-chip.active { width: 40px; height: 40px; background: var(--accent); color: white; border-color: var(--accent); box-shadow: var(--shadow-sm); }
 .date-chip-day { font-size: 10px; text-transform: uppercase; font-weight: 700; opacity: 0.8; margin-bottom: 1px; transition: font-size var(--transition); }
 .date-chip.active .date-chip-day { font-size: 10px; margin-bottom: 1px; }
@@ -721,13 +725,12 @@ select option{background:var(--bg-secondary);}
   position: absolute;
   top: 4px;
   left: 6px;
-  font-size: 9px;
+  font-size: 11px;
   font-weight: 800;
   padding: 1px 5px;
   border-radius: 4px;
   color: white;
-  background: rgba(0, 0, 0, 0.4);
-  backdrop-filter: blur(2px);
+  background: rgba(0, 0, 0, 0.72); /* auch auf hellen Gruppenfarben lesbar, Beamer (BUGS S14) */
   pointer-events: none;
 }
 @keyframes bounce {
@@ -745,7 +748,7 @@ select option{background:var(--bg-secondary);}
 .dash-empty{color:var(--text-muted);font-size:14px;padding:8px 0;}
 .dash-lessons{display:flex;flex-direction:column;gap:8px;}
 .dash-lesson{display:flex;align-items:center;gap:14px;padding:10px 14px;background:var(--bg-elevated);border-left:4px solid var(--lesson-color);border-radius:var(--radius-sm);cursor:pointer;transition:background var(--transition);}
-.dash-lesson:hover{background:var(--bg-card-hover);}
+@media (hover: hover){.dash-lesson:hover{background:var(--bg-card-hover);}}
 .dash-lesson-time{font-weight:700;font-size:15px;min-width:56px;display:flex;flex-direction:column;color:var(--text-primary);}
 .dash-lesson-time small{font-size:11px;font-weight:500;color:var(--text-muted);}
 .dash-lesson-main{flex:1;min-width:0;}
@@ -764,7 +767,7 @@ select option{background:var(--bg-secondary);}
 .dash-lesson.running .dash-lesson-status{color:var(--lesson-color);}
 .dash-lesson.next .dash-lesson-status{color:var(--text-accent);}
 .dash-next{padding:16px 18px;background:var(--bg-elevated);border-radius:var(--radius-md);border-left:4px solid var(--lesson-color);cursor:pointer;}  /* wie .dash-lesson, kein Warnbalken oben (BUGS I5) */
-.dash-next:hover{background:var(--bg-card-hover);}
+@media (hover: hover){.dash-next:hover{background:var(--bg-card-hover);}}
 .dash-next-label{font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.4px;color:var(--text-secondary);margin-bottom:4px;}
 .dash-next-title{font-size:20px;font-weight:800;color:var(--text-primary);margin-bottom:10px;}
 .dash-next-title span{font-size:15px;font-weight:500;color:var(--text-secondary);}
@@ -803,7 +806,8 @@ select option{background:var(--bg-secondary);}
 /* ─── Zähler in der Schülerliste + Erklärung (BUGS H11) ─── */
 .student-counters{display:flex;align-items:center;gap:12px;margin-right:8px;font-size:12px;color:var(--text-muted);}
 .student-counter{background:var(--bg-elevated);padding:4px 8px;border-radius:6px;display:flex;gap:4px;align-items:center;cursor:pointer;transition:background 0.2s;}
-.student-counter:hover,.student-counter:focus-visible{background:var(--bg-card-hover);}
+.student-counter:focus-visible{background:var(--bg-card-hover);}
+@media (hover: hover){.student-counter:hover{background:var(--bg-card-hover);}}
 .student-counter-label{font-size:11px;text-transform:uppercase;letter-spacing:0.5px;opacity:0.7;margin-right:4px;}
 .counter-hint{position:fixed;z-index:1100;min-width:180px;max-width:260px;background:var(--bg-elevated);border:1px solid var(--border);border-radius:var(--radius-md);box-shadow:var(--shadow-md);padding:10px 12px;font-size:13px;color:var(--text-primary);}
 .counter-hint-title{font-weight:700;margin-bottom:4px;}
@@ -934,4 +938,9 @@ button.date-chip{font-family:inherit;padding:0;}
   .tool-play-btn, .tool-widget .btn-icon{width:44px;height:44px;}
   .seating-grid-input{width:44px;height:40px;font-size:16px;}
   .seating-group-item{min-height:44px !important;}
+  .modal-close{width:44px;height:44px;}
+  .seating-reveal-btn, .seating-grade-edit-btn{min-height:44px;min-width:44px;}
 }
+
+/* Zufallsauswahl: die Karten im Sitzplan leuchten mit, also nicht abdunkeln/verwischen (BUGS S11) */
+#modal-seating-randomizer{background:transparent;backdrop-filter:none;-webkit-backdrop-filter:none;align-items:flex-end;padding-bottom:24px;}

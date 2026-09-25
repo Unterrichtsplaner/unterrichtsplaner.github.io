@@ -12,8 +12,9 @@ const DAYS = ['Montag','Dienstag','Mittwoch','Donnerstag','Freitag'];
 const DAY_SHORT = ['Mo','Di','Mi','Do','Fr'];
 
 const APP_COLORS = [
-  '#6366f1','#8b5cf6','#ec4899','#f43f5e',
-  '#ef4444','#f97316','#f59e0b','#eab308','#84cc16',
+  // Rose/Gelb waren kaum von Rot/Bernstein zu unterscheiden (BUGS S15). Alte Stunden behalten ihre Farbe.
+  '#6366f1','#8b5cf6','#ec4899','#d946ef',
+  '#ef4444','#f97316','#f59e0b','#a16207','#84cc16',
   '#22c55e','#14b8a6','#06b6d4','#3b82f6',
   '#64748b'
 ];
@@ -83,6 +84,9 @@ let editingStudentId  = null;
 let editingGroupId    = null;
 let selectedLessonColor = APP_COLORS[0];
 let selectedGroupColor  = APP_COLORS[0];
+// Formularstand beim Öffnen, für „Änderungen verwerfen?“ (BUGS S7); null = nicht gemerkt
+let settingsSnapshot = null;
+let gradeFormSnapshot = null;
 
 // ─── DB ──────────────────────────────────────────────────────────────────
 function loadDB() {
@@ -645,7 +649,7 @@ function buildTimetableCell(d, dayIdx, block, clock = timetableClock()) {
     const running = !isAusfall && dateStr === clock.todayStr && range &&
       range.start <= clock.nowMins && clock.nowMins < range.end;
     const isNext = !running && clock.next && clock.next.slot.id === lesson.id && clock.next.dateStr === dateStr;
-    const badge = running ? `<span class="tt-lesson-badge">läuft noch ${range.end - clock.nowMins} min</span>`
+    const badge = running ? `<span class="tt-lesson-badge" title="läuft noch ${range.end - clock.nowMins} min">noch ${range.end - clock.nowMins} min</span>`
                 : isNext ? `<span class="tt-lesson-badge">als Nächstes</span>` : '';
 
     return `<div class="tt-lesson${isAusfall?' ausfall-lesson':''}${running?' running':''}${isNext?' next':''}"
@@ -1595,6 +1599,9 @@ function renderColorPicker(containerId, colors, onSelect) {
     sw.style.background = color;
     sw.style.setProperty('--swatch-color', color);
     sw.dataset.color = color;
+    sw.setAttribute('role', 'button');
+    sw.tabIndex = 0;
+    sw.setAttribute('aria-label', 'Farbe ' + color);
     sw.onclick = () => {
       container.querySelectorAll('.color-swatch').forEach(s => s.classList.remove('selected'));
       sw.classList.add('selected');
@@ -1966,7 +1973,7 @@ function renderOverviewTable() {
       const avg = formatGradeAverage(rawAvg);
       
       const nameDisplay = escHtml(studentListName(s));
-      html += `<tr><td class="ov-name-col ov-name" onclick="openSeatingStudentModal(${jsArg(s.id)}, ${jsArg(currentOverviewGroupId)}, ${jsArg(formatDate(new Date()))})"><span class="ov-name-text" title="${nameDisplay}">${nameDisplay}</span></td>`;
+      html += `<tr><td class="ov-name-col ov-name" role="button" tabindex="0" onclick="openQuickRatingFromTable(${jsArg(s.id)})"><span class="ov-name-text" title="${nameDisplay}">${nameDisplay}</span></td>`;
       html += `<td style="font-weight:700;color:${gradeColor(rawAvg, scale)};text-align:center;">${avg}</td>`;
       
       gradeEvents.forEach(ev => {
@@ -2014,7 +2021,7 @@ function renderOverviewTable() {
     html += '</tr></thead><tbody>';
 
     sortedStudents.forEach(s => {
-      html += `<tr><td class="ov-name-col ov-name" onclick="openSeatingStudentModal(${jsArg(s.id)}, ${jsArg(currentOverviewGroupId)}, ${jsArg(formatDate(new Date()))})"><span class="ov-name-text" title="${escHtml(studentListName(s))}">${escHtml(studentListName(s))}</span></td>`;
+      html += `<tr><td class="ov-name-col ov-name" role="button" tabindex="0" onclick="openQuickRatingFromTable(${jsArg(s.id)})"><span class="ov-name-text" title="${escHtml(studentListName(s))}">${escHtml(studentListName(s))}</span></td>`;
       
       let pos = 0, neu = 0, neg = 0;
       partDates.forEach(ev => {
@@ -2063,7 +2070,7 @@ function renderOverviewTable() {
     html += '</tr></thead><tbody>';
 
     sortedStudents.forEach(s => {
-      html += `<tr><td class="ov-name-col ov-name" onclick="openSeatingStudentModal(${jsArg(s.id)}, ${jsArg(currentOverviewGroupId)}, ${jsArg(formatDate(new Date()))})"><span class="ov-name-text" title="${escHtml(studentListName(s))}">${escHtml(studentListName(s))}</span></td>`;
+      html += `<tr><td class="ov-name-col ov-name" role="button" tabindex="0" onclick="openQuickRatingFromTable(${jsArg(s.id)})"><span class="ov-name-text" title="${escHtml(studentListName(s))}">${escHtml(studentListName(s))}</span></td>`;
       const totalMissed = (s.attendance||[]).filter(a => a.type === 'abwesend' || a.type === 'entschuldigt').length;
       html += `<td style="text-align:center;font-weight:600;${totalMissed ? '' : 'color:var(--text-muted);'}">${totalMissed}</td>`;
 
@@ -2091,7 +2098,7 @@ function renderOverviewTable() {
     html += '</tr></thead><tbody>';
 
     sortedStudents.forEach(s => {
-      html += `<tr><td class="ov-name-col ov-name" onclick="openSeatingStudentModal(${jsArg(s.id)}, ${jsArg(currentOverviewGroupId)}, ${jsArg(formatDate(new Date()))})"><span class="ov-name-text" title="${escHtml(studentListName(s))}">${escHtml(studentListName(s))}</span></td>`;
+      html += `<tr><td class="ov-name-col ov-name" role="button" tabindex="0" onclick="openQuickRatingFromTable(${jsArg(s.id)})"><span class="ov-name-text" title="${escHtml(studentListName(s))}">${escHtml(studentListName(s))}</span></td>`;
       const totalMissed = (s.homework||[]).length;
       html += `<td style="text-align:center;font-weight:600;color:${totalMissed ? 'var(--danger)' : 'var(--text-muted)'};">${totalMissed}</td>`;
 
@@ -2134,6 +2141,12 @@ function restoreOverviewFocus(content) {
 document.getElementById('overview-content').addEventListener('pointerdown', e => {
   if (e.target.closest('input, button')) overviewFocusTarget = overviewCellPos(e.target);
 }, true);
+
+// Schnellbewertung aus der Tabelle: Datum erst beim Tippen bestimmen – die Tabelle kann über Nacht offen
+// gewesen sein (Regel 24); am Wochenende der nächste Schultag (Regel 17, BUGS S4)
+function openQuickRatingFromTable(studentId) {
+  openSeatingStudentModal(studentId, currentOverviewGroupId, formatDate(nextSchoolDay(new Date())));
+}
 
 // ─── Inline Updates ────────────────────────────────────────────────────────
 // Kürzel in der Anwesenheits-Tabelle (Eingabe und Anzeige)
@@ -2560,6 +2573,9 @@ function resetViewSelection() {
   if (name === 'students') {
     if (exists(currentGroupId)) openGroupStudents(currentGroupId, currentClassDashboardTab);
     else goBackToSubjects();
+  } else if (name === 'seating' && exists(currentSeatingGroupId)) {
+    // Nur neu zeichnen: initSeatingPlan schlüge wieder die Klasse der laufenden Stunde vor (BUGS S2, E1)
+    renderSeatingGroupSelect(); renderSeatingDateStrip(); renderSeatingPlan();
   } else if (name) {
     switchView(name);
   }
@@ -3320,6 +3336,7 @@ function fillSettingsForm() {
   document.getElementById('app-version-label').textContent = v ? `Version ${v}` : '';
   blocksDraft = getBlocks().map(b => ({ ...b }));
   renderBlocksEditor();
+  settingsSnapshot = settingsFormState(); // Vergleich für „Änderungen verwerfen?“ (BUGS S7)
 }
 
 // Versionsnummer aus index.html (app.js?v=N, gesetzt von npm run bump), für Rückfragen bei Problemen (BUGS I22)
@@ -3334,8 +3351,8 @@ function applyThemePreview() {
   document.documentElement.setAttribute('data-theme', currentThemeMode);
 
   const accent = document.querySelector('.settings-swatch-accent.selected') ? currentThemeAccent : (db.settings.themeAccent || '#6366f1');
-  const bg = document.querySelector('.settings-swatch-bg.selected') ? currentThemeBg : (db.settings.themeBg || null);
-  const card = document.querySelector('.settings-swatch-bg.selected') ? currentThemeCard : (db.settings.themeCard || null);
+  const bg = document.querySelector('.settings-swatch-bg.selected') ? currentThemeBg : savedThemeBg();
+  const card = bg ? (document.querySelector('.settings-swatch-bg.selected') ? currentThemeCard : (db.settings.themeCard || null)) : null;
   let rad = radEl ? parseInt(radEl.value) : db.settings.themeRadius;
   if (rad > 12) rad = 12; // Clamp max radius to 12
 
@@ -3469,8 +3486,9 @@ function saveSettings() {
   db.settings.warnGrade    = parseWarnThreshold('settings-warn-grade', 4.5);
   db.settings.warnPoints   = parseWarnThreshold('settings-warn-points', 5);
   db.settings.theme       = currentThemeMode;
-  db.settings.themeBg     = currentThemeBg;
-  db.settings.themeCard   = currentThemeCard;
+  // Nur eine wirklich gewählte Farbe speichern; Standard = nichts gespeichert (BUGS S6)
+  if (currentThemeBg) { db.settings.themeBg = currentThemeBg; db.settings.themeCard = currentThemeCard; }
+  else { delete db.settings.themeBg; delete db.settings.themeCard; }
   db.settings.themeAccent = currentThemeAccent;
   db.settings.themeRadius = parseInt(document.getElementById('settings-radius').value);
   db.settings.studentSortOrder = document.getElementById('settings-sort-order').value;
@@ -3585,6 +3603,7 @@ let seatingRequest = null;      // { groupId, dateStr } aus openSeatingForGroup,
 let seatingDateChosenOn = '';   // an welchem Tag currentSeatingDateStr gesetzt wurde (BUGS E2)
 
 function setSeatingDate(dateStr, now = new Date()) {
+  if (dateStr !== currentSeatingDateStr) hideSeatingGrades(); // anderer Tag: Noten wieder verbergen (BUGS S1)
   currentSeatingDateStr = dateStr;
   seatingDateChosenOn = formatDate(now);
 }
@@ -3603,43 +3622,19 @@ function refreshSeatingDateIfStale() {
 setInterval(refreshSeatingDateIfStale, 60000);
 document.addEventListener('visibilitychange', refreshSeatingDateIfStale);
 
+// Klasse der laufenden (bzw. gleich beginnenden) Stunde. Über lessonsOnDate, damit halbe Blöcke ihre eigene Zeit
+// haben und ausfallende Stunden nicht vorgeschlagen werden (BUGS S3).
 function getSuggestedSeatingGroupId() {
   const now = new Date();
-  const dayIdx = (now.getDay() + 6) % 7; // Mon=0, Sun=6
-  if (dayIdx > 4) return null; // Weekend
-  
-  const h = now.getHours();
-  const m = now.getMinutes();
-  const currentTotalMins = h * 60 + m;
-  
-  const blocks = getBlocks();
-  const dateStr = formatDate(now);
-  
-  let activeBlockNum = null;
-  for (let b of blocks) {
-    if (!b.start || !b.end) continue;
-    const [sh, sm] = b.start.split(':').map(Number);
-    const [eh, em] = b.end.split(':').map(Number);
-    const startMins = sh * 60 + sm;
-    const endMins = eh * 60 + em;
-    
-    const buffer = db.settings.seatingBufferMins !== undefined ? db.settings.seatingBufferMins : 5;
-    
-    // Check if current time is within [startMins - buffer, endMins]
-    if (currentTotalMins >= startMins - buffer && currentTotalMins <= endMins) {
-      activeBlockNum = b.num;
-      break;
-    }
-  }
-  
-  if (activeBlockNum === null) return null;
-  
-  const activeSlot = lessonsAt(dateStr, activeBlockNum)[0];
-  
-  if (activeSlot && activeSlot.groupId) {
-    return activeSlot.groupId;
-  }
-  return null;
+  const nowMins = now.getHours() * 60 + now.getMinutes();
+  const buffer = db.settings.seatingBufferMins !== undefined ? db.settings.seatingBufferMins : 5;
+  const candidates = lessonsOnDate(formatDate(now)).filter(l => l.slot.groupId && !l.ausfall && l.range
+    && nowMins >= l.range.start - buffer && nowMins <= l.range.end);
+  const running = candidates.find(l => l.range.start <= nowMins && nowMins < l.range.end);
+  // Läuft gerade eine und beginnt gleich die nächste (Vorlauf), gewinnt die nächste – wie bisher bei Blöcken
+  const upcoming = candidates.find(l => l.range.start > nowMins);
+  const hit = upcoming || running;
+  return hit ? hit.slot.groupId : null;
 }
 
 function initSeatingPlan() {
@@ -3730,6 +3725,8 @@ function renderSeatingGroupSelect() {
       
       item.onclick = (e) => {
         e.stopPropagation();
+        // Andere Klasse: deren Noten nicht gleich auf dem Beamer zeigen (Regel 16, BUGS S1)
+        if (g.id !== currentSeatingGroupId) hideSeatingGrades();
         currentSeatingGroupId = g.id;
         menu.classList.add('hidden');
         renderSeatingGroupSelect();
@@ -3805,6 +3802,11 @@ function onHiddenDateChange(val) {
 
 // BUGS H1: Notenschnitt auf den Karten nur auf Knopfdruck (Tablet am Pult / Beamer)
 let seatingShowGrades = false;
+function hideSeatingGrades() {
+  if (!seatingShowGrades) return;
+  seatingShowGrades = false;
+  updateSeatingGradesButton();
+}
 function toggleSeatingGrades() {
   seatingShowGrades = !seatingShowGrades;
   updateSeatingGradesButton();
@@ -3826,11 +3828,13 @@ function toggleSeatingEditMode() {
   const btn = document.getElementById('btn-seating-edit');
   if (seatingEditMode) {
     btn.innerHTML = '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="pointer-events:none;"><polyline points="20 6 9 17 4 12"></polyline></svg>';
+    btn.setAttribute('aria-pressed', 'true');
     btn.style.background = 'var(--success, #10b981)';
     btn.style.color = 'white';
     btn.style.border = 'none';
   } else {
     btn.innerHTML = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="pointer-events:none;"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>';
+    btn.setAttribute('aria-pressed', 'false');
     btn.style.background = '';
     btn.style.color = '';
     btn.style.border = '';
@@ -4050,6 +4054,10 @@ function renderSeatingPlan() {
       card.classList.add('forgot-hw');
     }
     card.dataset.id = s.id;
+    // Für Tastatur und VoiceOver ein Knopf mit Namen (BUGS S12); Enter/Leertaste: siehe keydown unten
+    card.setAttribute('role', 'button');
+    card.tabIndex = 0;
+    card.setAttribute('aria-label', [s.firstName, s.lastName].filter(Boolean).join(' '));
     
     const gx = seat.x, gy = seat.y;
 
@@ -4179,7 +4187,7 @@ function startSeatingRandomizer() {
   const nameEl = document.getElementById('random-student-name');
   
   nameEl.textContent = 'Auswahl läuft...';
-  modal.classList.remove('hidden');
+  openModal('modal-seating-randomizer'); // Fokus-Übergabe und -Rückgabe (Regel 46, BUGS S11)
   seatingRandomizerRunning = true;
 
   document.querySelectorAll('.seating-card').forEach(card => {
@@ -4689,7 +4697,7 @@ function renderSeatingStudentGrades(show) {
     gradesContainer.innerHTML = `
       <div style="display:flex; justify-content:space-between; align-items:center; font-size:12px; color:var(--text-muted); padding:8px 12px; background:var(--bg-secondary); border-radius:8px;">
         <span>${s.grades.length === 1 ? '1 Note' : s.grades.length + ' Noten'} – verborgen</span>
-        <button class="btn-secondary" style="padding:4px 10px; font-size:12px;" onclick="revealSeatingStudentGrades()">Anzeigen</button>
+        <button class="btn-secondary seating-reveal-btn" style="padding:4px 10px; font-size:12px;" onclick="revealSeatingStudentGrades()">Anzeigen</button>
       </div>`;
     return;
   }
@@ -4706,7 +4714,7 @@ function renderSeatingStudentGrades(show) {
       </div>
       <div style="display:flex; align-items:center; gap:12px;">
         <div style="font-weight:800; font-size:15px; color:${valColor}">${escHtml(gradeText(g.value))}</div>
-        <button class="btn-icon" style="padding:4px;" aria-label="Note bearbeiten">
+        <button class="btn-icon seating-grade-edit-btn" style="padding:4px;" aria-label="Note bearbeiten">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
         </button>
       </div>
@@ -4772,9 +4780,18 @@ function openGradeForm(studentId, groupId, gradeIdx, defaultDateStr = '', defaul
     document.getElementById('gf-label').value = defaultLabel || '';
     btnDelete.style.display = 'none';
   }
+  gradeFormSnapshot = gradeFormState(); // Vergleich für „Verwerfen?“ (BUGS S7)
   openModal('modal-grade-form');
 }
 
+// Abbrechen, ✕, Escape, daneben tippen: eine eingetippte Note nicht still verwerfen (Regel 27, BUGS S7)
+function cancelGradeForm() {
+  if (gradeFormSnapshot !== null && gradeFormState() !== gradeFormSnapshot && !confirm('Die Note ist noch nicht gespeichert.\n\nVerwerfen?')) return;
+  closeGradeForm();
+}
+function gradeFormState() {
+  return ['gf-type', 'gf-value', 'gf-date', 'gf-label'].map(id => document.getElementById(id).value).join('\u0000');
+}
 function closeGradeForm() {
   closeModal('modal-grade-form');
   // Kontext sofort vergessen: closeGradeForm wird auch aufgerufen, wenn das Formular gar nicht offen ist
@@ -4974,6 +4991,8 @@ function closeModal(id) {
   if (wasOpen && back && back.isConnected && (m.contains(document.activeElement) || document.activeElement === document.body)) {
     try { back.focus({ preventScroll: true }); } catch (e) { /* Element nicht fokussierbar */ }
   }
+  if (id === 'modal-settings') settingsSnapshot = null;   // gemerkter Stand gilt nur für dieses Öffnen (S7)
+  if (id === 'modal-grade-form') gradeFormSnapshot = null;
   if (wasOpen) syncAfterModalsClosed(); // Cloud-Stand, der auf das Schließen gewartet hat (BUGS P1)
 }
 // Fenster als Dialog auszeichnen (Rolle, Titel) – für Screenreader (BUGS O8)
@@ -5137,7 +5156,7 @@ function parseGradeInput(input, scale = GRADE_SCALES['1-6']) {
 // Escape und Tippen daneben schließen ein Fenster so wie sein eigener Schließen-Knopf (BUGS G7, G13).
 const MODAL_CLOSE_ACTIONS = {
   'modal-lesson': () => saveLessonDataAndClose(),   // wie „Schließen“: Notizen nicht verwerfen
-  'modal-grade-form': () => closeGradeForm(),
+  'modal-grade-form': () => cancelGradeForm(),
   'modal-sync-conflict': null,                       // Entscheidung nötig, nicht wegdrückbar
   'modal-choice': () => answerChoice(null),          // Wegdrücken = Abbrechen
   'modal-settings': () => cancelSettings(),          // Farbvorschau nicht stehen lassen (BUGS O2)
@@ -5153,6 +5172,16 @@ function closeTopModal() {
   const top = open[open.length - 1];
   if (top) closeModalLikeButton(top.id);
 }
+
+// Elemente mit role="button", die kein <button> sind (Sitzplan-Karten, Farbfelder, Namen in Tabellen):
+// Enter und Leertaste lösen sie aus wie ein Tipp (BUGS S12)
+document.addEventListener('keydown', e => {
+  if (e.key !== 'Enter' && e.key !== ' ') return;
+  const el = e.target;
+  if (!el || !el.getAttribute || el.getAttribute('role') !== 'button' || el.tagName === 'BUTTON') return;
+  e.preventDefault();
+  el.click();
+});
 
 document.addEventListener('keydown', e => {
   if (e.key === 'Escape') closeTopModal();
@@ -5608,6 +5637,7 @@ window.jumpToStudentDetailFromSeating = function() {
   if (!window.currentSeatingStudent) return;
   const { studentId, groupId } = window.currentSeatingStudent;
   closeModal('modal-seating-student');
+  leaveLessonModal(); // Eingetipptes übernehmen, Stunden-Fenster nicht darunter liegen lassen (Regel 35, BUGS S5)
   // Aus der Klassenansicht derselben Klasse: dort bleiben, sonst sprang sie auf den Reiter „Schüler“ (BUGS I10)
   const inClassView = document.getElementById('view-students').classList.contains('active') && currentGroupId === groupId;
   if (!inClassView) {
@@ -5692,9 +5722,11 @@ function timerTick() {
   }
 }
 
+let timerRemainingMs = null; // beim Pausieren: genaue Restzeit, sonst rundete jede Pause auf (BUGS S10)
 function toggleTimer() {
   if (timerIsRunning) {
     timerTick();
+    timerRemainingMs = Math.max(0, timerEndsAt - Date.now());
     clearInterval(timerInterval);
     timerIsRunning = false;
     setPlayButton('btn-timer-toggle', false, 'Timer');
@@ -5702,7 +5734,10 @@ function toggleTimer() {
     if (timerSeconds <= 0) { showToast('Bitte zuerst eine Zeit einstellen (+/−)', 'error'); return; }
     unlockTimerSound();
     timerIsRunning = true;
-    timerEndsAt = Date.now() + timerSeconds * 1000;
+    // Nach +/− gilt die neue Anzeige, sonst die genaue Restzeit der Pause
+    const ms = timerRemainingMs !== null && Math.ceil(timerRemainingMs / 1000) === timerSeconds ? timerRemainingMs : timerSeconds * 1000;
+    timerRemainingMs = null;
+    timerEndsAt = Date.now() + ms;
     setPlayButton('btn-timer-toggle', true, 'Timer');
     timerInterval = setInterval(timerTick, 250);
   }
@@ -6394,14 +6429,20 @@ async function resolveConflict(decision) {
 function loadThemeSelection() {
   currentThemeAccent = db.settings.themeAccent || '#6366f1';
   document.querySelectorAll('.settings-swatch-accent').forEach(s => s.classList.toggle('selected', s.dataset.color === currentThemeAccent));
-  currentThemeBg   = db.settings.themeBg || '#0f1117';
+  currentThemeBg   = savedThemeBg();
   currentThemeMode = db.settings.theme || 'dark';
-  currentThemeCard = db.settings.themeCard || '#1e2130';
+  currentThemeCard = currentThemeBg ? (db.settings.themeCard || '') : '';
   document.querySelectorAll('.settings-swatch-bg').forEach(s => s.classList.toggle('selected', s.dataset.color === currentThemeBg));
   let radVal = Number.isFinite(db.settings.themeRadius) ? db.settings.themeRadius : 8;
   if (radVal > 12) radVal = 12; // Clamp max radius to 12
   document.getElementById('settings-radius').value = radVal;
   document.getElementById('settings-radius-val').textContent = radVal + 'px';
+}
+// Gespeicherter Hintergrund, '' = Standard. '#0f1117' gibt es als Farbfeld nicht: Den hat früher jedes
+// „Speichern“ ohne Farbwahl geschrieben (samt Karte '#1e2130'), er bedeutet also „Standard“ (BUGS S6).
+function savedThemeBg() {
+  const bg = db.settings.themeBg || '';
+  return bg === '#0f1117' ? '' : bg;
 }
 // Hilfsfunktion zum Aktualisieren des Themes aus den Einstellungen in der DB
 function updateAppliedThemeFromDB() {
@@ -6410,10 +6451,19 @@ function updateAppliedThemeFromDB() {
     applyThemePreview();
   }
 }
-// Einstellungen schließen ohne Speichern: Farb-/Radius-Vorschau verwerfen (BUGS O2)
+// Einstellungen schließen ohne Speichern: Farb-/Radius-Vorschau verwerfen (BUGS O2). Sind Felder geändert,
+// vorher fragen – Escape oder ein Tipp daneben darf nichts still verwerfen (Regel 27, BUGS S7).
 function cancelSettings() {
+  if (settingsSnapshot !== null && settingsFormState() !== settingsSnapshot && !confirm('Deine Änderungen in den Einstellungen sind noch nicht gespeichert.\n\nVerwerfen?')) return;
   closeModal('modal-settings');
   updateAppliedThemeFromDB();
+}
+function settingsFormState() {
+  readBlocksEditor();
+  const fields = [...document.querySelectorAll('#modal-settings input, #modal-settings select')]
+    .filter(el => el.id && !el.id.startsWith('sync-') && el.type !== 'file')
+    .map(el => el.id + '=' + (el.type === 'checkbox' ? el.checked : el.value));
+  return JSON.stringify([fields, blocksDraft, currentThemeBg, currentThemeAccent, currentThemeMode]);
 }
 
 // Starte Sync-Initialisierung beim Laden

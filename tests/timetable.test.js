@@ -444,7 +444,7 @@ describe('H4: Stundenplan-Kacheln', () => {
     app('renderTimetable()');
     const running = lessonEl('slotW1', '2026-09-09');
     expect(running.classList.contains('running')).toBe(true);
-    expect(running.textContent).toContain('läuft noch 23 min');
+    expect(running.textContent).toContain('noch 23 min');
     expect(lessonEl('slotAB', '2026-09-09').classList.contains('next')).toBe(true);
     expect(grid().querySelectorAll('.tt-lesson.next').length).toBe(1);
   });
@@ -475,9 +475,9 @@ describe('H4: Stundenplan-Kacheln', () => {
     vi.setSystemTime(new Date(2026, 9, 5, 8, 52)); // Mo 05.10.2026, 1. Block
     app('switchView("timetable")');
     app('jumpToDate("2026-10-05")');
-    expect(lessonEl('slotA', '2026-10-05').textContent).toContain('läuft noch 23 min');
+    expect(lessonEl('slotA', '2026-10-05').textContent).toContain('noch 23 min');
     vi.setSystemTime(new Date(2026, 9, 5, 8, 53));
     app('refreshTimetableClock()');
-    expect(lessonEl('slotA', '2026-10-05').textContent).toContain('läuft noch 22 min');
+    expect(lessonEl('slotA', '2026-10-05').textContent).toContain('noch 22 min');
   });
 });

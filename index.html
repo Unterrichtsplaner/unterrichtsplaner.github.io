@@ -38,7 +38,7 @@
       }
     } catch(e) {}
   </script>
-  <link rel="stylesheet" href="style.css?v=227" />
+  <link rel="stylesheet" href="style.css?v=229" />
   <script>
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
@@ -177,8 +177,8 @@
           <div class="header-actions">
             <button id="btn-add-overview-col" class="btn-primary hidden" onclick="openAddColumnModal()" aria-label="Neue Spalte">+<span class="btn-label"> Neue Spalte</span></button>
             <button class="btn-secondary btn-seating" onclick="openSeatingForGroup(currentGroupId)" aria-label="Zum Sitzplan"><i data-icon="seating"></i><span class="btn-label">Zum Sitzplan</span></button>
-            <button id="btn-student-actions" class="btn-icon" title="Aktionen" aria-label="Aktionen" onclick="openStudentActionsModal()">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+            <button id="btn-student-actions" class="btn-icon" title="Schüler hinzufügen, importieren …" aria-label="Schüler hinzufügen, importieren und mehr" onclick="openStudentActionsModal()">
+              <i data-icon="list"></i>
             </button>
           </div>
         </div>
@@ -248,7 +248,7 @@
             <svg class="eye-open" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="pointer-events:none; display:none;"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
           </button>
           <!-- Bearbeiten -->
-          <button id="btn-seating-edit" class="btn-icon seating-tool-btn" onclick="toggleSeatingEditMode()" title="Sitzplan bearbeiten">
+          <button id="btn-seating-edit" class="btn-icon seating-tool-btn" onclick="toggleSeatingEditMode()" title="Sitzplan bearbeiten" aria-label="Sitzplan bearbeiten" aria-pressed="false">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="pointer-events:none;"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
           </button>
         </div>
@@ -273,7 +273,7 @@
            <button class="btn-icon tool-play-btn" onclick="toggleTimer()" id="btn-timer-toggle" aria-label="Timer starten">
              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="margin-left:2px;"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
            </button>
-           <button class="btn-icon" onclick="resetTimer()" title="Zurücksetzen">
+           <button class="btn-icon" onclick="resetTimer()" title="Zurücksetzen" aria-label="Timer zurücksetzen">
              <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><rect x="5" y="5" width="14" height="14" rx="2"></rect></svg>
            </button>
         </div>
@@ -284,7 +284,7 @@
            <button class="btn-icon tool-play-btn" onclick="toggleStopwatch()" id="btn-stopwatch-toggle" aria-label="Stoppuhr starten">
              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="margin-left:2px;"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
            </button>
-           <button class="btn-icon" onclick="resetStopwatch()" title="Zurücksetzen">
+           <button class="btn-icon" onclick="resetStopwatch()" title="Zurücksetzen" aria-label="Stoppuhr zurücksetzen">
              <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><rect x="5" y="5" width="14" height="14" rx="2"></rect></svg>
            </button>
         </div>
@@ -536,7 +536,7 @@
   <div class="modal modal-small" onclick="event.stopPropagation()">
     <div class="modal-header">
       <h2 id="grade-form-title">Note eintragen</h2>
-      <button class="modal-close" aria-label="Schließen" onclick="closeGradeForm()">✕</button>
+      <button class="modal-close" aria-label="Schließen" onclick="cancelGradeForm()">✕</button>
     </div>
     <div class="modal-body">
       <div class="form-group">
@@ -567,7 +567,7 @@
     <div class="modal-footer" style="display:flex; justify-content:space-between; align-items:center;">
       <button id="gf-btn-delete" class="btn-secondary" style="color:var(--danger); border-color:var(--danger-soft);" onclick="deleteGradeFromForm()">Löschen</button>
       <div>
-        <button class="btn-secondary" onclick="closeGradeForm()">Abbrechen</button>
+        <button class="btn-secondary" onclick="cancelGradeForm()">Abbrechen</button>
         <button class="btn-primary" onclick="saveGradeFromForm()">Speichern</button>
       </div>
     </div>
@@ -797,7 +797,7 @@
       <button class="btn-icon btn-danger-icon" title="Schüler löschen" onclick="deleteCurrentStudent()" style="width: auto; padding: 0 12px; border: 1px solid var(--danger);">
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right:6px;"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/></svg> Schüler löschen
       </button>
-      <div style="display:flex; gap:8px;">
+      <div style="display:flex; gap:8px; margin-left:auto;">
         <button class="btn-secondary" onclick="openEditStudent()">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right:4px;"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg> Bearbeiten
         </button>
@@ -852,30 +852,31 @@
         <div class="form-group">
           <label>Hintergrundfarbe</label>
           <div style="display:flex; gap:10px; flex-wrap:wrap; margin-bottom:12px;" id="settings-bg-colors">
+            <div class="color-swatch settings-swatch-bg" role="button" tabindex="0" style="background:#0f1117; --swatch-color:#6b7280;" data-color="" data-mode="dark" data-card="" title="Standard (dunkel)" onclick="selectThemeBg(this, '', 'dark', '')"></div>
             <!-- Light Backgrounds -->
-            <div class="color-swatch settings-swatch-bg" style="background:#fbcfe8; --swatch-color:#f9a8d4;" data-color="#fbcfe8" data-mode="light" data-card="#fce7f3" title="Pastellrosa" onclick="selectThemeBg(this, '#fbcfe8', 'light', '#fce7f3')"></div>
-            <div class="color-swatch settings-swatch-bg" style="background:#fae8b4; --swatch-color:#fcd34d;" data-color="#fae8b4" data-mode="light" data-card="#fdf4d8" title="Creme" onclick="selectThemeBg(this, '#fae8b4', 'light', '#fdf4d8')"></div>
-            <div class="color-swatch settings-swatch-bg" style="background:#c2d6c6; --swatch-color:#9eb8a4;" data-color="#c2d6c6" data-mode="light" data-card="#dbe7dd" title="Salbeigrün" onclick="selectThemeBg(this, '#c2d6c6', 'light', '#dbe7dd')"></div>
-            <div class="color-swatch settings-swatch-bg" style="background:#bfdbfe; --swatch-color:#93c5fd;" data-color="#bfdbfe" data-mode="light" data-card="#dbeafe" title="Eisblau" onclick="selectThemeBg(this, '#bfdbfe', 'light', '#dbeafe')"></div>
-            <div class="color-swatch settings-swatch-bg" style="background:#ddd6fe; --swatch-color:#c4b5fd;" data-color="#ddd6fe" data-mode="light" data-card="#ede9fe" title="Lavendel" onclick="selectThemeBg(this, '#ddd6fe', 'light', '#ede9fe')"></div>
+            <div class="color-swatch settings-swatch-bg" role="button" tabindex="0" style="background:#fbcfe8; --swatch-color:#f9a8d4;" data-color="#fbcfe8" data-mode="light" data-card="#fce7f3" title="Pastellrosa" onclick="selectThemeBg(this, '#fbcfe8', 'light', '#fce7f3')"></div>
+            <div class="color-swatch settings-swatch-bg" role="button" tabindex="0" style="background:#fae8b4; --swatch-color:#fcd34d;" data-color="#fae8b4" data-mode="light" data-card="#fdf4d8" title="Creme" onclick="selectThemeBg(this, '#fae8b4', 'light', '#fdf4d8')"></div>
+            <div class="color-swatch settings-swatch-bg" role="button" tabindex="0" style="background:#c2d6c6; --swatch-color:#9eb8a4;" data-color="#c2d6c6" data-mode="light" data-card="#dbe7dd" title="Salbeigrün" onclick="selectThemeBg(this, '#c2d6c6', 'light', '#dbe7dd')"></div>
+            <div class="color-swatch settings-swatch-bg" role="button" tabindex="0" style="background:#bfdbfe; --swatch-color:#93c5fd;" data-color="#bfdbfe" data-mode="light" data-card="#dbeafe" title="Eisblau" onclick="selectThemeBg(this, '#bfdbfe', 'light', '#dbeafe')"></div>
+            <div class="color-swatch settings-swatch-bg" role="button" tabindex="0" style="background:#ddd6fe; --swatch-color:#c4b5fd;" data-color="#ddd6fe" data-mode="light" data-card="#ede9fe" title="Lavendel" onclick="selectThemeBg(this, '#ddd6fe', 'light', '#ede9fe')"></div>
             <!-- Dark / Mid Backgrounds -->
-            <div class="color-swatch settings-swatch-bg" style="background:#1f2937; --swatch-color:#6b7280;" data-color="#1f2937" data-mode="dark" data-card="#374151" title="Schiefer" onclick="selectThemeBg(this, '#1f2937', 'dark', '#374151')"></div>
-            <div class="color-swatch settings-swatch-bg" style="background:#18181b; --swatch-color:#71717a;" data-color="#18181b" data-mode="dark" data-card="#27272a" title="Dämmerung" onclick="selectThemeBg(this, '#18181b', 'dark', '#27272a')"></div>
-            <div class="color-swatch settings-swatch-bg" style="background:#0f172a; --swatch-color:#475569;" data-color="#0f172a" data-mode="dark" data-card="#1e293b" title="Tiefsee" onclick="selectThemeBg(this, '#0f172a', 'dark', '#1e293b')"></div>
+            <div class="color-swatch settings-swatch-bg" role="button" tabindex="0" style="background:#1f2937; --swatch-color:#6b7280;" data-color="#1f2937" data-mode="dark" data-card="#374151" title="Schiefer" onclick="selectThemeBg(this, '#1f2937', 'dark', '#374151')"></div>
+            <div class="color-swatch settings-swatch-bg" role="button" tabindex="0" style="background:#18181b; --swatch-color:#71717a;" data-color="#18181b" data-mode="dark" data-card="#27272a" title="Dämmerung" onclick="selectThemeBg(this, '#18181b', 'dark', '#27272a')"></div>
+            <div class="color-swatch settings-swatch-bg" role="button" tabindex="0" style="background:#0f172a; --swatch-color:#475569;" data-color="#0f172a" data-mode="dark" data-card="#1e293b" title="Tiefsee" onclick="selectThemeBg(this, '#0f172a', 'dark', '#1e293b')"></div>
           </div>
         </div>
         <div class="form-group">
           <label>Akzentfarbe</label>
           <div style="display:flex; gap:10px; flex-wrap:wrap; margin-bottom:12px;" id="settings-accent-colors">
-            <div class="color-swatch settings-swatch-accent" style="background:#6366f1; --swatch-color:#6366f1;" data-color="#6366f1" title="Indigo (Standard)" onclick="selectThemeAccent(this, '#6366f1')"></div>
-            <div class="color-swatch settings-swatch-accent" style="background:#be123c; --swatch-color:#be123c;" data-color="#be123c" title="Dusty Rose" onclick="selectThemeAccent(this, '#be123c')"></div>
-            <div class="color-swatch settings-swatch-accent" style="background:#fb7185; --swatch-color:#fb7185;" data-color="#fb7185" title="Soft Coral" onclick="selectThemeAccent(this, '#fb7185')"></div>
-            <div class="color-swatch settings-swatch-accent" style="background:#fb923c; --swatch-color:#fb923c;" data-color="#fb923c" title="Pfirsich" onclick="selectThemeAccent(this, '#fb923c')"></div>
-            <div class="color-swatch settings-swatch-accent" style="background:#eab308; --swatch-color:#eab308;" data-color="#eab308" title="Sonnengelb" onclick="selectThemeAccent(this, '#eab308')"></div>
-            <div class="color-swatch settings-swatch-accent" style="background:#4ade80; --swatch-color:#4ade80;" data-color="#4ade80" title="Mint Grün" onclick="selectThemeAccent(this, '#4ade80')"></div>
-            <div class="color-swatch settings-swatch-accent" style="background:#38bdf8; --swatch-color:#38bdf8;" data-color="#38bdf8" title="Himmelblau" onclick="selectThemeAccent(this, '#38bdf8')"></div>
-            <div class="color-swatch settings-swatch-accent" style="background:#818cf8; --swatch-color:#818cf8;" data-color="#818cf8" title="Periwinkle" onclick="selectThemeAccent(this, '#818cf8')"></div>
-            <div class="color-swatch settings-swatch-accent" style="background:#f472b6; --swatch-color:#f472b6;" data-color="#f472b6" title="Blush Pink" onclick="selectThemeAccent(this, '#f472b6')"></div>
+            <div class="color-swatch settings-swatch-accent" role="button" tabindex="0" style="background:#6366f1; --swatch-color:#6366f1;" data-color="#6366f1" title="Indigo (Standard)" onclick="selectThemeAccent(this, '#6366f1')"></div>
+            <div class="color-swatch settings-swatch-accent" role="button" tabindex="0" style="background:#be123c; --swatch-color:#be123c;" data-color="#be123c" title="Dusty Rose" onclick="selectThemeAccent(this, '#be123c')"></div>
+            <div class="color-swatch settings-swatch-accent" role="button" tabindex="0" style="background:#fb7185; --swatch-color:#fb7185;" data-color="#fb7185" title="Soft Coral" onclick="selectThemeAccent(this, '#fb7185')"></div>
+            <div class="color-swatch settings-swatch-accent" role="button" tabindex="0" style="background:#fb923c; --swatch-color:#fb923c;" data-color="#fb923c" title="Pfirsich" onclick="selectThemeAccent(this, '#fb923c')"></div>
+            <div class="color-swatch settings-swatch-accent" role="button" tabindex="0" style="background:#eab308; --swatch-color:#eab308;" data-color="#eab308" title="Sonnengelb" onclick="selectThemeAccent(this, '#eab308')"></div>
+            <div class="color-swatch settings-swatch-accent" role="button" tabindex="0" style="background:#4ade80; --swatch-color:#4ade80;" data-color="#4ade80" title="Mint Grün" onclick="selectThemeAccent(this, '#4ade80')"></div>
+            <div class="color-swatch settings-swatch-accent" role="button" tabindex="0" style="background:#38bdf8; --swatch-color:#38bdf8;" data-color="#38bdf8" title="Himmelblau" onclick="selectThemeAccent(this, '#38bdf8')"></div>
+            <div class="color-swatch settings-swatch-accent" role="button" tabindex="0" style="background:#818cf8; --swatch-color:#818cf8;" data-color="#818cf8" title="Periwinkle" onclick="selectThemeAccent(this, '#818cf8')"></div>
+            <div class="color-swatch settings-swatch-accent" role="button" tabindex="0" style="background:#f472b6; --swatch-color:#f472b6;" data-color="#f472b6" title="Blush Pink" onclick="selectThemeAccent(this, '#f472b6')"></div>
           </div>
         </div>
         <div class="form-group">
@@ -1012,7 +1013,7 @@
 
       <div class="settings-section">
         <h3>Open Source & Mitmachen</h3>
-        <p style="font-size:12px;color:var(--text-muted);margin:6px 0 12px">Der Unterrichtsplaner ist quelloffen! Du kannst die Applikation frei anpassen, neue Funktionen wie "Sportzeug vergessen" hinzufügen oder das Layout ändern.</p>
+        <p style="font-size:12px;color:var(--text-muted);margin:6px 0 12px">Der Unterrichtsplaner ist quelloffen! Du kannst die Applikation frei anpassen, neue Funktionen wie „Sportzeug vergessen“ hinzufügen oder das Layout ändern.</p>
         <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:8px;">
           <a href="https://github.com/Unterrichtsplaner/unterrichtsplaner.github.io" target="_blank" class="btn-secondary" style="text-decoration:none; display:inline-flex; align-items:center;"><i data-icon="code"></i>Quellcode auf GitHub ansehen</a>
         </div>
@@ -1187,12 +1188,12 @@
   </div>
 
   <script src="lib/crypto-js.min.js"></script>
-  <script src="crypto-helper.js?v=227"></script>
+  <script src="crypto-helper.js?v=229"></script>
   <script src="lib/firebase-app-compat.js"></script>
   <script src="lib/firebase-auth-compat.js"></script>
   <script src="lib/firebase-firestore-compat.js"></script>
-  <script src="firebase-config.js?v=227"></script>
-  <script src="sync-manager.js?v=227"></script>
-  <script src="app.js?v=227"></script>
+  <script src="firebase-config.js?v=229"></script>
+  <script src="sync-manager.js?v=229"></script>
+  <script src="app.js?v=229"></script>
 </body>
 </html>

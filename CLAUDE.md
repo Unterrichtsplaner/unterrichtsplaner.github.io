@@ -144,6 +144,8 @@ Datumswerte sind Strings `YYYY-MM-DD` in **lokaler** Zeit (`formatDate()`). Nie 
 51. **Tabellen der Klassenansicht werden bei jeder Eingabe neu gezeichnet.** Wohin der Fokus danach soll, merkt sich `overviewFocusTarget` (Antippen, Tab); Enter/Tab, die per `change` übernehmen, setzen `overviewCommittedInput`. Neue Eingabe-Reiter nutzen dieselben Wege, sonst geht auf dem iPad nach jeder Zelle die Tastatur zu (Q3).
 52. **Fällig ist eine HA nur in der ersten Stunde des Tages, die stattfindet** (`getIncomingItems`). Wer HA/Tests zählt oder anzeigt, geht über `getIncomingItems`/`dueItemsFor`, nie selbst über `targetDate`.
 53. **Blöcke immer über `getBlocks()`** – die Liste ist nach Uhrzeit sortiert und eine Kopie. Wer Blöcke speichert, schreibt `db.settings.blocks` (Einstellungen: `blocksDraft`), nie in das Ergebnis von `getBlocks()`.
+54. **`:hover` nur in `@media (hover: hover)`.** Auf dem iPad bleibt ein Hover nach dem Tippen hängen (Karten bleiben „angehoben“). `tests/block-s.test.js` prüft das.
+55. **Klickbare Elemente, die kein `<button>` sind** (Karten, Farbfelder, Tabellenzellen), bekommen `role="button"`, `tabindex="0"` und einen Namen; Enter/Leertaste löst ein globaler Handler aus. Formulare mit Eingaben merken sich beim Öffnen ihren Stand und fragen beim Schließen nur bei Änderungen (`settingsSnapshot`, `gradeFormSnapshot`).
 
 ## Arbeitsablauf
 
