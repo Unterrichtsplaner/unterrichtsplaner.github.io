@@ -3011,24 +3011,7 @@ function openSettings() {
   document.getElementById('settings-warn-grade').value = db.settings.warnGrade !== undefined ? db.settings.warnGrade : 4.5;
   document.getElementById('settings-warn-points').value = db.settings.warnPoints !== undefined ? db.settings.warnPoints : 5;
   
-  currentThemeAccent = db.settings.themeAccent || '#6366f1';
-  document.querySelectorAll('.settings-swatch-accent').forEach(s => {
-    s.classList.remove('selected');
-    if (s.dataset.color === currentThemeAccent) s.classList.add('selected');
-  });
-
-  currentThemeBg = db.settings.themeBg || '#0f1117';
-  currentThemeMode = db.settings.theme || 'dark';
-  currentThemeCard = db.settings.themeCard || '#1e2130';
-  document.querySelectorAll('.settings-swatch-bg').forEach(s => {
-    s.classList.remove('selected');
-    if (s.dataset.color === currentThemeBg) s.classList.add('selected');
-  });
-
-  let radVal = db.settings.themeRadius !== undefined ? db.settings.themeRadius : 8;
-  if (radVal > 12) radVal = 12; // Clamp max radius to 12
-  document.getElementById('settings-radius').value       = radVal;
-  document.getElementById('settings-radius-val').textContent = radVal + 'px';
+  loadThemeSelection();
   document.getElementById('settings-sort-order').value = db.settings.studentSortOrder || 'firstName';
   const v = appVersion();
   document.getElementById('app-version-label').textContent = v ? `Version ${v}` : '';
@@ -3132,7 +3115,17 @@ function readBlocksEditor() {
 function addBlockRow() {
   readBlocksEditor();
   const num = Math.max(0, ...blocksDraft.map(b => b.num)) + 1; // freie Kennung, bestehende bleiben unverändert
-  blocksDraft.push({ num, label: `${blocksDraft.length + 1}. Block`, start: '08:00', end: '09:30' });
+  // Neuer Block nach dem letzten: 15 min Pause, gleiche Länge (vorher immer 08:00–09:30, BUGS O5)
+  const toMin = t => { const [h, m] = (t || '').split(':').map(Number); return h * 60 + m; };
+  const fmt = m => `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`;
+  const last = [...blocksDraft].sort((a, b) => toMin(a.end) - toMin(b.end)).pop();
+  let start = 8 * 60, len = 90;
+  if (last && !isNaN(toMin(last.end))) {
+    len = toMin(last.end) - toMin(last.start) > 0 ? toMin(last.end) - toMin(last.start) : 90;
+    start = toMin(last.end) + 15;
+  }
+  if (start + len > 23 * 60 + 59) { start = 8 * 60; len = 90; }
+  blocksDraft.push({ num, label: `${blocksDraft.length + 1}. Block`, start: fmt(start), end: fmt(start + len) });
   renderBlocksEditor();
 }
 
@@ -3157,9 +3150,18 @@ function parseWarnThreshold(inputId, fallback) {
 }
 
 function saveSettings() {
+  // Blockzeiten zuerst prüfen: nichts speichern, solange ein Block unmöglich ist (BUGS O5)
+  readBlocksEditor();
+  const badBlock = blocksDraft.find(b => !/^\d\d:\d\d$/.test(b.start || '') || !/^\d\d:\d\d$/.test(b.end || '') || b.end <= b.start);
+  if (badBlock) {
+    showToast(`${badBlock.label || 'Block'}: Ende muss nach dem Beginn liegen`, 'error');
+    return;
+  }
   db.settings.teacherName = document.getElementById('settings-teacher-name').value.trim();
   db.settings.school      = document.getElementById('settings-school').value.trim();
-  db.settings.seatingBufferMins = parseInt(document.getElementById('settings-seating-buffer').value) || 0;
+  // Leer/ungültig → Standard 5 min (vorher still 0, BUGS O5)
+  const buffer = parseInt(document.getElementById('settings-seating-buffer').value, 10);
+  db.settings.seatingBufferMins = Number.isFinite(buffer) && buffer >= 0 ? buffer : 5;
   db.settings.warnAbsences = parseWarnThreshold('settings-warn-absences', 3);
   db.settings.warnHomework = parseWarnThreshold('settings-warn-homework', 3);
   db.settings.warnGrade    = parseWarnThreshold('settings-warn-grade', 4.5);
@@ -3254,6 +3256,7 @@ function importBackup(parsed) {
   db = migrateDB(parsed);
   if (syncSettings) db.syncSettings = syncSettings;
   saveDB();
+  updateAppliedThemeFromDB(); // Darstellung aus der Sicherung
   resetViewSelection();
   renderTimetable(); renderSubjectGroups(); closeModal('modal-settings');
   showToast('Importiert ✓');
@@ -3264,6 +3267,7 @@ function clearAllData() {
   // Auch Rettungskopien unlesbarer Stände (G12) enthalten Schülerdaten (BUGS K15)
   rescueCopyKeys().forEach(k => localStorage.removeItem(k));
   db = loadDB();
+  updateAppliedThemeFromDB();
   resetViewSelection();
   renderTimetable(); renderSubjectGroups(); closeModal('modal-settings');
   showToast('Lokale Daten gelöscht.');
@@ -4601,10 +4605,57 @@ function createEntryItem(text, date, onDelete) {
   return el;
 }
 
-function openModal(id)  { const m = document.getElementById(id); if(m) m.classList.remove('hidden'); }
-function closeModal(id) { const m = document.getElementById(id); if(m) m.classList.add('hidden'); }
+// Fokus beim Öffnen ins Fenster, beim Schließen zurück auf den auslösenden Knopf (BUGS O8).
+// Das Fenster selbst bekommt den Fokus, kein Eingabefeld: sonst ginge auf dem iPad jedes Mal die Tastatur auf.
+const modalReturnFocus = {};
+function openModal(id) {
+  const m = document.getElementById(id);
+  if (!m) return;
+  const wasHidden = m.classList.contains('hidden');
+  m.classList.remove('hidden');
+  if (!wasHidden) return;
+  const active = document.activeElement;
+  modalReturnFocus[id] = active && active !== document.body && !m.contains(active) ? active : null;
+  const dialog = m.querySelector('.modal');
+  if (dialog && !dialog.contains(document.activeElement)) dialog.focus({ preventScroll: true });
+}
+function closeModal(id) {
+  const m = document.getElementById(id);
+  if (!m) return;
+  const wasOpen = !m.classList.contains('hidden');
+  m.classList.add('hidden');
+  const back = modalReturnFocus[id];
+  delete modalReturnFocus[id];
+  if (wasOpen && back && back.isConnected && (m.contains(document.activeElement) || document.activeElement === document.body)) {
+    try { back.focus({ preventScroll: true }); } catch (e) { /* Element nicht fokussierbar */ }
+  }
+}
+// Fenster als Dialog auszeichnen (Rolle, Titel) – für Screenreader (BUGS O8)
+function labelModals() {
+  document.querySelectorAll('.modal-overlay > .modal').forEach(dialog => {
+    const overlay = dialog.parentElement;
+    dialog.setAttribute('role', 'dialog');
+    dialog.setAttribute('aria-modal', 'true');
+    dialog.tabIndex = -1;
+    const h = dialog.querySelector('h2');
+    if (h) {
+      if (!h.id) h.id = overlay.id + '-title';
+      dialog.setAttribute('aria-labelledby', h.id);
+    }
+  });
+}
+labelModals();
 // Tippen neben ein Fenster: wie sein Schließen-Knopf, also z. B. Stunden-Notizen speichern (BUGS G13)
-function closeModalOnOverlay(event, id) { if (event.target === document.getElementById(id)) closeModalLikeButton(id); }
+// Nur schließen, wenn auch das Drücken auf dem Overlay begann: Text im Feld markieren und daneben loslassen
+// erzeugt einen click auf dem Overlay und hätte die Eingaben verworfen (BUGS O1).
+let overlayPressTarget = null;
+['pointerdown', 'mousedown'].forEach(type => document.addEventListener(type, e => { overlayPressTarget = e.target; }, true));
+function closeModalOnOverlay(event, id) {
+  const overlay = document.getElementById(id);
+  const pressedElsewhere = overlayPressTarget && overlayPressTarget !== overlay;
+  overlayPressTarget = null;
+  if (event.target === overlay && !pressedElsewhere) closeModalLikeButton(id);
+}
 
 // Toast mit „Rückgängig“ (klickbar, anders als normale Toasts) für Einträge, die ein zweites Tippen entfernt (BUGS N6)
 function showUndoToast(msg, undo) {
@@ -4743,6 +4794,7 @@ const MODAL_CLOSE_ACTIONS = {
   'modal-grade-form': () => closeGradeForm(),
   'modal-sync-conflict': null,                       // Entscheidung nötig, nicht wegdrückbar
   'modal-choice': () => answerChoice(null),          // Wegdrücken = Abbrechen
+  'modal-settings': () => cancelSettings(),          // Farbvorschau nicht stehen lassen (BUGS O2)
 };
 function closeModalLikeButton(id) {
   const action = id in MODAL_CLOSE_ACTIONS ? MODAL_CLOSE_ACTIONS[id] : () => closeModal(id);
@@ -4905,7 +4957,7 @@ function initAllCustomDropdowns() {
 
 // ─── Init ─────────────────────────────────────────────────────────────────
 if (typeof process === 'undefined' || process.env.NODE_ENV !== 'test') {
-  applyThemePreview();
+  updateAppliedThemeFromDB();
   renderTimetable();
   renderSubjectGroups();
   initAllCustomDropdowns();
@@ -5830,15 +5882,31 @@ async function resolveConflict(decision) {
   }
 }
 
+// Gespeicherte Darstellung in Auswahl, Regler und Variablen laden (Einstellungen öffnen/verwerfen, Start).
+// Der Radius kommt aus db, nicht vom Regler, der beim Start auf seinem HTML-Wert steht (BUGS O3).
+function loadThemeSelection() {
+  currentThemeAccent = db.settings.themeAccent || '#6366f1';
+  document.querySelectorAll('.settings-swatch-accent').forEach(s => s.classList.toggle('selected', s.dataset.color === currentThemeAccent));
+  currentThemeBg   = db.settings.themeBg || '#0f1117';
+  currentThemeMode = db.settings.theme || 'dark';
+  currentThemeCard = db.settings.themeCard || '#1e2130';
+  document.querySelectorAll('.settings-swatch-bg').forEach(s => s.classList.toggle('selected', s.dataset.color === currentThemeBg));
+  let radVal = Number.isFinite(db.settings.themeRadius) ? db.settings.themeRadius : 8;
+  if (radVal > 12) radVal = 12; // Clamp max radius to 12
+  document.getElementById('settings-radius').value = radVal;
+  document.getElementById('settings-radius-val').textContent = radVal + 'px';
+}
 // Hilfsfunktion zum Aktualisieren des Themes aus den Einstellungen in der DB
 function updateAppliedThemeFromDB() {
   if (db.settings) {
-    currentThemeAccent = db.settings.themeAccent || '#6366f1';
-    currentThemeBg     = db.settings.themeBg || '#0f1117';
-    currentThemeMode   = db.settings.theme || 'dark';
-    currentThemeCard   = db.settings.themeCard || '#1e2130';
+    loadThemeSelection();
     applyThemePreview();
   }
+}
+// Einstellungen schließen ohne Speichern: Farb-/Radius-Vorschau verwerfen (BUGS O2)
+function cancelSettings() {
+  closeModal('modal-settings');
+  updateAppliedThemeFromDB();
 }
 
 // Starte Sync-Initialisierung beim Laden

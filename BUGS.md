@@ -226,14 +226,16 @@ Priorität: 🔴 Datenverlust / App kaputt · 🟠 falsche Anzeige / nervig · �
 
 ## O. Review 25.09.2026: Fenster, Einstellungen, Navigation
 
-- [ ] **O1** 🟠 **Markieren in einem Feld und neben dem Fenster loslassen schließt es, Eingaben weg** (`closeModalOnOverlay`: `click` landet auf dem Overlay). Betrifft alle Formulare außer Stunde/Note (Klasse, Schüler, Import, Spalte …), verletzt Regel 27. *Browser.* → Nur schließen, wenn auch `pointerdown` auf dem Overlay begann.
-- [ ] **O2** 🟠 **Farbvorschau bleibt nach Schließen ohne Speichern** (✕/Escape/daneben): App bleibt rosa, nach Neuladen wieder weg. *Test.* → `modal-settings` in `MODAL_CLOSE_ACTIONS` mit `updateAppliedThemeFromDB()`.
-- [ ] **O3** 🟠 **Gespeicherter Kanten-Radius wirkt nach Neuladen nicht** (`applyThemePreview` liest den Regler, der beim Start auf 8 steht). *Test.*
-- [ ] **O4** 🟢 Nach „Speichern“ in den Einstellungen wird nur der Stundenplan neu gezeichnet (Sortierung, Namensformat, Warnschwellen erst nach Ansichtswechsel). *Test.* → Siehe M1.
-- [ ] **O5** 🟢 Sitzplan-Vorlauf leer → 0 statt 5 (`parseInt('') || 0`); Blockzeiten ungeprüft (Ende vor Beginn, neuer Block immer 08:00–09:30).
-- [ ] **O6** 🟢 Tipp auf das Logo „Planer“ lädt die Seite neu – im Unterricht sind Timer, Stoppuhr und Gruppen weg.
-- [ ] **O7** 🟢 Handy-Navigation: nur Symbole ohne Beschriftung; aktive Pille breiter → ungleiche Abstände. Kopf der Klassenansicht belegt auf dem Handy ~⅓ des Bildschirms (Titel, zwei Knopfreihen, Reiter in zwei Zeilen). *Browser.*
-- [ ] **O8** 🟢 Fenster ohne `role="dialog"`, ohne Fokus-Übergabe beim Öffnen und Rückgabe beim Schließen.
+> Behoben (v222). Tests: `tests/block-o.test.js`. O4 war schon mit M1 erledigt. O7 bei 375 und 768 px nachgemessen (kein seitliches Scrollen; Kopf der Klassenansicht auf dem Handy 113 statt ~260 px).
+
+- [x] **O1** 🟠 **Markieren in einem Feld und neben dem Fenster loslassen schließt es, Eingaben weg** (`closeModalOnOverlay`: `click` landet auf dem Overlay). Betrifft alle Formulare außer Stunde/Note (Klasse, Schüler, Import, Spalte …), verletzt Regel 27. *Browser.* → Nur schließen, wenn auch `pointerdown` auf dem Overlay begann.
+- [x] **O2** 🟠 **Farbvorschau bleibt nach Schließen ohne Speichern** (✕/Escape/daneben): App bleibt rosa, nach Neuladen wieder weg. *Test.* → `modal-settings` in `MODAL_CLOSE_ACTIONS` mit `updateAppliedThemeFromDB()`.
+- [x] **O3** 🟠 **Gespeicherter Kanten-Radius wirkt nach Neuladen nicht** (`applyThemePreview` liest den Regler, der beim Start auf 8 steht). *Test.*
+- [x] **O4** 🟢 Nach „Speichern“ in den Einstellungen wird nur der Stundenplan neu gezeichnet (Sortierung, Namensformat, Warnschwellen erst nach Ansichtswechsel). *Test.* → Siehe M1.
+- [x] **O5** 🟢 Sitzplan-Vorlauf leer → 0 statt 5 (`parseInt('') || 0`); Blockzeiten ungeprüft (Ende vor Beginn, neuer Block immer 08:00–09:30).
+- [x] **O6** 🟢 Tipp auf das Logo „Planer“ lädt die Seite neu – im Unterricht sind Timer, Stoppuhr und Gruppen weg.
+- [x] **O7** 🟢 Handy-Navigation: nur Symbole ohne Beschriftung; aktive Pille breiter → ungleiche Abstände. Kopf der Klassenansicht belegt auf dem Handy ~⅓ des Bildschirms (Titel, zwei Knopfreihen, Reiter in zwei Zeilen). *Browser.*
+- [x] **O8** 🟢 Fenster ohne `role="dialog"`, ohne Fokus-Übergabe beim Öffnen und Rückgabe beim Schließen.
 
 ---
 
@@ -362,3 +364,11 @@ Priorität: 🔴 Datenverlust / App kaputt · 🟠 falsche Anzeige / nervig · �
 | N11 | Datums-Chips und Klassenmenü als `button` mit `aria-label`; Inline-Größen in Klassen, `@media (pointer: coarse)` 44 px | Block N |
 | N12 | Timer-Ende: blinkende Anzeige bis „Zurücksetzen“, kurzer Ton (beim Start freigeschaltet); Start bei 00:00 mit Hinweis | Block N |
 | N13 | `currentRandomStudent`, `.sc-absent-toggle` entfernt; Note bearbeiten per Referenz; Gruppen „nach Sitznähe“ über `seatOf()` | Block N |
+| O1 | `closeModalOnOverlay` schließt nur, wenn auch das Drücken (`pointerdown`/`mousedown`) auf dem Overlay begann | Block O |
+| O2 | `cancelSettings()` über `MODAL_CLOSE_ACTIONS` und ✕: Farb-/Radius-Vorschau wird verworfen | Block O |
+| O3 | `loadThemeSelection()`: Radius aus db statt vom Regler; Start über `updateAppliedThemeFromDB()` (auch nach Import/Löschen) | Block O |
+| O4 | mit M1: Speichern zeichnet Dashboard/Klassenansicht neu | Block M |
+| O5 | Sitzplan-Vorlauf leer → 5; Blockzeiten geprüft (Ende nach Beginn, sonst nichts gespeichert); neuer Block nach dem letzten mit gleicher Länge | Block O |
+| O6 | Logo öffnet das Dashboard statt neu zu laden | Block O |
+| O7 | Handy: Navigation mit gleich breiten Feldern und Beschriftung; Klassenkopf kompakt (Symbol-Knöpfe, Reiter in einer Zeile mit Kurztext) | Block O |
+| O8 | Fenster mit `role="dialog"`, `aria-modal`, `aria-labelledby` (`labelModals`); Fokus ins Fenster und zurück (`openModal`/`closeModal`) | Block O |

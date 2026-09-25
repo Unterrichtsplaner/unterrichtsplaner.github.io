@@ -823,6 +823,33 @@ select option{background:var(--bg-secondary);}
   .class-tabs .tab-btn { padding: 7px 12px; }
   #overview-content { padding: 12px; }
 }
+.tab-short{display:none;}
+/* Handy: Kopf der Klassenansicht kompakt – Knöpfe als Symbole in der Titelzeile, Reiter in einer Zeile
+   mit Symbol über kurzem Text. Vorher belegte der Kopf ein Drittel des Bildschirms (BUGS O7). */
+@media (max-width: 600px) {
+  .class-view-header { gap: 10px; padding: 10px 12px; }
+  .class-view-top { flex-wrap: nowrap; }
+  .class-view-title { gap: 10px; flex: 1; }
+  .class-view-title h1 { font-size: 20px; }
+  .class-view-title > div { min-width: 0; }
+  .class-view-title .subtitle { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .class-view-header .btn-label { display: none; }
+  .class-view-header .btn-back, .class-view-header .btn-seating, #btn-add-overview-col { width: 40px; height: 40px; padding: 0; justify-content: center; flex-shrink: 0; }
+  .class-view-top .header-actions { flex-wrap: nowrap; gap: 6px; }
+  .class-tabs { flex-wrap: nowrap; gap: 4px; }
+  .class-tabs .tab-btn { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 6px 2px; font-size: 11px; border-radius: 12px; }
+  .class-tabs .tab-btn svg { margin: 0; }
+  .class-tabs .tab-long { display: none; }
+  .class-tabs .tab-short { display: inline; white-space: nowrap; }
+}
+/* Handy-Navigation: gleich breite Felder mit kurzer Beschriftung unter dem Symbol (BUGS O7) */
+@media (max-width: 600px) {
+  #sidebar { padding: 6px 8px; gap: 4px; }
+  .nav-items { flex: 4 1 0; gap: 4px; padding: 0; }
+  .sidebar-footer { flex: 1 1 0; display: flex; }
+  .nav-item, #sidebar.collapsed .nav-item { flex: 1 1 0; min-width: 0; flex-direction: column; justify-content: center; gap: 2px; padding: 6px 2px; border-radius: 12px; }
+  .nav-item span, #sidebar.collapsed .nav-item span { display: block; font-size: 10px; font-weight: 600; line-height: 1.1; max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+}
 #students-container { container-type: inline-size; }
 @container (max-width: 520px) {
   .student-row { flex-wrap: wrap; row-gap: 8px; }
