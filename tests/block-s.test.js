@@ -282,3 +282,41 @@ describe('S8/S9/S13/S14/S15: Gestaltung', () => {
     expect(min).toBeGreaterThan(40);
   });
 });
+
+describe('S16: Sitzplan auf dem Handy', () => {
+  it('Zellen mindestens 60 px, notfalls seitlich scrollen statt Namen abschneiden', () => {
+    app('switchView("seating")');
+    const wrapper = document.getElementById('seating-canvas-wrapper');
+    Object.defineProperty(wrapper, 'clientWidth', { configurable: true, value: 375 });
+    Object.defineProperty(wrapper, 'clientHeight', { configurable: true, value: 500 });
+    try {
+      app('currentSeatingGroupId = "g1"; renderSeatingPlan()');
+      const card = document.querySelector('.seating-card[data-id="s1"]');
+      expect(parseFloat(card.style.width)).toBeGreaterThanOrEqual(56);
+      expect(wrapper.style.overflow).toBe('auto');
+    } finally {
+      delete wrapper.clientWidth; delete wrapper.clientHeight;
+    }
+  });
+  it('der Sitzplan steht per margin:auto in der Mitte (Flex-Zentrieren machte den linken Rand unerreichbar)', () => {
+    expect(CSS).toMatch(/\.seating-canvas \{[^}]*margin: auto/);
+    expect(HTML).not.toMatch(/id="seating-canvas-wrapper"[^>]*justify-content:center/);
+  });
+});
+
+describe('S17: Einstellung „Vorlauf“ im Abschnitt Sitzplan', () => {
+  it('steht in einem eigenen Abschnitt', () => {
+    const section = document.getElementById('settings-seating-buffer').closest('.settings-section');
+    expect(section).toBeTruthy();
+    expect(section.querySelector('h3').textContent).toMatch(/Sitzplan/);
+  });
+});
+
+describe('iPhone: Leiste oben fehlt', () => {
+  it('#app nutzt die sichtbare Höhe und wird nicht per Flex zentriert (sonst ragt die Leiste oben hinaus)', () => {
+    expect(CSS).toMatch(/#app\{[^}]*height:100dvh/);
+    expect(CSS).toMatch(/#app\{[^}]*margin:auto/);
+    expect(CSS).not.toMatch(/html,body\{[^}]*align-items:center/);
+  });
+});
+

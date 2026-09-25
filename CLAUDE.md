@@ -146,6 +146,7 @@ Datumswerte sind Strings `YYYY-MM-DD` in **lokaler** Zeit (`formatDate()`). Nie 
 53. **Blöcke immer über `getBlocks()`** – die Liste ist nach Uhrzeit sortiert und eine Kopie. Wer Blöcke speichert, schreibt `db.settings.blocks` (Einstellungen: `blocksDraft`), nie in das Ergebnis von `getBlocks()`.
 54. **`:hover` nur in `@media (hover: hover)`.** Auf dem iPad bleibt ein Hover nach dem Tippen hängen (Karten bleiben „angehoben“). `tests/block-s.test.js` prüft das.
 55. **Klickbare Elemente, die kein `<button>` sind** (Karten, Farbfelder, Tabellenzellen), bekommen `role="button"`, `tabindex="0"` und einen Namen; Enter/Leertaste löst ein globaler Handler aus. Formulare mit Eingaben merken sich beim Öffnen ihren Stand und fragen beim Schließen nur bei Änderungen (`settingsSnapshot`, `gradeFormSnapshot`).
+56. **Nie per `align-items:center`/`justify-content:center` zentrieren, was höher oder breiter als sein Behälter werden kann** (App, Sitzplan-Raster): Der Überschuss ragt dann auf beiden Seiten hinaus, und oben/links ist nicht erreichbar. Stattdessen `margin:auto` am Kind. Bildschirmhöhen mit `100dvh` (nach `100vh` als Rückfall), nie nur `100vh` – Safari auf dem iPhone rechnet `100vh` mit eingefahrener Leiste (S18).
 
 ## Arbeitsablauf
 

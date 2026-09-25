@@ -317,8 +317,9 @@ Priorität: 🔴 Datenverlust / App kaputt · 🟠 falsche Anzeige / nervig · �
 - [x] **S13** 🟢 Tippflächen: `.modal-close` 34 px (jedes Fenster), in der Schnellbewertung „Anzeigen“ ~26 px und Stift „Note bearbeiten“ ~24 px. *Code.* → Unter `pointer: coarse` 44 px wie N11.
 - [x] **S14** 🟢 Kontrast: `.sc-hw-note` („Keine HA“) weiß auf `--warning` im dunklen Modus ~2,2:1 (J2 hat nur hell repariert); `.seating-group-badge` 9 px weiß auf hellen Gruppenfarben (Gelb, Limette, Türkis). *Code.*
 - [x] **S15** 🟢 Kleinigkeiten aus dem Durchklicken (*Browser*): Wochenansicht-Badge „läuft noch 87 min“ abgeschnitten („läuft noch 87 …“, 104/100 px); Schülerprofil auf dem Handy: „Fertig“ klebt am rechten Rand (Abstand links 27 px, rechts 1 px), Reiter „Hausaufgaben/Notizen“ außerhalb ohne Scroll-Hinweis; Farbwahl mit zwei kaum unterscheidbaren Rot- und zwei Gelb/Orange-Tönen; „Ganzer Block“ bricht auf dem Handy zweizeilig um; Klassenkopf: „Aktionen“ (Schüler hinzufügen/Import) hat ein Stift-Symbol, sieht aus wie „Klasse bearbeiten“; Sitzplan mit 24 Schülern auf dem Handy im Hochformat „A…“, „Cl…“ bei viel leerem Platz darüber/darunter (Raster 10 Spalten passt sich nicht an); Einstellungen: gerade Anführungszeichen "Sportzeug vergessen", „Sitzplan: Auto-Vorschlag Vorlauf“ steht unter Name und Schule statt bei den Sitzplan-Einstellungen.
-- [ ] **S16** 🟢 (Rest aus S15) Sitzplan auf dem Handy im Hochformat: 24 Schüler im 10-Spalten-Raster → Namen „A…“, „Cl…“, darüber und darunter viel leerer Platz. Das Raster passt sich der Bildschirmform nicht an. Eigenes Thema (Layout des Sitzplans, Regel 44), deshalb nicht in Block S.
-- [ ] **S17** 🟢 (Rest aus S15) Einstellungen: „Sitzplan: Auto-Vorschlag Vorlauf“ steht unter Name und Schule statt in einem eigenen Abschnitt „Sitzplan“.
+- [x] **S16** 🟢 (Rest aus S15) Sitzplan auf dem Handy im Hochformat: 24 Schüler im 10-Spalten-Raster → Namen „A…“, „Cl…“, darüber und darunter viel leerer Platz. → Zellen mindestens 60 px (vorher ~34 px), passt das Raster nicht in die Breite, scrollt es seitlich; mittig per `margin:auto`, damit der linke Rand erreichbar bleibt. Bei 375 px nachgesehen: „Valentina“ ganz lesbar. (v230)
+- [x] **S17** 🟢 (Rest aus S15) Einstellungen: „Sitzplan: Auto-Vorschlag Vorlauf“ steht unter Name und Schule statt in einem eigenen Abschnitt „Sitzplan“. → Eigener Abschnitt „Sitzplan“ vor „Darstellung“, Beschriftung „Klasse der nächsten Stunde zeigen ab … Minuten vor Stundenbeginn“. (v230)
+- [x] **S18** 🔴 **iPhone (Safari): Die Navigationsleiste oben fehlt** (Screenshot des Autors, 25.09.2026). `#app` war `100vh` hoch – in Safari ist das die Höhe bei eingefahrener Adressleiste, also mehr als sichtbar – und wurde von `html,body` per `align-items:center` senkrecht zentriert: Der Überschuss ragte zur Hälfte oben hinaus und ließ sich nicht erreichen. Im Browser der Entwicklung (Chrome) nicht zu sehen, weil dort `100vh` = sichtbare Höhe. → `height:100dvh` und Zentrieren per `margin:auto` (überschüssige Höhe geht nach unten, scrollbar); auf dem Handy keine Mindesthöhe 650 px mehr. Test prüft das CSS; bei 375/640/768/1024 px nachgemessen. **Auf dem iPhone noch einmal ansehen.** (v230)
 
 ---
 
@@ -511,3 +512,6 @@ Priorität: 🔴 Datenverlust / App kaputt · 🟠 falsche Anzeige / nervig · �
 | S13 | Tippflächen 44 px (Schließen, Schnellbewertung) | Block S |
 | S14 | Kontrast „Keine HA“ (`--hw-note-text`), Gruppenkennzeichen 11 px | Block S |
 | S15 | Kleinkram (Farben, Abzeichen, Fußzeile, Reiter, Aktionen-Symbol, Anführungszeichen) | Block S |
+| S16 | Sitzplan-Zellen mindestens 60 px, seitlich scrollbar | Block S |
+| S17 | Abschnitt „Sitzplan“ in den Einstellungen | Block S |
+| S18 | iPhone: `#app` mit `100dvh` und `margin:auto` statt `align-items:center` | Block S |

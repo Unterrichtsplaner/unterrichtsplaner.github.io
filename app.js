@@ -3994,7 +3994,10 @@ function renderSeatingPlan() {
   // Square cells: use the smaller of the two to keep cells perfectly square
   const maxCellW = containerWidth / cols;
   const maxCellH = containerHeight / rows;
-  const cellSize = Math.floor(Math.min(maxCellW, maxCellH));
+  let cellSize = Math.floor(Math.min(maxCellW, maxCellH));
+  // Handy hochkant: 10 Spalten ergaben ~34 px, Namen nur „A…“. Mindestens 60 px, dann seitlich scrollen (BUGS S16)
+  const SEATING_MIN_CELL = 60;
+  if (cellSize < SEATING_MIN_CELL && maxCellH >= SEATING_MIN_CELL) cellSize = SEATING_MIN_CELL;
   const cellWidth = cellSize;
   const cellHeight = cellSize;
 
@@ -4013,7 +4016,7 @@ function renderSeatingPlan() {
   canvas.style.maxWidth = gridWidth + 'px';
   canvas.style.minHeight = gridHeight + 'px';
   canvas.style.maxHeight = gridHeight + 'px';
-  canvas.parentElement.style.overflow = 'hidden';
+  canvas.parentElement.style.overflow = gridWidth > containerWidth ? 'auto' : 'hidden';
 
   // Draw Grid Cells
   for (let r = 0; r < rows; r++) {

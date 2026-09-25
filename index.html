@@ -38,7 +38,7 @@
       }
     } catch(e) {}
   </script>
-  <link rel="stylesheet" href="style.css?v=229" />
+  <link rel="stylesheet" href="style.css?v=230" />
   <script>
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
@@ -254,7 +254,7 @@
         </div>
       </div>
       <div id="seating-overflow-hint" class="seating-overflow-hint hidden" role="status"></div>
-      <div id="seating-canvas-wrapper" style="flex:1; display:flex; align-items:center; justify-content:center; overflow:hidden; padding:20px;">
+      <div id="seating-canvas-wrapper" style="flex:1; display:flex; overflow:hidden; padding:20px;">
         <div class="seating-canvas" id="seating-canvas">
           <div id="seating-empty" class="empty-state">
             <div class="empty-state-icon"><i data-icon="seating"></i></div>
@@ -817,13 +817,6 @@
     <div class="modal-body">
       <div class="form-group"><label>Lehrername</label><input type="text" id="settings-teacher-name" class="form-input" placeholder="Dein Name" /></div>
       <div class="form-group"><label>Schule</label><input type="text" id="settings-school" class="form-input" placeholder="Schulname" /></div>
-      <div class="form-group">
-        <label>Sitzplan: Auto-Vorschlag Vorlauf</label>
-        <div style="display:flex; align-items:center; gap:8px;">
-          <input type="number" id="settings-seating-buffer" class="form-input" style="width:80px;" min="0" max="60" value="5" />
-          <span style="font-size:13px; color:var(--text-secondary);">Minuten vor Stundenbeginn</span>
-        </div>
-      </div>
       <div class="settings-section" style="margin-top:16px;">
         <h3 style="margin-bottom:12px;font-size:14px;">Warnungs-Schwellenwerte (Dashboard)</h3>
         <div class="form-row">
@@ -844,6 +837,16 @@
           <div class="form-group">
             <label>Oberstufe: Schnitt unter … Punkten (0 = aus)</label>
             <input type="number" id="settings-warn-points" class="form-input" step="0.5" min="0" max="15" placeholder="z.B. 5" />
+          </div>
+        </div>
+      </div>
+      <div class="settings-section">
+        <h3 style="margin-bottom:12px;font-size:14px;">Sitzplan</h3>
+        <div class="form-group">
+          <label for="settings-seating-buffer">Klasse der nächsten Stunde zeigen ab</label>
+          <div style="display:flex; align-items:center; gap:8px;">
+            <input type="number" id="settings-seating-buffer" class="form-input" style="width:80px;" min="0" max="60" value="5" />
+            <span style="font-size:13px; color:var(--text-secondary);">Minuten vor Stundenbeginn</span>
           </div>
         </div>
       </div>
@@ -1188,12 +1191,12 @@
   </div>
 
   <script src="lib/crypto-js.min.js"></script>
-  <script src="crypto-helper.js?v=229"></script>
+  <script src="crypto-helper.js?v=230"></script>
   <script src="lib/firebase-app-compat.js"></script>
   <script src="lib/firebase-auth-compat.js"></script>
   <script src="lib/firebase-firestore-compat.js"></script>
-  <script src="firebase-config.js?v=229"></script>
-  <script src="sync-manager.js?v=229"></script>
-  <script src="app.js?v=229"></script>
+  <script src="firebase-config.js?v=230"></script>
+  <script src="sync-manager.js?v=230"></script>
+  <script src="app.js?v=230"></script>
 </body>
 </html>
