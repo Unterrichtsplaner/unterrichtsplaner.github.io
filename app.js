@@ -557,9 +557,11 @@ function buildTimetableCell(d, dayIdx, block, clock = timetableClock()) {
     if (hasTest) status.push('test');
     if (data.notes && data.notes.trim()) status.push('notiz');
 
-    // Klasse groß, Fach (+ Raum) klein; ohne Klasse ist das Fach der Titel
+    // Klasse groß, Fach (+ Raum) klein; ohne Klasse ist das Fach der Titel.
+    // Raum als eigener Teil: in ganzen Stunden eigene Zeile, in halben mit „·“ dahinter (BUGS I6)
     const t = lessonTitle(lesson);
-    const sub = [t.sub, lesson.room].filter(Boolean).map(escHtml).join(' · ');
+    const sub = (t.sub ? `<span>${escHtml(t.sub)}</span>` : '') +
+                (lesson.room ? `<span class="tt-lesson-room">${escHtml(lesson.room)}</span>` : '');
 
     const range = lessonTimeRange(block, lesson.part);
     const running = !isAusfall && dateStr === clock.todayStr && range &&
@@ -1574,7 +1576,7 @@ function renderOverviewTable() {
   }
 
   const sortedStudents = sortStudents(students);
-  let html = '<div class="overview-table-wrapper"><table class="overview-table"><thead><tr><th style="position:sticky;left:0;background:var(--bg-elevated);z-index:2;min-width:140px;">Schüler</th>';
+  let html = '<div class="overview-table-wrapper"><table class="overview-table"><thead><tr><th class="ov-name-col">Schüler</th>';
 
   if (currentOverviewTab === 'grades') {
     const gradeEventsMap = new Map();
@@ -1605,7 +1607,7 @@ function renderOverviewTable() {
       const avg = formatGradeAverage(rawAvg);
       
       const nameDisplay = (db.settings.studentSortOrder==='lastName') ? escHtml(s.lastName)+', '+escHtml(s.firstName) : escHtml(s.firstName)+' '+escHtml(s.lastName);
-      html += `<tr><td style="position:sticky;left:0;background:var(--bg-card);font-weight:500;cursor:pointer;color:var(--accent);" onclick="openSeatingStudentModal(${jsArg(s.id)}, ${jsArg(currentOverviewGroupId)}, ${jsArg(formatDate(new Date()))})">${nameDisplay}</td>`;
+      html += `<tr><td class="ov-name-col ov-name" onclick="openSeatingStudentModal(${jsArg(s.id)}, ${jsArg(currentOverviewGroupId)}, ${jsArg(formatDate(new Date()))})"><span class="ov-name-text" title="${nameDisplay}">${nameDisplay}</span></td>`;
       html += `<td style="font-weight:700;color:${gradeColor(rawAvg, scale)};text-align:center;">${avg}</td>`;
       
       gradeEvents.forEach(ev => {
@@ -1618,7 +1620,7 @@ function renderOverviewTable() {
     });
     
     // Bottom average row
-    html += '<tr><td style="position:sticky;left:0;background:var(--bg-card);font-weight:700;">Durchschnitt</td>';
+    html += '<tr><td class="ov-name-col" style="font-weight:700;">Durchschnitt</td>';
     const groupAvg = calculateGroupAverage(currentOverviewGroupId);
     html += `<td style="font-weight:700;color:${gradeColor(groupAvg, scale)};text-align:center;">${formatGradeAverage(groupAvg)}</td>`;
 
@@ -1654,7 +1656,7 @@ function renderOverviewTable() {
     html += '</tr></thead><tbody>';
 
     sortedStudents.forEach(s => {
-      html += `<tr><td style="position:sticky;left:0;background:var(--bg-card);font-weight:500;cursor:pointer;color:var(--accent);" onclick="openSeatingStudentModal(${jsArg(s.id)}, ${jsArg(currentOverviewGroupId)}, ${jsArg(formatDate(new Date()))})">${escHtml(s.lastName)}, ${escHtml(s.firstName)}</td>`;
+      html += `<tr><td class="ov-name-col ov-name" onclick="openSeatingStudentModal(${jsArg(s.id)}, ${jsArg(currentOverviewGroupId)}, ${jsArg(formatDate(new Date()))})"><span class="ov-name-text" title="${escHtml(s.lastName)}, ${escHtml(s.firstName)}">${escHtml(s.lastName)}, ${escHtml(s.firstName)}</span></td>`;
       
       let pos = 0, neu = 0, neg = 0;
       partDates.forEach(ev => {
@@ -1698,7 +1700,7 @@ function renderOverviewTable() {
     html += '</tr></thead><tbody>';
 
     sortedStudents.forEach(s => {
-      html += `<tr><td style="position:sticky;left:0;background:var(--bg-card);font-weight:500;cursor:pointer;color:var(--accent);" onclick="openSeatingStudentModal(${jsArg(s.id)}, ${jsArg(currentOverviewGroupId)}, ${jsArg(formatDate(new Date()))})">${escHtml(s.lastName)}, ${escHtml(s.firstName)}</td>`;
+      html += `<tr><td class="ov-name-col ov-name" onclick="openSeatingStudentModal(${jsArg(s.id)}, ${jsArg(currentOverviewGroupId)}, ${jsArg(formatDate(new Date()))})"><span class="ov-name-text" title="${escHtml(s.lastName)}, ${escHtml(s.firstName)}">${escHtml(s.lastName)}, ${escHtml(s.firstName)}</span></td>`;
       const totalMissed = (s.attendance||[]).filter(a => a.type === 'abwesend' || a.type === 'entschuldigt').length;
       html += `<td style="text-align:center;font-weight:600;">${totalMissed}</td>`;
 
@@ -1726,7 +1728,7 @@ function renderOverviewTable() {
     html += '</tr></thead><tbody>';
 
     sortedStudents.forEach(s => {
-      html += `<tr><td style="position:sticky;left:0;background:var(--bg-card);font-weight:500;cursor:pointer;color:var(--accent);" onclick="openSeatingStudentModal(${jsArg(s.id)}, ${jsArg(currentOverviewGroupId)}, ${jsArg(formatDate(new Date()))})">${escHtml(s.lastName)}, ${escHtml(s.firstName)}</td>`;
+      html += `<tr><td class="ov-name-col ov-name" onclick="openSeatingStudentModal(${jsArg(s.id)}, ${jsArg(currentOverviewGroupId)}, ${jsArg(formatDate(new Date()))})"><span class="ov-name-text" title="${escHtml(s.lastName)}, ${escHtml(s.firstName)}">${escHtml(s.lastName)}, ${escHtml(s.firstName)}</span></td>`;
       const totalMissed = (s.homework||[]).length;
       html += `<td style="text-align:center;font-weight:600;color:var(--danger);">${totalMissed}</td>`;
 
@@ -3229,6 +3231,8 @@ function renderSeatingPlan() {
 
   const isCompact = cellSize < 100;
   const isTiny = cellSize < 64;   // Handy: Namen kürzen statt mitten im Wort trennen (BUGS H13)
+  // Abstand Karte ↔ Zellrand; auf dem Handy fast keiner, jeder Pixel Breite geht an den Namen (BUGS I20)
+  const cardGap = isTiny ? 2 : Math.min(10, cellSize * 0.1);
   const gridWidth = cols * cellWidth;
   const gridHeight = rows * cellHeight;
 
@@ -3311,7 +3315,7 @@ function renderSeatingPlan() {
     card.dataset.gridY = gy;
     
     const maxCardSize = Math.min(cellWidth, cellHeight);
-    const padding = Math.min(10, maxCardSize * 0.1);
+    const padding = cardGap;
     const cardSize = maxCardSize - (padding * 2);
 
     const centerX = offsetX + gx * cellWidth + (cellWidth - cardSize) / 2;
@@ -3375,7 +3379,7 @@ function renderSeatingPlan() {
     const tDesk = document.createElement('div');
     tDesk.className = 'teacher-desk';
     const maxCardSize = Math.min(cellWidth, cellHeight);
-    const padding = Math.min(10, maxCardSize * 0.1);
+    const padding = cardGap;
     const cardSize = maxCardSize - (padding * 2);
 
     const centerX = offsetX + tdX * cellWidth + (cellWidth * 2 - (cardSize * 2 + padding * 2)) / 2;

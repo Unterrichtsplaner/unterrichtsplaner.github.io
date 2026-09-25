@@ -52,7 +52,7 @@ input[type="date"] { min-height: 1.2em; } /* Fix iOS Safari date input collapse 
 
 /* ─── Sidebar ────────────────────────── */
 #sidebar{width:var(--sidebar-width);background:var(--sidebar-bg);border-right:1px solid var(--border);display:flex;flex-direction:column;padding:0;flex-shrink:0;z-index:100;position:sticky;left:0;transition:width var(--transition), padding var(--transition);overflow:hidden;}
-.sidebar-header{height:68px;box-sizing:border-box;padding:0 12px;border-bottom:1px solid var(--border);margin-bottom:16px;}
+.sidebar-header{height:68px;box-sizing:border-box;padding:0 12px;border-bottom:1px solid var(--border);margin-bottom:16px;display:flex;justify-content:space-between;align-items:center;}
 .sidebar-toggle-btn{width:36px;height:36px;border-radius:var(--radius-md);background:transparent;border:none;color:var(--text-secondary);cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all var(--transition);}
 .sidebar-toggle-btn:hover{background:var(--bg-card-hover);color:var(--text-primary);}
 .app-logo{display:flex;align-items:center;gap:10px;}
@@ -145,6 +145,7 @@ input[type="date"] { min-height: 1.2em; } /* Fix iOS Safari date input collapse 
 .tt-lesson-head{min-width:0;padding-left:8px;}
 .tt-lesson-class{font-size:19px;font-weight:800;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .tt-lesson-subject{font-size:12.5px;font-weight:600;opacity:.8;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.tt-lesson-subject > span{display:block;overflow:hidden;text-overflow:ellipsis;}  /* Raum eigene Zeile statt als Erstes abgeschnitten (BUGS I6) */
 .tt-lesson-foot{display:flex;flex-wrap:wrap;align-items:center;gap:4px 6px;padding-left:8px;margin-top:6px;min-width:0;}
 .tt-lesson-badge{font-size:11px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;}
 .tt-status-row{display:flex;gap:5px;margin-left:auto;flex-shrink:0;}
@@ -213,6 +214,9 @@ input[type="date"] { min-height: 1.2em; } /* Fix iOS Safari date input collapse 
   font-size: 11px;
   margin-top: 1px;
 }
+/* Halbe Stunde: zu wenig Höhe für zwei Zeilen, Fach · Raum bleiben in einer */
+.tt-split-half .tt-lesson-subject > span { display: inline; }
+.tt-split-half .tt-lesson-subject > span + .tt-lesson-room::before { content: ' · '; }
 .tt-split-half .tt-lesson-foot {
   margin-top: 2px;
 }
@@ -347,6 +351,18 @@ input[type="date"] { min-height: 1.2em; } /* Fix iOS Safari date input collapse 
 .overview-table .col-type{display:inline-block;font-size:10px;font-weight:700;padding:1px 6px;margin-bottom:3px;border-radius:99px;background:var(--bg-card);color:var(--text-muted);border:1px solid var(--border);letter-spacing:.3px;}
 .overview-table .col-type.weighted{background:var(--accent-soft);color:var(--text-accent);border-color:var(--border-active);}
 .overview-table .col-title{font-weight:400;font-size:11px;}
+/* Namensspalte bleibt beim seitlichen Scrollen links stehen */
+.overview-table .ov-name-col{position:sticky;left:0;z-index:1;background:var(--bg-card);text-align:left;}
+.overview-table th.ov-name-col{background:var(--bg-elevated);z-index:2;min-width:140px;}
+.overview-table td.ov-name{font-weight:500;cursor:pointer;color:var(--accent);}
+.ov-name-text{display:block;}
+#overview-content{flex:1;overflow-y:auto;padding:22px;container-type:inline-size;}
+/* Schmale Tabelle (Handy, Split View): Namen kürzen, damit Notenspalten Platz haben (BUGS I7) */
+@container (max-width: 520px) {
+  .overview-table th, .overview-table td { padding: 8px 10px; }
+  .overview-table th.ov-name-col { min-width: 0; }
+  .ov-name-text { max-width: 110px; overflow: hidden; text-overflow: ellipsis; }
+}
 
 .modal-body{flex:1;overflow-y:auto;padding:14px 18px;min-height:0;}
 .modal-footer{display:flex;justify-content:flex-end;gap:8px;padding:11px 18px;border-top:1px solid var(--border);flex-shrink:0;}
@@ -593,10 +609,10 @@ select option{background:var(--bg-secondary);}
 @media(max-width:600px){
   #app{flex-direction:column;}
   #sidebar{width:100%;flex-direction:row;padding:8px 12px;border-right:none;border-bottom:1px solid var(--border);}
-  .sidebar-header{display:none;}
-  .nav-items{flex-direction:row;}
+  .sidebar-header{display:none;}   /* Logo + ☰ haben auf dem Handy keinen Zweck (BUGS I19) */
+  .nav-items{flex-direction:row;align-items:center;}
   .nav-item span{display:none;}
-  .sidebar-footer{border-top:none;padding:0;}
+  .sidebar-footer{border-top:none;padding:0;height:auto;}   /* 80 px zogen die ganze Leiste und die aktive Pille hoch */
   .subject-groups-grid{grid-template-columns:1fr;}
   .subject-group-card{min-height:0;}  /* volle Breite: nicht quadratisch hochziehen (BUGS I2) */
   #sidebar.collapsed{width:100%;padding:8px 12px;}  /* ☰ darf die Leiste oben nicht auf 88 px stauchen */
@@ -636,8 +652,8 @@ select option{background:var(--bg-secondary);}
 .date-chip { display: flex; flex-direction: column; align-items: center; justify-content: center; width: 34px; height: 34px; border-radius: 99px; background: var(--bg-elevated); border: 1px solid var(--border); color: var(--text-secondary); cursor: pointer; transition: all var(--transition); user-select: none; flex-shrink: 0; }
 .date-chip:hover { background: var(--bg-card-hover); }
 .date-chip.active { width: 40px; height: 40px; background: var(--accent); color: white; border-color: var(--accent); box-shadow: var(--shadow-sm); }
-.date-chip-day { font-size: 8px; text-transform: uppercase; font-weight: 700; opacity: 0.8; margin-bottom: 1px; transition: font-size var(--transition); }
-.date-chip.active .date-chip-day { font-size: 9px; margin-bottom: 1px; }
+.date-chip-day { font-size: 10px; text-transform: uppercase; font-weight: 700; opacity: 0.8; margin-bottom: 1px; transition: font-size var(--transition); }
+.date-chip.active .date-chip-day { font-size: 10px; margin-bottom: 1px; }
 .date-chip-date { font-size: 11px; font-weight: 700; transition: font-size var(--transition); }
 .date-chip.active .date-chip-date { font-size: 13px; }
 
@@ -766,7 +782,13 @@ select option{background:var(--bg-secondary);}
 .class-view-top{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;width:100%;}
 .class-view-title{display:flex;align-items:center;gap:16px;min-width:0;}
 .class-view-top .header-actions{display:flex;flex-wrap:wrap;align-items:center;margin-left:auto;}
-@media (max-width: 600px) { .class-view-header { padding: 16px; } }
+/* Reiter der Klassenansicht brechen um, statt rechts abgeschnitten zu werden (BUGS I7) */
+.class-tabs{flex-wrap:wrap;border-bottom:none;padding:0;width:100%;}
+@media (max-width: 600px) {
+  .class-view-header { padding: 16px; }
+  .class-tabs .tab-btn { padding: 7px 12px; }
+  #overview-content { padding: 12px; }
+}
 #students-container { container-type: inline-size; }
 @container (max-width: 520px) {
   .student-row { flex-wrap: wrap; row-gap: 8px; }
@@ -787,6 +809,7 @@ select option{background:var(--bg-secondary);}
 .seating-tools-bar { min-height: 80px; border-top: 1px solid var(--border); background: var(--bg-secondary); display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 12px 32px; flex-shrink: 0; padding: 10px 20px; margin-top: auto; position: sticky; bottom: 0; z-index: 100; }
 .tool-widget { display: flex; align-items: center; gap: 12px; background: var(--bg-elevated); padding: 8px 16px; border-radius: 100px; border: 1px solid var(--border); }
 .tool-icon { color: var(--text-secondary); flex-shrink: 0; }
+.timer-step { font-size: 18px; font-weight: 600; line-height: 1; }   /* „−“/„+“ waren als 13-px-Text kaum zu treffen (BUGS I20) */
 .tool-display { font-family: monospace; font-size: 24px; font-weight: 700; text-align: center; }
 #timer-display { width: 75px; }
 #stopwatch-display { width: 100px; }

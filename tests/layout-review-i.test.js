@@ -12,12 +12,20 @@ function rulesFor(selector) {
   return [...css.matchAll(new RegExp(`(?:^|[}\\s,])${esc}\\s*\\{([^}]*)\\}`, 'g'))].map(m => m[1]).join(';');
 }
 
+const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+const student = (id, firstName, lastName) => ({ id, firstName, lastName, grades: [{ type: 'test', value: '2', date: '2026-09-17', note: 'Test' }],
+  attendance: [], participation: [], homework: [], studentNotes: [] });
+
 beforeAll(() => {
   localStorage.setItem('lehrerapp_v3', JSON.stringify({
     settings: { teacherName: 'Test', school: '', blocks: null },
-    lessonSlots: [], lessonData: {},
+    lessonSlots: [
+      { id: 'sR', day: 3, block: 1, part: 'full', subject: 'Mathematik', room: 'Physiksaal', groupId: 'g1', color: '#6366f1', recurring: 'weekly' },
+      { id: 'sF', day: 3, block: 2, part: 'first', subject: 'Mathematik', room: 'R 12', groupId: 'g1', color: '#6366f1', recurring: 'weekly' },
+    ],
+    lessonData: {},
     groups: [{ id: 'g1', subject: 'Mathematik', className: 'Q1 Leistungskurs', color: '#6366f1', schularbeitWeight: 50 }],
-    students: { g1: [] },
+    students: { g1: [student('s1', 'David', 'Fischer-Weißenberger'), student('s2', 'Anna', 'Muster')] },
   }));
   loadApp();
 });
@@ -64,7 +72,6 @@ describe('I2: Klassenkarten schneiden nichts ab', () => {
 });
 
 describe('I3: Seitenleiste nur per ☰', () => {
-  const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
   const sidebar = () => document.getElementById('sidebar');
   const origWidth = window.innerWidth;
   afterEach(() => { window.innerWidth = origWidth; sidebar().classList.remove('collapsed'); });
@@ -95,5 +102,114 @@ describe('I3: Seitenleiste nur per ☰', () => {
   it('auf dem Handy bleibt die Leiste oben volle Breite, auch zugeklappt', () => {
     const phone = css.match(/@media\s*\(max-width:\s*600px\)\s*\{([^@]*?)\n\}/)[1];
     expect(phone).toMatch(/#sidebar\.collapsed\s*\{[^}]*width:\s*100%/);
+  });
+});
+
+// Inhalt aller Regeln innerhalb von @media (max-width: 600px) { … }
+const phoneCss = () => css.match(/@media\s*\(max-width:\s*600px\)\s*\{([^@]*?)\n\}/g).join('\n');
+
+describe('I6: Raum geht in der Stundenplan-Kachel nicht verloren', () => {
+  const cell = (block) => app(`buildTimetableCell(parseDate("2026-09-24"), 3, getBlocks()[${block}], timetableClock(new Date(2026, 8, 24, 20, 0)))`);
+
+  it('ganze Stunde: Raum steht in eigener Zeile unter dem Fach (wurde sonst als erstes abgeschnitten)', () => {
+    const el = cell(0);
+    const room = el.querySelector('.tt-lesson-subject .tt-lesson-room');
+    expect(room.textContent).toBe('Physiksaal');
+    expect(el.querySelector('.tt-lesson-subject').textContent).toContain('Mathematik');
+    expect(rulesFor('.tt-lesson-subject > span')).toMatch(/display:\s*block/);
+    expect(rulesFor('.tt-lesson-subject > span')).toMatch(/text-overflow:\s*ellipsis/);
+  });
+
+  it('halbe Stunde (wenig Höhe): Fach und Raum weiter in einer Zeile mit „·“', () => {
+    expect(cell(1).querySelector('.tt-split-half .tt-lesson-room').textContent).toBe('R 12');
+    expect(css).toMatch(/\.tt-split-half \.tt-lesson-subject > span\s*\{[^}]*display:\s*inline/);
+    expect(css).toMatch(/\.tt-split-half [^{]*\.tt-lesson-room::before\s*\{[^}]*content:\s*' · '/);
+  });
+
+  it('Raum und Fach laufen weiter durch escHtml', () => {
+    app('db.lessonSlots[0].room = "<b>x</b>"');
+    expect(cell(0).querySelector('.tt-lesson-room b')).toBeNull();
+    app('db.lessonSlots[0].room = "Physiksaal"');
+  });
+});
+
+describe('I7: Klassenansicht auf iPad hochkant und Handy', () => {
+  beforeAll(() => app('openGroupStudents("g1", "grades")'));
+
+  it('Reiter brechen um, statt „Anwesenheit“/„Hausaufgaben“ rechts abzuschneiden', () => {
+    const tabs = document.querySelector('#view-students .class-tabs');
+    expect(tabs.querySelectorAll('.tab-btn')).toHaveLength(5);
+    expect(tabs.getAttribute('style')).toBeNull();
+    expect(rulesFor('.class-tabs')).toMatch(/flex-wrap:\s*wrap/);
+  });
+
+  it('Namensspalte: fest links, Layout in style.css statt inline', () => {
+    const th = document.querySelector('#overview-content th.ov-name-col');
+    const td = [...document.querySelectorAll('#overview-content td.ov-name')].find(t => t.textContent.includes('David'));
+    expect(th.getAttribute('style')).toBeNull();
+    expect(td.getAttribute('style')).toBeNull();
+    expect(td.querySelector('.ov-name-text').textContent).toContain('Fischer-Weißenberger');
+    expect(td.querySelector('.ov-name-text').title).toContain('Fischer-Weißenberger');
+    expect(rulesFor('.overview-table .ov-name-col')).toMatch(/position:\s*sticky/);
+    expect(document.getElementById('overview-content').getAttribute('style')).toBeNull();
+  });
+
+  it('schmale Tabelle: lange Namen werden gekürzt, damit Notenspalten Platz haben', () => {
+    expect(rulesFor('#overview-content')).toMatch(/container-type:\s*inline-size/);
+    const block = css.match(/@container\s*\(max-width:\s*\d+px\)\s*\{[^@]*\.ov-name-text\s*\{([^}]*)\}/);
+    expect(block).not.toBeNull();
+    expect(block[1]).toMatch(/max-width:\s*\d+px/);
+    expect(block[1]).toMatch(/text-overflow:\s*ellipsis/);
+  });
+
+  it('alle Tabellen-Reiter nutzen dieselbe Namensspalte', () => {
+    for (const tab of ['participation', 'attendance', 'homework']) {
+      app(`switchClassDashboardTab("${tab}")`);
+      expect(document.querySelector('#overview-content td.ov-name .ov-name-text'), tab).not.toBeNull();
+      expect(document.querySelector('#overview-content td[style*="sticky"]'), tab).toBeNull();
+    }
+  });
+});
+
+describe('I19: Navigation auf dem Handy', () => {
+  it('Logo und ☰ sind oben ausgeblendet (Inline-display:flex hat display:none überstimmt)', () => {
+    expect(document.querySelector('#sidebar .sidebar-header').getAttribute('style')).toBeNull();
+    expect(rulesFor('.sidebar-header')).toMatch(/display:\s*flex/);
+    expect(phoneCss()).toMatch(/\.sidebar-header\s*\{[^}]*display:\s*none/);
+  });
+
+  it('die aktive Pille ist nicht höher als die Leiste (Fußbereich hatte feste 80 px)', () => {
+    expect(phoneCss()).toMatch(/\.sidebar-footer\s*\{[^}]*height:\s*auto/);
+    expect(phoneCss()).toMatch(/\.nav-items\s*\{[^}]*align-items:\s*center/);
+  });
+});
+
+describe('I20: Sitzplan-Bedienelemente', () => {
+  it('Tag-Kürzel in der Datumsleiste sind lesbar (vorher 8 px)', () => {
+    const size = parseFloat(rulesFor('.date-chip-day').match(/font-size:\s*([\d.]+)px/)[1]);
+    expect(size).toBeGreaterThanOrEqual(10);
+  });
+
+  it('Timer −/+ sind echte Minuszeichen in lesbarer Größe', () => {
+    const steps = [...document.querySelectorAll('#view-seating .timer-step')];
+    expect(steps.map(b => b.textContent.trim())).toEqual(['−', '+']);
+    steps.forEach(b => expect(b.getAttribute('aria-label')).toMatch(/Minute/));
+    const size = parseFloat(rulesFor('.timer-step').match(/font-size:\s*([\d.]+)px/)[1]);
+    expect(size).toBeGreaterThanOrEqual(18);
+  });
+
+  it('Handy: winzige Karten nutzen die Zelle besser aus (weniger Abstand, mehr Platz für den Namen)', () => {
+    const wrapper = document.getElementById('seating-canvas-wrapper');
+    Object.defineProperty(wrapper, 'clientWidth', { configurable: true, value: 370 });
+    Object.defineProperty(wrapper, 'clientHeight', { configurable: true, value: 315 });
+    try {
+      app('db.groups[0].seatingCols = 6; db.groups[0].seatingRows = 5; switchView("seating"); currentSeatingGroupId = "g1"; renderSeatingPlan()');
+      const card = document.querySelector('.seating-card');
+      expect(card.classList.contains('tiny')).toBe(true);
+      const cell = Math.floor((370 - 40) / 6);     // 55 px
+      expect(parseFloat(card.style.width)).toBeGreaterThanOrEqual(cell - 6);
+    } finally {
+      delete wrapper.clientWidth; delete wrapper.clientHeight;
+    }
   });
 });

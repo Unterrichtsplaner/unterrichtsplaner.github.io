@@ -38,7 +38,7 @@
       }
     } catch(e) {}
   </script>
-  <link rel="stylesheet" href="style.css?v=205" />
+  <link rel="stylesheet" href="style.css?v=206" />
   <script>
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
@@ -52,7 +52,7 @@
 
   <!-- ─── Sidebar ─────────────────────────────────────── -->
   <nav id="sidebar">
-    <div class="sidebar-header" style="display:flex; justify-content:space-between; align-items:center;">
+    <div class="sidebar-header">
       <div class="app-logo" style="cursor:pointer;" onclick="location.reload()" title="Neuladen">
         <div class="app-logo-block">
           <span class="logo-full">Planer</span>
@@ -182,7 +182,7 @@
             </button>
           </div>
         </div>
-        <div class="modal-tabs" style="border-bottom:none; padding:0; width:100%;">
+        <div class="modal-tabs class-tabs">
           <button class="tab-btn active" id="overview-tab-students" onclick="switchClassDashboardTab('students')"><i data-icon="student"></i>Schüler</button>
           <button class="tab-btn" id="overview-tab-grades" onclick="switchClassDashboardTab('grades')"><i data-icon="grades"></i>Noten</button>
           <button class="tab-btn" id="overview-tab-participation" onclick="switchClassDashboardTab('participation')"><i data-icon="participation"></i>Mitarbeit</button>
@@ -195,7 +195,7 @@
         <button class="btn-primary" style="background:var(--danger); border-color:var(--danger);" onclick="deleteSelectedStudents()">Ausgewählte löschen</button>
       </div>
       <div id="students-container" class="students-list"></div>
-      <div id="overview-content" class="hidden" style="flex:1; overflow-y:auto; padding:22px;"></div>
+      <div id="overview-content" class="hidden"></div>
     </div>
 
     <!-- SEATING PLAN -->
@@ -267,8 +267,8 @@
         <div class="tool-widget">
            <svg class="tool-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
            <span id="timer-display" class="tool-display">05:00</span>
-           <button class="btn-icon" onclick="adjustTimer(-1)" title="-1 Min">-</button>
-           <button class="btn-icon" onclick="adjustTimer(1)" title="+1 Min">+</button>
+           <button class="btn-icon timer-step" onclick="adjustTimer(-1)" title="−1 Min" aria-label="1 Minute weniger">−</button>
+           <button class="btn-icon timer-step" onclick="adjustTimer(1)" title="+1 Min" aria-label="1 Minute mehr">+</button>
            <button class="btn-icon" onclick="toggleTimer()" id="btn-timer-toggle" aria-label="Timer starten" style="background:var(--accent-soft); color:var(--text-accent); border-radius:50%; width:32px; height:32px; display:flex; align-items:center; justify-content:center;">
              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="margin-left:2px;"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
            </button>
@@ -1143,12 +1143,12 @@
   </div>
 
   <script src="lib/crypto-js.min.js"></script>
-  <script src="crypto-helper.js?v=205"></script>
+  <script src="crypto-helper.js?v=206"></script>
   <script src="lib/firebase-app-compat.js"></script>
   <script src="lib/firebase-auth-compat.js"></script>
   <script src="lib/firebase-firestore-compat.js"></script>
-  <script src="firebase-config.js?v=205"></script>
-  <script src="sync-manager.js?v=205"></script>
-  <script src="app.js?v=205"></script>
+  <script src="firebase-config.js?v=206"></script>
+  <script src="sync-manager.js?v=206"></script>
+  <script src="app.js?v=206"></script>
 </body>
 </html>
