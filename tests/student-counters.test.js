@@ -132,7 +132,8 @@ describe('H12: Schülerliste passt auf schmale Bildschirme', () => {
 
   it('Dashboard füllt schmale Bildschirme, statt auf seinen Inhalt zu schrumpfen', () => {
     // war hinter der 800-px-Mindestbreite versteckt: margin:0 auto in einer Flex-Spalte schrumpft den Block
-    expect(document.getElementById('dashboard-content').style.width).toBe('100%');
+    // steht seit I1 in style.css (#dashboard-content), geprüft in layout-review-i.test.js
+    expect(css).toMatch(/#dashboard-content\s*\{[^}]*width:\s*100%/);
   });
 
   it('Kopf der Klassenansicht bricht um, statt Knöpfe abzuschneiden', () => {

@@ -113,6 +113,34 @@ Priorität: 🔴 Datenverlust / App kaputt · 🟠 falsche Anzeige / nervig · �
 - [x] **H12** 🟠 (bei H11 aufgefallen) Schülerliste: Die Zeile bricht nicht um. Auf dem iPad hochkant (768 px) liegen „Fehlt“-Zähler und Notenschnitt rechts außerhalb des Bildes (Zähler endet bei ~860 px), auf dem Handy auch „Mitarbeit“. Zähler/Schnitt unter den Namen umbrechen oder verkleinern.
 - [x] **H13** 🟢 (bei H12 aufgefallen) Sitzplan auf schmalen Bildschirmen: `#main-content` behält dort die 800 px Mindestbreite, weil die Werkzeugleiste (Timer, Stoppuhr, Zufall, Gruppen) nicht umbricht; auf dem iPad hochkant muss man seitlich schieben. Werkzeugleiste umbrechen lassen, dann `#view-seating` in die `:has`-Ausnahme aufnehmen.
 
+## I. Design-Review (alle Ansichten, 24.09.2026)
+
+> Mit Beispieldaten (4 Klassen, eine davon 0–15 Punkte) bei 375, 768, 1024 und 1440 px, dunkel und hell durchgeklickt.
+
+- [x] **I1** 🔴 **Dashboard scrollt nicht.** `.view` hat `overflow:hidden`, `#dashboard-content` (`.view-content`, index.html ~Z. 121) hat gar kein CSS. Aufgeklappte Warngruppe → Warnungen darunter unerreichbar; auf dem Handy fehlen schon zugeklappt die letzten Klassen (Q1, 9c).
+- [x] **I2** 🔴 **Klassenkarten schneiden Inhalt ab** (`.subject-group-card`: `aspect-ratio:1/1` + `overflow:hidden`, style.css ~Z. 234). Alle Karten verlieren unten ~10 px, bei zweizeiligem Namen („Q1 Leistungskurs“) ist der Sitzplan-Knopf halb verdeckt. Auf dem Handy (`1fr`) werden die Karten ~340 px hoch mit großem Loch in der Mitte.
+- [ ] **I3** 🟢 **Jeder Klick in den Inhalt klappt die Seitenleiste zu** (`onclick="collapseSidebar()"` an `#main-content`), der Inhalt springt dabei nach links. Ob die Leiste offen bleiben soll, ist eine Design-Entscheidung des Autors. *(Korrektur: Im Review hieß es, der erste Tipp öffne nichts. Nachgeprüft stimmt das nicht: Der Tipp kommt an, der Eindruck entstand, weil gerade noch ein Fenster zuging. Deshalb von 🔴 auf 🟢.)*
+- [ ] **I4** 🟠 **Heller Modus: zu wenig Kontrast** bei farbigen Klassennamen und Notenfarben (Orange, Hellgrün, Gelbgrün, z. B. „Q1“, „2.9“, „10.0“) auf hellblauem Grund (geschätzt ~2:1).
+- [ ] **I5** 🟠 **Gestrichelter Rahmen doppelt belegt:** markiert „als Nächstes“ und (Desktop, Hover) „hier Stunde anlegen (+)“. Bei roter Klassenfarbe (9c) wirkt die nächste Stunde wie ein Fehler; ebenso der rote Balken der Dashboard-Karte „Nächste Stunde“.
+- [ ] **I6** 🟠 **iPad hochkant, Stundenplan:** Offene Seitenleiste nimmt ~160 px, Kacheln zeigen nur „Mathema…“ / „Q1 Lei…“, Raum fehlt ganz. Schon bei 1024 px wird der Raum abgeschnitten („Informatik · R …“), obwohl die Kachel darunter leer ist.
+- [ ] **I7** 🟠 **Handy/iPad, Klassenansicht:** Reiterleiste abgeschnitten („Anwesenheit“, „Hausaufgaben“ unsichtbar, kein Hinweis aufs Wischen). Notentabelle: Namensspalte ~60 % breit, auf dem Handy nur eine (angeschnittene) Notenspalte sichtbar.
+- [ ] **I8** 🟠 **Summen in der Klassenansicht:** Hausaufgaben: alle Nullen rot. Anwesenheit: „Summe“ zählt F und E, aber nicht Z, ohne Erklärung; „E“ ist dort weiß, in der Schülerliste grün.
+- [ ] **I9** 🟠 **Schnellbewertungs-Fenster:** Neben „Bisherige Noten“ steht ein „0:0:0“-Kästchen, das ist aber die Mitarbeit-Bilanz.
+- [ ] **I10** 🟠 **„Zum Profil“ verliert den Reiter:** Aus „Hausaufgaben“ ein Profil öffnen und schließen → Klassenansicht steht auf „Schüler“.
+- [ ] **I11** 🟠 **Kein Menüpunkt aktiv**, wenn man eine Klasse aus dem Stunden-Fenster öffnet (`openClassOverview` → `openGroupStudents` ohne `switchView('classes')`).
+- [ ] **I12** 🟢 **Namensformat wechselt:** „Anna Müller“ (Schüler, Noten, Schnellbewertung) vs. „Müller, Anna“ (Mitarbeit, Anwesenheit, HA, Profil).
+- [ ] **I13** 🟢 **Rangfolge Klasse/Fach wechselt:** Stundenplan und Klassenkarten zeigen Klasse groß, Fach klein; Klassenansicht und Stunden-Fenster umgekehrt („Mathematik / Klasse 7b“, „Physik 10a“).
+- [ ] **I14** 🟢 **Texte:** Dezimalpunkt statt Komma („2.9“, „10.0“, „steht aktuell auf 4.25“); „hat 1-mal die Hausaufgaben vergessen“; „3 Note(n)“.
+- [ ] **I15** 🟢 **„Heute“ doppelt im Dashboard** (Seitentitel und Abschnitt direkt darunter); in der Navigation heißt es „Dashboard“.
+- [ ] **I16** 🟢 **„Mitarbeit“ doppeldeutig:** Notentyp „Mitarbeit (MA)“ und Smiley-Reiter „Mitarbeit“ stehen im Profil nebeneinander.
+- [ ] **I17** 🟢 **Mehrere gleich starke Hauptknöpfe:** Stundenplan „Heute“ und KW-Pille identisch; Klassenkopf „+ Neue Spalte“ + „Zum Sitzplan“; Profil „+ Neue Note eintragen“ + „Fertig“; Stunden-Fenster „Notenübersicht“ + „Speichern & Schließen“.
+- [ ] **I18** 🟢 **Stunden-Fenster:** Kasten „Fehlend / Entschuldigt“ läuft bis an den Rand (anders als alle anderen Abschnitte), sitzt zwischen HA und Test und unterscheidet unentschuldigt nicht von entschuldigt.
+- [ ] **I19** 🟢 **Handy-Navigation:** aktive Pille höher als die Leiste; ☰ neben „Planer“ ohne Zweck; Trennlinie unter dem Logo endet auf halber Breite.
+- [ ] **I20** 🟢 **Sitzplan:** Tag-Kürzel (DI/MI) in der Datumsleiste winzig; Timer-Knöpfe „−/+“ klein; auf dem Handy abgekürzte Namen („Quen…“) trotz viel leerem Platz darüber/darunter; „Zufall“ im hellen Modus weiß, „Gruppen“ nicht.
+- [ ] **I21** 🟢 **Toasts** („Einstellungen gespeichert“) verdecken unten rechts Knöpfe („Gruppen“) und Stundenkacheln.
+- [ ] **I22** 🟢 **Einstellungen:** gewählte Akzentfarbe nicht markiert; Versionsnummer fehlt; „Exportieren“ (Backup!) ganz unten; unklar, was sofort wirkt und was erst mit „Speichern“; Beschriftungen gemischt („Theme“, „Google Login“, „App Version“, „Klicke hier“ auf einem Knopf).
+- [ ] **I23** 🟢 **„Stunde hinzufügen“:** Von 14 Farbkreisen rutscht einer allein in eine zweite Zeile; Standard „Freie Eingabe“ statt einer Klasse; Feld „Wiederholung?“ mit Fragezeichen.
+
 ---
 
 ## Erledigt

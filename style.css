@@ -231,12 +231,12 @@ input[type="date"] { min-height: 1.2em; } /* Fix iOS Safari date input collapse 
   -webkit-overflow-scrolling: touch;
 }
 .subject-groups-grid{display:grid;grid-template-columns:repeat(auto-fill,210px);gap:18px;align-content:start;}
-.subject-group-card{background:var(--bg-card);border-radius:var(--radius-lg);padding:14px;border:1px solid var(--border);box-shadow:var(--shadow-sm);cursor:pointer;transition:all var(--transition);position:relative;display:flex;flex-direction:column;aspect-ratio: 1 / 1;height:auto;min-height:0;overflow:hidden;}
+.subject-group-card{background:var(--bg-card);border-radius:var(--radius-lg);padding:14px;border:1px solid var(--border);box-shadow:var(--shadow-sm);cursor:pointer;transition:all var(--transition);position:relative;display:flex;flex-direction:column;min-height:210px;}
 .subject-group-card::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:var(--card-color,var(--accent));border-radius:var(--radius-lg) var(--radius-lg) 0 0;}
 @media (hover: hover) {
   .subject-group-card:hover{background:var(--bg-card-hover);transform:translateY(-2px);box-shadow:var(--shadow-md);border-color:var(--card-color,var(--accent));}
 }
-.sgc-class{font-size:24px;font-weight:800;letter-spacing:-1px;color:var(--card-color,var(--accent));}
+.sgc-class{font-size:24px;font-weight:800;letter-spacing:-1px;color:var(--card-color,var(--accent));overflow-wrap:anywhere;}
 .sgc-subject{font-size:14px;font-weight:600;margin-top:3px;}
 .sgc-year{font-size:11px;color:var(--text-muted);margin-top:2px;font-weight:500;}
 .sgc-stats{display:flex;gap:16px;margin-top:auto;}
@@ -598,6 +598,7 @@ select option{background:var(--bg-secondary);}
   .nav-item span{display:none;}
   .sidebar-footer{border-top:none;padding:0;}
   .subject-groups-grid{grid-template-columns:1fr;}
+  .subject-group-card{min-height:0;}  /* volle Breite: nicht quadratisch hochziehen (BUGS I2) */
 }
 
 :root[data-theme="light"] {
@@ -682,6 +683,9 @@ select option{background:var(--bg-secondary);}
 }
 
 /* ═══ Dashboard „Heute“ (H3) ═══ */
+/* Dashboard scrollt unter dem Kopf (BUGS I1): .view hat overflow:hidden */
+.dashboard-scroll{flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;}
+#dashboard-content{padding:20px;width:100%;max-width:800px;margin:0 auto;}
 .dash-section{margin-bottom:28px;}
 .dash-heading{font-size:18px;font-weight:700;margin-bottom:12px;color:var(--text-primary);}
 .dash-heading-sub{font-size:14px;font-weight:500;color:var(--text-secondary);margin-left:6px;}
