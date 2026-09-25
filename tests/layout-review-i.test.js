@@ -213,3 +213,54 @@ describe('I20: Sitzplan-Bedienelemente', () => {
     }
   });
 });
+
+// Regeln, die nur im hellen Modus gelten
+const lightRules = sel => {
+  const esc = sel.replace(/[.*+?^${}()|[\]\\#]/g, '\\$&');
+  return [...css.matchAll(new RegExp(`:root\\[data-theme="light"\\][^{]*?${esc}\\s*\\{([^}]*)\\}`, 'g'))].map(m => m[1]).join(';');
+};
+
+describe('I4: heller Modus hat genug Kontrast', () => {
+  it('Notenfarben haben im hellen Modus eigene, dunklere Werte', () => {
+    const light = css.match(/:root\[data-theme="light"\]\s*\{([^}]*)\}/)[1];
+    for (let i = 1; i <= 5; i++) expect(light, `--grade-${i}`).toMatch(new RegExp(`--grade-${i}:\\s*#[0-9a-f]{6}`));
+  });
+
+  it('Klassenfarbe als Text wird im hellen Modus abgedunkelt (Kachel, Klassenkarte)', () => {
+    expect(lightRules('.tt-lesson')).toMatch(/color:\s*color-mix\(in srgb,\s*var\(--lesson-color\)\s*50%,\s*#000\)/);
+    expect(lightRules('.sgc-class')).toMatch(/color:\s*color-mix\(in srgb,\s*var\(--card-color[^)]*\)\)\s*50%,\s*#000\)/);
+    expect(lightRules('.tt-lesson-subject')).toMatch(/opacity:\s*1/);   // Transparenz kostete weiteren Kontrast
+  });
+
+  it('Kachel setzt die Farbe nicht mehr inline (sonst greift der helle Modus nicht)', () => {
+    const el = app('buildTimetableCell(parseDate("2026-09-24"), 3, getBlocks()[0], timetableClock(new Date(2026, 8, 24, 20, 0)))')
+      .querySelector('.tt-lesson');
+    expect(el.getAttribute('style')).not.toMatch(/(^|;)\s*color:/);
+    expect(el.style.getPropertyValue('--lesson-color')).toBe('#6366f1');
+    expect(rulesFor('.tt-lesson')).toMatch(/color:\s*var\(--lesson-color\)/);
+  });
+});
+
+describe('I5: gestrichelt heißt nur noch „hier anlegen“', () => {
+  it('nächste Stunde: durchgezogener, dezenter Rahmen statt gestrichelt', () => {
+    const r = rulesFor('.tt-lesson.next');
+    expect(r).not.toMatch(/dashed/);
+    expect(r).toMatch(/outline:[^;]*solid/);
+  });
+
+  it('Dashboard „Nächste Stunde“: Farbbalken links wie bei den anderen Stunden, nicht als Warnbalken oben', () => {
+    const r = rulesFor('.dash-next');
+    expect(r).not.toMatch(/border-top:/);
+    expect(r).toMatch(/border-left:\s*4px solid var\(--lesson-color\)/);
+  });
+});
+
+describe('I21: Toasts verdecken keine Knöpfe', () => {
+  it('oben mittig und durchklickbar', () => {
+    const r = rulesFor('#toast-container');
+    expect(r).toMatch(/pointer-events:\s*none/);
+    expect(r).toMatch(/top:/);
+    expect(r).not.toMatch(/right:\s*22px/);
+    expect(document.getElementById('toast-container').getAttribute('aria-live')).toBe('polite');
+  });
+});

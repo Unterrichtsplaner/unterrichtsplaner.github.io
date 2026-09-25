@@ -571,7 +571,7 @@ function buildTimetableCell(d, dayIdx, block, clock = timetableClock()) {
                 : isNext ? `<span class="tt-lesson-badge">als Nächstes</span>` : '';
 
     return `<div class="tt-lesson${isAusfall?' ausfall-lesson':''}${running?' running':''}${isNext?' next':''}"
-           style="background:${hexToRgba(lesson.color,0.15)};color:${escHtml(lesson.color)};--lesson-color:${escHtml(lesson.color)}"
+           style="background:${hexToRgba(lesson.color,0.15)};--lesson-color:${escHtml(lesson.color)}"
            onclick="openLessonDetail(${jsArg(lesson.id)},${jsArg(dateStr)})">
         <div class="tt-lesson-head">
           <div class="tt-lesson-class">${escHtml(t.main)}</div>
