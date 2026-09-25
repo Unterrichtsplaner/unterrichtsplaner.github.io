@@ -116,15 +116,15 @@ describe('Anzeige', () => {
     app('renderSubjectGroups()');
     const html = document.getElementById('subject-groups-container').innerHTML;
     // Q1: (7,5 + 13,5 + 3,5) / 3 = 8,2 Punkte → grade-3; 7b: 5,0 → grade-5
-    expect(html).toMatch(/color:var\(--grade-3\)">8\.2</);
-    expect(html).toMatch(/color:var\(--grade-5\)">5\.0</);
+    expect(html).toMatch(/color:var\(--grade-3\)">8,2</);
+    expect(html).toMatch(/color:var\(--grade-5\)">5,0</);
   });
 
   it('Notentabelle: Einzelwerte und Schnitt in Punkt-Farben', () => {
     app('openClassOverview("g2")');
     const html = document.getElementById('overview-content').innerHTML;
-    expect(html).toMatch(/color:var\(--grade-1\);text-align:center;">13\.5</); // Cara
-    expect(html).toMatch(/color:var\(--grade-5\);text-align:center;">3\.5</); // Dora
+    expect(html).toMatch(/color:var\(--grade-1\);text-align:center;">13,5</); // Cara
+    expect(html).toMatch(/color:var\(--grade-5\);text-align:center;">3,5</); // Dora
   });
 
   it('Sitzplan: Punkte-Klasse färbt nach Punkten', () => {
@@ -132,7 +132,7 @@ describe('Anzeige', () => {
     app('switchView("seating")'); // setzt die Noten wieder auf verborgen (H1)
     app('seatingShowGrades = true; currentSeatingGroupId = "g2"; renderSeatingPlan()');
     const html = document.getElementById('view-seating').innerHTML;
-    expect(html).toMatch(/sc-gpa" style="color:var\(--grade-1\)">13\.5</);
+    expect(html).toMatch(/sc-gpa" style="color:var\(--grade-1\)">13,5</);
     app('seatingShowGrades = false');
   });
 });
@@ -142,8 +142,8 @@ describe('Warnungen', () => {
     const w = app('collectWarnings()').filter(x => x.type === 'grade');
     const names = w.map(x => x.student.firstName).sort();
     expect(names).toEqual(['Anna', 'Dora']); // Cara (13,5) und Ben (7,5) nicht, obwohl ≥ 4,5
-    expect(w.find(x => x.student.firstName === 'Dora').desc).toContain('3.5 Punkte');
-    expect(w.find(x => x.student.firstName === 'Anna').desc).toContain('5.00');
+    expect(w.find(x => x.student.firstName === 'Dora').desc).toContain('3,5 Punkten');
+    expect(w.find(x => x.student.firstName === 'Anna').desc).toContain('5,00');
   });
 
   it('Schwelle für Punkte einstellbar, 0 = aus', () => {
@@ -250,6 +250,6 @@ describe('Exporte', () => {
     app('currentOverviewGroupId = "g2"; currentGroupId = "g2"');
     app('openStudentDetail("c1")');
     app('exportCurrentStudent()');
-    expect(exported).toContain('13.5 Punkte');
+    expect(exported).toContain('13,5 Punkte');
   });
 });

@@ -348,3 +348,46 @@ describe('Paket 4: Klassenansicht und Fenster', () => {
     app('closeModal("modal-lesson")');
   });
 });
+
+describe('Paket 5a: Texte', () => {
+  it('I14: Schnitte und Notenwerte mit Komma (gespeichert bleibt der Punkt)', () => {
+    expect(app('formatGradeAverage(2.25)')).toBe('2,3');
+    expect(app('formatGradeAverage(2.25, 2)')).toBe('2,25');
+    expect(app('formatGradeAverage(null)')).toBe('–');
+    expect(app('gradeText("2.5")')).toBe('2,5');
+    expect(app('gradeText("2-")')).toBe('2-');
+    expect(app('gradeText("+")')).toBe('+');
+    expect(app('db.students.g1[0].grades[0].value')).toBe('2');   // Daten unverändert
+  });
+
+  it('I14: Warnungen mit Komma und „einmal“ statt „1-mal“', () => {
+    app('db.settings.warnHomework = 1; db.settings.warnGrade = 1; db.acknowledgedWarnings = {}');
+    app('db.students.g1[1].homework = [{ id: "h1", date: "2026-09-24", note: "" }]');
+    app('db.students.g1[1].grades = [{ type: "test", value: "4.5", date: "2026-09-17", note: "T" }]');
+    const w = app('collectWarnings()');
+    const texts = w.map(x => x.desc).join(' | ');
+    expect(texts).toContain('hat einmal die Hausaufgaben vergessen');
+    expect(texts).not.toContain('1-mal');
+    expect(texts).toMatch(/steht aktuell auf 4,50/);
+  });
+
+  it('I14: „1 Note“ / „3 Noten“ statt „Note(n)“', () => {
+    app('db.students.g1[0].grades = [{ type: "test", value: "2", date: "2026-09-17", note: "T" }]');
+    app('openSeatingStudentModal("s1", "g1", "2026-09-24")');
+    expect(document.getElementById('seating-student-grades').textContent).toMatch(/1 Note\b/);
+    expect(document.getElementById('seating-student-grades').textContent).not.toContain('Note(n)');
+    app('closeModal("modal-seating-student")');
+  });
+
+  it('I15: Kopf des Dashboards heißt wie der Menüpunkt, „Heute“ steht nur einmal', () => {
+    expect(document.querySelector('#view-dashboard .view-header h1').textContent).toBe('Dashboard');
+    expect(document.querySelector('#nav-dashboard').textContent.trim()).toBe('Dashboard');
+  });
+
+  it('I16: Notentyp heißt in der Anzeige „Mitarbeitsnote“, Zuordnung der Spalten bleibt beim alten Schlüssel', () => {
+    expect(app('gradeTypeName("mitarbeit")')).toBe('Mitarbeitsnote');
+    expect(app('gradeTypeName("test")')).toBe('Test');
+    expect(app('gradeTypeLabel("mitarbeit")')).toBe('Mitarbeit');   // Schlüssel für Noten ohne Titel
+    expect(html).toMatch(/<option value="mitarbeit">Mitarbeitsnote<\/option>/);
+  });
+});

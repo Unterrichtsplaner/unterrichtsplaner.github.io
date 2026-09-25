@@ -39,7 +39,7 @@ describe('H1: Noten im Sitzplan standardmäßig verborgen', () => {
     app('currentSeatingGroupId = "g1"; renderSeatingPlan()');
     expect(document.querySelector('.seating-card')).not.toBeNull();
     expect(document.querySelector('.seating-card .sc-gpa')).toBeNull();
-    expect(document.querySelector('.seating-card').textContent).not.toContain('2.0');
+    expect(document.querySelector('.seating-card').textContent).not.toContain('2,0');
   });
 
   it('Augen-Knopf blendet die Noten ein und wieder aus', () => {
@@ -48,7 +48,7 @@ describe('H1: Noten im Sitzplan standardmäßig verborgen', () => {
     const btn = document.getElementById('btn-seating-grades');
     expect(btn.getAttribute('onclick')).toBe('toggleSeatingGrades()');
     app('toggleSeatingGrades()');
-    expect(document.querySelector('.seating-card .sc-gpa').textContent).toBe('2.0');
+    expect(document.querySelector('.seating-card .sc-gpa').textContent).toBe('2,0');
     expect(btn.getAttribute('aria-pressed')).toBe('true');
     app('toggleSeatingGrades()');
     expect(document.querySelector('.seating-card .sc-gpa')).toBeNull();
@@ -71,7 +71,7 @@ describe('H1: auch das Schüler-Fenster im Sitzplan verbirgt die Noten', () => {
   it('Antippen eines Schülers zeigt keine Einzelnoten, solange Noten verborgen sind', () => {
     app('seatingShowGrades = false');
     app('openSeatingStudentModal("s1", "g1", "2026-09-10")');
-    expect(gradesText()).not.toContain('2.0');
+    expect(gradesText()).not.toContain('2,0');
     expect(gradesText()).toContain('verborgen');
   });
 
@@ -79,14 +79,14 @@ describe('H1: auch das Schüler-Fenster im Sitzplan verbirgt die Noten', () => {
     app('seatingShowGrades = false');
     app('openSeatingStudentModal("s1", "g1", "2026-09-10")');
     app('revealSeatingStudentGrades()');
-    expect(gradesText()).toContain('2.0');
+    expect(gradesText()).toContain('2,0');
     expect(app('seatingShowGrades')).toBe(false); // Kacheln bleiben verborgen
   });
 
   it('mit eingeblendeten Noten (Augen-Knopf) sind sie auch im Fenster direkt sichtbar', () => {
     app('seatingShowGrades = true');
     app('openSeatingStudentModal("s1", "g1", "2026-09-10")');
-    expect(gradesText()).toContain('2.0');
+    expect(gradesText()).toContain('2,0');
     app('seatingShowGrades = false');
   });
 

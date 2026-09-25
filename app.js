@@ -1599,10 +1599,10 @@ function renderOverviewTable() {
     gradeEvents.forEach(ev => {
       const type = ev.type || 'test';
       const weighted = gradeCategory(type) === 'schularbeit';
-      const typeTitle = weighted ? `${gradeTypeLabel(type)}: zählt ${weight} % der Note` : `${gradeTypeLabel(type)}: Sonstige, zählt ${100 - weight} % der Note`;
+      const typeTitle = weighted ? `${gradeTypeName(type)}: zählt ${weight} % der Note` : `${gradeTypeName(type)}: Sonstige, zählt ${100 - weight} % der Note`;
       html += `<th style="cursor:pointer;" title="Klicken zum Bearbeiten" onclick="openEditColumnModal(${jsArg(ev.date)}, ${jsArg(ev.label)}, ${jsArg(type)})">`
         + `<div class="col-type${weighted ? ' weighted' : ''}" title="${escHtml(typeTitle)}">${escHtml(gradeTypeShort(type))}</div>`
-        + `<div>${formatDateShort(ev.date)}</div><div class="col-title">${escHtml(ev.label || gradeTypeLabel(type))}</div></th>`;
+        + `<div>${formatDateShort(ev.date)}</div><div class="col-title">${escHtml(ev.label || gradeTypeName(type))}</div></th>`;
     });
     html += '</tr></thead><tbody>';
 
@@ -1619,7 +1619,7 @@ function renderOverviewTable() {
         const matchingGradeIdx = (s.grades||[]).findIndex(g => g.date === ev.date && (g.note ?? gradeTypeLabel(g.type)) === ev.label);
         const val = matchingGradeIdx !== -1 ? s.grades[matchingGradeIdx].value : '';
         const evType = ev.type || 'test';
-        html += `<td style="padding:4px;"><input type="text" class="form-input" style="width:100%; text-align:center; padding:6px; font-weight:600; color:${val ? gradeColor(gradeNumber(val), scale) : 'inherit'}" value="${escHtml(val)}" placeholder="-" onchange="updateInlineGrade(${jsArg(s.id)}, ${jsArg(ev.date)}, ${jsArg(ev.label)}, this.value, ${jsArg(evType)})" /></td>`;
+        html += `<td style="padding:4px;"><input type="text" class="form-input" style="width:100%; text-align:center; padding:6px; font-weight:600; color:${val ? gradeColor(gradeNumber(val), scale) : 'inherit'}" value="${escHtml(gradeText(val))}" placeholder="-" onchange="updateInlineGrade(${jsArg(s.id)}, ${jsArg(ev.date)}, ${jsArg(ev.label)}, this.value, ${jsArg(evType)})" /></td>`;
       });
       html += `</tr>`;
     });
@@ -2045,7 +2045,7 @@ function renderStudents() {
         </div>
       </div>
       ${avg!==null
-        ? `<div class="student-grade-badge" style="background:${hexToRgba(gradeColor(avg, scale),0.15)};color:${gradeColor(avg, scale)}">${avg.toFixed(1)}</div>`
+        ? `<div class="student-grade-badge" style="background:${hexToRgba(gradeColor(avg, scale),0.15)};color:${gradeColor(avg, scale)}">${formatGradeAverage(avg)}</div>`
         : `<div class="student-grade-badge" style="background:var(--bg-elevated);color:var(--text-muted)">–</div>`}
     `;
     row.addEventListener('click', () => openStudentDetail(s.id));
@@ -2354,7 +2354,7 @@ function renderGradesList(s) {
         const ta = vals.reduce((a,b)=>a+b,0)/vals.length;
         return `<div class="grade-summary-item">
           <div style="font-size:15px;font-weight:700;color:${gradeColor(ta, scale)}">${formatGradeAverage(ta)}</div>
-          <div class="grade-avg-label">${gradeTypeLabel(type)} (${vals.length})</div>
+          <div class="grade-avg-label">${gradeTypeName(type)} (${vals.length})</div>
         </div>`;
       }).join('')}`;
   }
@@ -2370,8 +2370,8 @@ function renderGradesList(s) {
     el.title = 'Klicken zum Bearbeiten';
     el.onclick = () => openGradeForm(s.id, currentGroupId, originalIdx);
     el.innerHTML = `
-      <div class="grade-value" style="color:${color}">${escHtml(g.value)}</div>
-      <div class="grade-type-badge">${gradeTypeLabel(g.type)}</div>
+      <div class="grade-value" style="color:${color}">${escHtml(gradeText(g.value))}</div>
+      <div class="grade-type-badge">${gradeTypeName(g.type)}</div>
       <div class="grade-label">${escHtml(g.note||'')}</div>
       <div class="grade-date">${g.date ? formatDateShort(g.date) : ''}</div>
       <div style="color:var(--text-muted); font-size:16px;">✎</div>`;
@@ -2566,12 +2566,12 @@ function exportCurrentStudent() {
   const dateStr = d => d ? formatDateLong(d) : 'ohne Datum';
 
   const avg = calculateStudentAverage(s, currentOverviewGroupId);
-  const avgText = avg === null ? '-' : gradeScale(group).higherIsBetter ? avg.toFixed(1) + ' Punkte' : avg.toFixed(2);
+  const avgText = avg === null ? '-' : gradeScale(group).higherIsBetter ? formatGradeAverage(avg) + ' Punkte' : formatGradeAverage(avg, 2);
   txt += `=== NOTEN (Aktueller Schnitt: ${avgText}) ===\n`;
   if (s.grades && s.grades.length > 0) {
     const sortedGrades = [...s.grades].sort(byDate);
     sortedGrades.forEach(g => {
-      txt += `${dateStr(g.date)} | ${g.note || gradeTypeLabel(g.type)} | ${gradeCategory(g.type) === 'schularbeit' ? 'Klassenarbeit' : 'Sonstige Leistung'} | Note: ${g.value}\n`;
+      txt += `${dateStr(g.date)} | ${g.note || gradeTypeName(g.type)} | ${gradeCategory(g.type) === 'schularbeit' ? 'Klassenarbeit' : 'Sonstige Leistung'} | Note: ${g.value}\n`;
     });
   } else {
     txt += `Keine Noten eingetragen.\n`;
@@ -3878,7 +3878,7 @@ function renderSeatingStudentGrades(show) {
   if (!show) {
     gradesContainer.innerHTML = `
       <div style="display:flex; justify-content:space-between; align-items:center; font-size:12px; color:var(--text-muted); padding:8px 12px; background:var(--bg-secondary); border-radius:8px;">
-        <span>${s.grades.length} Note(n) – verborgen</span>
+        <span>${s.grades.length === 1 ? '1 Note' : s.grades.length + ' Noten'} – verborgen</span>
         <button class="btn-secondary" style="padding:4px 10px; font-size:12px;" onclick="revealSeatingStudentGrades()">Anzeigen</button>
       </div>`;
     return;
@@ -3891,11 +3891,11 @@ function renderSeatingStudentGrades(show) {
     const valColor = gradeColor(gradeNumber(g.value), gradeScale(groupId));
     el.innerHTML = `
       <div style="display:flex; flex-direction:column; flex:1;">
-        <span style="font-weight:600; color:var(--text-primary)">${escHtml(g.note || gradeTypeLabel(g.type))}</span>
+        <span style="font-weight:600; color:var(--text-primary)">${escHtml(g.note || gradeTypeName(g.type))}</span>
         <span style="font-size:11px; color:var(--text-muted)">${g.date ? formatDateShort(g.date) : ''}</span>
       </div>
       <div style="display:flex; align-items:center; gap:12px;">
-        <div style="font-weight:800; font-size:15px; color:${valColor}">${escHtml(g.value)}</div>
+        <div style="font-weight:800; font-size:15px; color:${valColor}">${escHtml(gradeText(g.value))}</div>
         <button class="btn-icon" style="padding:4px;" onclick="openGradeForm(${jsArg(studentId)}, ${jsArg(groupId)}, ${g._origIdx})">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
         </button>
@@ -4168,8 +4168,13 @@ function gradeScale(groupOrId) {
   return GRADE_SCALES[g && g.gradeScale] || GRADE_SCALES['1-6'];
 }
 // Schnitt zur Anzeige ('–' ohne Noten); Punkte und Noten mit 1 Nachkomma
+// Anzeige mit deutschem Komma (BUGS I14). Gespeichert und gerechnet wird weiter mit Punkt.
 function formatGradeAverage(avg, digits = 1) {
-  return avg === null || avg === undefined || isNaN(avg) ? '–' : avg.toFixed(digits);
+  return avg === null || avg === undefined || isNaN(avg) ? '–' : avg.toFixed(digits).replace('.', ',');
+}
+// Gespeicherten Notenwert anzeigen: '2.5' → '2,5'; Tendenzen ('2-') und Text ('+') bleiben
+function gradeText(value) {
+  return String(value ?? '').replace('.', ',');
 }
 
 function gradeColor(val, scale = GRADE_SCALES['1-6']) {
@@ -4185,9 +4190,16 @@ function gradeColor(val, scale = GRADE_SCALES['1-6']) {
   return 'var(--grade-5)';
 }
 
+// Achtung: gradeTypeLabel ist auch Schlüssel. Noten ohne Titel werden über `g.note ?? gradeTypeLabel(g.type)`
+// ihrer Spalte zugeordnet; ein neuer Text würde bestehende Noten aus der Tabelle werfen. Für die Anzeige gradeTypeName.
 function gradeTypeLabel(type) {
   return {schularbeit:'Klassenarbeit',klausur:'Klausur',test:'Test',muendlich:'Mündlich',mitarbeit:'Mitarbeit',
           projekt:'Projekt',hausaufgabe:'HA',sonstig:'Sonstiges'}[type] || type;
+}
+
+// Name des Notentyps für die Anzeige. „Mitarbeitsnote“, damit sie nicht mit den Mitarbeit-Smileys verwechselt wird (BUGS I16)
+function gradeTypeName(type) {
+  return type === 'mitarbeit' ? 'Mitarbeitsnote' : gradeTypeLabel(type);
 }
 
 // Kürzel für den Spaltenkopf der Notentabelle
@@ -4505,12 +4517,12 @@ function collectWarnings() {
       const unexcused = (s.attendance || []).filter(a => a.type === 'abwesend').length;
       if (warnAbsences > 0 && unexcused >= warnAbsences && unexcused > (ack[`${s.id}_absences`] || 0)) {
         warnings.push({ student: s, group, type: 'absences', count: unexcused,
-          title: 'Zu viele unentschuldigte Fehlzeiten', desc: `${name} hat ${unexcused} unentschuldigte Fehlzeiten.` });
+          title: 'Zu viele unentschuldigte Fehlzeiten', desc: `${name} hat ${unexcused === 1 ? 'eine unentschuldigte Fehlzeit' : unexcused + ' unentschuldigte Fehlzeiten'}.` });
       }
       const hwCount = (s.homework || []).length;
       if (warnHomework > 0 && hwCount >= warnHomework && hwCount > (ack[`${s.id}_homework`] || 0)) {
         warnings.push({ student: s, group, type: 'homework', count: hwCount,
-          title: 'Oft Hausaufgaben vergessen', desc: `${name} hat ${hwCount}-mal die Hausaufgaben vergessen.` });
+          title: 'Oft Hausaufgaben vergessen', desc: `${name} hat ${hwCount === 1 ? 'einmal' : hwCount + '-mal'} die Hausaufgaben vergessen.` });
       }
       const grades = s.grades || [];
       if (grades.length > 0) {
@@ -4520,7 +4532,7 @@ function collectWarnings() {
         if (critical && grades.length > (ack[`${s.id}_grade`] || 0)) {
           warnings.push({ student: s, group, type: 'grade', count: grades.length,
             title: 'Kritischer Notenstand',
-            desc: `${name} steht aktuell auf ${points ? avg.toFixed(1) + ' Punkte' : avg.toFixed(2)}.` });
+            desc: `${name} steht aktuell auf ${points ? formatGradeAverage(avg) + ' Punkten' : formatGradeAverage(avg, 2)}.` });
         }
       }
     });

@@ -143,19 +143,19 @@ describe('B3: überall derselbe (gewichtete) Durchschnitt', () => {
   it('Klassenkarte', () => {
     app('switchView("classes")');
     const card = document.querySelector('.subject-group-card');
-    expect(card.querySelector('.sgc-stat-value[style]').textContent).toBe('2.0');
+    expect(card.querySelector('.sgc-stat-value[style]').textContent).toBe('2,0');
   });
 
   it('Schülerdetail', () => {
     app('openGroupStudents("g1")');
     app('openStudentDetail("s1")');
-    expect(document.querySelector('#grades-summary .grade-avg-display').textContent).toBe('2.0');
+    expect(document.querySelector('#grades-summary .grade-avg-display').textContent).toBe('2,0');
   });
 
   it('Sitzplan', () => {
     app('currentSeatingGroupId = "g1"; currentSeatingDateStr = "2026-09-10"');
     app('seatingShowGrades = true; renderSeatingPlan()'); // H1: Noten sind standardmäßig verborgen
-    expect(document.querySelector('.seating-card .sc-gpa').textContent).toBe('2.0');
+    expect(document.querySelector('.seating-card .sc-gpa').textContent).toBe('2,0');
   });
 });
 
@@ -274,10 +274,10 @@ describe('H5: Spaltentyp im Kopf der Notentabelle', () => {
     expect(tTag.classList.contains('weighted')).toBe(false);
   });
 
-  it('Spalte ohne Titel zeigt den Typ (z. B. Mitarbeit)', () => {
+  it('Spalte ohne Titel zeigt den Typ (z. B. Mitarbeitsnote)', () => {
     anna().grades = [{ type: 'mitarbeit', value: '2.0', date: '2026-09-05', note: '' }];
     const [col] = headers();
-    expect(col.querySelector('.col-title').textContent).toBe('Mitarbeit');
+    expect(col.querySelector('.col-title').textContent).toBe('Mitarbeitsnote');
     expect(col.querySelector('.col-type').textContent).toBe('MA');
   });
 
