@@ -173,7 +173,7 @@ input[type="date"] { min-height: 1.2em; } /* Fix iOS Safari date input collapse 
 .tt-status-notiz{color:var(--text-muted);}
 /* Laufende Stunde: kräftig; nächste Stunde: dezent */
 .tt-lesson.running{box-shadow:0 0 0 2px currentColor,var(--shadow-md);}
-.tt-lesson.running .tt-lesson-badge{background:var(--lesson-color);color:#fff;border-radius:4px;padding:2px 6px;}
+.tt-lesson.running .tt-lesson-badge{background:color-mix(in srgb, var(--lesson-color) 50%, #000);color:#fff;border-radius:4px;padding:2px 6px;}
 /* Nächste Stunde: dezent und durchgezogen. Gestrichelt heißt „hier Stunde anlegen“ (BUGS I5) */
 .tt-lesson.next{outline:1.5px solid currentColor;outline-offset:-1.5px;}
 @supports (color: color-mix(in srgb, red 50%, transparent)) {
@@ -593,6 +593,8 @@ input[name="new-lesson-part"]:checked + .duration-btn {
 @media (hover: hover){.color-swatch:hover{transform:scale(1.15);}}
 .color-swatch.selected{border-color:white !important;box-shadow:0 0 0 2px var(--swatch-color),0 2px 8px rgba(0,0,0,.4);transform:scale(1.12);}
 .color-swatch.selected::after{content:'✓';position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:white;}
+/* Helle Farben (BUGS AA6): weißes Häkchen wäre unsichtbar */
+.color-swatch.swatch-light.selected::after{color:#1f2937;}
 
 /* ─── Grades ─────────────────────────── */
 .grades-summary{display:flex;gap:12px;flex-wrap:wrap;padding:12px;background:var(--bg-card);border-radius:var(--radius-md);border:1px solid var(--border);}
@@ -697,6 +699,7 @@ select option{background:var(--bg-secondary);}
    Mit 50 % mindestens 4,8:1 für alle 14 Klassenfarben auf allen hellen Hintergründen (BUGS I4). */
 :root[data-theme="light"] .tt-lesson{color:color-mix(in srgb, var(--lesson-color) 50%, #000);}
 :root[data-theme="light"] .tt-lesson-subject{opacity:1;}
+:root[data-theme="light"] .dash-lesson.running .dash-lesson-status{color:color-mix(in srgb, var(--lesson-color) 50%, #000);}  /* helle Klassenfarben auf Weiß (BUGS AA6) */
 :root[data-theme="light"] .sgc-class{color:color-mix(in srgb, var(--card-color, var(--accent)) 50%, #000);}
 
 

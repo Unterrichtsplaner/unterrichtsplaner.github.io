@@ -1,5 +1,8 @@
 // Block AA (Rückmeldungen aus dem Alltag, 15.10.2026).
+const fs = require('fs');
+const path = require('path');
 const { loadApp, app } = require('./helpers/load-app');
+const CSS = fs.readFileSync(path.join(__dirname, '..', 'style.css'), 'utf8');
 
 function sampleDB() {
   return {
@@ -143,5 +146,63 @@ describe('AA1: mehrere Klassen auf einmal anlegen', () => {
     setVal('new-group-class', '7c');
     app('saveSubjectGroup()');
     expect(groups().find(g => g.id === 'g1').className).toBe('7c');
+  });
+});
+
+describe('AA6: genug Farben für viele Klassen (Musik: 1 Stunde pro Klasse, bis zu 26 Klassen)', () => {
+  const rgb = h => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16));
+  const lum = c => {
+    const f = v => { v /= 255; return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; };
+    const [r, g, b] = c.map(f); return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+  };
+  const contrast = (a, b) => { const [x, y] = [lum(a), lum(b)].sort((p, q) => q - p); return (x + 0.05) / (y + 0.05); };
+  const mix = (a, b, t) => a.map((v, i) => v * (1 - t) + b[i] * t);
+
+  it('mindestens 28 Farben, in vollen Reihen zu 7, alle verschieden', () => {
+    const colors = app('APP_COLORS');
+    expect(colors.length).toBeGreaterThanOrEqual(28);
+    expect(colors.length % 7).toBe(0);
+    expect(new Set(colors.map(c => c.toLowerCase())).size).toBe(colors.length);
+    colors.forEach(c => expect(c).toMatch(/^#[0-9a-f]{6}$/i));
+  });
+
+  it('die bisherigen 14 Farben bleiben vorne und in derselben Reihenfolge', () => {
+    expect(app('APP_COLORS').slice(0, 14)).toEqual(['#6366f1', '#8b5cf6', '#ec4899', '#d946ef', '#ef4444', '#f97316', '#f59e0b',
+      '#a16207', '#84cc16', '#22c55e', '#14b8a6', '#06b6d4', '#3b82f6', '#64748b']);
+  });
+
+  it('neue Farben: Klassenname auf der Kachel lesbar, dunkel wie hell', () => {
+    // Kachel: Schrift in der Klassenfarbe auf 15 % Farbton (dunkel), hell mit 50 % Schwarz gemischt (style.css .tt-lesson)
+    app('APP_COLORS').slice(14).forEach(c => {
+      const x = rgb(c);
+      expect(contrast(x, mix(rgb('#1a1d27'), x, 0.15)), c + ' dunkel').toBeGreaterThanOrEqual(3);
+      expect(contrast(mix(x, [0, 0, 0], 0.5), mix(rgb('#f1f5f9'), x, 0.15)), c + ' hell').toBeGreaterThanOrEqual(4);
+    });
+  });
+
+  it('26 neue Klassen bekommen 26 verschiedene Farben', () => {
+    app('db.groups = []; db.students = {}');
+    app('openAddSubjectGroup()');
+    setVal('new-group-class', '5a-m, 6a-m');
+    setVal('new-group-subject', 'Musik');
+    app('saveSubjectGroup()');
+    const g = groups();
+    expect(g.length).toBe(26);
+    expect(new Set(g.map(x => x.color)).size).toBe(26);
+  });
+
+  it('Häkchen der gewählten Farbe ist auf hellen Feldern dunkel', () => {
+    app('openAddSubjectGroup()');
+    const sw = c => document.querySelector(`#group-color-picker .color-swatch[data-color="${c}"]`);
+    expect(sw('#fecdd3').classList.contains('swatch-light')).toBe(true);
+    expect(sw('#d9f99d').classList.contains('swatch-light')).toBe(true);
+    expect(sw('#6366f1').classList.contains('swatch-light')).toBe(false);
+    expect(sw('#ef4444').classList.contains('swatch-light')).toBe(false);
+    expect(CSS).toMatch(/\.color-swatch\.swatch-light\.selected::after\{[^}]*color:/);
+  });
+
+  it('weiße Schrift auf Klassenfarbe nur abgedunkelt (Abzeichen „noch … min“), Status im hellen Modus abgedunkelt', () => {
+    expect(CSS).toMatch(/\.tt-lesson\.running \.tt-lesson-badge\{[^}]*background:color-mix\(in srgb, var\(--lesson-color\) 50%, #000\)/);
+    expect(CSS).toMatch(/:root\[data-theme="light"\] \.dash-lesson\.running \.dash-lesson-status\{[^}]*color-mix\(in srgb, var\(--lesson-color\) 50%, #000\)/);
   });
 });

@@ -16,7 +16,12 @@ const APP_COLORS = [
   '#6366f1','#8b5cf6','#ec4899','#d946ef',
   '#ef4444','#f97316','#f59e0b','#a16207','#84cc16',
   '#22c55e','#14b8a6','#06b6d4','#3b82f6',
-  '#64748b'
+  '#64748b',
+  // Helle Töne dazu (BUGS AA6): Eine Musiklehrkraft hat schnell 26 Klassen. Gewählt nach Abstand zu allen anderen
+  // (≥ 49, S15) und Lesbarkeit als Schrift auf der Kachel (dunkel und hell); dunkle Töne wären im dunklen Modus unlesbar.
+  '#f87171','#fb923c','#fdba74','#fde047','#d9f99d','#bef264','#a3e635',
+  '#bbf7d0','#4ade80','#6ee7b7','#a5f3fc','#67e8f9','#38bdf8','#a5b4fc',
+  '#818cf8','#c084fc','#f0abfc','#f472b6','#fda4af','#fecdd3','#a8a29e'
 ];
 // Grundfarbe je Avatar; helle/dunkle Töne mit genug Kontrast mischt style.css (.student-avatar, BUGS L12)
 const AVATAR_COLORS = ['#6366f1', '#ec4899', '#f59e0b', '#22c55e', '#06b6d4', '#3b82f6', '#f97316'];
@@ -806,6 +811,12 @@ function handleTimetableSwipe(dx, dy) {
 // Fehlt die Farbe oder ist sie kaputt (Alt-/Fremddaten), Standardfarbe statt Absturz (BUGS M13)
 const DEFAULT_LESSON_COLOR = '#6366f1';
 function safeColor(hex) { return /^#[0-9a-f]{6}$/i.test(hex || '') ? hex : DEFAULT_LESSON_COLOR; }
+// Helle Farbe: Weiß darauf hätte zu wenig Kontrast (< 3:1), z. B. das Häkchen der gewählten Farbe (BUGS AA6)
+function isLightColor(hex) {
+  const lin = v => { v /= 255; return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; };
+  const [r, g, b] = [1, 3, 5].map(i => lin(parseInt(safeColor(hex).slice(i, i + 2), 16)));
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b > 0.3;
+}
 function hexToRgba(hex, alpha) {
   hex = safeColor(hex);
   const r=parseInt(hex.slice(1,3),16), g=parseInt(hex.slice(3,5),16), b=parseInt(hex.slice(5,7),16);
@@ -1773,7 +1784,7 @@ function renderColorPicker(containerId, colors, onSelect) {
   const currentColor = containerId === 'lesson-color-picker' ? selectedLessonColor : selectedGroupColor;
   colors.forEach(color => {
     const sw = document.createElement('div');
-    sw.className = 'color-swatch' + (color === currentColor ? ' selected' : '');
+    sw.className = 'color-swatch' + (color === currentColor ? ' selected' : '') + (isLightColor(color) ? ' swatch-light' : '');
     sw.style.background = color;
     sw.style.setProperty('--swatch-color', color);
     sw.dataset.color = color;
