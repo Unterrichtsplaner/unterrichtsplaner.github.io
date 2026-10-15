@@ -492,6 +492,7 @@ Priorität: 🔴 Datenverlust / App kaputt · 🟠 falsche Anzeige / nervig · �
 - [x] **AB8** 🟠 Tippfehler im Jahr („bis 2205“) wurde angenommen, Suchen liefen Millionen Tage. → Rückfrage bei Zeiträumen > 10 Wochen; Suchen auf 400 Tage begrenzt.
 - [x] **AB9** 🟢 Dashboard bei kaputtem `holidays` (keine Liste). → abgesichert.
 - [x] **AB10** 🟢 Text in einem Popup markieren (Raster-Menü im Sitzplan) und außerhalb loslassen schloss das Popup; Aufklapplisten ebenso (im Menü gedrückt, außerhalb losgelassen). Die großen Fenster waren seit O1 geschützt, die Popups nicht. → `pressStartedIn(el)`: Popup schließt nur, wenn auch das Drücken außerhalb begann (v269, `tests/popup-markieren.test.js`, im Browser mit echter Maus geprüft).
+- [x] **AB11** 🟢 Wunsch: „Passwort anzeigen“ (Auge) am Master-Passwort. → Alle vier Master-Passwort-Felder (`data-reveal`: Hauptfeld, Bestätigung, „neu festlegen“ + Wiederholung), nicht die Konto-Anmeldung. Fokus bleibt im Feld (sonst übernähme `change` das Passwort vorzeitig); Schließen der Einstellungen und Verlassen der App verbergen es wieder (`hideAllPasswords`). v270, `tests/passwort-auge.test.js`, im Browser geprüft.
 
 > „Das ist neu“ (`WHATS_NEW.id = '2026-10'`, v268): Ferien, Pausenaufsicht, Vertretung, mehrere Klassen + Farben, Einzelstunden & versetzte Reihen.
 
