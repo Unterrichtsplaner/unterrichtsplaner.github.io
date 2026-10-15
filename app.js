@@ -6742,13 +6742,12 @@ function initAllCustomDropdowns() {
 // Für das nächste große Update: `id` ändern und die Punkte ersetzen. Gemerkt wird nur auf diesem Gerät
 // (nicht in `db`, nicht synchronisiert). Neue Nutzer ohne Daten sehen es nie.
 const WHATS_NEW = {
-  id: '2026-10',
+  id: '2026-10b',
   items: [
-    { icon: 'calendar', title: 'Ferien', text: 'Einstellungen → „Ferien & freie Tage“: Bundesland wählen und „Ferien laden“. In den Ferien fallen deine Stunden aus, Hausaufgaben sind erst danach fällig.' },
-    { icon: 'late',     title: 'Pausenaufsicht', text: '„+ Aufsicht“ oben links im Stundenplan. Sie steht dann zwischen den Stunden und im Dashboard.' },
-    { icon: 'refresh',  title: 'Vertretung', text: 'Im Fenster einer Stunde unten auf „Vertretung“ tippen – ersetzt die Stunde nur an diesem Tag und ist im Plan markiert.' },
-    { icon: 'classes',  title: 'Mehrere Klassen auf einmal', text: 'beim Anlegen z. B. „7a-d“ eintippen. Dazu 35 statt 14 Farben.' },
-    { icon: 'seating',  title: 'Einzelstunden & Sitzplan', text: 'Einstellungen → Stundenzeiten → „Vorlage …“ für 45-Minuten-Stunden. Im Sitzplan lassen sich Reihen versetzen (Raster-Menü).' },
+    { icon: 'edit',     title: 'Stundenplan bearbeiten', text: 'Stift oben rechts im Stundenplan antippen, dann Stunden einfach an einen anderen Platz ziehen. Auf eine belegte Stunde ziehen tauscht beide. Du wählst jedes Mal: nur an diesem Tag oder für immer.' },
+    { icon: 'undo',     title: 'Rückgängig', text: 'Beim Verschieben steht „Rückgängig“ in der Leiste oben. Eine Verlegung „nur an diesem Tag“ hebst du im Fenster der Stunde wieder auf.' },
+    { icon: 'printer',  title: 'Stundenplan drucken / als PDF', text: 'Drucker-Knopf neben dem Stift: dein Plan auf einer A4-Seite, farbig oder schwarz-weiß, mit A/B-Wochen und Pausenaufsicht.' },
+    { icon: 'calendar', title: 'Seit Kurzem außerdem', text: 'Ferien laden (Einstellungen → „Ferien & freie Tage“), Pausenaufsicht („+ Aufsicht“), Vertretung im Fenster einer Stunde und mehrere Klassen auf einmal anlegen („7a-d“).' },
   ],
 };
 const WHATS_NEW_SEEN_KEY = 'whats_new_seen';
