@@ -41,7 +41,7 @@
       }
     } catch(e) {}
   </script>
-  <link rel="stylesheet" href="style.css?v=243" />
+  <link rel="stylesheet" href="style.css?v=268" />
   <script>
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
@@ -233,16 +233,23 @@
             <button class="btn-icon" style="width:100%; height:100%;" title="Raster-Größe einstellen" onclick="toggleSeatingSettings(event)">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="pointer-events:none;"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="3" x2="9" y2="21"/><line x1="15" y1="3" x2="15" y2="21"/></svg>
             </button>
-            <div id="seating-settings-popup" class="hidden" style="position:absolute; top:38px; left:50%; transform:translateX(-50%); background:var(--bg-card); border:1px solid var(--border); border-radius:99px; padding:4px 8px; box-shadow:var(--shadow-md); z-index:100; display:flex; align-items:center; gap:6px; white-space:nowrap;">
-              <span style="font-size:11px; font-weight:600; color:var(--text-secondary); margin-left:4px;">Raster:</span>
-              <input type="text" inputmode="numeric" pattern="[0-9]*" id="seating-cols" class="form-input seating-grid-input" aria-label="Spalten" placeholder="X" onchange="saveSeatingGrid()" />
-              <span style="color:var(--text-muted); font-size:11px; font-weight:bold;">×</span>
-              <input type="text" inputmode="numeric" pattern="[0-9]*" id="seating-rows" class="form-input seating-grid-input" aria-label="Reihen" placeholder="Y" onchange="saveSeatingGrid()" />
-              <div style="width:1px; height:16px; background:var(--border); margin:0 4px;"></div>
-              <label style="display:flex; align-items:center; gap:6px; font-size:11px; font-weight:600; color:var(--text-secondary); cursor:pointer; margin-right:4px; user-select:none;">
-                <input type="checkbox" id="seating-show-grid-always" onchange="onToggleShowGridAlways(this.checked)" style="width:13px; height:13px; cursor:pointer;" />
-                Raster zeigen
-              </label>
+            <div id="seating-settings-popup" class="seating-settings-popup hidden">
+              <div class="ssp-row">
+                <span class="ssp-label">Raster:</span>
+                <input type="text" inputmode="numeric" pattern="[0-9]*" id="seating-cols" class="form-input seating-grid-input" aria-label="Spalten" placeholder="X" onchange="saveSeatingGrid()" />
+                <span class="ssp-times">×</span>
+                <input type="text" inputmode="numeric" pattern="[0-9]*" id="seating-rows" class="form-input seating-grid-input" aria-label="Reihen" placeholder="Y" onchange="saveSeatingGrid()" />
+              </div>
+              <div class="ssp-row">
+                <label class="ssp-check">
+                  <input type="checkbox" id="seating-show-grid-always" onchange="onToggleShowGridAlways(this.checked)" />
+                  Raster zeigen
+                </label>
+                <label class="ssp-check">
+                  <input type="checkbox" id="seating-stagger" onchange="onToggleSeatingStagger(this.checked)" />
+                  Reihen versetzt
+                </label>
+              </div>
             </div>
           </div>
           <!-- Noten ein-/ausblenden (Datenschutz, standardmäßig aus) -->
@@ -320,6 +327,7 @@
           <div id="lesson-color-dot" style="width:11px;height:11px;border-radius:50%;flex-shrink:0"></div>
           <h2 id="lesson-modal-title" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis"></h2>
           <span id="lesson-ausfall-badge" class="ausfall-badge hidden">AUSFALL</span>
+          <span id="lesson-kind-badge" class="lesson-kind-badge hidden"></span>
         </div>
         <span id="lesson-modal-subtitle" class="modal-subtitle"></span>
         <div id="lesson-seating-link-container" class="hidden" style="margin-top: 8px;">
@@ -441,7 +449,10 @@
     </div><!-- /lesson-notes-form -->
 
     <div class="modal-footer" style="justify-content: space-between;">
-      <button class="btn-secondary" id="btn-ausfall-bottom" onclick="toggleAusfall()">Stunde entfällt</button>
+      <div class="lesson-footer-actions">
+        <button class="btn-secondary" id="btn-ausfall-bottom" onclick="toggleAusfall()">Stunde entfällt</button>
+        <button class="btn-secondary" id="btn-lesson-substitute" onclick="openSubstituteForLesson()" title="Statt dieser Stunde eine Vertretung eintragen (nur an diesem Tag)">Vertretung</button>
+      </div>
       <button class="btn-primary" onclick="saveLessonDataAndClose()">Speichern & Schließen</button>
     </div>
   </div>
@@ -499,7 +510,7 @@
         <label for="new-lesson-room">Raum (optional)</label>
         <input type="text" id="new-lesson-room" placeholder="z.B. R102" class="form-input" />
       </div>
-      <div class="form-group" style="margin-top:12px;">
+      <div class="form-group" id="lesson-part-group" style="margin-top:12px;">
         <span class="group-label" id="lesson-part-label">Dauer / Position im Block</span>
         <div id="lesson-part-options" role="radiogroup" aria-labelledby="lesson-part-label" style="display:flex; background:var(--bg-elevated); border:1px solid var(--border); border-radius:99px; overflow:hidden;">
           <label style="flex:1; position:relative; cursor:pointer; margin:0;">
@@ -522,6 +533,7 @@
             <option value="weekly">Jede Woche</option>
             <option value="biweekly">Alle 2 Wochen</option>
             <option value="none">Nur einmalig</option>
+            <option value="substitute">Vertretung (einmalig)</option>
           </select>
           <div id="lesson-date-hint" class="form-hint hidden" aria-live="polite"></div>
         </div>
@@ -1019,10 +1031,45 @@
       <div class="settings-section">
         <div class="settings-section-header">
           <h3>Stundenzeiten (Blöcke)</h3>
-          <button class="btn-secondary" style="font-size:12px;padding:5px 10px" onclick="addBlockRow()">+ Block</button>
+          <div style="display:flex;gap:6px">
+            <button class="btn-secondary" style="font-size:12px;padding:5px 10px" onclick="chooseBlockTemplate()">Vorlage …</button>
+            <button class="btn-secondary" style="font-size:12px;padding:5px 10px" onclick="addBlockRow()">+ Block</button>
+          </div>
         </div>
         <p style="font-size:12px;color:var(--text-muted);margin:6px 0 12px">Diese Zeiten erscheinen links im Stundenplan und als Auswahloptionen beim Hinzufügen.</p>
         <div id="blocks-editor"></div>
+      </div>
+
+      <div class="settings-section">
+        <div class="settings-section-header">
+          <h3>Ferien &amp; freie Tage</h3>
+          <button class="btn-secondary" style="font-size:12px;padding:5px 10px" onclick="addHolidayRow()">+ Zeitraum</button>
+        </div>
+        <p style="font-size:12px;color:var(--text-muted);margin:6px 0 12px">An diesen Tagen finden deine regelmäßigen Stunden nicht statt; Hausaufgaben sind erst danach fällig. Einzelne Feiertage: gleicher Tag bei „von“ und „bis“.</p>
+        <div class="holiday-load-row">
+          <select id="settings-federal-state" class="form-input" aria-label="Bundesland">
+            <option value="">Bundesland wählen …</option>
+            <option value="DE-BW">Baden-Württemberg</option>
+            <option value="DE-BY">Bayern</option>
+            <option value="DE-BE">Berlin</option>
+            <option value="DE-BB">Brandenburg</option>
+            <option value="DE-HB">Bremen</option>
+            <option value="DE-HH">Hamburg</option>
+            <option value="DE-HE">Hessen</option>
+            <option value="DE-MV">Mecklenburg-Vorpommern</option>
+            <option value="DE-NI">Niedersachsen</option>
+            <option value="DE-NW">Nordrhein-Westfalen</option>
+            <option value="DE-RP">Rheinland-Pfalz</option>
+            <option value="DE-SL">Saarland</option>
+            <option value="DE-SN">Sachsen</option>
+            <option value="DE-ST">Sachsen-Anhalt</option>
+            <option value="DE-SH">Schleswig-Holstein</option>
+            <option value="DE-TH">Thüringen</option>
+          </select>
+          <button class="btn-secondary" id="btn-load-holidays" onclick="loadHolidaysFromApi()"><i data-icon="download"></i>Ferien laden</button>
+        </div>
+        <p class="holiday-load-hint">Holt Schulferien und Feiertage für dieses und nächstes Schuljahr (OpenHolidays API). Bewegliche Ferientage deiner Schule bitte selbst ergänzen.</p>
+        <div id="holidays-editor"></div>
       </div>
 
       <div class="settings-section">
@@ -1099,6 +1146,7 @@
       <ul>
         <li>Die App wird über GitHub Pages ausgeliefert. Beim Laden erhält GitHub technische Daten wie die IP-Adresse. Danach läuft die App aus dem Speicher des Geräts, auch offline.</li>
         <li>Der Quellcode ist öffentlich (Einstellungen → Open Source) – was die App tut, lässt sich dort nachprüfen.</li>
+        <li>„Ferien laden“ (Einstellungen → Ferien &amp; freie Tage) fragt nur auf Knopfdruck die Ferien deines Bundeslands bei der OpenHolidays API ab (openholidaysapi.org). Dabei erhält der Anbieter deine IP-Adresse und das gewählte Bundesland, sonst nichts.</li>
       </ul>
 
       <h3>Für den dienstlichen Einsatz</h3>
@@ -1112,6 +1160,52 @@
     </div>
     <div class="modal-footer">
       <button class="btn-primary" onclick="closeModal('modal-privacy')">Schließen</button>
+    </div>
+  </div>
+</div>
+
+<!-- Pausenaufsicht (BUGS AA4) -->
+<div id="modal-supervision" class="modal-overlay hidden" onclick="closeModalOnOverlay(event,'modal-supervision')">
+  <div class="modal modal-small" onclick="event.stopPropagation()">
+    <div class="modal-header">
+      <h2 id="supervision-modal-title">Pausenaufsicht eintragen</h2>
+      <button class="modal-close" aria-label="Schließen" onclick="cancelSupervision()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label for="sup-recurring">Wiederholung</label>
+        <select id="sup-recurring" class="form-input" onchange="updateSupervisionFormFields()">
+          <option value="weekly">Jede Woche</option>
+          <option value="biweekly">Alle 2 Wochen</option>
+          <option value="none">Nur einmalig</option>
+        </select>
+      </div>
+      <div class="form-group" id="sup-day-group">
+        <label for="sup-day">Tag</label>
+        <select id="sup-day" class="form-input">
+          <option value="0">Montag</option><option value="1">Dienstag</option><option value="2">Mittwoch</option>
+          <option value="3">Donnerstag</option><option value="4">Freitag</option>
+        </select>
+      </div>
+      <div class="form-group hidden" id="sup-date-group">
+        <label for="sup-date" id="sup-date-label">Am</label>
+        <input type="date" id="sup-date" class="form-input" />
+      </div>
+      <div style="display:flex; gap:10px;">
+        <div class="form-group" style="flex:1"><label for="sup-start">Von</label><input type="time" id="sup-start" class="form-input" /></div>
+        <div class="form-group" style="flex:1"><label for="sup-end">Bis</label><input type="time" id="sup-end" class="form-input" /></div>
+      </div>
+      <div class="form-group">
+        <label for="sup-place">Ort (optional)</label>
+        <input type="text" id="sup-place" class="form-input" placeholder="z. B. Hof, Mensa, Bushaltestelle" />
+      </div>
+    </div>
+    <div class="modal-footer" style="justify-content: space-between;">
+      <button id="btn-delete-supervision" class="btn-secondary hidden" style="color:var(--danger); border-color:var(--danger);" onclick="deleteSupervision()">Löschen</button>
+      <div style="display:flex; gap:8px; margin-left:auto;">
+        <button class="btn-secondary" onclick="cancelSupervision()">Abbrechen</button>
+        <button class="btn-primary" onclick="saveSupervision()">Speichern</button>
+      </div>
     </div>
   </div>
 </div>
@@ -1293,12 +1387,12 @@
   </div>
 
   <script src="lib/crypto-js.min.js"></script>
-  <script src="crypto-helper.js?v=243"></script>
+  <script src="crypto-helper.js?v=268"></script>
   <script src="lib/firebase-app-compat.js"></script>
   <script src="lib/firebase-auth-compat.js"></script>
   <script src="lib/firebase-firestore-compat.js"></script>
-  <script src="firebase-config.js?v=243"></script>
-  <script src="sync-manager.js?v=243"></script>
-  <script src="app.js?v=243"></script>
+  <script src="firebase-config.js?v=268"></script>
+  <script src="sync-manager.js?v=268"></script>
+  <script src="app.js?v=268"></script>
 </body>
 </html>

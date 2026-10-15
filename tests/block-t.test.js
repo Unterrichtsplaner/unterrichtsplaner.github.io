@@ -442,7 +442,10 @@ describe('T8/T9: Konflikt lösen', () => {
   async function makeConflict() {
     await sync();
     await settle();
-    await otherDeviceUploads(sampleDB('Laptop'), Date.now() + 5000);
+    // Wie in echt: Ein anderes Gerät schreibt immer eine neuere Kennung als die aktuelle (Transaktion). Mit „jetzt + 5 s“
+    // allein bekam der zweite Konflikt in T9 in derselben Millisekunde dieselbe Kennung wie der eigene Upload davor.
+    const current = cloud.store[UID] ? cloud.store[UID].lastModified : 0;
+    await otherDeviceUploads(sampleDB('Laptop'), Math.max(Date.now() + 5000, current + 1000));
     userEdits(`db.groups[0].className = 'iPad'`);
     await sync();
     await settle();

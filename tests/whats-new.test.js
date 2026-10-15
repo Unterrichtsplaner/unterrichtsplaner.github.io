@@ -33,11 +33,8 @@ describe('Das ist neu', () => {
     expect(isOpen()).toBe(true);
     const text = modal().textContent;
     expect(text).toContain('Das ist neu');
-    expect(text).toContain('Sitzplan');
-    expect(text).toContain('Master-Passwort');
-    expect(text).toContain('Heute');
-    expect(text).toContain('0–15 Punkte');
-    expect(text).toContain('Verschlüsselung');
+    // aktuelle Punkte, egal welche (die Liste wechselt mit jedem großen Update)
+    app('WHATS_NEW.items').forEach(item => { expect(text).toContain(item.title); expect(text).toContain(item.text.slice(0, 20)); });
   });
 
   it('„Verstanden“ schließt es, und es kommt danach nie wieder', () => {

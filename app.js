@@ -162,6 +162,8 @@ function downloadUnreadableDB() {
 }
 // Altdaten angleichen. Muss beliebig oft laufen dürfen; gespeichert wird beim nächsten persistDB/saveDB.
 function migrateDB(data) {
+  // Pausenaufsichten (BUGS AA4): fehlt bei Altdaten. Nur ergänzen, nie einen vorhandenen Wert ersetzen (Regel 48).
+  if (data.supervisions === undefined) data.supervisions = [];
   // Noten: Bemerkung hieß früher teils `label`, heute immer `note`
   Object.values(data.students || {}).forEach(list => (list || []).forEach(st => (st.grades || []).forEach(gr => {
     if (!('label' in gr)) return;
@@ -205,7 +207,10 @@ function migrateDB(data) {
 // Für jede Änderung durch den Nutzer: markiert die Daten als geändert und stößt den Cloud-Sync an.
 function saveDB() {
   if (!db.settings) db.settings = {};
-  db.settings.lastModified = Date.now();
+  // Immer eine neue Kennung, auch bei zwei Eingaben in derselben Millisekunde: Der Sync prüft nur auf Gleichheit
+  // und hielte die zweite sonst für schon hochgeladen. (Uhrzeit ist hier nur Kennung, nie Vergleich zwischen Geräten.)
+  const prev = Number(db.settings.lastModified) || 0, now = Date.now();
+  db.settings.lastModified = now > prev ? now : prev + 1;
   persistDB();
 
   // Automatischer Cloud-Hintergrundsync (Autosave)
@@ -438,13 +443,30 @@ function parseDate(dateStr) { return new Date(dateStr + 'T12:00:00'); }
 function addDays(d, n) { const r = new Date(d); r.setDate(r.getDate() + n); return r; }
 function mondayOf(d) { return addDays(d, -((d.getDay() + 6) % 7)); }
 // Schultage = Mo–Fr. Sa/So → folgender Montag
-function isSchoolDay(d) { return d.getDay() !== 0 && d.getDay() !== 6; }
-function nextSchoolDay(d) { let r = new Date(d); while (!isSchoolDay(r)) r = addDays(r, 1); return r; }
+// Ferien und freie Tage (BUGS Y8): db.settings.holidays = [{ id, label, from, until }] (YYYY-MM-DD, einschließlich).
+// Fehlt bei Altdaten; kaputte Einträge werden übergangen, nie „repariert“ (Regel 48).
+function holidayAt(dateStr) {
+  const list = typeof db !== 'undefined' && db && db.settings && Array.isArray(db.settings.holidays) ? db.settings.holidays : [];
+  return list.find(h => h && typeof h.from === 'string' && typeof h.until === 'string' && h.from <= dateStr && dateStr <= h.until) || null;
+}
+// Ferientag mit einer einmaligen Stunde (Nachschreiben, Vertretung) zählt als Schultag: Sitzplan, Tagesansicht und
+// Dashboard müssen ihn zeigen, sonst landeten Einträge Wochen später (Review vor dem Live-Gang, R2/R4).
+function isSchoolDay(d) {
+  if (d.getDay() === 0 || d.getDay() === 6) return false;
+  const dateStr = formatDate(d);
+  return !holidayAt(dateStr) || db.lessonSlots.some(s => isOneOffSlot(s) && s.specificDate === dateStr);
+}
+// Höchstens ein gutes Jahr weiter suchen: Ein Tippfehler wie „bis 9999“ ließ die Schleife sonst Millionen Tage laufen (R8)
+function nextSchoolDay(d) {
+  let r = new Date(d);
+  for (let i = 0; i < 400 && !isSchoolDay(r); i++) r = addDays(r, 1);
+  return r;
+}
 // n Schultage weiter (n < 0: zurück), Wochenenden werden übersprungen
 function addSchoolDays(d, n) {
   let r = new Date(d);
   const step = n < 0 ? -1 : 1;
-  for (let left = Math.abs(n); left > 0;) { r = addDays(r, step); if (isSchoolDay(r)) left--; }
+  for (let left = Math.abs(n), guard = 0; left > 0 && guard < 400; guard++) { r = addDays(r, step); if (isSchoolDay(r)) left--; }
   return r;
 }
 // Fortlaufende Wochennummer seit dem Referenz-Montag 29.12.1969 – ohne Sprung am Jahreswechsel (KW 53)
@@ -457,6 +479,12 @@ function sameWeekParity(dateStrA, dateStrB) { return (weekIndex(dateStrA) - week
 
 // ─── Wann findet eine Stunde statt? ──────────────────────────────────────
 function isOneOffSlot(slot) { return slot.recurring === false || slot.recurring === 'none'; }
+// Kennzeichen auf Kachel, Dashboard und im Stunden-Fenster (BUGS AA3). `substitute` setzt nur „Vertretung (einmalig)“;
+// alte App-Versionen kennen es nicht und sehen eine normale einmalige Stunde.
+function lessonKindLabel(slot) {
+  if (!slot || !isOneOffSlot(slot)) return '';
+  return slot.substitute ? 'Vertretung' : 'einmalig';
+}
 // Zweiwöchig ohne Startdatum (Altdaten ohne KW) wurde schon immer jede Woche angezeigt
 function isABSlot(slot) { return slot.recurring === 'biweekly' && !!slot.startDate; }
 // Gültigkeitszeitraum (BUGS M7): Stundenplanwechsel „ab dieser Woche“ beendet die alte Stunde (validUntil)
@@ -473,7 +501,8 @@ function slotRangesOverlap(a, b) {
 function slotOccursOn(slot, dateStr) {
   if (slot.day !== (parseDate(dateStr).getDay() + 6) % 7) return false;
   if (!slotValidOn(slot, dateStr)) return false;
-  if (isOneOffSlot(slot)) return slot.specificDate === dateStr;
+  if (isOneOffSlot(slot)) return slot.specificDate === dateStr;   // einmalige Stunden auch in den Ferien
+  if (holidayAt(dateStr)) return false;                           // regelmäßige fallen in den Ferien aus (Y8)
   if (isABSlot(slot)) return sameWeekParity(dateStr, slot.startDate);
   return true;
 }
@@ -490,6 +519,50 @@ function slotsShareDate(a, b) {
   if (isABSlot(a) && isABSlot(b)) return sameWeekParity(a.startDate, b.startDate);
   return true;
 }
+// ─── Pausenaufsicht (BUGS AA4) ────────────────────────────────────────────
+// db.supervisions = [{ id, day, start, end, place, recurring: 'weekly'|'biweekly'|'none', startDate?, specificDate? }]
+// Aufbau wie eine Stunde, damit dieselbe Regel gilt, ob sie stattfindet (slotOccursOn: A/B-Woche, einmalig, Ferien).
+function supervisionList() { return Array.isArray(db.supervisions) ? db.supervisions.filter(x => x && typeof x === 'object') : []; }
+function supervisionsOn(dateStr) {
+  return supervisionList().filter(x => typeof x.day === 'number' && slotOccursOn(x, dateStr))
+    .sort((a, b) => (timeToMins(a.start) ?? 0) - (timeToMins(b.start) ?? 0));
+}
+// Nach welchem Block liegt die Aufsicht? 0 = vor dem ersten, blocks.length = nach dem letzten
+function supervisionGap(sup, blocks) {
+  const start = timeToMins(sup.start) ?? 0;
+  return blocks.filter(b => (timeToMins(b.start) ?? Infinity) < start).length;
+}
+function supervisionChip(sup) {
+  const chip = document.createElement('div');
+  chip.className = 'tt-supervision';
+  chip.setAttribute('role', 'button');
+  chip.tabIndex = 0;
+  chip.setAttribute('aria-label', `Aufsicht ${sup.place || ''}, ${sup.start}–${sup.end}`.replace(' ,', ','));
+  chip.innerHTML = `<span class="tt-sup-title">Aufsicht${sup.place ? ` · ${escHtml(sup.place)}` : ''}</span><span class="tt-sup-time">${escHtml(sup.start || '')}–${escHtml(sup.end || '')}</span>`;
+  chip.addEventListener('click', () => openSupervisionForm(sup.id));
+  return chip;
+}
+// Pausenzeilen für das Raster: { gap → true }, nur wo an einem der Tage eine Aufsicht liegt
+function supervisionGapsFor(dates, blocks) {
+  const gaps = new Set();
+  dates.forEach(d => supervisionsOn(formatDate(d)).forEach(x => gaps.add(supervisionGap(x, blocks))));
+  return gaps;
+}
+function buildBreakLabel(gap, blocks) {
+  const el = document.createElement('div');
+  el.className = 'tt-time-label tt-break-label';
+  const from = gap > 0 ? blocks[gap - 1].end : '', to = gap < blocks.length ? blocks[gap].start : '';
+  el.innerHTML = `<div class="tt-time-block-name">Pause</div>${from && to ? `<div class="tt-time-block-range">${escHtml(from)}<br>${escHtml(to)}</div>` : ''}`;
+  el.style.gridColumn = '1';
+  return el;
+}
+function buildBreakCell(d, gap, blocks) {
+  const cell = document.createElement('div');
+  cell.className = 'tt-break-cell';
+  supervisionsOn(formatDate(d)).filter(x => supervisionGap(x, blocks) === gap).forEach(x => cell.appendChild(supervisionChip(x)));
+  return cell;
+}
+
 // Stunden an einem Datum in einem Block. Eine einmalige Stunde (Vertretung) ersetzt an ihrem Tag
 // die regelmäßige Stunde im selben Platz.
 function lessonsAt(dateStr, blockNum) {
@@ -596,33 +669,58 @@ function renderTimetableWeek(grid) {
   grid.style.margin = '0';
   grid.style.justifyContent = 'stretch';
   grid.style.gridTemplateColumns = '64px repeat(5, minmax(84px, 1fr))';
-  grid.style.gridTemplateRows = `auto repeat(${blocks.length}, minmax(88px, 1fr))`;
-  grid.style.rowGap = '10px';
+  // Pausenzeilen nur, wo Aufsichten liegen (AA4)
+  const gaps = supervisionGapsFor(dates, blocks);
+  const rowSizes = ['auto'];
+  if (gaps.has(0)) rowSizes.push('auto');
+  const allShort = allShortBlocks(blocks);
+  blocks.forEach((b, i) => { rowSizes.push(blockRowSize(b, false, allShort)); if (gaps.has(i + 1)) rowSizes.push('auto'); });
+  grid.style.gridTemplateRows = rowSizes.join(' ');
+  grid.style.flex = allShort ? '0 0 auto' : '';
+  // Nur Einzelstunden: Drumherum kompakt (Kopf, Pausenzeilen, Abstände), damit 8 Stunden + Pausen ohne Scrollen passen
+  grid.classList.toggle('tt-compact', allShort);
+  grid.parentElement.classList.toggle('tt-compact-wrap', allShort);
+  grid.style.rowGap = grid.classList.contains('tt-compact') ? '6px' : '10px';
   grid.style.columnGap = '10px';
+  grid.style.alignContent = 'start'; // kompakte Zeilen (Einzelstunden): übriger Platz unten, nicht in den Kacheln
   const clock = timetableClock();
 
   // Header row
   const corner = document.createElement('div');
   corner.className = 'tt-corner';
   corner.style.gridColumn = '1';
+  corner.innerHTML = '<button class="tt-add-supervision" type="button" title="Pausenaufsicht eintragen">+ Aufsicht</button>';
+  corner.querySelector('button').addEventListener('click', () => openSupervisionForm());
   grid.appendChild(corner);
 
   dates.forEach((d, i) => {
     const el = document.createElement('div');
-    el.className = 'tt-day-header' + (isToday(d) ? ' today' : '');
-    el.innerHTML = `<div>${DAY_SHORT[i]}</div><div style="font-size:10px;font-weight:400;margin-top:1px">${formatDateDE(d)}</div>`;
+    const hol = holidayAt(formatDate(d));
+    el.className = 'tt-day-header' + (isToday(d) ? ' today' : '') + (hol ? ' holiday' : '');
+    el.innerHTML = `<div>${DAY_SHORT[i]}</div><div style="font-size:10px;font-weight:400;margin-top:1px">${formatDateDE(d)}</div>`
+      + (hol ? `<div class="tt-holiday-label" title="${escHtml(hol.label || 'Ferien')}">${escHtml(hol.label || 'Ferien')}</div>` : '');
     el.style.gridColumn = String(2 + i);
     grid.appendChild(el);
   });
 
+  const breakRow = gap => {
+    grid.appendChild(buildBreakLabel(gap, blocks));
+    dates.forEach((d, dayIdx) => {
+      const cell = buildBreakCell(d, gap, blocks);
+      cell.style.gridColumn = String(2 + dayIdx);
+      grid.appendChild(cell);
+    });
+  };
+  if (gaps.has(0)) breakRow(0);
   // Block rows
-  blocks.forEach(block => {
+  blocks.forEach((block, i) => {
     grid.appendChild(buildTimeLabel(block));
     dates.forEach((d, dayIdx) => {
       const cell = buildTimetableCell(d, dayIdx, block, clock);
       cell.style.gridColumn = String(2 + dayIdx);
       grid.appendChild(cell);
     });
+    if (gaps.has(i + 1)) breakRow(i + 1);
   });
 }
 
@@ -643,30 +741,88 @@ function renderTimetableDay(grid) {
   grid.style.margin = '0';
   grid.style.justifyContent = 'stretch';
   grid.style.gridTemplateColumns = '64px minmax(0, 1fr)';
-  grid.style.gridTemplateRows = `auto repeat(${blocks.length}, minmax(96px, auto))`;
-  grid.style.rowGap = '10px';
+  const gaps = supervisionGapsFor([d], blocks); // Pausenzeilen (AA4)
+  const rowSizes = ['auto'];
+  if (gaps.has(0)) rowSizes.push('auto');
+  const allShort = allShortBlocks(blocks);
+  blocks.forEach((b, i) => { rowSizes.push(blockRowSize(b, true, allShort)); if (gaps.has(i + 1)) rowSizes.push('auto'); });
+  grid.style.gridTemplateRows = rowSizes.join(' ');
+  grid.style.flex = allShort ? '0 0 auto' : '';
+  // Nur Einzelstunden: Drumherum kompakt (Kopf, Pausenzeilen, Abstände), damit 8 Stunden + Pausen ohne Scrollen passen
+  grid.classList.toggle('tt-compact', allShort);
+  grid.parentElement.classList.toggle('tt-compact-wrap', allShort);
+  grid.style.rowGap = grid.classList.contains('tt-compact') ? '6px' : '10px';
   grid.style.columnGap = '10px';
 
   const header = document.createElement('div');
-  header.className = 'tt-day-header' + (isToday(d) ? ' today' : '');
+  const hol = holidayAt(formatDate(d));
+  header.className = 'tt-day-header' + (isToday(d) ? ' today' : '') + (hol ? ' holiday' : '');
   header.style.gridColumn = '1 / span 2';
   header.textContent = `${DAYS[dayIdx]}, ${formatDateDE(d)}`;
+  if (hol) header.insertAdjacentHTML('beforeend', ` <span class="tt-holiday-label">${escHtml(hol.label || 'Ferien')}</span>`); // Y8
   grid.appendChild(header);
 
+  const addSup = document.createElement('button');
+  addSup.className = 'tt-add-supervision';
+  addSup.type = 'button';
+  addSup.textContent = '+ Aufsicht';
+  addSup.title = 'Pausenaufsicht eintragen';
+  addSup.addEventListener('click', () => openSupervisionForm());
+  header.appendChild(addSup);
+
   const clock = timetableClock();
-  blocks.forEach(block => {
+  const breakRow = gap => {
+    grid.appendChild(buildBreakLabel(gap, blocks));
+    const cell = buildBreakCell(d, gap, blocks);
+    cell.style.gridColumn = '2';
+    grid.appendChild(cell);
+  };
+  if (gaps.has(0)) breakRow(0);
+  blocks.forEach((block, i) => {
     grid.appendChild(buildTimeLabel(block));
     const cell = buildTimetableCell(d, dayIdx, block, clock);
     cell.style.gridColumn = '2';
     grid.appendChild(cell);
+    if (gaps.has(i + 1)) breakRow(i + 1);
   });
 }
 
+// Zeilenhöhe nach Dauer (AA2): Eine 45-min-Stunde bekam sonst dieselbe Höhe wie ein 90-min-Block – zwei Einzelstunden
+// waren doppelt so hoch wie früher ein Block, der Plan passte nicht mehr auf den Bildschirm. Platz (fr) ∝ Dauer.
+function blockDuration(block) {
+  const a = timeToMins(block.start), e = timeToMins(block.end);
+  return a !== null && e !== null && e > a ? e - a : 90;
+}
+// allShort: nur Einzelstunden – dann alle Zeilen gleich hoch (1fr in einem Raster ohne feste Höhe = so hoch wie
+// die größte Kachel) statt einzelner Ausreißer; das Raster füllt den Bildschirm nicht (allShortGrid).
+function blockRowSize(block, dayView, allShort = false) {
+  const dur = blockDuration(block);
+  const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, Math.round(v)));
+  // Feste Höhe aus Messungen (iPhone SE … 24″): 8 Einzelstunden + 2 Pausen passen überall ohne Scrollen, wenn eine
+  // Zeile 48 px hat (Tag: 46 px, dort steht alles in einer Zeile). Braucht eine Kachel mehr, wachsen alle gleich mit.
+  if (dur <= 50 && allShort) return dayView ? 'minmax(46px, 1fr)' : 'minmax(48px, 1fr)';
+  if (dayView) return `minmax(${clamp(96 * dur / 90, 60, 96)}px, auto)`;
+  // Einzelstunden wachsen nicht mit: sonst stand in jeder Kachel oben und unten leere Fläche (Rückmeldung zu AA2)
+  return dur <= 50 ? 'minmax(52px, auto)' : `minmax(${clamp(88 * dur / 90, 52, 88)}px, ${dur}fr)`;
+}
+function allShortBlocks(blocks) { return blocks.length > 0 && blocks.every(b => blockDuration(b) <= 50); }
+
 function buildTimeLabel(block) {
   const timeEl = document.createElement('div');
-  timeEl.className = 'tt-time-label';
-  timeEl.innerHTML = `<div class="tt-time-block-name">${escHtml(block.label)}</div>
-    <div class="tt-time-block-range">${escHtml(block.start)}<br>${escHtml(block.end)}</div>`;
+  // Einzelstunde: Name auf einer Zeile (voller Text im title), Zeiten enger – die Spalte bestimmte sonst die Zeilenhöhe
+  const short = blockDuration(block) <= 50;
+  timeEl.className = 'tt-time-label' + (short ? ' short' : '');
+  if (short) {
+    timeEl.title = `${block.label}, ${block.start}–${block.end}`;
+    timeEl.setAttribute('aria-label', `${block.label}, ${block.start} bis ${block.end}`);
+  }
+  // „1. Stunde“ / „1. Std.“ / „1. Block“: bei Einzelstunden nur die Zahl – „Stunde“ weiß jeder, die Uhrzeiten zählen.
+  // Eigene Namen („Mittag“) bleiben ausgeschrieben.
+  const num = short && String(block.label || '').match(/^\s*(\d+)\s*\.?\s*(stunde|std\.?|block)?\s*$/i);
+  const range = `<div class="tt-time-block-range">${escHtml(block.start)}<br>${escHtml(block.end)}</div>`;
+  timeEl.innerHTML = num ? `<div class="tt-time-num">${escHtml(num[1])}</div>${range}`
+    : `<div class="tt-time-block-name">${escHtml(block.label)}</div>${range}`;
+  if (num) timeEl.classList.add('numbered');
   timeEl.style.gridColumn = '1';
   return timeEl;
 }
@@ -709,6 +865,8 @@ function buildTimetableCell(d, dayIdx, block, clock = timetableClock()) {
   const dateStr = formatDate(d);
   const cell = document.createElement('div');
   cell.className = 'tt-cell';
+  // Einzelstunde (≤ 50 min): kompakte Kachel, sonst wäre sie so hoch wie ein Doppelblock (AA2)
+  if (blockDuration(block) <= 50) cell.classList.add('tt-short');
 
   const lessons = lessonsAt(dateStr, block.num);
 
@@ -722,6 +880,7 @@ function buildTimetableCell(d, dayIdx, block, clock = timetableClock()) {
     const activeTest = (data.testItems||[]).filter(i => !i.targetDate || i.targetDate === dateStr);
     const hasTest    = (data.testEnabled && activeTest.length > 0) || incoming.tests.length > 0;
 
+    const kind = lessonKindLabel(lesson); // fester Text, keine Daten
     const status = [];
     if (data.done && data.done.trim()) status.push('inhalt');
     if (hasHW)   status.push('hw');
@@ -747,6 +906,7 @@ function buildTimetableCell(d, dayIdx, block, clock = timetableClock()) {
         <div class="tt-lesson-head">
           <div class="tt-lesson-class">${escHtml(t.main)}</div>
           ${sub ? `<div class="tt-lesson-subject">${sub}</div>` : ''}
+          ${kind ? `<div class="tt-lesson-kind${lesson.substitute ? ' sub' : ''}">${kind}</div>` : ''}
         </div>
         ${badge || status.length ? `<div class="tt-lesson-foot">${badge}<span class="tt-status-row">${status.map(ttStatusIcon).join('')}</span></div>` : ''}
       </div>`;
@@ -759,9 +919,12 @@ function buildTimetableCell(d, dayIdx, block, clock = timetableClock()) {
             </div>`;
   };
 
-  if (lessons.length === 0) {
+  if (lessons.length === 0 && holidayAt(dateStr)) {
+    cell.classList.add('tt-holiday');   // Ferien: kein „+“ (Y8)
+  } else if (lessons.length === 0) {
     cell.innerHTML = renderEmptyHTML('full');
-  } else if (lessons.length === 1 && (!lessons[0].part || lessons[0].part === 'full')) {
+  } else if (lessons.length === 1 && (!lessons[0].part || lessons[0].part === 'full' || blockDuration(block) <= 50)) {
+    // Einzelstunde: eine einzelne „Hälfte“ (z. B. aus der Zeit mit Doppelstunden) wie eine ganze zeigen (AA2)
     cell.innerHTML = renderLessonHTML(lessons[0]);
   } else {
     // Split block
@@ -934,7 +1097,7 @@ function updateLessonDateHint() {
   const rec = document.getElementById('new-lesson-recurring').value;
   const date = lessonTargetDate(parseInt(document.getElementById('new-lesson-day').value, 10) || 0);
   // Beim Bearbeiten läuft die Stunde schon: „erstmals am …“ wäre falsch (BUGS V9)
-  el.textContent = rec === 'none' ? `Findet statt am ${formatDateLong(date)}.`
+  el.textContent = rec === 'none' || rec === 'substitute' ? `Findet statt am ${formatDateLong(date)}.`
     : rec === 'biweekly' ? (editingSlotId ? `Alle zwei Wochen, u. a. am ${formatDateLong(date)} (A-Woche).`
                                           : `Alle zwei Wochen, erstmals am ${formatDateLong(date)} (A-Woche).`) : '';
   el.classList.toggle('hidden', !el.textContent);
@@ -946,7 +1109,11 @@ function refreshLessonPartOptions() {
   if (editingSlotId) return;
   const day = parseInt(document.getElementById('new-lesson-day').value, 10) || 0;
   const block = parseInt(document.getElementById('new-lesson-block').value, 10);
-  const halves = lessonsAt(lessonTargetDate(day), block).map(s => s.part || 'full').filter(p => p !== 'full');
+  // Eine einmalige Stunde (Vertretung) ersetzt an ihrem Tag die regelmäßige (lessonsAt): deren Hälften sind frei,
+  // nur andere einmalige Stunden belegen den Platz (BUGS Y13)
+  const oneOff = ['none', 'substitute'].includes(document.getElementById('new-lesson-recurring').value);
+  const halves = lessonsAt(lessonTargetDate(day), block).filter(s => !oneOff || isOneOffSlot(s))
+    .map(s => s.part || 'full').filter(p => p !== 'full');
   const radios = [...document.getElementsByName('new-lesson-part')];
   radios.forEach(r => {
     const off = halves.length > 0 && (r.value === 'full' || halves.includes(r.value));
@@ -955,16 +1122,28 @@ function refreshLessonPartOptions() {
     r.parentElement.title = off ? 'Diese Hälfte ist bereits belegt' : '';
   });
   const checked = radios.find(r => r.checked);
-  if (!checked || checked.disabled) {
+  // Ausgeblendet (Einzelstunden): nicht unsichtbar auf eine Hälfte umschalten – dann meldet Speichern „belegt“ (R5)
+  const hidden = document.getElementById('lesson-part-group').classList.contains('hidden');
+  if (!hidden && (!checked || checked.disabled)) {
     const free = radios.find(r => !r.disabled);
     if (free) free.checked = true;
   }
+}
+
+// Nur Einzelstunden (alle Blöcke ≤ 50 min): „1./2. Hälfte“ ergibt keinen Sinn und wird ausgeblendet, außer eine
+// Hälfte ist schon gewählt (vorhandene halbe Stunde, angetippte Hälfte) (BUGS AA2)
+function blocksAreSingleLessons() {
+  return getBlocks().every(b => { const a = timeToMins(b.start), e = timeToMins(b.end); return a !== null && e !== null && e - a <= 50; });
+}
+function updateLessonPartVisibility(part) {
+  document.getElementById('lesson-part-group').classList.toggle('hidden', blocksAreSingleLessons() && (part || 'full') === 'full');
 }
 
 // ─── Add / Edit lesson slot ───────────────────────────────────────────────
 function openAddLessonSlot(preDay = null, preBlock = null, specificDateStr = null, part = 'full') {
   // Gesperrte Hälften setzt updateLessonDateHint → refreshLessonPartOptions (unten)
   for (const r of document.getElementsByName('new-lesson-part')) r.checked = r.value === part;
+  updateLessonPartVisibility(part);
   currentSpecificDate = specificDateStr;
   editingSlotId = null;
   document.getElementById('add-lesson-title').textContent = 'Stunde hinzufügen';
@@ -991,6 +1170,18 @@ function openAddLessonSlot(preDay = null, preBlock = null, specificDateStr = nul
   setTimeout(() => document.getElementById('new-lesson-subject').focus(), 80);
 }
 
+// Stunden-Fenster → „Vertretung“: einmalige Stunde im selben Platz am selben Tag, ersetzt dort diese (BUGS AA3)
+function openSubstituteForLesson() {
+  const slot = db.lessonSlots.find(s => s.id === activeLessonId);
+  if (!slot || !activeLessonDate) return;
+  const dateStr = activeLessonDate;
+  leaveLessonModal();
+  openAddLessonSlot(slot.day, slot.block, dateStr, slot.part || 'full');
+  document.getElementById('add-lesson-title').textContent = 'Vertretung eintragen';
+  document.getElementById('new-lesson-recurring').value = 'substitute';
+  updateLessonDateHint();
+}
+
 function openEditLesson() {
   const slot = db.lessonSlots.find(s => s.id === activeLessonId);
   if (!slot) return;
@@ -1007,11 +1198,12 @@ function openEditLesson() {
   document.getElementById('new-lesson-block').value = slot.block;
   document.getElementById('new-lesson-room').value = slot.room || '';
   if (slot.recurring === 'biweekly') document.getElementById('new-lesson-recurring').value = 'biweekly';
-  else if (slot.recurring === false || slot.recurring === 'none') document.getElementById('new-lesson-recurring').value = 'none';
+  else if (slot.recurring === false || slot.recurring === 'none') document.getElementById('new-lesson-recurring').value = slot.substitute ? 'substitute' : 'none';
   else document.getElementById('new-lesson-recurring').value = 'weekly';
   selectedLessonColor = slot.color || APP_COLORS[0];
   renderColorPicker('lesson-color-picker', APP_COLORS, val => { selectedLessonColor = val; });
 
+  updateLessonPartVisibility(slot.part); // BUGS AA2
   const radios = document.getElementsByName('new-lesson-part');
   // Eine Vertretung ersetzt die regelmäßige Stunde nur an ihrem Tag (lessonsAt) und sperrt deren Hälften nicht (BUGS R9)
   // Eine vor der Woche der geöffneten Stunde beendete Hälfte gibt den Platz frei, wie in saveLessonSlot (BUGS V5)
@@ -1082,10 +1274,11 @@ async function saveLessonSlot() {
     startDate = targetDateStr;                          // A-Woche = Woche dieses Datums
     startWeek = getWeekNumber(parseDate(targetDateStr)); // nur für Geräte mit alter App-Version
   } else {
-    recurring = false;
+    recurring = false;                 // 'none' und 'substitute' (Vertretung) sind einmalig
     specificDate = targetDateStr;
   }
   const fields = { subject, day, block, room, recurring, startDate, startWeek, specificDate, color: selectedLessonColor, groupId, part };
+  if (recurringVal === 'substitute') fields.substitute = true; // BUGS AA3
 
   // Stundenplanwechsel mit Einträgen aus früheren Stunden: nur ab jetzt ändern oder alle? (BUGS M7)
   // „Ab jetzt“ heißt ab der Woche der geöffneten Stunde, aber nie vor heute und nie über eine Stunde mit
@@ -1163,13 +1356,15 @@ async function saveLessonSlot() {
       moveLessonData(slot.id, day - slot.day);
     }
     Object.assign(slot, fields);
+    if (!fields.substitute) delete slot.substitute; // auf „Nur einmalig“/regelmäßig umgestellt
     if (candidate.validFrom && !slot.validFrom) slot.validFrom = candidate.validFrom; // BUGS V1
     showToast('Stunde gespeichert ✓');
   } else {
     const newSlot = { id: uid(), ...fields };
     if (candidate.validFrom) newSlot.validFrom = candidate.validFrom;
     db.lessonSlots.push(newSlot);
-    showToast(replaced ? `Stunde hinzugefügt ✓ – ersetzt ${lessonTitle(replaced).main} an diesem Tag` : 'Stunde hinzugefügt ✓');
+    const added = fields.substitute ? 'Vertretung eingetragen ✓' : 'Stunde hinzugefügt ✓';
+    showToast(replaced ? `${added} – ersetzt ${lessonTitle(replaced).main} an diesem Tag` : added);
   }
   saveDB();
   if (replaced) await offerMoveDueItems(replaced.id, specificDate, `${lessonTitle(replaced).main} fällt aus`); // BUGS R4
@@ -1260,7 +1455,7 @@ function orphanedEntryDates(slot, fields, splitFrom) {
   const after = { ...slot, ...fields, validFrom: splitFrom || slot.validFrom, validUntil: splitFrom ? undefined : slot.validUntil };
   return lessonEntryDates(slot.id).filter(d => !splitFrom || d >= splitFrom)
     .map(d => shiftedEntryDate(d, shift, splitFrom))
-    .filter(d => !slotOccursOn(after, d)).sort();
+    .filter(d => !slotOccursOn(after, d) && !holidayAt(d)).sort(); // Ferientage sind ohnehin frei (Y8)
 }
 // Hausaufgaben/Tests der Klasse, die auf einen Termin dieser Stunde zeigen, wandern mit, wenn die Stunde den
 // Tag wechselt – sonst sind sie nirgends mehr fällig (BUGS R2, Regel 13). Nicht, wenn an dem Tag noch eine andere
@@ -1392,7 +1587,7 @@ function findUpcomingLessonDates(slotId, fromDateStr, maxCount = 4) {
 
   const results = [];
   let d = parseDate(fromDateStr);
-  for (let i = 1; i <= 60 && results.length < maxCount; i++) {
+  for (let i = 1; i <= 70 && results.length < maxCount; i++) {   // über die Sommerferien (Y8)
     d = addDays(d, 1);
     if (!isSchoolDay(d)) continue;
     const dateStr = formatDate(d);
@@ -1456,6 +1651,13 @@ function openLessonDetail(slotId, dateStr) {
   // Ohne Klasse gibt es weder Sitzplan noch Noten oder Schüler (BUGS M8)
   ['lesson-seating-link-container', 'lesson-btn-overview', 'lesson-btn-students'].forEach(id =>
     document.getElementById(id).classList.toggle('hidden', !slot.groupId));
+  // Vertretung / einmalig kennzeichnen; „Vertretung“ nur für reguläre Stunden anbieten (BUGS AA3)
+  const kind = lessonKindLabel(slot);
+  const kindBadge = document.getElementById('lesson-kind-badge');
+  kindBadge.textContent = kind;
+  kindBadge.classList.toggle('hidden', !kind);
+  kindBadge.classList.toggle('sub', !!slot.substitute);
+  document.getElementById('btn-lesson-substitute').classList.toggle('hidden', isOneOffSlot(slot));
 
   // Next lesson banner (first upcoming)
   if (_upcomingDates.length) {
@@ -1930,7 +2132,8 @@ const CLASS_RANGE_MAX = 15;
 function parseClassNames(text) {
   const names = [];
   String(text || '').split(/[,;\n]+/).map(t => t.trim()).filter(Boolean).forEach(token => {
-    const m = token.match(/^(.*\d)\s*([a-z])\s*[-–—]\s*(?:\1)?\s*([a-z])$/i);
+    // Nur reine Klassenbezeichnungen („7a-d“, „10A–C“) aufklappen; „Ethik 7a-d“ ist ein Kursname (R1)
+    const m = token.match(/^(\d{1,2})\s*([a-z])\s*[-–—]\s*(?:\1)?\s*([a-z])$/i);
     const from = m && m[2].toLowerCase().charCodeAt(0), to = m && m[3].toLowerCase().charCodeAt(0);
     if (m && to > from && to - from < CLASS_RANGE_MAX) {
       const upper = m[2] === m[2].toUpperCase();
@@ -1995,7 +2198,8 @@ function editCurrentGroup() { if (currentGroupId) openEditGroup(currentGroupId);
 
 function saveSubjectGroup() {
   const className = document.getElementById('new-group-class').value.trim();
-  const classNames = parseClassNames(className);
+  // Beim Bearbeiten nie aufteilen: „Ethik 7a-d“ ist ein Name (R1)
+  const classNames = editingGroupId ? [className] : parseClassNames(className);
   const subject   = document.getElementById('new-group-subject').value.trim();
   const year      = document.getElementById('new-group-year').value.trim();
   
@@ -2007,10 +2211,6 @@ function saveSubjectGroup() {
     showToast('Gewichtung muss zwischen 0 und 100 % liegen', 'error'); return;
   }
   const gradeScaleId = gradeScale({ gradeScale: document.getElementById('new-group-scale').value }).id;
-  if (editingGroupId && classNames.length > 1) {
-    showToast('Beim Bearbeiten nur eine Klasse – mehrere legst du über „+ Neue Klasse“ an', 'error');
-    return;
-  }
   let addedGroupsMessage = '';
   if (editingGroupId) {
     const g = db.groups.find(x => x.id === editingGroupId);
@@ -2399,7 +2599,8 @@ document.getElementById('overview-content').addEventListener('pointerdown', e =>
 // Schnellbewertung aus der Tabelle: Datum erst beim Tippen bestimmen – die Tabelle kann über Nacht offen
 // gewesen sein (Regel 24); am Wochenende der nächste Schultag (Regel 17, BUGS S4)
 function openQuickRatingFromTable(studentId) {
-  openSeatingStudentModal(studentId, currentOverviewGroupId, formatDate(nextSchoolDay(new Date())));
+  // Heute bzw. letzter Schultag (Wochenende, Ferien) – nie ein Tag in der Zukunft (Regel 58, R3)
+  openSeatingStudentModal(studentId, currentOverviewGroupId, profileDefaultDate());
 }
 
 // ─── Inline Updates ────────────────────────────────────────────────────────
@@ -3650,6 +3851,9 @@ function fillSettingsForm() {
   document.getElementById('app-version-label').textContent = v ? `Version ${v}` : '';
   blocksDraft = getBlocks().map(b => ({ ...b }));
   renderBlocksEditor();
+  holidaysDraft = (Array.isArray(db.settings.holidays) ? db.settings.holidays : []).filter(h => h && typeof h === 'object').map(h => ({ ...h }));
+  renderHolidaysEditor();
+  document.getElementById('settings-federal-state').value = FEDERAL_STATES[db.settings.federalState] ? db.settings.federalState : '';
   settingsSnapshot = settingsFormState(); // Vergleich für „Änderungen verwerfen?“ (BUGS S7)
 }
 
@@ -3724,6 +3928,176 @@ function applyThemePreview() {
 // Arbeitskopie der Blöcke im Einstellungsfenster; erst „Speichern“ übernimmt sie in db
 let blocksDraft = [];
 
+// ─── Ferien & freie Tage (BUGS Y8): Arbeitskopie wie bei den Blöcken, gilt erst mit „Speichern“ ─────
+let holidaysDraft = [];
+function renderHolidaysEditor() {
+  const editor = document.getElementById('holidays-editor');
+  editor.innerHTML = holidaysDraft.length ? '' : '<div class="holiday-empty">Noch keine Ferien eingetragen.</div>';
+  holidaysDraft.forEach((h, i) => {
+    const row = document.createElement('div');
+    row.className = 'holiday-row';
+    row.innerHTML = `
+      <input class="holiday-name-input form-input" type="text" value="${escHtml(h.label || '')}" placeholder="z. B. Herbstferien" aria-label="Name" data-hidx="${i}" data-field="label" />
+      <input class="holiday-from-input block-time-input" type="date" value="${escHtml(h.from || '')}" aria-label="von" data-hidx="${i}" data-field="from" />
+      <span class="block-sep">–</span>
+      <input class="holiday-until-input block-time-input" type="date" value="${escHtml(h.until || '')}" aria-label="bis" data-hidx="${i}" data-field="until" />
+      <button class="block-delete-btn" aria-label="Zeitraum löschen">✕</button>`;
+    row.querySelector('.block-delete-btn').onclick = () => deleteHolidayRow(i);
+    // „bis“ leer: auf „von“ setzen (einzelner Feiertag), sonst steht das Feld leer im Fehlerhinweis
+    row.querySelector('.holiday-from-input').addEventListener('change', e => {
+      const until = row.querySelector('.holiday-until-input');
+      if (!until.value || until.value < e.target.value) until.value = e.target.value;
+    });
+    editor.appendChild(row);
+  });
+}
+function readHolidaysEditor() {
+  document.querySelectorAll('#holidays-editor [data-hidx]').forEach(input => {
+    const h = holidaysDraft[parseInt(input.dataset.hidx, 10)];
+    if (!h) return;
+    // Geladenen Eintrag selbst geändert: gilt ab jetzt als eigener, „Ferien laden“ ersetzt ihn nicht mehr (Y8c)
+    if (h.source && (h[input.dataset.field] || '') !== input.value) delete h.source;
+    h[input.dataset.field] = input.value;
+  });
+}
+function addHolidayRow() {
+  readHolidaysEditor();
+  holidaysDraft.push({ id: uid(), label: '', from: '', until: '' });
+  renderHolidaysEditor();
+  const inputs = document.querySelectorAll('#holidays-editor .holiday-name-input');
+  if (inputs.length) inputs[inputs.length - 1].focus();
+}
+function deleteHolidayRow(idx) {
+  readHolidaysEditor();
+  holidaysDraft.splice(idx, 1);
+  renderHolidaysEditor();
+}
+// ─── Ferien laden (Y8c): OpenHolidays API, nur auf Knopfdruck ───────────────
+// Kein Hintergrund-Abruf: offline nutzbar, Ferien stehen Jahre vorher fest, und der Anbieter erfährt IP + Bundesland
+// nur, wenn man es will (Datenschutzhinweise). Ergebnis landet in der Arbeitskopie, gilt erst mit „Speichern“.
+const HOLIDAY_API = 'https://openholidaysapi.org';
+const FEDERAL_STATES = {
+  'DE-BW': 'Baden-Württemberg', 'DE-BY': 'Bayern', 'DE-BE': 'Berlin', 'DE-BB': 'Brandenburg', 'DE-HB': 'Bremen',
+  'DE-HH': 'Hamburg', 'DE-HE': 'Hessen', 'DE-MV': 'Mecklenburg-Vorpommern', 'DE-NI': 'Niedersachsen',
+  'DE-NW': 'Nordrhein-Westfalen', 'DE-RP': 'Rheinland-Pfalz', 'DE-SL': 'Saarland', 'DE-SN': 'Sachsen',
+  'DE-ST': 'Sachsen-Anhalt', 'DE-SH': 'Schleswig-Holstein', 'DE-TH': 'Thüringen',
+};
+async function fetchHolidayList(path, query) {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 15000);
+  try {
+    const res = await fetch(`${HOLIDAY_API}/${path}?${query}`, { signal: ctrl.signal });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const data = await res.json();
+    if (!Array.isArray(data)) throw new Error('Unerwartetes Format');
+    return data;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+// Einträge der API → { label, from, until }; nur fürs ganze Land (örtliche wie das Augsburger Friedensfest nicht)
+function holidaysFromApi(list, state) {
+  const isDate = v => typeof v === 'string' && /^\d{4}-\d\d-\d\d$/.test(v);
+  return list.filter(x => x && isDate(x.startDate) && isDate(x.endDate) && x.endDate >= x.startDate
+      && (x.nationwide || (Array.isArray(x.subdivisions) && x.subdivisions.some(sd => sd && sd.code === state))))
+    .map(x => {
+      const names = Array.isArray(x.name) ? x.name : [];
+      const name = (names.find(n => n && n.language === 'DE') || names[0] || {}).text;
+      return { label: String(name || 'Ferien').trim().slice(0, 60) || 'Ferien', from: x.startDate, until: x.endDate };
+    });
+}
+async function loadHolidaysFromApi() {
+  const state = document.getElementById('settings-federal-state').value;
+  if (!FEDERAL_STATES[state]) { showToast('Bitte zuerst das Bundesland wählen', 'error'); return; }
+  const now = new Date();
+  const y = now.getMonth() >= 7 ? now.getFullYear() : now.getFullYear() - 1; // Schuljahr beginnt im August
+  const query = `countryIsoCode=DE&subdivisionCode=${encodeURIComponent(state)}&languageIsoCode=DE&validFrom=${y}-08-01&validTo=${y + 2}-07-31`;
+  const btn = document.getElementById('btn-load-holidays');
+  btn.disabled = true;
+  let school, pub;
+  try {
+    [school, pub] = await Promise.all([fetchHolidayList('SchoolHolidays', query), fetchHolidayList('PublicHolidays', query)]);
+  } catch (e) {
+    showToast('Ferien konnten nicht geladen werden (keine Verbindung?). Du kannst sie weiter von Hand eintragen.', 'error');
+    return;
+  } finally {
+    btn.disabled = false;
+  }
+  const settingsOpen = () => !document.getElementById('modal-settings').classList.contains('hidden');
+  if (!settingsOpen()) return;
+  readHolidaysEditor();
+  const schoolEntries = holidaysFromApi(school, state);
+  const covered = (c, list) => list.some(h => h.from && h.until && h.from <= c.from && c.until <= h.until);
+  // Feiertage: nur an Schultagen und nicht schon in Ferien (Weihnachten liegt in den Weihnachtsferien)
+  const publicEntries = holidaysFromApi(pub, state).filter(c => {
+    const wd = parseDate(c.from).getDay();
+    return wd !== 0 && wd !== 6 && !covered(c, schoolEntries);
+  });
+  const today = formatDate(now);
+  // Früher geladene Einträge (Herkunft `source`) werden ersetzt – auch nach einem Bundesland-Wechsel. Eigene nie still.
+  const imported = holidaysDraft.filter(h => h.source && h.until >= today);
+  const manual = holidaysDraft.filter(h => !h.source);
+  // Schon vergangene (z. B. die Sommerferien, wenn man im Oktober lädt) und von eigenen Einträgen abgedeckte nicht
+  const fresh = [...schoolEntries, ...publicEntries].filter(c => c.until >= today && !covered(c, manual))
+    .sort((a, b) => a.from.localeCompare(b.from));
+  const same = (a, b) => a.from === b.from && a.until === b.until && a.label === b.label;
+  const unchanged = fresh.length === imported.length && fresh.every(c => imported.some(h => same(h, c)));
+  if (!fresh.length || unchanged) { showToast(`Alle Ferien für ${FEDERAL_STATES[state]} sind schon eingetragen`); return; }
+  const overlapping = manual.filter(m => m.from && m.until && fresh.some(c => c.from <= m.until && m.from <= c.until));
+  const range = c => c.from === c.until ? formatDateLong(c.from) : `${formatDateLong(c.from)} – ${formatDateLong(c.until)}`;
+  const sources = [...new Set(imported.map(h => FEDERAL_STATES[h.source] || h.source))].join(', ');
+  const n = fresh.length, word = n === 1 ? 'Eintrag' : 'Einträge';
+  const choice = await askChoice(`Ferien für ${FEDERAL_STATES[state]}`,
+    `Gefunden für dieses und nächstes Schuljahr:\n${fresh.map(c => `• ${c.label}: ${range(c)}`).join('\n')}\n\n`
+    + (imported.length ? `Das ersetzt ${imported.length} früher geladene ${imported.length === 1 ? 'Eintrag' : 'Einträge'} (${sources}).\n\n` : '')
+    + (overlapping.length ? `Überschneidet sich mit deinen eigenen Einträgen:\n${overlapping.map(m => `• ${(m.label || '').trim() || 'Ferien'}: ${range(m)}`).join('\n')}\n\n` : '')
+    + 'Bewegliche Ferientage deiner Schule kennt die Quelle nicht – die bitte selbst ergänzen.',
+    overlapping.length
+      ? [{ label: `Übernehmen und meine ersetzen`, value: 'replace', primary: true }, { label: 'Übernehmen, meine behalten', value: 'keep' }]
+      : [{ label: `${n} ${word} übernehmen`, value: 'take', primary: true }]);
+  if (!['take', 'replace', 'keep'].includes(choice) || !settingsOpen()) return;
+  readHolidaysEditor();
+  const drop = new Set([...imported, ...(choice === 'replace' ? overlapping : [])]);
+  holidaysDraft = holidaysDraft.filter(h => !drop.has(h));
+  fresh.forEach(c => holidaysDraft.push({ id: uid(), ...c, source: state }));
+  holidaysDraft.sort((a, b) => (a.from || '9999').localeCompare(b.from || '9999'));
+  renderHolidaysEditor();
+  showToast(`${n} ${word} eingetragen – mit „Speichern“ übernehmen`);
+}
+
+// HA/Tests ab heute, deren Termin in die Ferien fällt: wären nirgends fällig (Regel 52). Erste Stunde danach anbieten.
+async function offerMoveHolidayItems() {
+  const dbAtStart = db;
+  const today = formatDate(new Date());
+  const moves = [];
+  Object.entries(db.lessonData).forEach(([key, data]) => {
+    const slotId = key.slice(0, key.lastIndexOf('_'));
+    if (!db.lessonSlots.some(s => s.id === slotId)) return;
+    [['hwItems', data.hwEnabled], ['testItems', data.testEnabled]].forEach(([list, enabled]) => {
+      if (!enabled) return;
+      (data[list] || []).forEach(item => {
+        if (!item.targetDate || item.targetDate < today || !holidayAt(item.targetDate)) return;
+        // Liegt dort eine einmalige Stunde der Klasse, ist der Eintrag dort richtig fällig (R6)
+        const slot = db.lessonSlots.find(s => s.id === slotId);
+        const ids = new Set(relatedSlots(slot).map(s => s.id));
+        if (lessonsOnDate(item.targetDate).some(l => ids.has(l.slot.id) && !l.ausfall)) return;
+        const next = findUpcomingLessonDates(slotId, item.targetDate, 1)[0];
+        moves.push({ item, next });
+      });
+    });
+  });
+  if (!moves.length) return;
+  const lines = moves.map(({ item, next }) => `• ${item.text} (fällig ${formatDateLong(item.targetDate)}) → `
+    + (next ? formatDateLong(next.dateStr) : 'keine Stunde gefunden'));
+  const choice = await askChoice('Hausaufgaben und Tests in den Ferien',
+    `Diese Einträge wären in den Ferien fällig:\n${lines.join('\n')}\n\nAuf die erste Stunde nach den Ferien verschieben?`,
+    [{ label: 'Verschieben', value: 'move', primary: true }, { label: 'So lassen', value: 'keep' }]);
+  if (choice !== 'move' || db !== dbAtStart) return; // inzwischen andere Daten (Regel 32)
+  moves.forEach(({ item, next }) => { if (next) item.targetDate = next.dateStr; });
+  saveDB();
+  renderScheduleViews();
+}
+
 function renderBlocksEditor() {
   const editor = document.getElementById('blocks-editor');
   editor.innerHTML = '';
@@ -3767,6 +4141,45 @@ function addBlockRow() {
   renderBlocksEditor();
 }
 
+// Vorlage für die Stundenzeiten (BUGS AA2): vorher musste man jede Zeile einzeln anlegen, voreingestellt sind
+// Doppelstunden. Füllt nur die Arbeitskopie – gilt erst mit „Speichern“, und Kennungen bleiben (Regel 12, 53):
+// Die bisherigen Blöcke werden der Reihe nach neu belegt, überzählige mit Stunden bleiben, leere fallen weg.
+const BLOCK_TEMPLATES = {
+  single: { count: 8, len: 45, label: n => `${n}. Stunde`, pause: n => (n === 2 || n === 4 ? 20 : 5) },
+  double: { count: 4, len: 90, label: n => `${n}. Block`, pause: () => 20 },
+};
+async function chooseBlockTemplate() {
+  // Halbe Stunden (Doppelstunden-Zeit) passen nicht 1:1 in Einzelstunden – vorher sagen (R5)
+  const halves = db.lessonSlots.filter(s => s.part === 'first' || s.part === 'second').length;
+  const choice = await askChoice('Vorlage für die Stundenzeiten',
+    'Füllt die Liste neu, ab dem bisherigen Beginn. Danach kannst du jede Zeit noch anpassen.\n\n'
+    + 'Deine Stunden bleiben in ihrer Reihe (1., 2., …), nur Zeiten und Namen ändern sich. Übernommen wird erst mit „Speichern“.'
+    + (halves ? `\n\n⚠️ Du hast ${halves === 1 ? '1 halbe Stunde' : halves + ' halbe Stunden'} (1./2. Hälfte). Bei Einzelstunden stehen sie danach in derselben Zeile – bitte im Stundenplan prüfen und ggf. auf eine eigene Stunde legen.` : ''),
+    [{ label: 'Einzelstunden (8 × 45 min)', value: 'single', primary: true },
+     { label: 'Doppelstunden (4 × 90 min)', value: 'double' }]);
+  if (choice && !document.getElementById('modal-settings').classList.contains('hidden')) applyBlockTemplate(choice);
+}
+function applyBlockTemplate(kind) {
+  const t = BLOCK_TEMPLATES[kind];
+  if (!t) return;
+  readBlocksEditor();
+  const toMin = x => { const m = timeToMins(x); return m === null ? Infinity : m; };
+  const fmt = m => `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`;
+  const old = [...blocksDraft].sort((a, b) => toMin(a.start) - toMin(b.start));
+  let start = old.length && toMin(old[0].start) !== Infinity ? toMin(old[0].start) : 7 * 60 + 45;
+  let nextNum = Math.max(0, ...blocksDraft.map(b => b.num)) + 1;
+  const rows = [];
+  for (let i = 0; i < t.count; i++) {
+    const num = old[i] ? old[i].num : nextNum++;
+    rows.push({ num, label: t.label(i + 1), start: fmt(start), end: fmt(start + t.len) });
+    start += t.len + t.pause(i + 1);
+  }
+  const kept = old.slice(t.count).filter(b => db.lessonSlots.some(sl => sl.block === b.num));
+  blocksDraft = [...rows, ...kept];
+  renderBlocksEditor();
+  if (kept.length) showToast(`${kept.map(b => b.label || 'Block').join(', ')} enthält noch Stunden und bleibt`, 'error');
+}
+
 function deleteBlockRow(idx) {
   readBlocksEditor();
   const block = blocksDraft[idx];
@@ -3795,6 +4208,32 @@ function saveSettings() {
     showToast(`${badBlock.label || 'Block'}: Ende muss nach dem Beginn liegen`, 'error');
     return;
   }
+  // Ferien (Y8): beide Daten nötig, „bis“ nicht vor „von“
+  readHolidaysEditor();
+  const isDate = v => /^\d{4}-\d\d-\d\d$/.test(v || '');
+  const badHoliday = holidaysDraft.find(h => !isDate(h.from) || !isDate(h.until) || h.until < h.from);
+  if (badHoliday) {
+    const name = (badHoliday.label || '').trim() || 'Ferien';
+    showToast(!isDate(badHoliday.from) || !isDate(badHoliday.until) ? `${name}: bitte „von“ und „bis“ eintragen` : `${name}: „bis“ liegt vor „von“`, 'error');
+    return;
+  }
+  // Tippfehler im Jahr („bis 2205“) ließen alle Stunden für Jahrzehnte verschwinden: ungewöhnlich lange Zeiträume
+  // (> 10 Wochen, Sommerferien haben höchstens ~7) bestätigen lassen (R8)
+  const tooLong = holidaysDraft.filter(h => (parseDate(h.until) - parseDate(h.from)) / 86400000 > 70);
+  if (tooLong.length && !confirm(`Dieser Zeitraum ist ungewöhnlich lang:\n${tooLong.map(h => `• ${(h.label || '').trim() || 'Ferien'}: ${formatDateLong(h.from)} – ${formatDateLong(h.until)}`).join('\n')}\n\n`
+      + 'In dieser Zeit fallen alle regelmäßigen Stunden aus. Vielleicht ein Tippfehler im Jahr?\n\nTrotzdem speichern?')) return;
+  const newHolidays = holidaysDraft.map(h => ({ id: h.id || uid(), label: (h.label || '').trim() || 'Ferien', from: h.from, until: h.until,
+      ...(FEDERAL_STATES[h.source] ? { source: h.source } : {}) }))
+    .sort((a, b) => a.from.localeCompare(b.from));
+  // Notizen/Einträge in Stunden, die durch neue Ferien wegfallen: bleiben gespeichert, sind aber nicht mehr zu sehen
+  const inNew = d => newHolidays.some(h => h.from <= d && d <= h.until);
+  const hiddenEntries = Object.keys(db.lessonData).filter(key => {
+    const slot = db.lessonSlots.find(s => s.id === key.slice(0, key.lastIndexOf('_')));
+    const d = key.slice(key.lastIndexOf('_') + 1);
+    return slot && !isOneOffSlot(slot) && inNew(d) && !holidayAt(d) && slotOccursOn(slot, d);
+  });
+  if (hiddenEntries.length && !confirm(`In ${hiddenEntries.length === 1 ? 'einer Stunde' : hiddenEntries.length + ' Stunden'} in den neuen Ferien gibt es schon Notizen oder Hausaufgaben. `
+      + 'Sie bleiben gespeichert, sind aber nicht mehr zu sehen, solange dort Ferien eingetragen sind.\n\nFerien trotzdem speichern?')) return;
   db.settings.teacherName = document.getElementById('settings-teacher-name').value.trim();
   db.settings.school      = document.getElementById('settings-school').value.trim();
   // Leer/ungültig → Standard 5 min (vorher still 0, BUGS O5)
@@ -3814,6 +4253,12 @@ function saveSettings() {
 
   readBlocksEditor();
   if (blocksDraft.length) db.settings.blocks = blocksDraft.map(b => ({ ...b }));
+  const holidaysChanged = JSON.stringify(newHolidays.map(h => [h.from, h.until]))
+    !== JSON.stringify((Array.isArray(db.settings.holidays) ? db.settings.holidays : []).map(h => [h.from, h.until]));
+  if (newHolidays.length) db.settings.holidays = newHolidays;
+  else delete db.settings.holidays;
+  const state = document.getElementById('settings-federal-state').value;
+  if (FEDERAL_STATES[state]) db.settings.federalState = state; else delete db.settings.federalState;
 
   saveDB();
   closeModal('modal-settings');
@@ -3821,6 +4266,7 @@ function saveSettings() {
   renderScheduleViews();
   if (document.getElementById('view-students')?.classList.contains('active') && currentGroupId) refreshStudentViews(currentGroupId);
   showToast('Einstellungen gespeichert ✓');
+  if (holidaysChanged) offerMoveHolidayItems(); // HA/Tests, die jetzt in die Ferien fallen (Y8); nur nach Änderung (R6)
 }
 
 // CSV-Feld in Anführungszeichen; Anführungszeichen im Wert werden verdoppelt (BUGS L11)
@@ -4330,6 +4776,15 @@ function saveSeatingGrid() {
   renderSeatingPlan();
 }
 
+// Raster-Menü → „Reihen versetzt“: nur Darstellung, Plätze (gridX/gridY) bleiben (Regel 44, BUGS AA5)
+function onToggleSeatingStagger(on) {
+  const g = db.groups.find(x => x.id === currentSeatingGroupId);
+  if (!g) return;
+  if (on) g.seatingStagger = true; else delete g.seatingStagger;
+  saveDB();
+  renderSeatingPlan();
+}
+
 function renderSeatingPlan() {
   const groupId = currentSeatingGroupId;
   const dateStr = currentSeatingDateStr;
@@ -4396,8 +4851,12 @@ function renderSeatingPlan() {
   const containerWidth = (wrapper ? wrapper.clientWidth : canvas.parentElement.clientWidth) - 40;
   const containerHeight = (wrapper ? wrapper.clientHeight : canvas.parentElement.clientHeight) - 40;
   
+  // Versetzte Reihen (BUGS AA5): jede zweite Reihe einen halben Platz nach rechts, das Raster wird ein halbes Feld breiter
+  const stagger = !!g.seatingStagger && rows > 1;
+  const staggerChk = document.getElementById('seating-stagger');
+  if (staggerChk) staggerChk.checked = !!g.seatingStagger;
   // Square cells: use the smaller of the two to keep cells perfectly square
-  const maxCellW = containerWidth / cols;
+  const maxCellW = containerWidth / (cols + (stagger ? 0.5 : 0));
   const maxCellH = containerHeight / rows;
   let cellSize = Math.floor(Math.min(maxCellW, maxCellH));
   // Handy hochkant: 10 Spalten ergaben ~34 px, Namen nur „A…“. Mindestens 60 px, dann seitlich scrollen (BUGS S16)
@@ -4410,7 +4869,8 @@ function renderSeatingPlan() {
   const isTiny = cellSize < 64;   // Handy: Namen kürzen statt mitten im Wort trennen (BUGS H13)
   // Abstand Karte ↔ Zellrand; auf dem Handy fast keiner, jeder Pixel Breite geht an den Namen (BUGS I20)
   const cardGap = isTiny ? 2 : Math.min(10, cellSize * 0.1);
-  const gridWidth = cols * cellWidth;
+  const rowShift = y => (stagger && y % 2 === 1 ? cellWidth / 2 : 0);
+  const gridWidth = cols * cellWidth + (stagger ? cellWidth / 2 : 0);
   const gridHeight = rows * cellHeight;
 
   // Canvas wraps the grid exactly - no padding gap
@@ -4428,7 +4888,7 @@ function renderSeatingPlan() {
     for (let c = 0; c < cols; c++) {
       const cell = document.createElement('div');
       cell.className = 'seating-grid-cell' + (c % 2 === 1 ? ' thick-border' : '');
-      cell.style.left = (offsetX + c * cellWidth) + 'px';
+      cell.style.left = (offsetX + c * cellWidth + rowShift(r)) + 'px';
       cell.style.top = (offsetY + r * cellHeight) + 'px';
       cell.style.width = cellWidth + 'px';
       cell.style.height = cellHeight + 'px';
@@ -4477,7 +4937,7 @@ function renderSeatingPlan() {
     const padding = cardGap;
     const cardSize = maxCardSize - (padding * 2);
 
-    const centerX = offsetX + gx * cellWidth + (cellWidth - cardSize) / 2;
+    const centerX = offsetX + gx * cellWidth + rowShift(gy) + (cellWidth - cardSize) / 2;
     const centerY = offsetY + gy * cellHeight + (cellHeight - cardSize) / 2;
 
     card.style.left = centerX + 'px';
@@ -4507,7 +4967,7 @@ function renderSeatingPlan() {
     `;
 
     if (seatingEditMode) {
-      makeDraggable(card, s.id, groupId, cellWidth, cellHeight, cols, rows, offsetX, 1, layout);
+      makeDraggable(card, s.id, groupId, cellWidth, cellHeight, cols, rows, offsetX, 1, layout, rowShift);
       card.classList.add('draggable-mode');
     } else {
       card.addEventListener('click', (e) => {
@@ -4544,7 +5004,7 @@ function renderSeatingPlan() {
     const padding = cardGap;
     const cardSize = maxCardSize - (padding * 2);
 
-    const centerX = offsetX + tdX * cellWidth + (cellWidth * 2 - (cardSize * 2 + padding * 2)) / 2;
+    const centerX = offsetX + tdX * cellWidth + rowShift(tdY) + (cellWidth * 2 - (cardSize * 2 + padding * 2)) / 2;
     const centerY = offsetY + tdY * cellHeight + (cellHeight - cardSize) / 2;
 
     tDesk.style.left = centerX + 'px';
@@ -4554,7 +5014,7 @@ function renderSeatingPlan() {
     tDesk.innerHTML = 'Lehrerpult';
 
     if (seatingEditMode) {
-      makeDraggable(tDesk, 'teacherDesk', groupId, cellWidth, cellHeight, cols, rows, offsetX, 2, layout);
+      makeDraggable(tDesk, 'teacherDesk', groupId, cellWidth, cellHeight, cols, rows, offsetX, 2, layout, rowShift);
       tDesk.classList.add('draggable-mode');
     }
     
@@ -4769,7 +5229,7 @@ function absenceNoteText(s) { return `${[s.firstName, s.lastName].filter(Boolean
 // Nächste Stunde der Klasse nach dateStr, die wirklich stattfindet (A/B-Woche, Vertretung, Ausfall)
 function nextLessonOfGroup(groupId, dateStr) {
   let d = parseDate(dateStr);
-  for (let i = 0; i < 28; i++) {
+  for (let i = 0; i < 70; i++) {   // auch über die Sommerferien (Y8)
     d = addDays(d, 1);
     if (!isSchoolDay(d)) continue;
     const hit = lessonsOnDate(formatDate(d)).find(l => l.slot.groupId === groupId && !l.ausfall);
@@ -4943,7 +5403,18 @@ function setSeatingHomework() {
   }
 }
 
-function makeDraggable(el, studentId, groupId, cellWidth, cellHeight, maxCols, maxRows, offsetX = 0, widthCells = 1, layout = null) {
+// Zelle unter der Mitte eines gezogenen Elements. Erst die Reihe, dann deren Versatz abziehen (BUGS AA5).
+// Ein Element über mehrere Zellen (Lehrerpult: 2) hat seine Mitte auf der Grenze zwischen seinen Zellen – daher
+// halbe Überbreite abziehen, sonst springt es eine Spalte nach rechts (BUGS E3)
+function seatingSnap(centerX, centerY, cellWidth, cellHeight, maxCols, maxRows, widthCells = 1, rowShift = () => 0) {
+  let gridY = Math.floor(centerY / cellHeight);
+  if (gridY < 0) gridY = 0; if (gridY >= maxRows) gridY = maxRows - 1;
+  let gridX = Math.floor((centerX - rowShift(gridY)) / cellWidth - (widthCells - 1) / 2);
+  if (gridX < 0) gridX = 0; if (gridX + widthCells > maxCols) gridX = maxCols - widthCells;
+  return { gridX, gridY };
+}
+
+function makeDraggable(el, studentId, groupId, cellWidth, cellHeight, maxCols, maxRows, offsetX = 0, widthCells = 1, layout = null, rowShift = () => 0) {
   let isDragging = false;
   let startX, startY, initialLeft, initialTop;
 
@@ -4999,12 +5470,7 @@ function makeDraggable(el, studentId, groupId, cellWidth, cellHeight, maxCols, m
     // Calculate closest grid snap relative to centered grid
     const centerX = parseFloat(el.style.left) + (el.offsetWidth / 2);
     const centerY = parseFloat(el.style.top) + (el.offsetHeight / 2);
-    // Ein Element über mehrere Zellen (Lehrerpult: 2) hat seine Mitte auf der Grenze zwischen
-    // seinen Zellen – daher halbe Überbreite abziehen, sonst springt es eine Spalte nach rechts (BUGS E3)
-    let gridX = Math.floor((centerX - offsetX) / cellWidth - (widthCells - 1) / 2);
-    let gridY = Math.floor(centerY / cellHeight);
-    if (gridX < 0) gridX = 0; if (gridX + widthCells > maxCols) gridX = maxCols - widthCells;
-    if (gridY < 0) gridY = 0; if (gridY >= maxRows) gridY = maxRows - 1;
+    const { gridX, gridY } = seatingSnap(centerX - offsetX, centerY, cellWidth, cellHeight, maxCols, maxRows, widthCells, rowShift);
 
     const g = db.groups.find(x => x.id === groupId);
     const students = db.students[groupId] || [];
@@ -5591,6 +6057,7 @@ const MODAL_CLOSE_ACTIONS = {
   'modal-sync-conflict': null,                       // Entscheidung nötig, nicht wegdrückbar
   'modal-choice': () => answerChoice(null),          // Wegdrücken = Abbrechen
   'modal-settings': () => cancelSettings(),          // Farbvorschau nicht stehen lassen (BUGS O2)
+  'modal-supervision': () => cancelSupervision(),    // bei Änderungen fragen (AA4)
   'modal-whats-new': () => closeWhatsNew(),          // Wegdrücken zählt als gelesen
 };
 function closeModalLikeButton(id) {
@@ -5767,13 +6234,13 @@ function initAllCustomDropdowns() {
 // Für das nächste große Update: `id` ändern und die Punkte ersetzen. Gemerkt wird nur auf diesem Gerät
 // (nicht in `db`, nicht synchronisiert). Neue Nutzer ohne Daten sehen es nie.
 const WHATS_NEW = {
-  id: '2026-09',
+  id: '2026-10',
   items: [
-    { icon: 'eye',          title: 'Noten im Sitzplan sind verborgen', text: 'damit die Klasse sie nicht sieht. Einblenden über das Auge oben im Sitzplan.' },
-    { icon: 'lock',         title: 'Cloud-Sync', text: 'Falls du ihn nutzt: Bitte einmal das Master-Passwort neu eingeben (Einstellungen), danach merkt die App es sich.' },
-    { icon: 'calendar',     title: '„Heute“', text: 'zeigt deine Stunden des Tages und die nächste Stunde.' },
-    { icon: 'grades',       title: 'Oberstufe', text: 'Klassen können jetzt 0–15 Punkte verwenden (im Klassen-Dialog).' },
-    { icon: 'check-circle', title: 'Sicherer', text: 'Stärkere Verschlüsselung und viele Fehler behoben.' },
+    { icon: 'calendar', title: 'Ferien', text: 'Einstellungen → „Ferien & freie Tage“: Bundesland wählen und „Ferien laden“. In den Ferien fallen deine Stunden aus, Hausaufgaben sind erst danach fällig.' },
+    { icon: 'late',     title: 'Pausenaufsicht', text: '„+ Aufsicht“ oben links im Stundenplan. Sie steht dann zwischen den Stunden und im Dashboard.' },
+    { icon: 'refresh',  title: 'Vertretung', text: 'Im Fenster einer Stunde unten auf „Vertretung“ tippen – ersetzt die Stunde nur an diesem Tag und ist im Plan markiert.' },
+    { icon: 'classes',  title: 'Mehrere Klassen auf einmal', text: 'beim Anlegen z. B. „7a-d“ eintippen. Dazu 35 statt 14 Farben.' },
+    { icon: 'seating',  title: 'Einzelstunden & Sitzplan', text: 'Einstellungen → Stundenzeiten → „Vorlage …“ für 45-Minuten-Stunden. Im Sitzplan lassen sich Reihen versetzen (Raster-Menü).' },
   ],
 };
 const WHATS_NEW_SEEN_KEY = 'whats_new_seen';
@@ -5899,7 +6366,7 @@ function findNextLesson(now) {
   const nowMins = now.getHours() * 60 + now.getMinutes();
   const todayStr = formatDate(now);
   let d = parseDate(todayStr);
-  for (let i = 0; i < 21; i++, d = addDays(d, 1)) {
+  for (let i = 0; i < 70; i++, d = addDays(d, 1)) {   // 10 Wochen: auch über die Sommerferien (Y8)
     if (!isSchoolDay(d)) continue;
     const dateStr = formatDate(d);
     const hit = lessonsOnDate(dateStr).find(l =>
@@ -6001,12 +6468,30 @@ function renderDashboardToday() {
 
   let html = `<section class="dash-section">
     <h2 class="dash-heading">${isTodayShown ? 'Heute' : 'Nächster Schultag'} <span class="dash-heading-sub">${escHtml(dayLabel)}</span></h2>`;
+  // Ferien zwischen heute und dem gezeigten Schultag (Y8)
+  const hol = !isTodayShown && (Array.isArray(db.settings.holidays) ? db.settings.holidays : []).find(h => h && typeof h.from === 'string' && typeof h.until === 'string'
+    && h.until >= todayStr && h.from < dayStr);
+  if (hol) {
+    const range = hol.from === hol.until ? formatDateLong(hol.from) : `${formatDateLong(hol.from)} – ${formatDateLong(hol.until)}`;
+    html += `<div class="dash-holiday">${escHtml(hol.label || 'Ferien')}: ${escHtml(range)}</div>`;
+  }
 
-  if (!lessons.length) {
+  // Aufsichten zeitlich zwischen die Stunden sortiert (AA4)
+  const sups = supervisionsOn(dayStr);
+  let supIdx = 0;
+  const supRows = upTo => {
+    let h = '';
+    while (supIdx < sups.length && (upTo === null || (timeToMins(sups[supIdx].start) ?? 0) < upTo)) {
+      h += supervisionDashRow(sups[supIdx++], isTodayShown, nowMins);
+    }
+    return h;
+  };
+  if (!lessons.length && !sups.length) {
     html += `<div class="dash-empty">${isTodayShown ? 'Heute kein Unterricht.' : 'Kein Unterricht eingetragen.'}</div>`;
   } else {
     html += `<div class="dash-lessons">`;
     lessons.forEach(l => {
+      html += supRows(l.range ? l.range.start : 0);
       const t = lessonTitle(l.slot);
       const due = dueItemsFor(l.slot.id, dayStr);
       const data = db.lessonData[l.slot.id + '_' + dayStr] || {};
@@ -6017,6 +6502,8 @@ function renderDashboardToday() {
       else if (isTodayShown && l.range && l.range.start <= nowMins) { state = 'running'; status = `läuft noch ${l.range.end - nowMins} min`; }
       else if (isNext) { state = 'next'; status = 'nächste Stunde'; }
       const badges = [];
+      const kind = lessonKindLabel(l.slot);
+      if (kind)             badges.push(`<span class="dash-badge ${l.slot.substitute ? 'sub' : 'once'}">${kind}</span>`);
       if (due.hw.length)    badges.push(`<span class="dash-badge hw">HA ${due.hw.length}</span>`);
       if (due.tests.length) badges.push(`<span class="dash-badge test">Test ${due.tests.length}</span>`);
       if (data.notes)       badges.push(`<span class="dash-badge note">Notiz</span>`);
@@ -6031,6 +6518,7 @@ function renderDashboardToday() {
           ${status ? `<div class="dash-lesson-status">${status}</div>` : ''}
         </div>`;
     });
+    html += supRows(null);
     html += `</div>`;
   }
   html += `</section>`;
@@ -6055,6 +6543,117 @@ function renderDashboardToday() {
     </section>`;
   }
   return html;
+}
+
+// Eine Aufsicht in der Liste „Heute“ (AA4)
+function supervisionDashRow(x, isTodayShown, nowMins) {
+  const start = timeToMins(x.start) ?? 0, end = timeToMins(x.end) ?? start;
+  let state = '', status = '';
+  if (isTodayShown && end <= nowMins) { state = 'past'; status = 'vorbei'; }
+  else if (isTodayShown && start <= nowMins) { state = 'running'; status = `läuft noch ${end - nowMins} min`; }
+  else if (isTodayShown && start - nowMins <= 60) { state = 'next'; status = `beginnt in ${start - nowMins} min`; }
+  return `<div class="dash-lesson dash-supervision ${state}" onclick="openSupervisionForm(${jsArg(x.id)})">
+      <div class="dash-lesson-time">${escHtml(x.start || '')}<small>Pause</small></div>
+      <div class="dash-lesson-main">
+        <div class="dash-lesson-title">Aufsicht${x.place ? ` <span>${escHtml(x.place)}</span>` : ''}</div>
+        <div class="dash-lesson-room">${escHtml(x.start || '')}–${escHtml(x.end || '')}</div>
+      </div>
+      <div class="dash-lesson-badges"></div>
+      ${status ? `<div class="dash-lesson-status">${status}</div>` : ''}
+    </div>`;
+}
+
+// ─── Formular Pausenaufsicht (AA4). Merkt sich den Eintrag per Objekt (Regel 8). ──────────
+let editingSupervision = null;
+let supervisionSnapshot = null;
+function supervisionFormState() {
+  return ['sup-day', 'sup-start', 'sup-end', 'sup-place', 'sup-recurring', 'sup-date'].map(id => document.getElementById(id).value).join('|');
+}
+function updateSupervisionFormFields() {
+  const rec = document.getElementById('sup-recurring').value;
+  document.getElementById('sup-day-group').classList.toggle('hidden', rec !== 'weekly');
+  document.getElementById('sup-date-group').classList.toggle('hidden', rec === 'weekly');
+  document.getElementById('sup-date-label').textContent = rec === 'biweekly' ? 'Erstmals am (A-Woche)' : 'Am';
+}
+function openSupervisionForm(id) {
+  const x = id ? supervisionList().find(s => s.id === id) : null;
+  if (id && !x) { showToast('Diese Aufsicht gibt es nicht mehr (z. B. durch Sync)', 'error'); renderScheduleViews(); return; }
+  editingSupervision = x;
+  const blocks = getBlocks();
+  const today = new Date();
+  const set = (field, v) => { document.getElementById(field).value = v; };
+  if (x) {
+    set('sup-day', String(x.day));
+    set('sup-start', x.start || ''); set('sup-end', x.end || '');
+    set('sup-place', x.place || '');
+    set('sup-recurring', x.recurring === 'biweekly' ? 'biweekly' : isOneOffSlot(x) ? 'none' : 'weekly');
+    set('sup-date', x.recurring === 'biweekly' ? (x.startDate || '') : (x.specificDate || ''));
+  } else {
+    // Vorschlag: erste Pause zwischen zwei Blöcken, heutiger Wochentag
+    set('sup-day', String(isSchoolDay(today) ? (today.getDay() + 6) % 7 : 0));
+    set('sup-start', blocks[0] ? blocks[0].end : '09:15');
+    set('sup-end', blocks[1] ? blocks[1].start : '09:35');
+    set('sup-place', '');
+    set('sup-recurring', 'weekly');
+    set('sup-date', formatDate(nextSchoolDay(today)));
+  }
+  document.getElementById('supervision-modal-title').textContent = x ? 'Aufsicht bearbeiten' : 'Pausenaufsicht eintragen';
+  document.getElementById('btn-delete-supervision').classList.toggle('hidden', !x);
+  updateSupervisionFormFields();
+  supervisionSnapshot = supervisionFormState();
+  openModal('modal-supervision');
+}
+function saveSupervision() {
+  const v = id => document.getElementById(id).value.trim();
+  const start = v('sup-start'), end = v('sup-end'), place = v('sup-place'), recurring = v('sup-recurring');
+  if (!/^\d\d:\d\d$/.test(start) || !/^\d\d:\d\d$/.test(end) || end <= start) {
+    showToast('Ende muss nach dem Beginn liegen', 'error'); return;
+  }
+  const fields = { start, end, place, recurring };
+  if (recurring === 'weekly') {
+    fields.day = parseInt(v('sup-day'), 10) || 0;
+  } else {
+    const date = v('sup-date');
+    if (!/^\d{4}-\d\d-\d\d$/.test(date)) { showToast('Bitte ein Datum wählen', 'error'); return; }
+    const wd = parseDate(date).getDay();
+    if (wd === 0 || wd === 6) { showToast('Das Datum liegt am Wochenende', 'error'); return; }
+    fields.day = (wd + 6) % 7;
+    if (recurring === 'biweekly') fields.startDate = date; else fields.specificDate = date;
+  }
+  if (!Array.isArray(db.supervisions)) db.supervisions = [];
+  if (editingSupervision) {
+    if (!db.supervisions.includes(editingSupervision)) { showToast('Diese Aufsicht gibt es nicht mehr (z. B. durch Sync)', 'error'); return; }
+    delete editingSupervision.startDate; delete editingSupervision.specificDate;
+    Object.assign(editingSupervision, fields);
+  } else {
+    db.supervisions.push({ id: uid(), ...fields });
+  }
+  saveDB();
+  supervisionSnapshot = null;
+  const wasNew = !editingSupervision;
+  editingSupervision = null;
+  closeModal('modal-supervision');
+  renderScheduleViews();
+  showToast(wasNew ? 'Aufsicht eingetragen ✓' : 'Aufsicht gespeichert ✓');
+}
+function deleteSupervision() {
+  const x = editingSupervision;
+  if (!x || !confirm('Diese Aufsicht löschen?')) return;
+  const idx = (db.supervisions || []).indexOf(x);
+  if (idx !== -1) { db.supervisions.splice(idx, 1); saveDB(); }
+  supervisionSnapshot = null;
+  editingSupervision = null;
+  closeModal('modal-supervision');
+  renderScheduleViews();
+  showToast('Aufsicht gelöscht');
+}
+// Schließen (✕, Abbrechen, Escape, daneben tippen): bei Änderungen fragen (Regel 27, 55)
+function cancelSupervision() {
+  if (supervisionSnapshot !== null && supervisionFormState() !== supervisionSnapshot
+      && !confirm('Deine Änderungen an der Aufsicht sind noch nicht gespeichert.\n\nVerwerfen?')) return;
+  supervisionSnapshot = null;
+  editingSupervision = null;
+  closeModal('modal-supervision');
 }
 
 function renderDashboardWarnings() {
@@ -6776,7 +7375,10 @@ function triggerManualSync() {
 // Enthält dieses Gerät überhaupt Daten? (Neues Gerät oder nach „Alle Daten löschen“)
 function isLocalDBEmpty() {
   const hasStudents = db.students && Object.values(db.students).some(list => list && list.length);
-  return !(db.groups && db.groups.length) && !(db.lessonSlots && db.lessonSlots.length) && !hasStudents;
+  // Aufsichten und Ferien sind auch Eingaben: Ein Gerät nur damit darf beim Anmelden nicht still überschrieben werden (R7)
+  const hasOther = (Array.isArray(db.supervisions) && db.supervisions.length > 0)
+    || (db.settings && Array.isArray(db.settings.holidays) && db.settings.holidays.length > 0);
+  return !(db.groups && db.groups.length) && !(db.lessonSlots && db.lessonSlots.length) && !hasStudents && !hasOther;
 }
 
 // Letzter gemeinsamer Stand mit der Cloud DIESES Kontos, sonst null. Ein anderes Konto (Abmelden, mit
@@ -7192,10 +7794,11 @@ function settingsDirty() {
 }
 function settingsFormState() {
   readBlocksEditor();
+  readHolidaysEditor();
   const fields = [...document.querySelectorAll('#modal-settings input, #modal-settings select')]
     .filter(el => el.id && !el.id.startsWith('sync-') && el.type !== 'file')
     .map(el => el.id + '=' + (el.type === 'checkbox' ? el.checked : el.value));
-  return JSON.stringify([fields, blocksDraft, currentThemeBg, currentThemeAccent, currentThemeMode]);
+  return JSON.stringify([fields, blocksDraft, holidaysDraft, currentThemeBg, currentThemeAccent, currentThemeMode]);
 }
 
 // Starte Sync-Initialisierung beim Laden

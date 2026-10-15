@@ -40,7 +40,8 @@ Eine einzige globale Variable `db`, gespeichert als JSON in `localStorage['lehre
 ```js
 db = {
   settings: { teacherName, school, blocks, lastModified, theme*, warnAbsences, warnGrade, warnPoints, warnHomework,
-              studentSortOrder, seatingBufferMins, lastBackupTimestamp, … },
+              studentSortOrder, seatingBufferMins, lastBackupTimestamp,
+              holidays: [{ id, label, from, until /*YYYY-MM-DD inkl.*/, source? /*'DE-BY': geladen, fehlt = selbst eingetragen*/ }] /*Ferien, Y8*/, federalState /*'DE-BY' … für „Ferien laden“*/, … },
   lessonSlots: [{ id, day /*0=Mo…4=Fr*/, block /*=blocks[].num, feste Kennung*/, part /*'first'|'second'|'full'*/,
                   subject, room, color, groupId,
                   recurring /*'weekly'|'biweekly'|'none' (Altdaten: true/false)*/,
@@ -57,6 +58,7 @@ db = {
              participation: [{ id?, date, value, label? }],
              homework: [{ id, date, note }],
              studentNotes: [{ text, date }] }] },
+  supervisions: [{ id, day, start, end /*HH:MM*/, place, recurring, startDate?, specificDate? }], // Pausenaufsicht (AA4), wie eine Stunde → slotOccursOn
   syncSettings: { lastSyncedCloudTimestamp, syncedLocalModified },
   acknowledgedWarnings: { '<studentId>_absences': n, … },
 }
@@ -106,7 +108,7 @@ Datumswerte sind Strings `YYYY-MM-DD` in **lokaler** Zeit (`formatDate()`). Nie 
 14. **Datumsstrings mit `parseDate()` lesen** (lokal, mittags), rechnen mit `addDays`/`mondayOf`.
 15. **Cloud-Daten, die andere Geräte schreiben, immer abwärtskompatibel lesen.** Andere Lehrkräfte haben evtl. noch eine alte App-Version; Formatwechsel nur mit Kennung im Dokument, altes Format weiter lesen, und nie „kann ich nicht lesen“ als „falsches Passwort“ behandeln.
 16. **Noten sind im Unterricht vertraulich.** Ansichten, die am Pult/Beamer offen sind (Sitzplan), zeigen Noten nur auf Knopfdruck; der Zustand wird nie gespeichert.
-17. **Schultage sind Mo–Fr.** Datums-Sprünge und -Leisten über `isSchoolDay`/`nextSchoolDay`/`addSchoolDays`, nicht über `addDays(d, 1)`.
+17. **Schultage sind Mo–Fr ohne Ferien** (`holidayAt`, Y8). Regelmäßige Stunden fallen in den Ferien aus (`slotOccursOn`), einmalige nicht. Suchen nach „nächster Stunde“ reichen 70 Tage weit (Sommerferien). Datums-Sprünge und -Leisten über `isSchoolDay`/`nextSchoolDay`/`addSchoolDays`, nicht über `addDays(d, 1)`.
 18. **Inline-`onclick` in index.html wird im Test (jsdom) nicht ausgeführt**, weil app.js nicht im Fenster-Kontext läuft. Im Test die Funktion per `app('f()')` aufrufen und das Attribut separat prüfen.
 19. **Event-Handler, die der Test auslösen soll** (z. B. `toggle` an `<details>`), nach dem `innerHTML` per `addEventListener` anhängen, nicht als Inline-Attribut. Ansichtszustand wie „Gruppe aufgeklappt“ in einer Modul-Variable halten, nie in `db`.
 20. **Stundenplan hat zwei Modi:** unter 700 px (`isTimetableDayView()`) die Tagesansicht (`timetableDay`), sonst die Woche (`currentWeekOffset`). Wer das Datum ändert, geht über `setTimetableDay`/`navigateWeek`/`jumpToDate`, damit beide zusammenpassen. Zellen nur über `buildTimetableCell` bauen. Im Test Breite per `window.innerWidth = 400` setzen.
@@ -137,7 +139,7 @@ Datumswerte sind Strings `YYYY-MM-DD` in **lokaler** Zeit (`formatDate()`). Nie 
 42. **Nach Änderungen an Stunden oder Stundendaten `renderScheduleViews()`** statt nur `renderTimetable()`, damit das Dashboard mitkommt.
 43. **Rückfragen mit mehr als Ja/Nein über `askChoice(titel, text, [{label, value, primary|danger}])`** (liefert eine Promise, `null` = abgebrochen). Die aufrufende Funktion ist dann `async`; nach dem `await` prüfen, ob das bearbeitete Objekt noch in `db` ist.
 
-44. **Sitzplätze: `renderSeatingPlan` schreibt nie in `gridX/gridY`.** Angezeigte Plätze kommen aus `seatingLayout()` (gespeicherter Platz, sonst nächster freier, Pult-Zellen ausgenommen); gespeichert wird nur beim Umordnen (`materializeSeatingLayout`). Pult-Position über `seatingDesk()`, Rastergröße über `seatingGridSize()`.
+44. **Sitzplätze: `renderSeatingPlan` schreibt nie in `gridX/gridY`.** Angezeigte Plätze kommen aus `seatingLayout()` (gespeicherter Platz, sonst nächster freier, Pult-Zellen ausgenommen); gespeichert wird nur beim Umordnen (`materializeSeatingLayout`). Pult-Position über `seatingDesk()`, Rastergröße über `seatingGridSize()`. Versetzte Reihen (`seatingStagger`) sind nur Darstellung: x-Position über `rowShift(y)`, Einrasten beim Ziehen über `seatingSnap` (AA5).
 45. **Wer per zweitem Tippen oder per ✕ etwas entfernt, bietet „Rückgängig“ an** (`showUndoToast`; im Profil `offerProfileUndo`). Normale Toasts lassen Klicks durch und können keinen Knopf tragen. Wiederhergestellt wird über `restoreSeatingEntry`: Es lehnt ab, wenn es für denselben Tag/dieselbe Spalte inzwischen einen neuen Eintrag gibt (Regel 50), und zeichnet das offene Profil neu.
 
 46. **Fenster nur über `openModal`/`closeModal` öffnen und schließen** (Fokus-Übergabe und -Rückgabe, `role="dialog"` setzt `labelModals()` beim Start). Ein Fenster, das eine Vorschau zeigt (Einstellungen), verwirft sie beim Schließen ohne Speichern (`MODAL_CLOSE_ACTIONS`).
@@ -156,6 +158,11 @@ Datumswerte sind Strings `YYYY-MM-DD` in **lokaler** Zeit (`formatDate()`). Nie 
 59. **Wer die Cloud absichtlich überschreibt oder leert** (Passwort neu, Cloud leeren), liest sie vorher und schreibt nur gegen genau diesen Stand (`saveToCloud(…, gelesenerTimestamp)`), und setzt dafür **kein** `pendingUpload`: Käme die Antwort nicht an, hielte der nächste Sync sonst die alten Gerätedaten für den eigenen Upload und lüde sie wieder hoch.
 
 60. **Tests mit festen Datumsangaben laufen mit fester Uhrzeit** (`vi.useFakeTimers({ toFake: ['Date'] })` + `vi.setSystemTime(…)`). Die App vergleicht vieles mit „heute“ (`splitDateFor`, Fälligkeit, Datumsfelder); mit dem echten Datum kippt ein Test, sobald seine Beispieltage in der Vergangenheit liegen (D6, rot ab 13.10.2026).
+
+61. **Stundenplan mit Einzelstunden: alles ohne Scrollen sichtbar** (gemessen bis iPhone SE und 13″-Laptop 1366×768, 8 Stunden + 2 Pausen). Feste Zeilenhöhe 48 px (Tag 46 px, `blockRowSize`), Drumherum kompakt (`.tt-compact`). Wer dem Stundenplan etwas hinzufügt (Kopf, Pausenzeile, Kachelinhalt), misst danach auf diesen Größen nach (`wrapper.scrollHeight <= clientHeight`) – jeder Pixel im Kopf oder in einer Zeile fehlt sonst auf kleinen Geräten.
+62. **Testhilfen bilden die Wirklichkeit nach**, auch bei Kennungen: Ein „anderes Gerät“ schreibt in die Cloud immer eine neuere Version als die aktuelle (wie die Transaktion in `saveToCloud`). Feste Zeiten „jetzt + 5 s“ kollidierten in derselben Millisekunde (T9).
+
+63. **Anfragen an fremde Dienste nur auf Knopfdruck** (bisher nur „Ferien laden“, OpenHolidays API) und immer in den Datenschutzhinweisen nennen. Ergebnis erst als Vorschau, dann in die Arbeitskopie – nie still gespeicherte Daten ersetzen; ohne Netz funktioniert alles weiter von Hand.
 
 ## Arbeitsablauf
 

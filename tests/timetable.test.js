@@ -341,7 +341,7 @@ describe('H2: Tagesansicht auf dem Handy', () => {
     expect(grid().classList.contains('day-view')).toBe(true);
     const blocks = app('getBlocks()').length;
     expect(grid().querySelectorAll('.tt-cell').length).toBe(blocks);
-    expect(grid().querySelector('.tt-day-header').textContent).toBe('Montag, 05.10.');
+    expect(grid().querySelector('.tt-day-header').textContent).toMatch(/^Montag, 05\.10\./); // dahinter „+ Aufsicht“ (AA4)
     expect(label()).toContain('Mo 05.10.');
     expect(label()).toContain('KW 41');
     expect(grid().textContent).toContain('Mathe');
@@ -422,7 +422,7 @@ describe('H4: Stundenplan-Kacheln', () => {
     app('jumpToDate("2026-10-05")');
     expect(grid().style.gridTemplateColumns).toMatch(/1fr/);
     expect(grid().style.gridTemplateColumns).not.toMatch(/\d+(\.\d+)?px \d+(\.\d+)?px \d+(\.\d+)?px/);
-    expect(grid().style.gridTemplateRows).toMatch(/1fr/);
+    expect(grid().style.gridTemplateRows).toMatch(/\dfr/); // Anteil nach Dauer (AA2)
   });
 
   it('Klasse groß, Fach klein; lange Namen enden mit „…“', () => {
