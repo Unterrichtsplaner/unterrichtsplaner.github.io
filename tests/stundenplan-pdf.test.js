@@ -118,3 +118,39 @@ describe('Stundenplan drucken / PDF', () => {
     expect(CSS).toMatch(/@media print[\s\S]*body > \*:not\(#print-area\)\{[^}]*display:none/);
   });
 });
+
+describe('Druckplan passt immer auf eine Seite (Rückmeldung zu AC1)', () => {
+  const blocksOf = n => Array.from({ length: n }, (_, i) => ({ num: i + 1, label: `${i + 1}. Stunde`, start: `${String(7 + i).padStart(2, '0')}:00`, end: `${String(7 + i).padStart(2, '0')}:45` }));
+  const rowMM = () => parseFloat(area().style.getPropertyValue('--row'));
+  // Höhe laut CSS: Kopf 14+3, Tagezeile 7, Fuß 2+5, Pausen 5, Zeilen --row (+ Zellränder)
+  const totalMM = (blocks, pauses) => 17 + 7 + 7 + pauses * 5 + blocks * rowMM() + (blocks + pauses + 1) * 0.5;
+
+  it.each([4, 6, 8, 10, 12])('%i Stunden mit 3 Pausenaufsichten: Gesamthöhe ≤ 194 mm (A4 quer)', n => {
+    app('db.settings.blocks = ' + JSON.stringify(blocksOf(n)));
+    app(`db.supervisions = [0, 1, 2].map(i => ({ id: 'p' + i, day: i, start: '0' + (8 + i) + ':45', end: '0' + (9 + i) + ':00', place: 'Hof', recurring: 'weekly' }))`);
+    app('buildPrintTimetable({ from: "2026-10-19", name: "", color: true })');
+    const pauses = area().querySelectorAll('tr.pt-pause').length;
+    expect(pauses).toBeGreaterThan(0);
+    expect(totalMM(n, pauses)).toBeLessThanOrEqual(194);
+  });
+
+  it('Zellen haben feste Höhe und schneiden ab, statt die Zeile wachsen zu lassen', () => {
+    expect(CSS).toMatch(/#print-area \.pt-cell\{[^}]*height:var\(--row\)[^}]*overflow:hidden/);
+    expect(CSS).toMatch(/#print-area \.pt-pcell\{[^}]*height:5mm[^}]*overflow:hidden/);
+  });
+
+  it('Zelle füllt sich mit der Stunde; Raum steht in der Zeile der Klasse', () => {
+    app('buildPrintTimetable({ from: "2026-10-19", name: "", color: true })');
+    const c = cell(0, 0);
+    expect(c.querySelector('.pt-cell .pt-entry .pt-line b').textContent).toBe('7a');
+    expect(c.querySelector('.pt-room').textContent).toBe('R101');
+  });
+
+  it('halbe Stunde ohne Klasse: kein „·“ am Anfang', () => {
+    app(`db.lessonSlots.push({ id: 'h2', day: 2, block: 3, part: 'second', subject: 'Förder', color: '#14b8a6', recurring: 'weekly' })`);
+    app('buildPrintTimetable({ from: "2026-10-19", name: "", color: true })');
+    const spans = [...cell(2, 2).querySelectorAll('.pt-entry span')].map(s => s.textContent);
+    expect(spans).toContain('2. Hälfte');
+    expect(spans.every(t => !t.startsWith('·'))).toBe(true);
+  });
+});

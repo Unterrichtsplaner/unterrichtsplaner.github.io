@@ -1088,26 +1088,45 @@ button.date-chip{font-family:inherit;padding:0;}
   body > *:not(#print-area){display:none !important;}
   #print-area{display:block !important;color:#111;font-family:'Inter',-apple-system,Arial,sans-serif;-webkit-print-color-adjust:exact;print-color-adjust:exact;}
 }
-#print-area .pt-head{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;border-bottom:2px solid #111;padding-bottom:6px;margin-bottom:8px;}
-#print-area .pt-title{font-size:22pt;font-weight:800;letter-spacing:-.5px;}
-#print-area .pt-meta{font-size:10pt;text-align:right;line-height:1.4;color:#333;}
-#print-area .pt-meta strong{color:#111;}
+/* Druckplan: feste Zeilenhöhe aus buildPrintTimetable (--row, --fs), damit er immer auf eine Seite passt.
+   Nicht per (orientation:…) umschalten: Chrome wertet das vor @page aus und meldet beim Querformat „portrait“. */
+#print-area{--line:#c9c9c9;}
+#print-area .pt-head{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;height:14mm;box-sizing:border-box;border-bottom:.6mm solid #111;padding-bottom:2mm;margin-bottom:3mm;}
+#print-area .pt-title{font-size:20pt;font-weight:800;letter-spacing:-.4px;line-height:1.1;}
+#print-area .pt-name{font-size:10.5pt;font-weight:600;color:#444;margin-top:1.2mm;}
+#print-area .pt-meta{font-size:9pt;text-align:right;line-height:1.45;color:#444;}
+#print-area .pt-meta strong{color:#111;font-size:10pt;}
 #print-area .pt-table{width:100%;border-collapse:collapse;table-layout:fixed;}
-#print-area .pt-table th,#print-area .pt-table td{border:1px solid #9a9a9a;vertical-align:top;}
-#print-area .pt-table thead th{background:#e9e9e9;font-size:10pt;padding:4px;text-align:center;}
-#print-area .pt-table thead th:first-child{width:17mm;}
-#print-area .pt-time{text-align:center;vertical-align:middle !important;background:#f4f4f4;font-size:8pt;color:#333;line-height:1.25;}
-#print-area .pt-time b{display:block;font-size:13pt;color:#111;}
-#print-area .pt-block td{padding:2px;}
-#print-area .pt-pause td,#print-area .pt-pause th{background:#f4f4f4;font-size:8pt;padding:2px 4px;height:auto;vertical-align:middle;}
-#print-area .pt-pause th{color:#555;}
-#print-area .pt-entry{border-left:3mm solid var(--c,#888);background:color-mix(in srgb, var(--c,#888) 14%, #fff);padding:2px 4px;margin-bottom:2px;border-radius:2px;line-height:1.2;}
-#print-area .pt-bw .pt-entry{border-left:1.2mm solid #555;background:#fff;}
-#print-area .pt-entry b{font-size:11pt;display:block;}
-#print-area .pt-entry span{font-size:8pt;color:#333;display:block;}
-#print-area .pt-tag{float:right;font-style:normal;font-weight:800;font-size:8pt;border:1px solid #555;border-radius:2px;padding:0 3px;margin-left:3px;}
-#print-area .pt-sup{font-weight:600;}
-#print-area .pt-foot{display:flex;justify-content:space-between;font-size:8pt;color:#555;margin-top:6px;}
+#print-area .pt-table th,#print-area .pt-table td{border:.25mm solid var(--line);vertical-align:top;padding:0;}
+#print-area .pt-table thead th{background:#1f2937;color:#fff;border-color:#1f2937;font-size:9.5pt;font-weight:700;height:7mm;text-align:center;vertical-align:middle;letter-spacing:.2px;}
+#print-area .pt-table thead th:first-child{width:15mm;}
+#print-area .pt-time{text-align:center;vertical-align:middle !important;background:#f3f4f6;font-size:7pt;color:#555;line-height:1.2;font-weight:500;}
+#print-area .pt-time b{display:block;font-size:calc(var(--fs) * 1.15);color:#111;font-weight:800;line-height:1.05;margin-bottom:.4mm;}
+#print-area .pt-cell{height:var(--row);box-sizing:border-box;padding:.7mm;display:flex;flex-direction:column;gap:.6mm;overflow:hidden;}
+#print-area .pt-entry{flex:1 1 0;min-height:0;overflow:hidden;display:flex;flex-direction:column;justify-content:center;gap:.3mm;
+  border-left:1.6mm solid var(--c,#888);background:color-mix(in srgb, var(--c,#888) 16%, #fff);border-radius:1mm;padding:0 1.6mm;line-height:1.15;}
+#print-area .pt-line{display:flex;align-items:baseline;gap:1.5mm;min-width:0;}
+#print-area .pt-entry b{font-size:var(--fs);font-weight:800;color:#111;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;}
+#print-area .pt-room{margin-left:auto;font-style:normal;font-size:calc(var(--fs) * .72);font-weight:600;color:#333;white-space:nowrap;}
+#print-area .pt-entry span{font-size:calc(var(--fs) * .74);color:#333;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+/* zwei Stunden in einer Zelle (A/B-Woche, Hälften): je eine Zeile */
+#print-area .pt-multi .pt-entry{flex-direction:row;align-items:center;gap:1.5mm;}
+#print-area .pt-multi .pt-entry{justify-content:flex-start;}
+#print-area .pt-multi .pt-line{display:contents;}
+#print-area .pt-multi .pt-entry b{font-size:min(calc(var(--fs) * .85), 11pt);flex:0 0 auto;max-width:60%;}
+#print-area .pt-multi .pt-entry span{font-size:min(calc(var(--fs) * .74), 8.5pt);}
+#print-area .pt-multi .pt-room{font-size:min(calc(var(--fs) * .72), 8.5pt);flex:0 0 auto;}
+#print-area .pt-multi .pt-entry span{order:1;flex:0 1 auto;min-width:0;}
+#print-area .pt-multi .pt-room{order:2;}
+#print-area .pt-multi .pt-tag{order:3;}
+#print-area .pt-tag{font-style:normal;font-weight:800;font-size:calc(var(--fs) * .62);border:.25mm solid #333;border-radius:.6mm;padding:0 .8mm;line-height:1.3;}
+#print-area .pt-bw .pt-entry{border-left:1mm solid #444;background:#fff;}
+#print-area .pt-pause th,#print-area .pt-pause td{background:#f3f4f6;vertical-align:middle;}
+#print-area .pt-pause th{font-size:6.5pt;font-weight:600;color:#6b7280;text-transform:uppercase;letter-spacing:.4px;}
+#print-area .pt-pcell{height:5mm;box-sizing:border-box;padding:0 1.6mm;display:flex;align-items:center;gap:2mm;overflow:hidden;white-space:nowrap;}
+#print-area .pt-sup{font-size:7pt;font-weight:700;color:#111;overflow:hidden;text-overflow:ellipsis;}
+#print-area .pt-sup span{font-weight:500;color:#555;}
+#print-area .pt-foot{display:flex;justify-content:space-between;gap:8mm;font-size:7.5pt;color:#6b7280;margin-top:2mm;height:5mm;}
 
 /* ─── Stundenplan per Ziehen bearbeiten (AC2) ─────────── */
 .tt-edit-bar{display:flex;align-items:center;gap:10px;margin:0 24px 6px;padding:7px 8px 7px 14px;border-radius:var(--radius-md);background:var(--accent-soft);color:var(--text-accent);font-size:13px;flex-wrap:wrap;}

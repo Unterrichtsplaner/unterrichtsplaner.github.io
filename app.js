@@ -1160,17 +1160,18 @@ function buildPrintTimetable({ from, name = '', color = true }) {
   const partOrder = { first: 0, full: 1, second: 2 };
   const entryHTML = (slot, tag) => {
     const t = lessonTitle(slot);
-    const sub = [t.sub, slot.room].filter(Boolean).map(escHtml).join(' · ');
-    const part = partName[slot.part] ? ` · ${partName[slot.part]}` : '';
-    return `<div class="pt-entry" style="--c:${escHtml(safeColor(slot.color))}">${tag ? `<i class="pt-tag">${tag}</i>` : ''}`
-      + `<b>${escHtml(t.main)}</b><span>${sub}${part}</span></div>`;
+    const sub = [t.sub, partName[slot.part]].filter(Boolean).map(escHtml).join(' · ');
+    return `<div class="pt-entry" style="--c:${escHtml(safeColor(slot.color))}">`
+      + `<div class="pt-line"><b>${escHtml(t.main)}</b>${slot.room ? `<em class="pt-room">${escHtml(slot.room)}</em>` : ''}${tag ? `<i class="pt-tag">${tag}</i>` : ''}</div>`
+      + (sub ? `<span>${sub}</span>` : '') + '</div>';
   };
   const cellHTML = dayIdx => block => {
     const list = slots.filter(sl => sl.block === block.num)
       .map(sl => ({ sl, inA: slotInRegularPlan(sl, weekA[dayIdx]), inB: slotInRegularPlan(sl, weekB[dayIdx]) }))
       .filter(x => x.inA || x.inB)
       .sort((x, y) => (partOrder[x.sl.part || 'full'] - partOrder[y.sl.part || 'full']) || (Number(y.inA) - Number(x.inA)));
-    return list.map(x => entryHTML(x.sl, tagged(x.inA, x.inB))).join('');
+    if (!list.length) return '';
+    return `<div class="pt-cell${list.length > 1 ? ' pt-multi' : ''}">${list.map(x => entryHTML(x.sl, tagged(x.inA, x.inB))).join('')}</div>`;
   };
   // Pausenzeilen nur, wo eine regelmäßige Aufsicht liegt (wie im Stundenplan)
   const supCell = (dayIdx, gap) => sups.filter(x => supervisionGap(x, blocks) === gap)
@@ -1180,25 +1181,35 @@ function buildPrintTimetable({ from, name = '', color = true }) {
   const pauseRow = gap => {
     const cells = [0, 1, 2, 3, 4].map(i => supCell(i, gap));
     if (!cells.some(Boolean)) return '';
-    return `<tr class="pt-pause"><th>Pause</th>${cells.map(c => `<td>${c}</td>`).join('')}</tr>`;
+    pauseRows++;
+    return `<tr class="pt-pause"><th>Pause</th>${cells.map(c => `<td><div class="pt-pcell">${c}</div></td>`).join('')}</tr>`;
   };
   const timeCell = block => {
     const num = String(block.label || '').match(/^\s*(\d+)\s*\.?\s*(stunde|std\.?|block)?\s*$/i);
     return `<th class="pt-time">${num ? `<b>${escHtml(num[1])}</b>` : `<b style="font-size:9pt">${escHtml(block.label || '')}</b>`}${escHtml(block.start || '')}<br>${escHtml(block.end || '')}</th>`;
   };
-  // Zeilenhöhe so, dass der Plan auf eine A4-Seite quer passt (190 mm Höhe abzüglich Kopf/Fuß/Pausen)
-  const rowMM = Math.max(11, Math.min(30, Math.floor(128 / Math.max(1, blocks.length)))); // Luft für längere Einträge
+  let pauseRows = 0;
   let body = pauseRow(0);
   blocks.forEach((block, i) => {
-    body += `<tr class="pt-block" style="height:${rowMM}mm">${timeCell(block)}${[0, 1, 2, 3, 4].map(d => `<td>${cellHTML(d)(block)}</td>`).join('')}</tr>`;
+    body += `<tr class="pt-block">${timeCell(block)}${[0, 1, 2, 3, 4].map(d => `<td>${cellHTML(d)(block)}</td>`).join('')}</tr>`;
     body += pauseRow(i + 1);
   });
+  // Zeilenhöhe so, dass der Plan die Seite füllt und nie auf eine zweite rutscht (A4 quer: 194 mm Druckhöhe;
+  // passt damit auch hochkant, falls ein Browser das Querformat nicht übernimmt). Zellen haben eine feste Höhe
+  // und schneiden zu langen Text ab, statt die Zeile wachsen zu lassen.
+  const fixedMM = 17 + 8 + 7 + pauseRows * 5.4 + (blocks.length + pauseRows + 1) * 0.3; // Kopf, Tagezeile, Fuß, Pausen, Linien
+  const rowFor = usable => Math.max(7, Math.min(40, Math.floor((usable - fixedMM) / Math.max(1, blocks.length) * 10) / 10));
+  const fontFor = row => Math.max(7.5, Math.min(14, Math.round(row * 0.7 * 10) / 10));
+  const row = rowFor(184);
+  const vars = `--row:${row}mm;--fs:${fontFor(row)}pt`;
   const y = monday.getMonth() >= 7 ? monday.getFullYear() : monday.getFullYear() - 1; // Schuljahr ab August
   const school = db.settings.school || '';
   const legend = usesAB ? `A = Woche ab ${formatDateLong(weekA[0])}, B = Woche ab ${formatDateLong(weekB[0])} (dann immer abwechselnd)` : '';
-  document.getElementById('print-area').innerHTML = `
+  const area = document.getElementById('print-area');
+  area.setAttribute('style', vars);
+  area.innerHTML = `
     <div class="pt-head">
-      <div class="pt-title">Stundenplan${name ? ` <span style="font-weight:600">· ${escHtml(name)}</span>` : ''}</div>
+      <div><div class="pt-title">Stundenplan</div>${name ? `<div class="pt-name">${escHtml(name)}</div>` : ''}</div>
       <div class="pt-meta">${school ? `<strong>${escHtml(school)}</strong><br>` : ''}Schuljahr ${y}/${String(y + 1).slice(-2)} · gültig ab ${formatDateLong(weekA[0])}</div>
     </div>
     <table class="pt-table${color ? '' : ' pt-bw'}">
