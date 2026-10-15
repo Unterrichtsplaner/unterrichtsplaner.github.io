@@ -1101,3 +1101,21 @@ button.date-chip{font-family:inherit;padding:0;}
 #print-area .pt-tag{float:right;font-style:normal;font-weight:800;font-size:8pt;border:1px solid #555;border-radius:2px;padding:0 3px;margin-left:3px;}
 #print-area .pt-sup{font-weight:600;}
 #print-area .pt-foot{display:flex;justify-content:space-between;font-size:8pt;color:#555;margin-top:6px;}
+
+/* ─── Stundenplan per Ziehen bearbeiten (AC2) ─────────── */
+.tt-edit-bar{display:flex;align-items:center;gap:10px;margin:0 24px 6px;padding:7px 8px 7px 14px;border-radius:var(--radius-md);background:var(--accent-soft);color:var(--text-accent);font-size:13px;flex-wrap:wrap;}
+.tt-edit-bar .btn-primary{margin-left:auto;padding:6px 14px;}
+@media (max-width:700px){.tt-edit-bar{margin:0 12px 6px;font-size:12px;}}
+#btn-tt-edit[aria-pressed="true"]{background:var(--accent);color:#fff;}
+.timetable-grid.tt-edit .tt-lesson{cursor:grab;touch-action:none;user-select:none;-webkit-user-select:none;outline:1.5px dashed color-mix(in srgb, var(--lesson-color) 70%, transparent);outline-offset:-1.5px;}
+.timetable-grid.tt-edit .tt-empty-cell{border-color:var(--border);}
+.timetable-grid.tt-edit .tt-add-icon{color:var(--text-muted);}
+.tt-drag-source{opacity:.35;}
+.tt-drag-ghost{position:fixed;z-index:3000;pointer-events:none;opacity:.92;box-shadow:var(--shadow-md);transform:rotate(1.5deg);margin:0;}
+.tt-drop-target{outline:2px solid var(--accent) !important;outline-offset:-2px;background:var(--accent-soft) !important;border-radius:var(--radius-sm);}
+/* Kopf auf dem Handy: Wochenlabel darf schrumpfen (Stift + Drucker daneben), Hinweisleiste mit „Fertig“ rechts */
+#view-timetable .week-label-wrap{flex:0 1 auto;min-width:0;}
+#view-timetable .week-label-wrap .week-label{min-width:0;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.tt-edit-bar{flex-wrap:nowrap;}
+.tt-edit-text{flex:1;min-width:0;line-height:1.35;}
+.tt-edit-bar .btn-primary{flex-shrink:0;}

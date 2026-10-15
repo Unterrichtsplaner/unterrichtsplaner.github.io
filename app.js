@@ -64,6 +64,7 @@ const ICONS = {
   'trend-down': '<polyline points="23 18 13.5 8.5 8.5 13.5 1 6"/><polyline points="17 18 23 18 23 12"/>',
   lock:         '<rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>',
   eye:          '<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>',
+  edit:         '<path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/>',
   printer:      '<polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/>',
   'eye-off':    '<path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/><path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/><path d="M14.12 14.12a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/>',
   calendar:     '<rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>',
@@ -382,6 +383,7 @@ function switchView(name) {
   if (name !== 'seating' && typeof seatingEditMode !== 'undefined' && seatingEditMode) {
     toggleSeatingEditMode();
   }
+  if (name !== 'timetable' && timetableEditMode) setTimetableEditUI(false); // AC2
   document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
   document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
   const viewEl = document.getElementById('view-' + name);
@@ -595,6 +597,8 @@ function getWeekNumber(d) {
 // timetableDay: angezeigter Tag ('YYYY-MM-DD'); null = folgt currentWeekOffset (aktuelle Woche → heute).
 const DAY_VIEW_MAX_WIDTH = 700;
 let timetableDay = null;
+// Stift-Modus (AC2): Stunden per Ziehen verschieben. Nur Ansichtszustand, nie gespeichert (Regel 19).
+let timetableEditMode = false;
 // Tag, an dem Woche/Tag gewählt wurden. Am nächsten Tag zeigt der Stundenplan wieder „heute“: Der Wochen-Versatz
 // gilt relativ zu jetzt und sprang sonst über Nacht (Fr „nächste Woche“ → Sa übernächste; BUGS R6, Regel 24).
 let timetableChosenOn = '';
@@ -641,6 +645,8 @@ function renderTimetable() {
   if (nextBtn) nextBtn.title = dayView ? 'Nächster Tag' : 'Nächste Woche';
   if (dayView) renderTimetableDay(grid);
   else renderTimetableWeek(grid);
+  grid.classList.toggle('tt-edit', timetableEditMode);
+  setupTimetableDrag(grid);
   // Datumsauswahl auf das Angezeigte stellen, sonst löst dasselbe Datum ein zweites Mal kein change aus (BUGS M14)
   const picker = document.getElementById('week-date-picker');
   if (picker) picker.value = formatDate(dayView ? timetableDayDate() : getWeekDates(currentWeekOffset)[0]);
@@ -789,6 +795,157 @@ function renderTimetableDay(grid) {
   });
 }
 
+// ─── Stundenplan per Ziehen bearbeiten (AC2) ─────────────────────────────
+function setTimetableEditUI(on) {
+  timetableEditMode = on;
+  const btn = document.getElementById('btn-tt-edit');
+  if (btn) btn.setAttribute('aria-pressed', String(on));
+  document.getElementById('tt-edit-bar').classList.toggle('hidden', !on);
+}
+function toggleTimetableEditMode(on = !timetableEditMode) {
+  setTimetableEditUI(on);
+  renderTimetable();
+}
+let ttSuppressClick = false;
+// Stift-Modus: Antippen öffnet gleich „Stunde bearbeiten“
+function openEditLessonFor(slotId, dateStr) {
+  if (ttSuppressClick) return; // war ein Ziehen
+  activeLessonId = slotId;
+  activeLessonDate = dateStr;
+  openEditLesson();
+}
+function lessonInputFrom(s, day, block, part) {
+  return { subject: s.subject || '', day, block, room: s.room || '', groupId: s.groupId || null, part, color: s.color,
+    recurringVal: isOneOffSlot(s) ? (s.substitute ? 'substitute' : 'none') : (s.recurring === 'biweekly' ? 'biweekly' : 'weekly') };
+}
+// Ablegen: dieselbe Speicherlogik wie das Formular (commitLessonSlot: Überschneidung, „ab wann?“, Notizen/HA
+// wandern mit). Belegtes Ziel → tauschen (Rückfrage); scheitert der zweite Teil, wird alles zurückgesetzt.
+// Danach „Rückgängig“ – stellt den Stand davor her, solange nichts anderes geändert wurde (Regel 45).
+async function moveLessonByDrag(slotId, sourceDate, target) {
+  const slot = db.lessonSlots.find(s => s.id === slotId);
+  if (!slot || !target || !Number.isFinite(target.day) || !Number.isFinite(target.block)) return false;
+  const part = target.part || slot.part || 'full';
+  if (target.day === slot.day && target.block === slot.block && part === (slot.part || 'full')) return false;
+  const dbAtStart = db;
+  const snapshot = { slots: JSON.stringify(db.lessonSlots), data: JSON.stringify(db.lessonData) };
+  const restore = () => { db.lessonSlots = JSON.parse(snapshot.slots); db.lessonData = JSON.parse(snapshot.data); saveDB(); renderScheduleViews(); };
+  const occupants = lessonsAt(target.dateStr, target.block).filter(s => s !== slot && partsOverlap(part, s.part));
+  const prevSpecific = currentSpecificDate;
+  let ok = false;
+  try {
+    if (occupants.length > 1) { showToast('Dort liegen schon zwei Stunden – bitte zuerst eine davon verschieben', 'error'); return false; }
+    if (occupants.length === 1) {
+      const other = occupants[0];
+      const blockLabel = (getBlocks().find(b => b.num === target.block) || {}).label || '';
+      const choice = await askChoice('Stunden tauschen?',
+        `${DAYS[target.day]}, ${blockLabel}: Dort liegt schon ${lessonTitle(other).main}.\n\n`
+        + `Sollen ${lessonTitle(slot).main} und ${lessonTitle(other).main} die Plätze tauschen?`,
+        [{ label: 'Tauschen', value: 'swap', primary: true }]);
+      if (choice !== 'swap' || db !== dbAtStart || !db.lessonSlots.includes(slot) || !db.lessonSlots.includes(other)) return false;
+      const back = { day: slot.day, block: slot.block };
+      currentSpecificDate = sourceDate;
+      ok = await commitLessonSlot(lessonInputFrom(slot, target.day, target.block, part), slot, { ignoreConflictWith: other });
+      if (ok) {
+        currentSpecificDate = target.dateStr;
+        ok = await commitLessonSlot(lessonInputFrom(other, back.day, back.block, other.part || 'full'), other, { ignoreConflictWith: slot });
+        if (!ok) {
+          // Nie zwei Stunden übereinander stehen lassen
+          if (db === dbAtStart) restore();
+          showToast('Nicht getauscht – alles wie vorher', 'error');
+          return false;
+        }
+      }
+    } else {
+      currentSpecificDate = sourceDate;
+      ok = await commitLessonSlot(lessonInputFrom(slot, target.day, target.block, part), slot);
+    }
+  } finally {
+    currentSpecificDate = prevSpecific;
+  }
+  if (!ok || db !== dbAtStart) return false;
+  const after = db.settings.lastModified;
+  showUndoToast(occupants.length ? 'Stunden getauscht' : 'Stunde verschoben', () => {
+    if (db !== dbAtStart || db.settings.lastModified !== after) {
+      showToast('Nicht mehr möglich – inzwischen wurde etwas geändert', 'error');
+      return;
+    }
+    restore();
+    showToast('Rückgängig gemacht');
+  });
+  return true;
+}
+
+// Ziehen mit Maus/Finger (Pointer-Events). Erst ab 6 px Bewegung, damit Antippen weiter „bearbeiten“ öffnet.
+let ttDrag = null;
+function setupTimetableDrag(grid) {
+  if (!timetableEditMode) return;
+  grid.querySelectorAll('.tt-lesson[data-slot]').forEach(tile => tile.addEventListener('pointerdown', e => startTimetableDrag(e, tile)));
+}
+function startTimetableDrag(e, tile) {
+  if (e.button !== undefined && e.button !== 0) return;
+  ttDrag = { tile, slotId: tile.dataset.slot, date: tile.dataset.date, x0: e.clientX, y0: e.clientY, ghost: null, target: null, targetEl: null };
+  document.addEventListener('pointermove', onTimetableDragMove, { passive: false });
+  document.addEventListener('pointerup', onTimetableDragEnd);
+  document.addEventListener('pointercancel', endTimetableDrag);
+}
+function timetableDropAt(x, y) {
+  const el = document.elementFromPoint(x, y);
+  const cell = el && el.closest('#timetable-grid .tt-cell');
+  if (!cell) return null;
+  const half = el.closest('[data-part]');
+  const inCell = half && cell.contains(half);
+  return { el: inCell ? half : cell,
+    target: { day: Number(cell.dataset.day), block: Number(cell.dataset.block), dateStr: cell.dataset.date, part: inCell ? half.dataset.part : null } };
+}
+function onTimetableDragMove(e) {
+  if (!ttDrag) return;
+  if (!ttDrag.ghost) {
+    if (Math.hypot(e.clientX - ttDrag.x0, e.clientY - ttDrag.y0) < 6) return;
+    const r = ttDrag.tile.getBoundingClientRect();
+    const ghost = ttDrag.tile.cloneNode(true);
+    ghost.classList.add('tt-drag-ghost');
+    ghost.removeAttribute('onclick');
+    ghost.style.width = r.width + 'px';
+    ghost.style.height = r.height + 'px';
+    ttDrag.dx = ttDrag.x0 - r.left;
+    ttDrag.dy = ttDrag.y0 - r.top;
+    document.body.appendChild(ghost);
+    ttDrag.ghost = ghost;
+    ttDrag.tile.classList.add('tt-drag-source');
+  }
+  if (e.cancelable) e.preventDefault();
+  ttDrag.ghost.style.left = (e.clientX - ttDrag.dx) + 'px';
+  ttDrag.ghost.style.top = (e.clientY - ttDrag.dy) + 'px';
+  const hit = timetableDropAt(e.clientX, e.clientY);
+  const el = hit ? hit.el : null;
+  if (ttDrag.targetEl !== el) {
+    if (ttDrag.targetEl) ttDrag.targetEl.classList.remove('tt-drop-target');
+    if (el) el.classList.add('tt-drop-target');
+    ttDrag.targetEl = el;
+  }
+  ttDrag.target = hit ? hit.target : null;
+}
+function endTimetableDrag() {
+  document.removeEventListener('pointermove', onTimetableDragMove);
+  document.removeEventListener('pointerup', onTimetableDragEnd);
+  document.removeEventListener('pointercancel', endTimetableDrag);
+  const d = ttDrag;
+  ttDrag = null;
+  if (!d) return null;
+  if (d.ghost) d.ghost.remove();
+  if (d.targetEl) d.targetEl.classList.remove('tt-drop-target');
+  d.tile.classList.remove('tt-drag-source');
+  return d;
+}
+function onTimetableDragEnd() {
+  const d = endTimetableDrag();
+  if (!d || !d.ghost) return; // nur angetippt
+  ttSuppressClick = true;
+  setTimeout(() => { ttSuppressClick = false; }, 300);
+  if (d.target) moveLessonByDrag(d.slotId, d.date, d.target);
+  else renderTimetable();
+}
+
 // Zeilenhöhe nach Dauer (AA2): Eine 45-min-Stunde bekam sonst dieselbe Höhe wie ein 90-min-Block – zwei Einzelstunden
 // waren doppelt so hoch wie früher ein Block, der Plan passte nicht mehr auf den Bildschirm. Platz (fr) ∝ Dauer.
 function blockDuration(block) {
@@ -921,7 +1078,7 @@ function timetableClock(now = new Date()) {
 // Gilt für Stundenplan und Dashboard („läuft noch …“, über Nacht „Heute“, BUGS M1).
 let timetableClockMinute = null;
 function refreshTimetableClock() {
-  if (document.hidden) return;
+  if (document.hidden || ttDrag) return; // nicht unter dem Finger neu zeichnen (AC2)
   const active = id => document.getElementById(id)?.classList.contains('active');
   if (!active('view-timetable') && !active('view-dashboard')) return;
   const now = new Date();
@@ -951,6 +1108,10 @@ function buildTimetableCell(d, dayIdx, block, clock = timetableClock()) {
   const dateStr = formatDate(d);
   const cell = document.createElement('div');
   cell.className = 'tt-cell';
+  // Wohin eine gezogene Stunde fällt (AC2)
+  cell.dataset.day = dayIdx;
+  cell.dataset.block = block.num;
+  cell.dataset.date = dateStr;
   // Einzelstunde (≤ 50 min): kompakte Kachel, sonst wäre sie so hoch wie ein Doppelblock (AA2)
   if (blockDuration(block) <= 50) cell.classList.add('tt-short');
 
@@ -988,7 +1149,8 @@ function buildTimetableCell(d, dayIdx, block, clock = timetableClock()) {
 
     return `<div class="tt-lesson${isAusfall?' ausfall-lesson':''}${running?' running':''}${isNext?' next':''}"
            style="background:${hexToRgba(lesson.color,0.15)};--lesson-color:${escHtml(safeColor(lesson.color))}"
-           onclick="openLessonDetail(${jsArg(lesson.id)},${jsArg(dateStr)})">
+           data-slot="${escHtml(lesson.id)}" data-date="${escHtml(dateStr)}"
+           onclick="${timetableEditMode ? 'openEditLessonFor' : 'openLessonDetail'}(${jsArg(lesson.id)},${jsArg(dateStr)})">
         <div class="tt-lesson-head">
           <div class="tt-lesson-class">${escHtml(t.main)}</div>
           ${sub ? `<div class="tt-lesson-subject">${sub}</div>` : ''}
@@ -1022,8 +1184,8 @@ function buildTimetableCell(d, dayIdx, block, clock = timetableClock()) {
       return cell;
     }
     cell.innerHTML = `<div class="tt-split-container">
-      <div class="tt-split-half">${first ? renderLessonHTML(first) : renderEmptyHTML('first')}</div>
-      <div class="tt-split-half">${second ? renderLessonHTML(second) : renderEmptyHTML('second')}</div>
+      <div class="tt-split-half" data-part="first">${first ? renderLessonHTML(first) : renderEmptyHTML('first')}</div>
+      <div class="tt-split-half" data-part="second">${second ? renderLessonHTML(second) : renderEmptyHTML('second')}</div>
     </div>`;
   }
   return cell;
@@ -1332,21 +1494,33 @@ function openEditLesson() {
 }
 
 async function saveLessonSlot() {
-  let subject     = document.getElementById('new-lesson-subject').value.trim();
-  const day       = parseInt(document.getElementById('new-lesson-day').value);
-  const block     = parseInt(document.getElementById('new-lesson-block').value);
-  const room      = document.getElementById('new-lesson-room').value.trim();
-  const recurringVal = document.getElementById('new-lesson-recurring').value;
-  const groupId   = document.getElementById('new-lesson-group').value || null;
   let part = 'full';
-  const radios = document.getElementsByName('new-lesson-part');
-  for(let r of radios) if(r.checked) part = r.value;
+  for (const r of document.getElementsByName('new-lesson-part')) if (r.checked) part = r.value;
+  const slot = editingSlotId ? db.lessonSlots.find(s => s.id === editingSlotId) : null;
+  return commitLessonSlot({
+    subject: document.getElementById('new-lesson-subject').value.trim(),
+    day: parseInt(document.getElementById('new-lesson-day').value),
+    block: parseInt(document.getElementById('new-lesson-block').value),
+    room: document.getElementById('new-lesson-room').value.trim(),
+    recurringVal: document.getElementById('new-lesson-recurring').value,
+    groupId: document.getElementById('new-lesson-group').value || null,
+    part, color: selectedLessonColor,
+  }, slot);
+}
+
+// Kern von „Stunde speichern“ – auch für das Verschieben per Ziehen (AC2), damit dieselben Regeln gelten:
+// Überschneidung, „ab wann ändern?“, Notizen/HA wandern mit, weggefallene Termine. `slot` = bearbeitete Stunde
+// (null = neu). Datum/Woche aus currentSpecificDate bzw. der angezeigten Woche (lessonTargetDate).
+// ignoreConflictWith: diese Stunde gilt nicht als Überschneidung (Tauschen). Liefert true, wenn gespeichert.
+async function commitLessonSlot(input, slot, { ignoreConflictWith = null } = {}) {
+  let { subject } = input;
+  const { day, block, room, recurringVal, groupId, part } = input;
 
   if (groupId) {
     const g = db.groups.find(x => x.id === groupId);
     if (g) subject = g.subject;
   }
-  if (!subject) { showToast('Bitte Fach/Klasse eingeben', 'error'); return; }
+  if (!subject) { showToast('Bitte Fach/Klasse eingeben', 'error'); return false; }
 
   // Datum am gewählten Wochentag in der Woche der angeklickten Stunde (bzw. der angezeigten Woche)
   const targetDateStr = lessonTargetDate(day);
@@ -1363,13 +1537,12 @@ async function saveLessonSlot() {
     recurring = false;                 // 'none' und 'substitute' (Vertretung) sind einmalig
     specificDate = targetDateStr;
   }
-  const fields = { subject, day, block, room, recurring, startDate, startWeek, specificDate, color: selectedLessonColor, groupId, part };
+  const fields = { subject, day, block, room, recurring, startDate, startWeek, specificDate, color: input.color, groupId, part };
   if (recurringVal === 'substitute') fields.substitute = true; // BUGS AA3
 
   // Stundenplanwechsel mit Einträgen aus früheren Stunden: nur ab jetzt ändern oder alle? (BUGS M7)
   // „Ab jetzt“ heißt ab der Woche der geöffneten Stunde, aber nie vor heute und nie über eine Stunde mit
   // Einträgen hinweg, die schon stattgefunden hat (BUGS R1).
-  const slot = editingSlotId ? db.lessonSlots.find(s => s.id === editingSlotId) : null;
   let splitFrom = null;
   const from = slot ? splitDateFor(slot, weekStart) : weekStart;
   const changesSchedule = slot && !isOneOffSlot(slot) && scheduleChanged(slot, fields);
@@ -1378,14 +1551,14 @@ async function saveLessonSlot() {
       `Für diese Stunde gibt es Notizen oder Hausaufgaben aus früheren Stunden.\n\nSoll die Änderung erst ${fromPhrase(from)} gelten? Frühere Stunden bleiben dann, wie sie waren.`,
       [{ label: `${capitalize(fromPhrase(from))} ändern`, value: 'from', primary: true },
        { label: 'Alle Stunden ändern, auch frühere', value: 'all' }]);
-    if (!choice) return;
-    if (!db.lessonSlots.includes(slot)) { showToast('Diese Stunde gibt es nicht mehr (z. B. durch Sync)', 'error'); return; }
+    if (!choice) return false;
+    if (!db.lessonSlots.includes(slot)) { showToast('Diese Stunde gibt es nicht mehr (z. B. durch Sync)', 'error'); return false; }
     if (choice === 'from') splitFrom = from;
   }
   // Einträge, die nach der Änderung auf keinen Termin der Stunde mehr fallen (z. B. B-Woche), wären unsichtbar (BUGS R10)
   if (changesSchedule) {
     const lost = orphanedEntryDates(slot, fields, splitFrom);
-    if (lost.length && !confirm(`Nach der Änderung findet die Stunde an ${lost.length === 1 ? 'diesem Tag' : 'diesen Tagen'} nicht mehr statt: ${lost.map(d => formatDateDE(parseDate(d))).join(', ')}.\n\nNotizen und Hausaufgaben dort wären dann nicht mehr zu sehen. Trotzdem ändern?`)) return;
+    if (lost.length && !confirm(`Nach der Änderung findet die Stunde an ${lost.length === 1 ? 'diesem Tag' : 'diesen Tagen'} nicht mehr statt: ${lost.map(d => formatDateDE(parseDate(d))).join(', ')}.\n\nNotizen und Hausaufgaben dort wären dann nicht mehr zu sehen. Trotzdem ändern?`)) return false;
   }
 
   // --- Überschneidung: nur Stunden, die wirklich am selben Tag im selben Platz liegen ---
@@ -1397,6 +1570,7 @@ async function saveLessonSlot() {
   const endedBefore = s => s.validUntil && s.validUntil < weekStart;
   const conflicting = db.lessonSlots.find(s => {
     if (slot && s.id === slot.id) return false;
+    if (ignoreConflictWith && s === ignoreConflictWith) return false; // Tauschen (AC2)
     if (!slotsShareDate(candidate, s) || !partsOverlap(part, s.part)) return false;
     // Eine Vertretung sperrt den Platz nicht für regelmäßige Stunden: an ihrem Tag ersetzt sie sie (lessonsAt, BUGS R8)
     if (isOneOffSlot(s) && !isOneOffSlot(candidate)) return false;
@@ -1408,14 +1582,14 @@ async function saveLessonSlot() {
   });
   if (conflicting) {
     showToast(part === 'full' ? 'Block ist bereits belegt! Ganzer Block nicht möglich.' : 'Dieser Platz ist im Block bereits belegt!', 'error');
-    return;
+    return false;
   }
   const replaced = isOneOffSlot(candidate) && db.lessonSlots.find(s => s !== slot && !isOneOffSlot(s)
     && s.block === block && slotOccursOn(s, specificDate) && partsOverlap(part, s.part));
   // Vertretung über schon vorbereiteten Notizen: die wären bis zum Löschen der Vertretung unsichtbar (BUGS V6)
   if (replaced && lessonEntryDates(replaced.id).includes(specificDate)
       && !confirm(`Für ${lessonTitle(replaced).main} am ${formatDateLong(specificDate)} gibt es schon Notizen oder Hausaufgaben. `
-        + 'Solange die Vertretung dort liegt, sind sie nicht zu sehen (sie bleiben aber gespeichert).\n\nVertretung trotzdem anlegen?')) return;
+        + 'Solange die Vertretung dort liegt, sind sie nicht zu sehen (sie bleiben aber gespeichert).\n\nVertretung trotzdem anlegen?')) return false;
   // Mit dem eigenen Beginn der Stunde: Eine Nachfolgerin, die erst nach der beendeten beginnt, überschneidet
   // sich nie mit ihr und darf weiter bearbeitet werden (Nachtrag BUGS V1)
   const endedHere = !isOneOffSlot(candidate) && !splitFrom && db.lessonSlots.find(s => s !== slot && endedBefore(s)
@@ -1425,7 +1599,7 @@ async function saveLessonSlot() {
     // zeigte der Stundenplan beide nicht mehr (BUGS V1). Dann nur „ab …“ ändern.
     if (slot && lessonEntryDates(slot.id).some(d => d < weekStart)) {
       showToast(`In früheren Wochen liegt hier ${lessonTitle(endedHere).main}. Bitte „${capitalize(fromPhrase(from))} ändern“ wählen.`, 'error');
-      return;
+      return false;
     }
     candidate.validFrom = weekStart; // sonst überschnitte sie sich rückwirkend mit der beendeten
   }
@@ -1458,6 +1632,7 @@ async function saveLessonSlot() {
   renderScheduleViews();
   editingSlotId = null;
   if (dueBefore.length) await offerRetargetHanging(dueBefore, slot);
+  return true;
 }
 
 // HA/Tests der Klasse, die ab heute auf einen Termin dieser Stunde zeigen (vor einer Änderung merken, BUGS V3)

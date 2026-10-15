@@ -164,6 +164,8 @@ Datumswerte sind Strings `YYYY-MM-DD` in **lokaler** Zeit (`formatDate()`). Nie 
 
 63. **Anfragen an fremde Dienste nur auf Knopfdruck** (bisher nur „Ferien laden“, OpenHolidays API) und immer in den Datenschutzhinweisen nennen. Ergebnis erst als Vorschau, dann in die Arbeitskopie – nie still gespeicherte Daten ersetzen; ohne Netz funktioniert alles weiter von Hand.
 
+64. **Stunden ändern immer über `commitLessonSlot(input, slot)`** (Kern von `saveLessonSlot`; auch Ziehen im Stift-Modus, AC2). Nie Tag/Block einer Stunde direkt setzen: Nur dort laufen „ab wann ändern?“, `moveLessonData`, `retargetDueItems` und die Überschneidungsprüfung.
+
 ## Arbeitsablauf
 
 1. Aufgabe aus `BUGS.md` wählen (ein Block pro Sitzung).
