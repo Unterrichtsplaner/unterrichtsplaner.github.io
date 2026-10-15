@@ -971,3 +971,5 @@ button.date-chip{font-family:inherit;padding:0;}
 .privacy-notice a{color:var(--accent);}
 /* Beschriftung einer Auswahlgruppe (Farben, Hälften): sieht aus wie ein Feld-Label, ist aber keins (BUGS X9) */
 .form-group .group-label{display:block;font-size:11px;font-weight:600;color:var(--text-secondary);text-transform:uppercase;letter-spacing:.5px;}
+/* Hinweis direkt unter einem Feld, z. B. Vorschau „Legt 4 Klassen an …“ (BUGS AA1) */
+.field-hint{font-size:12px;color:var(--text-accent);line-height:1.4;}

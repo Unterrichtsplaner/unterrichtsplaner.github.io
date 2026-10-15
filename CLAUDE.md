@@ -155,6 +155,8 @@ Datumswerte sind Strings `YYYY-MM-DD` in **lokaler** Zeit (`formatDate()`). Nie 
 58. **Datumsfelder für neue Einträge stehen auf heute** (am Wochenende letzter Schultag, `profileDefaultDate`), auch nach dem Eintragen – nie leer lassen. Notenwerte werden mit bis zu zwei Nachkommastellen gespeichert (`parseGradeInput`), im Formular mit Komma angezeigt (`gradeText`).
 59. **Wer die Cloud absichtlich überschreibt oder leert** (Passwort neu, Cloud leeren), liest sie vorher und schreibt nur gegen genau diesen Stand (`saveToCloud(…, gelesenerTimestamp)`), und setzt dafür **kein** `pendingUpload`: Käme die Antwort nicht an, hielte der nächste Sync sonst die alten Gerätedaten für den eigenen Upload und lüde sie wieder hoch.
 
+60. **Tests mit festen Datumsangaben laufen mit fester Uhrzeit** (`vi.useFakeTimers({ toFake: ['Date'] })` + `vi.setSystemTime(…)`). Die App vergleicht vieles mit „heute“ (`splitDateFor`, Fälligkeit, Datumsfelder); mit dem echten Datum kippt ein Test, sobald seine Beispieltage in der Vergangenheit liegen (D6, rot ab 13.10.2026).
+
 ## Arbeitsablauf
 
 1. Aufgabe aus `BUGS.md` wählen (ein Block pro Sitzung).

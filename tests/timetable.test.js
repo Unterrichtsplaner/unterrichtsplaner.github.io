@@ -220,6 +220,14 @@ describe('D5: Einstellungen „Abbrechen“', () => {
 });
 
 describe('D6: Stunde auf anderen Wochentag verschieben', () => {
+  // Feste Uhrzeit: Die Einträge (05./12.10.) müssen in der Zukunft liegen. Mit dem echten Datum lagen sie ab dem
+  // 13.10.2026 in der Vergangenheit, und Speichern fragte (zu Recht) „ab wann ändern?“ (Regel 40, M7).
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date(2026, 8, 25, 10, 0)); // Fr 25.09.2026
+  });
+  afterEach(() => vi.useRealTimers());
+
   it('Notizen wandern mit (gleiche Woche, neuer Tag)', () => {
     app(`openLessonDetail('slotA', '2026-10-05')`);
     app('openEditLesson()');

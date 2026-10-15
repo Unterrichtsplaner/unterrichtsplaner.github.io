@@ -41,7 +41,7 @@
       }
     } catch(e) {}
   </script>
-  <link rel="stylesheet" href="style.css?v=241" />
+  <link rel="stylesheet" href="style.css?v=242" />
   <script>
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
@@ -587,7 +587,11 @@
       <button class="modal-close" aria-label="Schließen" onclick="closeModal('modal-add-group')">✕</button>
     </div>
     <div class="modal-body">
-      <div class="form-group"><label for="new-group-class">Klasse</label><input type="text" id="new-group-class" placeholder="z.B. 7b" class="form-input" /></div>
+      <div class="form-group">
+        <label for="new-group-class">Klasse</label>
+        <input type="text" id="new-group-class" placeholder="z. B. 7b – mehrere: 7a-d oder 7a, 7b" class="form-input" oninput="updateGroupClassPreview()" />
+        <p id="group-class-preview" class="field-hint hidden" aria-live="polite"></p>
+      </div>
       <div class="form-group">
         <label for="new-group-subject">Fach</label>
         <input type="text" id="new-group-subject" placeholder="z.B. Mathematik" class="form-input" list="subject-suggestions" />
@@ -616,7 +620,7 @@
       <button id="btn-delete-group" class="btn-secondary" style="color:var(--danger); border-color:var(--danger); display:none;">Löschen</button>
       <div style="display:flex; gap:8px;">
         <button class="btn-secondary" onclick="closeModal('modal-add-group')">Abbrechen</button>
-        <button class="btn-primary" onclick="saveSubjectGroup()">Speichern</button>
+        <button class="btn-primary" id="btn-save-group" onclick="saveSubjectGroup()">Speichern</button>
       </div>
     </div>
   </div>
@@ -1289,12 +1293,12 @@
   </div>
 
   <script src="lib/crypto-js.min.js"></script>
-  <script src="crypto-helper.js?v=241"></script>
+  <script src="crypto-helper.js?v=242"></script>
   <script src="lib/firebase-app-compat.js"></script>
   <script src="lib/firebase-auth-compat.js"></script>
   <script src="lib/firebase-firestore-compat.js"></script>
-  <script src="firebase-config.js?v=241"></script>
-  <script src="sync-manager.js?v=241"></script>
-  <script src="app.js?v=241"></script>
+  <script src="firebase-config.js?v=242"></script>
+  <script src="sync-manager.js?v=242"></script>
+  <script src="app.js?v=242"></script>
 </body>
 </html>

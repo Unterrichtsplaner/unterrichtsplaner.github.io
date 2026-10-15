@@ -1892,19 +1892,63 @@ function renderSubjectGroups() {
 function openAddSubjectGroup() {
   editingGroupId = null;
   document.getElementById('group-modal-title').textContent = 'Klasse + Fach hinzufügen';
-  ['new-group-class','new-group-subject','new-group-year'].forEach(id => document.getElementById(id).value = '');
+  // Meist kommt die nächste Klasse mit demselben Fach im selben Schuljahr: beides von der zuletzt angelegten (BUGS AA1).
+  // Skala und Gewichtung bewusst nicht: Nach einem Oberstufenkurs hätte die 7. Klasse sonst unbemerkt Punkte.
+  const last = db.groups[db.groups.length - 1];
+  document.getElementById('new-group-class').value = '';
+  document.getElementById('new-group-subject').value = last ? last.subject || '' : '';
+  document.getElementById('new-group-year').value = last ? last.year || '' : '';
   document.getElementById('weight-schularbeit').value = '50';
   document.getElementById('new-group-scale').value = '1-6';
-  selectedGroupColor = APP_COLORS[0];
+  selectedGroupColor = nextGroupColors(1)[0];
   renderColorPicker('group-color-picker', APP_COLORS, v => { selectedGroupColor = v; });
 
   const subjects = [...new Set(db.groups.map(g => g.subject).filter(Boolean))].sort();
   document.getElementById('subject-suggestions').innerHTML = subjects.map(s => `<option value="${escHtml(s)}">`).join('');
 
   document.getElementById('btn-delete-group').style.display = 'none';
+  updateGroupClassPreview();
 
   openModal('modal-add-group');
   setTimeout(() => document.getElementById('new-group-class').focus(), 80);
+}
+
+// Feld „Klasse“: mehrere auf einmal, getrennt durch Komma/Semikolon/Zeile, Buchstaben-Bereiche „7a-d“ / „7a-7d“
+// (BUGS AA1). Alles andere bleibt ein Name, wie er ist („Q1 Leistungskurs“, „E-Phase“).
+const CLASS_RANGE_MAX = 15;
+function parseClassNames(text) {
+  const names = [];
+  String(text || '').split(/[,;\n]+/).map(t => t.trim()).filter(Boolean).forEach(token => {
+    const m = token.match(/^(.*\d)\s*([a-z])\s*[-–—]\s*(?:\1)?\s*([a-z])$/i);
+    const from = m && m[2].toLowerCase().charCodeAt(0), to = m && m[3].toLowerCase().charCodeAt(0);
+    if (m && to > from && to - from < CLASS_RANGE_MAX) {
+      const upper = m[2] === m[2].toUpperCase();
+      for (let c = from; c <= to; c++) {
+        const letter = String.fromCharCode(c);
+        names.push(m[1] + (upper ? letter.toUpperCase() : letter));
+      }
+    } else {
+      names.push(token);
+    }
+  });
+  return [...new Set(names)];
+}
+// Farben für neue Klassen: zuerst die gewählte, dann noch unbenutzte, damit man sie im Stundenplan unterscheidet
+function nextGroupColors(n, first = null) {
+  const used = new Set(db.groups.map(g => g.color));
+  const start = Math.max(0, APP_COLORS.indexOf(first));
+  const ordered = APP_COLORS.map((_, i) => APP_COLORS[(start + i) % APP_COLORS.length]);
+  const pool = [...(first ? [first] : []), ...ordered.filter(c => c !== first && !used.has(c)), ...ordered.filter(c => c !== first && used.has(c))];
+  return Array.from({ length: n }, (_, i) => pool[i % pool.length]);
+}
+// Vorschau unter dem Feld und Text des Knopfs, sobald mehr als eine Klasse entsteht
+function updateGroupClassPreview() {
+  const names = editingGroupId ? [] : parseClassNames(document.getElementById('new-group-class').value);
+  const preview = document.getElementById('group-class-preview');
+  const multi = names.length > 1;
+  preview.textContent = multi ? `Legt ${names.length} Klassen an: ${names.join(', ')}` : '';
+  preview.classList.toggle('hidden', !multi);
+  document.getElementById('btn-save-group').textContent = multi ? `${names.length} Klassen anlegen` : 'Speichern';
 }
 
 function openEditGroup(id) {
@@ -1931,6 +1975,7 @@ function openEditGroup(id) {
     closeModal('modal-add-group');
     deleteGroup(id);
   };
+  updateGroupClassPreview();
 
   openModal('modal-add-group');
 }
@@ -1939,6 +1984,7 @@ function editCurrentGroup() { if (currentGroupId) openEditGroup(currentGroupId);
 
 function saveSubjectGroup() {
   const className = document.getElementById('new-group-class').value.trim();
+  const classNames = parseClassNames(className);
   const subject   = document.getElementById('new-group-subject').value.trim();
   const year      = document.getElementById('new-group-year').value.trim();
   
@@ -1950,6 +1996,11 @@ function saveSubjectGroup() {
     showToast('Gewichtung muss zwischen 0 und 100 % liegen', 'error'); return;
   }
   const gradeScaleId = gradeScale({ gradeScale: document.getElementById('new-group-scale').value }).id;
+  if (editingGroupId && classNames.length > 1) {
+    showToast('Beim Bearbeiten nur eine Klasse – mehrere legst du über „+ Neue Klasse“ an', 'error');
+    return;
+  }
+  let addedGroupsMessage = '';
   if (editingGroupId) {
     const g = db.groups.find(x => x.id === editingGroupId);
     if (g) {
@@ -1968,9 +2019,23 @@ function saveSubjectGroup() {
       });
     }
   } else {
-    const id = uid();
-    db.groups.push({ id, className, subject, year, color: selectedGroupColor, schularbeitWeight: finalSchularbeitWeight, gradeScale: gradeScaleId });
-    db.students[id] = [];
+    // Mehrere auf einmal (BUGS AA1). Klasse + Fach, die es schon gibt, nicht doppelt anlegen.
+    const key = (c, f) => c.trim().toLowerCase() + '|' + f.trim().toLowerCase();
+    const existing = new Set(db.groups.map(g => key(g.className || '', g.subject || '')));
+    const fresh = classNames.filter(c => !existing.has(key(c, subject)));
+    const skipped = classNames.filter(c => existing.has(key(c, subject)));
+    if (!fresh.length) {
+      showToast(`${skipped.join(', ')} ${subject} gibt es schon`, 'error');
+      return;
+    }
+    const colors = nextGroupColors(fresh.length, selectedGroupColor);
+    fresh.forEach((c, i) => {
+      const id = uid();
+      db.groups.push({ id, className: c, subject, year, color: colors[i], schularbeitWeight: finalSchularbeitWeight, gradeScale: gradeScaleId });
+      db.students[id] = [];
+    });
+    addedGroupsMessage = (fresh.length > 1 ? `${fresh.length} Klassen hinzugefügt ✓` : 'Klasse hinzugefügt ✓')
+      + (skipped.length ? ` – ${skipped.join(', ')} gab es schon` : '');
   }
   saveDB();
   closeModal('modal-add-group');
@@ -1983,7 +2048,7 @@ function saveSubjectGroup() {
       refreshStudentViews(g.id); // Schnitte/Farben nach Gewichtung oder Skala, auch in der offenen Tabelle (BUGS Q4)
     }
   }
-  showToast(editingGroupId ? 'Geändert ✓' : 'Klasse hinzugefügt ✓');
+  showToast(editingGroupId ? 'Geändert ✓' : addedGroupsMessage);
   editingGroupId = null;
 }
 
