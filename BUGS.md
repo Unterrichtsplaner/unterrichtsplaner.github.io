@@ -496,6 +496,11 @@ Priorität: 🔴 Datenverlust / App kaputt · 🟠 falsche Anzeige / nervig · �
 
 > „Das ist neu“ (`WHATS_NEW.id = '2026-10'`, v268): Ferien, Pausenaufsicht, Vertretung, mehrere Klassen + Farben, Einzelstunden & versetzte Reihen.
 
+## AC. Wünsche nach dem Live-Gang (15.10.2026)
+
+- [x] **AC1** 🟢 **Stundenplan als PDF**, im Stil der Schul-Stundenpläne. **Umgesetzt (v272):** Drucker-Knopf im Stundenplan-Kopf → Fenster (Name, „gültig ab“, farbig/schwarz-weiß) → `buildPrintTimetable` in `#print-area`, `window.print()` („Als PDF sichern“; iPad: Teilen → Drucken). A4 quer (`@page`), beim Drucken nur der Plan (`@media print`). Inhalt: regelmäßiger Plan der gewählten und der folgenden Woche (`slotInRegularPlan`: ohne einmalige Stunden/Vertretungen, Ferien zählen nicht), A/B mit Kennzeichen + Legende, halbe Stunden benannt, Aufsichten in Pausenzeilen, Std.-Spalte mit Nummer + Zeiten. Zeilenhöhe so, dass 8 Einzelstunden (707 px) und 4 Doppelstunden (676 px) auf eine Seite (794 px) passen. Test: `tests/stundenplan-pdf.test.js` (inkl. XSS); Druckbild im Browser auf A4-Breite geprüft. *Nicht prüfbar hier:* echter Druckdialog/PDF in Safari/iPad.
+- [ ] **AC2** 🟠 **Stundenplan per Ziehen bearbeiten** (Stift-Modus). Ablegen über dieselbe Speicherlogik wie das Formular (`saveLessonSlot`: „ab wann?“, Notizen/HA wandern mit), belegtes Ziel → tauschen mit Rückfrage, „Rückgängig“.
+
 ---
 
 ## Erledigt

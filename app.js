@@ -64,6 +64,7 @@ const ICONS = {
   'trend-down': '<polyline points="23 18 13.5 8.5 8.5 13.5 1 6"/><polyline points="17 18 23 18 23 12"/>',
   lock:         '<rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>',
   eye:          '<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>',
+  printer:      '<polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/>',
   'eye-off':    '<path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/><path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/><path d="M14.12 14.12a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/>',
   calendar:     '<rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>',
 };
@@ -826,6 +827,90 @@ function buildTimeLabel(block) {
   if (num) timeEl.classList.add('numbered');
   timeEl.style.gridColumn = '1';
   return timeEl;
+}
+
+// ─── Stundenplan drucken / PDF ───────────────────────────────────────────
+// Wie die Stundenpläne aus der Schule: A4 quer, Std. + Zeiten links, Mo–Fr, Zelle = Klasse groß, Fach · Raum klein.
+// Gedruckt wird der REGELMÄSSIGE Plan einer Woche und der folgenden (A/B), ohne einmalige Stunden/Vertretungen;
+// Ferien zählen nicht (sonst wäre ein Plan, der in den Ferien gedruckt wird, leer). Über die Druckfunktion des
+// Browsers („Als PDF sichern“) – offline, ohne Bibliothek, gestochen scharfer Text.
+function slotInRegularPlan(slot, dateStr) {
+  if (isOneOffSlot(slot)) return false;
+  if (slot.day !== (parseDate(dateStr).getDay() + 6) % 7 || !slotValidOn(slot, dateStr)) return false;
+  return isABSlot(slot) ? sameWeekParity(dateStr, slot.startDate) : true;
+}
+function openPrintTimetable() {
+  document.getElementById('print-name').value = db.settings.teacherName || '';
+  document.getElementById('print-from').value = formatDate(getWeekDates(currentWeekOffset)[0]);
+  document.getElementById('print-color').checked = true;
+  openModal('modal-print');
+}
+function printTimetable() {
+  const from = document.getElementById('print-from').value;
+  if (!/^\d{4}-\d\d-\d\d$/.test(from)) { showToast('Bitte ein Datum wählen', 'error'); return; }
+  buildPrintTimetable({ from, name: document.getElementById('print-name').value.trim(), color: document.getElementById('print-color').checked });
+  closeModal('modal-print');
+  window.print(); // Druck-CSS zeigt nur #print-area – offene Fenster erscheinen nicht im Druck
+}
+function buildPrintTimetable({ from, name = '', color = true }) {
+  const monday = mondayOf(parseDate(from));
+  const weekA = [0, 1, 2, 3, 4].map(i => formatDate(addDays(monday, i)));
+  const weekB = weekA.map(d => formatDate(addDays(parseDate(d), 7)));
+  const blocks = getBlocks();
+  const slots = db.lessonSlots;
+  const sups = supervisionList().filter(x => typeof x.day === 'number');
+  let usesAB = false;
+  const tagged = (inA, inB) => { if (inA && inB) return ''; usesAB = true; return inA ? 'A' : 'B'; };
+  const partName = { first: '1. Hälfte', second: '2. Hälfte' };
+  const partOrder = { first: 0, full: 1, second: 2 };
+  const entryHTML = (slot, tag) => {
+    const t = lessonTitle(slot);
+    const sub = [t.sub, slot.room].filter(Boolean).map(escHtml).join(' · ');
+    const part = partName[slot.part] ? ` · ${partName[slot.part]}` : '';
+    return `<div class="pt-entry" style="--c:${escHtml(safeColor(slot.color))}">${tag ? `<i class="pt-tag">${tag}</i>` : ''}`
+      + `<b>${escHtml(t.main)}</b><span>${sub}${part}</span></div>`;
+  };
+  const cellHTML = dayIdx => block => {
+    const list = slots.filter(sl => sl.block === block.num)
+      .map(sl => ({ sl, inA: slotInRegularPlan(sl, weekA[dayIdx]), inB: slotInRegularPlan(sl, weekB[dayIdx]) }))
+      .filter(x => x.inA || x.inB)
+      .sort((x, y) => (partOrder[x.sl.part || 'full'] - partOrder[y.sl.part || 'full']) || (Number(y.inA) - Number(x.inA)));
+    return list.map(x => entryHTML(x.sl, tagged(x.inA, x.inB))).join('');
+  };
+  // Pausenzeilen nur, wo eine regelmäßige Aufsicht liegt (wie im Stundenplan)
+  const supCell = (dayIdx, gap) => sups.filter(x => supervisionGap(x, blocks) === gap)
+    .map(x => ({ x, inA: slotInRegularPlan(x, weekA[dayIdx]), inB: slotInRegularPlan(x, weekB[dayIdx]) }))
+    .filter(e => e.inA || e.inB)
+    .map(e => { const tag = tagged(e.inA, e.inB); return `<div class="pt-sup">${tag ? `<i class="pt-tag">${tag}</i>` : ''}Aufsicht${e.x.place ? ' ' + escHtml(e.x.place) : ''} <span>${escHtml(e.x.start || '')}–${escHtml(e.x.end || '')}</span></div>`; }).join('');
+  const pauseRow = gap => {
+    const cells = [0, 1, 2, 3, 4].map(i => supCell(i, gap));
+    if (!cells.some(Boolean)) return '';
+    return `<tr class="pt-pause"><th>Pause</th>${cells.map(c => `<td>${c}</td>`).join('')}</tr>`;
+  };
+  const timeCell = block => {
+    const num = String(block.label || '').match(/^\s*(\d+)\s*\.?\s*(stunde|std\.?|block)?\s*$/i);
+    return `<th class="pt-time">${num ? `<b>${escHtml(num[1])}</b>` : `<b style="font-size:9pt">${escHtml(block.label || '')}</b>`}${escHtml(block.start || '')}<br>${escHtml(block.end || '')}</th>`;
+  };
+  // Zeilenhöhe so, dass der Plan auf eine A4-Seite quer passt (190 mm Höhe abzüglich Kopf/Fuß/Pausen)
+  const rowMM = Math.max(11, Math.min(30, Math.floor(128 / Math.max(1, blocks.length)))); // Luft für längere Einträge
+  let body = pauseRow(0);
+  blocks.forEach((block, i) => {
+    body += `<tr class="pt-block" style="height:${rowMM}mm">${timeCell(block)}${[0, 1, 2, 3, 4].map(d => `<td>${cellHTML(d)(block)}</td>`).join('')}</tr>`;
+    body += pauseRow(i + 1);
+  });
+  const y = monday.getMonth() >= 7 ? monday.getFullYear() : monday.getFullYear() - 1; // Schuljahr ab August
+  const school = db.settings.school || '';
+  const legend = usesAB ? `A = Woche ab ${formatDateLong(weekA[0])}, B = Woche ab ${formatDateLong(weekB[0])} (dann immer abwechselnd)` : '';
+  document.getElementById('print-area').innerHTML = `
+    <div class="pt-head">
+      <div class="pt-title">Stundenplan${name ? ` <span style="font-weight:600">· ${escHtml(name)}</span>` : ''}</div>
+      <div class="pt-meta">${school ? `<strong>${escHtml(school)}</strong><br>` : ''}Schuljahr ${y}/${String(y + 1).slice(-2)} · gültig ab ${formatDateLong(weekA[0])}</div>
+    </div>
+    <table class="pt-table${color ? '' : ' pt-bw'}">
+      <thead><tr><th>Std.</th>${DAYS.map(d => `<th>${d}</th>`).join('')}</tr></thead>
+      <tbody>${body}</tbody>
+    </table>
+    <div class="pt-foot"><span>${escHtml(legend)}</span><span>Stand ${formatDateDE(new Date())}${new Date().getFullYear()} · Unterrichtsplaner</span></div>`;
 }
 
 // Uhrzeit für die Hervorhebung im Stundenplan: laufende Stunde + nächste Stunde (BUGS H4)
