@@ -22,6 +22,16 @@ const slot = id => app('db.lessonSlots').find(s => s.id === id);
 const choiceOpen = () => !document.getElementById('modal-choice').classList.contains('hidden');
 const choiceText = () => document.getElementById('modal-choice-text').textContent;
 const toasts = () => document.getElementById('toast-container').textContent;
+// Verschieben und die (eine) Rückfrage beantworten: 'once' = nur diese Woche, 'from' = für immer, 'all', null
+async function drag(id, src, target, answer = 'from') {
+  const p = app(`moveLessonByDrag(${JSON.stringify(id)}, ${JSON.stringify(src)}, ${JSON.stringify(target)})`);
+  await flush();
+  const asked = choiceOpen() ? { text: choiceText(), buttons: [...document.querySelectorAll('#modal-choice-buttons button')].map(b => b.textContent) } : null;
+  if (choiceOpen()) app(`answerChoice(${JSON.stringify(answer)})`);
+  await p; await flush();
+  expect(choiceOpen()).toBe(false); // nie eine zweite Rückfrage
+  return asked;
+}
 
 beforeAll(() => {
   localStorage.setItem('lehrerapp_v3', JSON.stringify(sampleDB()));
@@ -79,8 +89,9 @@ describe('Stift-Modus', () => {
 });
 
 describe('Verschieben', () => {
-  it('auf ein freies Feld: Tag/Block geändert, kommende Notizen wandern mit', async () => {
-    await app(`moveLessonByDrag("a", "${MON}", { day: 2, block: 2, part: null, dateStr: "${WED}" })`);
+  it('auf ein freies Feld, „für immer“: Tag/Block geändert, kommende Notizen wandern mit', async () => {
+    const asked = await drag('a', MON, { day: 2, block: 2, part: null, dateStr: WED }, 'from');
+    expect(asked.buttons).toEqual(expect.arrayContaining([expect.stringMatching(/^Nur am Mo/), expect.stringMatching(/^Für immer/)]));
     expect(slot('a')).toMatchObject({ day: 2, block: 2 });
     expect(app('db.lessonData')['a_2026-10-28']).toEqual({ notes: 'kommende Notiz' });
     expect(toasts()).toMatch(/verschoben/);
@@ -92,14 +103,11 @@ describe('Verschieben', () => {
     expect(JSON.stringify(app('db.lessonSlots'))).toBe(before);
   });
 
-  it('mit Einträgen aus früheren Wochen: fragt „ab wann?“ wie das Formular, frühere bleiben', async () => {
+  it('mit Einträgen aus früheren Wochen: eine Rückfrage (auch „alle, auch frühere“), „für immer“ = ab jetzt, frühere bleiben', async () => {
     app(`db.lessonData['a_2026-10-12'] = { notes: 'alte Stunde' }`);
-    const p = app(`moveLessonByDrag("a", "${MON}", { day: 3, block: 1, part: null, dateStr: "2026-10-22" })`);
-    await flush();
-    expect(choiceOpen()).toBe(true);
-    expect(choiceText()).toMatch(/früheren Stunden/);
-    app('answerChoice("from")');
-    await p; await flush();
+    const asked = await drag('a', MON, { day: 3, block: 1, part: null, dateStr: '2026-10-22' }, 'from');
+    expect(asked.text).toMatch(/früheren Stunden/);
+    expect(asked.buttons.some(b => /auch frühere/.test(b))).toBe(true);
     expect(slot('a').validUntil).toBeTruthy();                 // alte endet
     const neu = app('db.lessonSlots').find(s => s.day === 3 && s.block === 1);
     expect(neu && neu.validFrom).toBeTruthy();                 // neue ab dieser Woche
@@ -112,51 +120,38 @@ describe('Verschieben', () => {
   });
 
   it('halbe Stunde: auf eine freie Hälfte gezogen übernimmt sie diese Hälfte', async () => {
-    await app(`moveLessonByDrag("a", "${MON}", { day: 0, block: 3, part: "second", dateStr: "${MON}" })`);
+    await drag('a', MON, { day: 0, block: 3, part: 'second', dateStr: MON }, 'from');
     expect(slot('a')).toMatchObject({ block: 3, part: 'second' });
   });
 });
 
 describe('Tauschen', () => {
-  it('auf belegtes Feld: Rückfrage, dann tauschen beide die Plätze', async () => {
-    const p = app(`moveLessonByDrag("a", "${MON}", { day: 1, block: 2, part: null, dateStr: "${TUE}" })`);
-    await flush();
-    expect(choiceOpen()).toBe(true);
-    expect(choiceText()).toMatch(/9c/);
-    app('answerChoice("swap")');
-    await p; await flush();
+  it('auf belegtes Feld: EINE Rückfrage, „für immer“ → beide tauschen die Plätze', async () => {
+    const asked = await drag('a', MON, { day: 1, block: 2, part: null, dateStr: TUE }, 'from');
+    expect(asked.text).toMatch(/9c/);
     expect(slot('a')).toMatchObject({ day: 1, block: 2 });
     expect(slot('b')).toMatchObject({ day: 0, block: 1 });
   });
 
   it('Abbrechen: nichts geändert', async () => {
     const before = JSON.stringify(app('db.lessonSlots'));
-    const p = app(`moveLessonByDrag("a", "${MON}", { day: 1, block: 2, part: null, dateStr: "${TUE}" })`);
-    await flush();
-    app('answerChoice(null)');
-    await p;
+    await drag('a', MON, { day: 1, block: 2, part: null, dateStr: TUE }, null);
     expect(JSON.stringify(app('db.lessonSlots'))).toBe(before);
   });
 
-  it('scheitert der zweite Teil, wird alles zurückgesetzt (keine zwei Stunden übereinander)', async () => {
-    // b hat frühere Einträge → „ab wann?“; Abbrechen beim zweiten Teil
+  it('frühere Einträge bei der getauschten Stunde: trotzdem keine zweite Rückfrage, frühere bleiben', async () => {
     app(`db.lessonData['b_2026-10-13'] = { notes: 'alt' }`);
-    const before = JSON.stringify(app('db.lessonSlots'));
-    const p = app(`moveLessonByDrag("a", "${MON}", { day: 1, block: 2, part: null, dateStr: "${TUE}" })`);
-    await flush();
-    app('answerChoice("swap")');
-    await flush();
-    if (choiceOpen()) app('answerChoice(null)');               // „ab wann?“ für b abgebrochen
-    await p; await flush();
-    expect(JSON.stringify(app('db.lessonSlots'))).toBe(before);
-    expect(toasts()).toMatch(/nicht getauscht|abgebrochen/i);
+    await drag('a', MON, { day: 1, block: 2, part: null, dateStr: TUE }, 'from');
+    expect(app('db.lessonData')['b_2026-10-13']).toEqual({ notes: 'alt' });
+    const now = app('db.lessonSlots').filter(s => s.subject === 'Physik' && !s.validUntil);
+    expect(now.map(s => [s.day, s.block])).toEqual([[0, 1]]);
   });
 });
 
 describe('Rückgängig', () => {
   it('stellt den Stand vor dem Verschieben wieder her', async () => {
     const before = JSON.stringify({ s: app('db.lessonSlots'), d: app('db.lessonData') });
-    await app(`moveLessonByDrag("a", "${MON}", { day: 2, block: 2, part: null, dateStr: "${WED}" })`);
+    await drag('a', MON, { day: 2, block: 2, part: null, dateStr: WED }, 'from');
     const undo = document.querySelector('#toast-container .toast-undo button');
     expect(undo).toBeTruthy();
     undo.click();
@@ -164,9 +159,9 @@ describe('Rückgängig', () => {
   });
 
   it('nicht mehr, wenn inzwischen etwas anderes geändert wurde', async () => {
-    await app(`moveLessonByDrag("a", "${MON}", { day: 2, block: 2, part: null, dateStr: "${WED}" })`);
+    await drag('a', MON, { day: 2, block: 2, part: null, dateStr: WED }, 'from');
     const undo = document.querySelector('#toast-container .toast-undo button');
-    app('db.groups[0].className = "7b"; saveDB()');
+    app(`db.lessonData['a_2026-10-28'].notes = 'danach geändert'; saveDB()`); // Stundendaten geändert
     undo.click();
     expect(slot('a')).toMatchObject({ day: 2, block: 2 });
     expect(toasts()).toMatch(/Nicht mehr möglich/);
@@ -186,6 +181,8 @@ describe('Ziehen mit Maus/Finger', () => {
       expect(document.querySelector('.tt-drag-ghost')).toBeTruthy();
       expect(target.classList.contains('tt-drop-target')).toBe(true);
       document.dispatchEvent(new MouseEvent('pointerup', { bubbles: true, clientX: 60, clientY: 80 }));
+      await flush();
+      app('answerChoice("from")');
       await flush();
     } finally { document.elementFromPoint = orig; }
     expect(document.querySelector('.tt-drag-ghost')).toBeNull();

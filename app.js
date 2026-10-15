@@ -64,6 +64,7 @@ const ICONS = {
   'trend-down': '<polyline points="23 18 13.5 8.5 8.5 13.5 1 6"/><polyline points="17 18 23 18 23 12"/>',
   lock:         '<rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>',
   eye:          '<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>',
+  undo:         '<polyline points="9 14 4 9 9 4"/><path d="M20 20v-7a4 4 0 0 0-4-4H4"/>',
   edit:         '<path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/>',
   printer:      '<polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/>',
   'eye-off':    '<path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/><path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/><path d="M14.12 14.12a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/>',
@@ -487,6 +488,11 @@ function isOneOffSlot(slot) { return slot.recurring === false || slot.recurring 
 // alte App-Versionen kennen es nicht und sehen eine normale einmalige Stunde.
 function lessonKindLabel(slot) {
   if (!slot || !isOneOffSlot(slot)) return '';
+  if (slot.movedFrom) { // „nur diese Woche“ verschoben oder am selben Platz geändert (z. B. anderer Raum)
+    const orig = db.lessonSlots.find(s => s.id === slot.movedFrom.slotId);
+    const samePlace = orig && slot.movedFrom.date === slot.specificDate && orig.block === slot.block;
+    return samePlace ? 'geändert' : 'verlegt';
+  }
   return slot.substitute ? 'Vertretung' : 'einmalig';
 }
 // Zweiwöchig ohne Startdatum (Altdaten ohne KW) wurde schon immer jede Woche angezeigt
@@ -797,10 +803,12 @@ function renderTimetableDay(grid) {
 
 // ─── Stundenplan per Ziehen bearbeiten (AC2) ─────────────────────────────
 function setTimetableEditUI(on) {
+  if (!on || !timetableEditMode) { ttUndoStack = []; } // Verlauf gilt nur für diesen Stift-Modus
   timetableEditMode = on;
   const btn = document.getElementById('btn-tt-edit');
   if (btn) btn.setAttribute('aria-pressed', String(on));
   document.getElementById('tt-edit-bar').classList.toggle('hidden', !on);
+  updateTimetableUndoButton();
 }
 function toggleTimetableEditMode(on = !timetableEditMode) {
   setTimetableEditUI(on);
@@ -818,60 +826,190 @@ function lessonInputFrom(s, day, block, part) {
   return { subject: s.subject || '', day, block, room: s.room || '', groupId: s.groupId || null, part, color: s.color,
     recurringVal: isOneOffSlot(s) ? (s.substitute ? 'substitute' : 'none') : (s.recurring === 'biweekly' ? 'biweekly' : 'weekly') };
 }
-// Ablegen: dieselbe Speicherlogik wie das Formular (commitLessonSlot: Überschneidung, „ab wann?“, Notizen/HA
-// wandern mit). Belegtes Ziel → tauschen (Rückfrage); scheitert der zweite Teil, wird alles zurückgesetzt.
-// Danach „Rückgängig“ – stellt den Stand davor her, solange nichts anderes geändert wurde (Regel 45).
+// Hat das Formular etwas an der Stunde geändert? (sonst keine Rückfrage)
+function lessonInputChanged(slot, input) {
+  const rec = slot.recurring === 'biweekly' ? 'biweekly' : 'weekly';
+  return input.day !== slot.day || input.block !== slot.block || input.part !== (slot.part || 'full') || input.recurringVal !== rec
+    || (input.room || '') !== (slot.room || '') || (input.groupId || null) !== (slot.groupId || null)
+    || (!input.groupId && input.subject !== (slot.subject || '')) || input.color !== slot.color;
+}
+
+// EINE Rückfrage pro Änderung einer regelmäßigen Stunde (Rückmeldung zu AC2: vorher „Tauschen?“ + „ab wann?“ je Stunde):
+// „Nur am …“ (einmalige Stunde, Ursprung „verlegt“) · „Für immer“ (ab jetzt; frühere Wochen bleiben) · ggf. „auch frühere“.
+// Liefert 'once' | 'from' | 'all' | null.
+async function askMoveScope(slot, dateStr, { other = null, allowOnce = true } = {}) {
+  const weekStart = formatDate(mondayOf(parseDate(dateStr)));
+  const earlier = s => s && !isOneOffSlot(s) && lessonEntryDates(s.id).some(d => d < splitDateFor(s, weekStart));
+  const hasEarlier = earlier(slot) || earlier(other);
+  const from = splitDateFor(slot, weekStart);
+  const blockOf = s => (getBlocks().find(b => b.num === s.block) || {}).label || '';
+  const text = (other
+      ? `${DAYS[other.day]}, ${blockOf(other)}: Dort liegt schon ${lessonTitle(other).main}. ${lessonTitle(slot).main} und ${lessonTitle(other).main} tauschen die Plätze.\n\n`
+      : '')
+    + (hasEarlier ? 'Für diese Stunde gibt es Notizen oder Hausaufgaben aus früheren Stunden – die bleiben, wie sie waren.\n\n' : '')
+    + 'Nur an diesem Tag oder dauerhaft?';
+  const choices = [];
+  if (allowOnce) choices.push({ label: `Nur am ${formatDateLong(dateStr)}`, value: 'once' });
+  choices.push({ label: hasEarlier ? `Für immer – ${fromPhrase(from)}` : 'Für immer', value: 'from', primary: true });
+  if (hasEarlier) choices.push({ label: 'Alle Stunden ändern, auch frühere', value: 'all' });
+  return askChoice(other ? 'Stunden tauschen' : 'Stunde ändern', text, choices);
+}
+
+// „Nur diese Woche“: einmalige Stunde mit den neuen Angaben am Zieltag; der Ursprung fällt an diesem Tag aus
+// („verlegt“, mit Verweis), seine Einträge wandern mit, fällige HA/Tests zeigen auf den neuen Termin.
+// Liegt das Ziel am selben Platz (nur Raum o. Ä. geändert), ersetzt die einmalige Stunde die regelmäßige (lessonsAt).
+function moveOccurrenceOnce(slot, fromDate, target, overrides = {}) {
+  const once = { id: uid(), subject: slot.subject || '', groupId: slot.groupId || null, room: slot.room || '', color: slot.color,
+    part: target.part || slot.part || 'full', ...overrides,
+    day: target.day, block: target.block, recurring: false, startDate: null, startWeek: null, specificDate: target.dateStr,
+    movedFrom: { slotId: slot.id, date: fromDate } };
+  if (!target.part && overrides.part) once.part = overrides.part;
+  db.lessonSlots.push(once);
+  const fromKey = `${slot.id}_${fromDate}`;
+  const moved = db.lessonData[fromKey];
+  delete db.lessonData[fromKey];
+  if (moved) { delete moved.ausfall; delete moved.movedTo; db.lessonData[`${once.id}_${target.dateStr}`] = moved; }
+  const samePlace = target.dateStr === fromDate && target.block === slot.block && partsOverlap(once.part, slot.part);
+  if (!samePlace) db.lessonData[fromKey] = { ausfall: true, movedTo: { slotId: once.id, date: target.dateStr } };
+  retargetMovedItems(slot, fromDate, target.dateStr);
+  return once;
+}
+// HA/Tests der Klasse, die am alten Termin fällig waren: neuer Termin, wenn dort sonst keine Stunde der Klasse liegt
+function retargetMovedItems(slot, fromDate, toDate) {
+  if (fromDate === toDate || toDate < formatDate(new Date())) return;
+  const ids = new Set(relatedSlots(slot).map(s => s.id));
+  if (lessonsOnDate(fromDate).some(l => ids.has(l.slot.id) && !l.ausfall)) return; // dort ist sie weiter fällig
+  Object.entries(db.lessonData).forEach(([key, data]) => {
+    if (!ids.has(key.slice(0, key.lastIndexOf('_')))) return;
+    const given = key.slice(key.lastIndexOf('_') + 1);
+    [...(data.hwItems || []), ...(data.testItems || [])].forEach(item => {
+      if (item.targetDate === fromDate && toDate > given) item.targetDate = toDate;
+    });
+  });
+}
+// Verlegung zurücknehmen (Stunden-Fenster am alten Platz, oder die verlegte Stunde löschen): Einträge zurück
+function revertMovedLesson(onceId) {
+  const once = db.lessonSlots.find(s => s.id === onceId && s.movedFrom);
+  if (!once) return false;
+  const origin = `${once.movedFrom.slotId}_${once.movedFrom.date}`, mine = `${once.id}_${once.specificDate}`;
+  const od = db.lessonData[origin];
+  if (od && od.movedTo && od.movedTo.slotId === once.id) delete db.lessonData[origin];
+  if (db.lessonData[mine]) { db.lessonData[origin] = db.lessonData[mine]; delete db.lessonData[mine]; }
+  db.lessonSlots = db.lessonSlots.filter(s => s !== once);
+  // Fällige HA/Tests wieder auf den alten Termin
+  const originSlot = db.lessonSlots.find(s => s.id === once.movedFrom.slotId);
+  if (originSlot) {
+    const ids = new Set(relatedSlots(originSlot).map(s => s.id));
+    Object.entries(db.lessonData).forEach(([key, data]) => {
+      if (!ids.has(key.slice(0, key.lastIndexOf('_')))) return;
+      [...(data.hwItems || []), ...(data.testItems || [])].forEach(item => {
+        if (item.targetDate === once.specificDate && !lessonsOnDate(once.specificDate).some(l => ids.has(l.slot.id) && !l.ausfall)) item.targetDate = once.movedFrom.date;
+      });
+    });
+  }
+  return true;
+}
+// Formular: „nur am …“
+function saveLessonOnce(slot, dateStr, input) {
+  const target = { day: input.day, block: input.block, part: input.part, dateStr: lessonTargetDate(input.day) };
+  const clash = lessonsAt(target.dateStr, target.block).filter(s => s !== slot && partsOverlap(input.part, s.part) && !(isOneOffSlot(s) === false && s === slot));
+  if (clash.some(s => isOneOffSlot(s) || !(target.dateStr === dateStr && target.block === slot.block))) {
+    if (clash.length) { showToast(`Dort liegt am ${formatDateLong(target.dateStr)} schon ${lessonTitle(clash[0]).main}`, 'error'); return false; }
+  }
+  let subject = input.subject;
+  if (input.groupId) { const g = db.groups.find(x => x.id === input.groupId); if (g) subject = g.subject; }
+  moveOccurrenceOnce(slot, dateStr, target, { subject, groupId: input.groupId, room: input.room, color: input.color, part: input.part });
+  saveDB();
+  editingSlotId = null;
+  closeModal('modal-add-lesson');
+  renderScheduleViews();
+  showToast(`Nur am ${formatDateLong(dateStr)} geändert ✓`);
+  return true;
+}
+
+// Rückgängig in der Bearbeiten-Leiste: Verlauf der Verschiebungen in diesem Stift-Modus. Ein Schritt gilt nur,
+// solange die Stundendaten seitdem unverändert sind (sonst überschriebe er neuere Eingaben).
+let ttUndoStack = [];
+const scheduleState = () => JSON.stringify({ s: db.lessonSlots, d: db.lessonData });
+function updateTimetableUndoButton() {
+  const btn = document.getElementById('btn-tt-undo');
+  if (btn) btn.disabled = !ttUndoStack.length;
+}
+function undoTimetableChange(entry = ttUndoStack[ttUndoStack.length - 1]) {
+  if (!entry || ttUndoStack[ttUndoStack.length - 1] !== entry) { showToast('Nicht mehr möglich – danach wurde schon etwas anderes verschoben', 'error'); return; }
+  if (db !== entry.db || scheduleState() !== entry.after) {
+    ttUndoStack = [];
+    updateTimetableUndoButton();
+    showToast('Nicht mehr möglich – inzwischen wurde etwas geändert', 'error');
+    return;
+  }
+  ttUndoStack.pop();
+  const before = JSON.parse(entry.before);
+  db.lessonSlots = before.s;
+  db.lessonData = before.d;
+  saveDB();
+  renderScheduleViews();
+  updateTimetableUndoButton();
+  showToast('Rückgängig gemacht');
+}
+
+// Ablegen. Regelmäßige Stunde (oder Tausch mit einer): EINE Rückfrage (askMoveScope). „Nur diese Woche“ →
+// einmalige Stunden (moveOccurrenceOnce); „für immer“ → dieselbe Speicherlogik wie das Formular (commitLessonSlot)
+// ohne zweite Frage. Einmalige Stunden wandern direkt. Scheitert ein Teil, wird der Stand davor wiederhergestellt.
 async function moveLessonByDrag(slotId, sourceDate, target) {
   const slot = db.lessonSlots.find(s => s.id === slotId);
   if (!slot || !target || !Number.isFinite(target.day) || !Number.isFinite(target.block)) return false;
   const part = target.part || slot.part || 'full';
-  if (target.day === slot.day && target.block === slot.block && part === (slot.part || 'full')) return false;
-  const dbAtStart = db;
-  const snapshot = { slots: JSON.stringify(db.lessonSlots), data: JSON.stringify(db.lessonData) };
-  const restore = () => { db.lessonSlots = JSON.parse(snapshot.slots); db.lessonData = JSON.parse(snapshot.data); saveDB(); renderScheduleViews(); };
+  if (target.day === slot.day && target.block === slot.block && part === (slot.part || 'full') && target.dateStr === sourceDate) return false;
   const occupants = lessonsAt(target.dateStr, target.block).filter(s => s !== slot && partsOverlap(part, s.part));
+  if (occupants.length > 1) { showToast('Dort liegen schon zwei Stunden – bitte zuerst eine davon verschieben', 'error'); return false; }
+  const other = occupants[0] || null;
+  const isRegular = s => s && !isOneOffSlot(s);
+  let scope = 'once';
+  if (isRegular(slot) || isRegular(other)) {
+    scope = await askMoveScope(isRegular(slot) ? slot : other, isRegular(slot) ? sourceDate : target.dateStr, { other: isRegular(slot) ? other : slot });
+  } else if (other) {
+    scope = await askChoice('Stunden tauschen', `Dort liegt schon ${lessonTitle(other).main}. Plätze tauschen?`, [{ label: 'Tauschen', value: 'once', primary: true }]);
+  }
+  if (!scope || !db.lessonSlots.includes(slot) || (other && !db.lessonSlots.includes(other))) return false;
+  const dbAtStart = db;
+  const before = scheduleState();
+  const back = { day: slot.day, block: slot.block, part: slot.part || 'full', dateStr: sourceDate };
+  const restore = () => { const b = JSON.parse(before); db.lessonSlots = b.s; db.lessonData = b.d; saveDB(); renderScheduleViews(); };
+  // Einmalige Stunde direkt umsetzen (Datum wandert mit dem Tag, Einträge mit dem Datum)
+  const moveOneOff = (s, to) => {
+    const oldKey = `${s.id}_${s.specificDate}`, newKey = `${s.id}_${to.dateStr}`;
+    if (oldKey !== newKey && db.lessonData[oldKey]) { db.lessonData[newKey] = db.lessonData[oldKey]; delete db.lessonData[oldKey]; }
+    Object.assign(s, { day: to.day, block: to.block, part: to.part || s.part || 'full', specificDate: to.dateStr });
+    return true;
+  };
   const prevSpecific = currentSpecificDate;
-  let ok = false;
+  let ok = true;
   try {
-    if (occupants.length > 1) { showToast('Dort liegen schon zwei Stunden – bitte zuerst eine davon verschieben', 'error'); return false; }
-    if (occupants.length === 1) {
-      const other = occupants[0];
-      const blockLabel = (getBlocks().find(b => b.num === target.block) || {}).label || '';
-      const choice = await askChoice('Stunden tauschen?',
-        `${DAYS[target.day]}, ${blockLabel}: Dort liegt schon ${lessonTitle(other).main}.\n\n`
-        + `Sollen ${lessonTitle(slot).main} und ${lessonTitle(other).main} die Plätze tauschen?`,
-        [{ label: 'Tauschen', value: 'swap', primary: true }]);
-      if (choice !== 'swap' || db !== dbAtStart || !db.lessonSlots.includes(slot) || !db.lessonSlots.includes(other)) return false;
-      const back = { day: slot.day, block: slot.block };
-      currentSpecificDate = sourceDate;
-      ok = await commitLessonSlot(lessonInputFrom(slot, target.day, target.block, part), slot, { ignoreConflictWith: other });
-      if (ok) {
-        currentSpecificDate = target.dateStr;
-        ok = await commitLessonSlot(lessonInputFrom(other, back.day, back.block, other.part || 'full'), other, { ignoreConflictWith: slot });
-        if (!ok) {
-          // Nie zwei Stunden übereinander stehen lassen
-          if (db === dbAtStart) restore();
-          showToast('Nicht getauscht – alles wie vorher', 'error');
-          return false;
-        }
-      }
-    } else {
-      currentSpecificDate = sourceDate;
-      ok = await commitLessonSlot(lessonInputFrom(slot, target.day, target.block, part), slot);
-    }
+    const place = async (s, from, to, ignore) => {
+      if (isOneOffSlot(s)) return moveOneOff(s, to);
+      if (scope === 'once') { moveOccurrenceOnce(s, from, to); return true; }
+      currentSpecificDate = from;
+      return commitLessonSlot(lessonInputFrom(s, to.day, to.block, to.part || s.part || 'full'), s, { ignoreConflictWith: ignore, scope });
+    };
+    ok = await place(slot, sourceDate, { ...target, part }, other);
+    if (ok && other) ok = await place(other, target.dateStr, { ...back, part: other.part || 'full' }, slot);
   } finally {
     currentSpecificDate = prevSpecific;
   }
-  if (!ok || db !== dbAtStart) return false;
-  const after = db.settings.lastModified;
-  showUndoToast(occupants.length ? 'Stunden getauscht' : 'Stunde verschoben', () => {
-    if (db !== dbAtStart || db.settings.lastModified !== after) {
-      showToast('Nicht mehr möglich – inzwischen wurde etwas geändert', 'error');
-      return;
-    }
-    restore();
-    showToast('Rückgängig gemacht');
-  });
+  if (db !== dbAtStart) return false;
+  if (!ok) {
+    if (scheduleState() !== before) { restore(); showToast('Nicht verschoben – alles wie vorher', 'error'); }
+    return false;
+  }
+  saveDB();
+  renderScheduleViews();
+  const entry = { db, before, after: scheduleState() };
+  ttUndoStack.push(entry);
+  if (ttUndoStack.length > 30) ttUndoStack.shift();
+  updateTimetableUndoButton();
+  const label = (other ? 'Stunden getauscht' : 'Stunde verschoben') + (scope === 'once' ? ' (nur diese Woche)' : '');
+  showUndoToast(label, () => undoTimetableChange(entry));
   return true;
 }
 
@@ -1127,7 +1265,7 @@ function buildTimetableCell(d, dayIdx, block, clock = timetableClock()) {
     const activeTest = (data.testItems||[]).filter(i => !i.targetDate || i.targetDate === dateStr);
     const hasTest    = (data.testEnabled && activeTest.length > 0) || incoming.tests.length > 0;
 
-    const kind = lessonKindLabel(lesson); // fester Text, keine Daten
+    const kind = data.movedTo ? 'verlegt' : lessonKindLabel(lesson); // fester Text, keine Daten
     const status = [];
     if (data.done && data.done.trim()) status.push('inhalt');
     if (hasHW)   status.push('hw');
@@ -1339,6 +1477,17 @@ function lessonTargetDate(day) {
   return formatDate(addDays(mondayOf(refDate), day));
 }
 // Unter „Wiederholung“: an welchem Tag eine einmalige Stunde liegt bzw. wann die A-Woche beginnt (BUGS R13)
+// „Gilt: nur am … / für immer“ – nur beim Bearbeiten einer regelmäßigen Stunde und solange der Rhythmus bleibt
+function updateLessonScopeChoice() {
+  const group = document.getElementById('lesson-scope-group');
+  if (!group) return;
+  const slot = editingSlotId && db.lessonSlots.find(s => s.id === editingSlotId);
+  const rec = document.getElementById('new-lesson-recurring').value;
+  const show = !!(slot && !isOneOffSlot(slot) && currentSpecificDate && rec === (slot.recurring === 'biweekly' ? 'biweekly' : 'weekly'));
+  group.classList.toggle('hidden', !show);
+  if (show) document.getElementById('lesson-scope-once-label').textContent = `Nur am ${formatDateLong(currentSpecificDate)}`;
+  if (!show) document.querySelector('input[name="lesson-scope"][value="forever"]').checked = true;
+}
 function updateLessonDateHint() {
   const el = document.getElementById('lesson-date-hint');
   if (!el) return;
@@ -1350,6 +1499,7 @@ function updateLessonDateHint() {
                                           : `Alle zwei Wochen, erstmals am ${formatDateLong(date)} (A-Woche).`) : '';
   el.classList.toggle('hidden', !el.textContent);
   refreshLessonPartOptions();
+  updateLessonScopeChoice();
 }
 // „Stunde hinzufügen“: Hälften, die am gewählten Tag im gewählten Block schon belegt sind, sperren – neu bei
 // jedem Wechsel von Tag oder Block, nicht nur für die angetippte Kachel (BUGS V8). Beim Bearbeiten: openEditLesson.
@@ -1437,6 +1587,7 @@ function openEditLesson() {
   currentSpecificDate = activeLessonDate || slot.specificDate || null;
   leaveLessonModal();
   editingSlotId = slot.id;
+  document.querySelector('input[name="lesson-scope"][value="forever"]').checked = true;
   document.getElementById('add-lesson-title').textContent = 'Stunde bearbeiten';
   document.getElementById('btn-delete-lesson').classList.remove('hidden');
   document.getElementById('new-lesson-subject').value = slot.subject;
@@ -1497,6 +1648,22 @@ async function saveLessonSlot() {
   let part = 'full';
   for (const r of document.getElementsByName('new-lesson-part')) if (r.checked) part = r.value;
   const slot = editingSlotId ? db.lessonSlots.find(s => s.id === editingSlotId) : null;
+  const input = {
+    subject: document.getElementById('new-lesson-subject').value.trim(),
+    day: parseInt(document.getElementById('new-lesson-day').value),
+    block: parseInt(document.getElementById('new-lesson-block').value),
+    room: document.getElementById('new-lesson-room').value.trim(),
+    recurringVal: document.getElementById('new-lesson-recurring').value,
+    groupId: document.getElementById('new-lesson-group').value || null,
+    part, color: selectedLessonColor,
+  };
+  // Auswahl im Formular „Gilt: nur am … / für immer“ (Rückmeldung zu AC2) – keine zusätzliche Rückfrage.
+  // „Für immer“ (Standard) verhält sich wie bisher.
+  const once = document.querySelector('input[name="lesson-scope"][value="once"]');
+  if (slot && !isOneOffSlot(slot) && currentSpecificDate && once && once.checked
+      && !document.getElementById('lesson-scope-group').classList.contains('hidden') && lessonInputChanged(slot, input)) {
+    return saveLessonOnce(slot, currentSpecificDate, input);
+  }
   return commitLessonSlot({
     subject: document.getElementById('new-lesson-subject').value.trim(),
     day: parseInt(document.getElementById('new-lesson-day').value),
@@ -1512,7 +1679,7 @@ async function saveLessonSlot() {
 // Überschneidung, „ab wann ändern?“, Notizen/HA wandern mit, weggefallene Termine. `slot` = bearbeitete Stunde
 // (null = neu). Datum/Woche aus currentSpecificDate bzw. der angezeigten Woche (lessonTargetDate).
 // ignoreConflictWith: diese Stunde gilt nicht als Überschneidung (Tauschen). Liefert true, wenn gespeichert.
-async function commitLessonSlot(input, slot, { ignoreConflictWith = null } = {}) {
+async function commitLessonSlot(input, slot, { ignoreConflictWith = null, scope = null } = {}) {
   let { subject } = input;
   const { day, block, room, recurringVal, groupId, part } = input;
 
@@ -1547,7 +1714,8 @@ async function commitLessonSlot(input, slot, { ignoreConflictWith = null } = {})
   const from = slot ? splitDateFor(slot, weekStart) : weekStart;
   const changesSchedule = slot && !isOneOffSlot(slot) && scheduleChanged(slot, fields);
   if (changesSchedule && lessonEntryDates(slot.id).some(d => d < from)) {
-    const choice = await askChoice('Stunde ändern',
+    // Schon vorher gefragt (askMoveScope: „für immer“ = ab jetzt, „alle“) – dann nicht ein zweites Mal
+    const choice = scope || await askChoice('Stunde ändern',
       `Für diese Stunde gibt es Notizen oder Hausaufgaben aus früheren Stunden.\n\nSoll die Änderung erst ${fromPhrase(from)} gelten? Frühere Stunden bleiben dann, wie sie waren.`,
       [{ label: `${capitalize(fromPhrase(from))} ändern`, value: 'from', primary: true },
        { label: 'Alle Stunden ändern, auch frühere', value: 'all' }]);
@@ -1781,6 +1949,18 @@ async function deleteLessonSlotFromEdit() {
     : `Dabei ${lost === 1 ? 'wird 1 Stunde mit Einträgen' : `werden ${lost} Stunden mit Einträgen`} ${fromPhrase(weekStart)} gelöscht.`;
 
   let choice;
+  if (slot.movedFrom) {
+    // „nur diese Woche“ verlegt: löschen = Verlegung aufheben, Notizen wandern zurück (nicht gelöscht)
+    if (!confirm(`Verlegung aufheben?\n\nDie Stunde findet dann wieder am ${formatDateLong(slot.movedFrom.date)} statt; Notizen und Hausaufgaben wandern zurück.`)) return;
+    if (!db.lessonSlots.includes(slot)) return;
+    revertMovedLesson(slot.id);
+    saveDB();
+    editingSlotId = null;
+    closeModal('modal-add-lesson');
+    renderScheduleViews();
+    showToast('Verlegung aufgehoben');
+    return;
+  }
   if (!isOneOffSlot(slot) && before > 0) {
     // Stunde fällt z. B. zum Halbjahr weg: beenden statt löschen, frühere Notizen bleiben (BUGS M7).
     // Nie vor heute und nie über eine schon gehaltene Stunde hinweg (BUGS R1).
@@ -2168,6 +2348,12 @@ function leaveLessonModal() {
 // ─── Ausfall ──────────────────────────────────────────────────────────────
 function toggleAusfall() {
   const key = currentLessonDataKey;
+  // Verlegt („nur diese Woche“): Verlegung aufheben statt Ausfall umschalten
+  const moved = (db.lessonData[key] || {}).movedTo;
+  if (moved) {
+    if (revertMovedLesson(moved.slotId)) { saveDB(); renderScheduleViews(); showToast('Verlegung aufgehoben'); openLessonDetail(activeLessonId, activeLessonDate); }
+    return;
+  }
   // Fällige HA/Tests hingen sonst in der ausgefallenen Stunde (BUGS R4). Ohne Frage bleibt alles synchron.
   if (!(db.lessonData[key] || {}).ausfall && dueItemsToMove(activeLessonId, activeLessonDate)) {
     return offerMoveDueItems(activeLessonId, activeLessonDate, 'Stunde entfällt').then(ok => {
@@ -2225,6 +2411,17 @@ function updateAusfallDisplay(isAusfall) {
   form.style.opacity        = isAusfall ? '0.32' : '1';
   form.style.pointerEvents  = isAusfall ? 'none' : '';
   const btn = document.getElementById('btn-ausfall-bottom');
+  // Verlegt: anderer Text, Knopf hebt die Verlegung auf
+  const moved = (db.lessonData[currentLessonDataKey] || {}).movedTo;
+  const movedSlot = moved && db.lessonSlots.find(s => s.id === moved.slotId);
+  const blockLabel = movedSlot ? ((getBlocks().find(b => b.num === movedSlot.block) || {}).label || '') : '';
+  document.querySelector('#lesson-ausfall-overlay .ausfall-text').textContent = moved
+    ? `Verlegt auf ${formatDateLong(moved.date)}${blockLabel ? ', ' + blockLabel : ''}` : 'Diese Stunde fällt aus';
+  document.querySelector('#lesson-ausfall-overlay button').textContent = moved ? 'Verlegung aufheben' : 'Ausfall aufheben';
+  if (btn && moved) {
+    btn.textContent = 'Verlegung aufheben';
+    return;
+  }
   if (btn) {
     if (isAusfall) {
       btn.style.background = 'var(--danger-soft)';

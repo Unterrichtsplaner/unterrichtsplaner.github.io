@@ -166,6 +166,8 @@ Datumswerte sind Strings `YYYY-MM-DD` in **lokaler** Zeit (`formatDate()`). Nie 
 
 64. **Stunden ändern immer über `commitLessonSlot(input, slot)`** (Kern von `saveLessonSlot`; auch Ziehen im Stift-Modus, AC2). Nie Tag/Block einer Stunde direkt setzen: Nur dort laufen „ab wann ändern?“, `moveLessonData`, `retargetDueItems` und die Überschneidungsprüfung.
 
+65. **Eine Stunde „nur an einem Tag“ ändern/verschieben nur über `moveOccurrenceOnce`** (einmalige Stunde mit `movedFrom`, Ursprung `lessonData` mit `{ausfall, movedTo}`), aufheben nur über `revertMovedLesson`. Wer eine Stunde mit `movedFrom` löscht, hebt die Verlegung auf, statt Notizen zu verwerfen. Pro Aktion **eine** Rückfrage (`askMoveScope`), Folgeschritte bekommen die Antwort als `scope` mit.
+
 ## Arbeitsablauf
 
 1. Aufgabe aus `BUGS.md` wählen (ein Block pro Sitzung).

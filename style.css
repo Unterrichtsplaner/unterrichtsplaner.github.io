@@ -458,11 +458,18 @@ input[type="date"] { min-height: 1.2em; } /* Fix iOS Safari date input collapse 
   align-items: center;
   justify-content: center;
 }
+.lesson-scope-options{display:flex;background:var(--bg-elevated);border:1px solid var(--border);border-radius:99px;overflow:hidden;}
+.lesson-scope-options label{flex:1;position:relative;cursor:pointer;margin:0;min-width:0;}
+.lesson-scope-options label + label{border-left:1px solid var(--border);}
+.lesson-scope-options input{position:absolute;opacity:0;pointer-events:none;}
+.lesson-scope-options .duration-btn{white-space:normal;text-align:center;}
+input[name="lesson-scope"]:focus-visible + .duration-btn{outline:2px solid var(--accent);outline-offset:-2px;}
+input[name="lesson-scope"]:checked + .duration-btn,
 input[name="new-lesson-part"]:checked + .duration-btn {
   background: var(--accent);
   color: white;
 }
-@media (hover: hover){input[name="new-lesson-part"]:hover:not(:checked) + .duration-btn{
+@media (hover: hover){input[name="new-lesson-part"]:hover:not(:checked) + .duration-btn,input[name="lesson-scope"]:hover:not(:checked) + .duration-btn{
   background: var(--bg-card-hover);
 }}
 
@@ -1119,3 +1126,9 @@ button.date-chip{font-family:inherit;padding:0;}
 .tt-edit-bar{flex-wrap:nowrap;}
 .tt-edit-text{flex:1;min-width:0;line-height:1.35;}
 .tt-edit-bar .btn-primary{flex-shrink:0;}
+/* Icons in runden Knöpfen ohne Text: kein Abstand rechts, sonst sitzen sie 3 px links von der Mitte */
+.btn-icon .ico,.password-reveal .ico{margin-right:0;}
+/* Pausen-Kacheln: Uhrzeit bricht nie um – alle Pausenzeilen gleich hoch */
+.tt-supervision .tt-sup-time{white-space:nowrap;flex-shrink:0;}
+.tt-edit-bar #btn-tt-undo{flex-shrink:0;padding:6px 12px;font-size:12.5px;}
+.tt-edit-bar #btn-tt-undo:disabled{opacity:.45;cursor:default;}
