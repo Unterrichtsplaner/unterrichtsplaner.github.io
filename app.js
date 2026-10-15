@@ -4701,7 +4701,8 @@ function toggleSeatingSettings(e) {
 
 document.addEventListener('click', (e) => {
   const popup = document.getElementById('seating-settings-popup');
-  if (popup && !popup.classList.contains('hidden') && !e.target.closest('#seating-settings-popup') && !e.target.closest('button[title="Raster-Größe einstellen"]')) {
+  if (popup && !popup.classList.contains('hidden') && !e.target.closest('#seating-settings-popup') && !e.target.closest('button[title="Raster-Größe einstellen"]')
+      && !pressStartedIn(popup)) { // Text im Feld markiert und außerhalb losgelassen: offen lassen
     popup.classList.add('hidden');
   }
 });
@@ -5899,7 +5900,11 @@ labelModals();
 // Nur schließen, wenn auch das Drücken auf dem Overlay begann: Text im Feld markieren und daneben loslassen
 // erzeugt einen click auf dem Overlay und hätte die Eingaben verworfen (BUGS O1).
 let overlayPressTarget = null;
-['pointerdown', 'mousedown'].forEach(type => document.addEventListener(type, e => { overlayPressTarget = e.target; }, true));
+// Wo zuletzt gedrückt wurde – auch für Popups, die bei Klick außerhalb schließen (Raster-Menü, Aufklapplisten)
+let lastPressTarget = null;
+['pointerdown', 'mousedown'].forEach(type => document.addEventListener(type, e => { overlayPressTarget = e.target; lastPressTarget = e.target; }, true));
+// Begann das Drücken in `el`? Dann ist ein Klick außerhalb nur das Loslassen nach dem Markieren/Ziehen – nicht schließen.
+function pressStartedIn(el) { return !!(el && lastPressTarget && el.contains(lastPressTarget)); }
 function closeModalOnOverlay(event, id) {
   const overlay = document.getElementById(id);
   const pressedElsewhere = overlayPressTarget && overlayPressTarget !== overlay;
@@ -6200,7 +6205,7 @@ function makeCustomFormDropdown(selectEl) {
   };
 
   document.addEventListener('click', (e) => {
-    if (!container.contains(e.target)) {
+    if (!container.contains(e.target) && !pressStartedIn(container)) { // im Menü gedrückt, außerhalb losgelassen: offen lassen
       menu.classList.remove('show');
     }
   });

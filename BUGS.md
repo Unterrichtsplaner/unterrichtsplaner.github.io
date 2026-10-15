@@ -491,6 +491,7 @@ Priorität: 🔴 Datenverlust / App kaputt · 🟠 falsche Anzeige / nervig · �
 - [x] **AB7** 🟠 Gerät nur mit Aufsichten/Ferien galt als „leer“ → beim ersten Anmelden still überschrieben. → `isLocalDBEmpty` zählt beides.
 - [x] **AB8** 🟠 Tippfehler im Jahr („bis 2205“) wurde angenommen, Suchen liefen Millionen Tage. → Rückfrage bei Zeiträumen > 10 Wochen; Suchen auf 400 Tage begrenzt.
 - [x] **AB9** 🟢 Dashboard bei kaputtem `holidays` (keine Liste). → abgesichert.
+- [x] **AB10** 🟢 Text in einem Popup markieren (Raster-Menü im Sitzplan) und außerhalb loslassen schloss das Popup; Aufklapplisten ebenso (im Menü gedrückt, außerhalb losgelassen). Die großen Fenster waren seit O1 geschützt, die Popups nicht. → `pressStartedIn(el)`: Popup schließt nur, wenn auch das Drücken außerhalb begann (v269, `tests/popup-markieren.test.js`, im Browser mit echter Maus geprüft).
 
 > „Das ist neu“ (`WHATS_NEW.id = '2026-10'`, v268): Ferien, Pausenaufsicht, Vertretung, mehrere Klassen + Farben, Einzelstunden & versetzte Reihen.
 
