@@ -559,6 +559,8 @@ Hier kommen neue Wünsche hin, bevor sie gebaut werden. Erst klären (offene Fra
 
 - [x] **AD9** 🟢 **Vorlagen für die Planung** (Parallelklassen, 02.11.): **Umgesetzt (v309):** Reiter „Planung“ → „Von Klasse übernehmen …“ (`choosePlanSource`, `copyPlanFrom`): Auswahl nur Klassen mit Themen, gleiches Fach zuerst; Themen in derselben Reihenfolge **angehängt** (nichts überschrieben), mit Dauer und Notiz, ohne feste Termine und Erledigt-Stände, neue Kennungen; Rückgängig entfernt genau die übernommenen. Test: `tests/unterrichtsplanung.test.js`.
 
+- [x] **AD10** 🟠 **Klassen-Ansicht ohne „Heute“** (Rückmeldung 02.11.: weit weggescrollt kam man kaum zurück): „Heute“ bleibt in der Klassen-Ansicht sichtbar (Pfeile/Datum weiter aus) und springt an den Anfang (frühere Stunden zu, Liste oben, `goToCurrentWeek`). Monats-Überschriften in der Liste, beim Scrollen oben fest; Liste ohne Innenabstand oben, damit nichts über der festen Zeile hervorschaut. Test: `tests/unterrichtsplanung.test.js`.
+
 ## AE. Anti-Slop-Prüfung (02.11.2026, deslop-Skill, nur Befunde)
 
 Was nach „generiert“ aussieht, sortiert nach Sichtbarkeit. Noch nichts entschieden.

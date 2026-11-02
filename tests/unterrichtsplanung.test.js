@@ -302,3 +302,26 @@ describe('Vorlage: Themen von einer Parallelklasse übernehmen', () => {
     expect(document.querySelector('#overview-content [data-act="copy"]').textContent).toBe('Von Klasse übernehmen …');
   });
 });
+
+describe('Klassen-Ansicht: „Heute“ und Monate', () => {
+  it('„Heute“ bleibt sichtbar und springt zurück (frühere Stunden zu, Liste oben)', () => {
+    const css = require('fs').readFileSync(require('path').join(__dirname, '..', 'style.css'), 'utf8');
+    expect(css).toMatch(/#view-timetable\.tt-class-mode \.header-actions:not\(\.tt-header-tools\) > :not\(\.btn-heute\)/);
+    app('switchView("timetable"); setTimetableMode("class"); ttClassShowPast = true; renderTimetable()');
+    expect(document.querySelector('.ttc-row.is-past')).not.toBeNull();
+    const wrap = document.getElementById('timetable-grid').parentElement;
+    wrap.scrollTop = 500;
+    app('goToCurrentWeek()');
+    expect(app('ttClassShowPast')).toBe(false);
+    expect(document.querySelector('.ttc-row.is-past')).toBeNull();
+    expect(wrap.scrollTop).toBe(0);
+    expect(document.querySelector('.ttc-row').textContent).toMatch(/09\.11\./);   // erste Zeile = heute
+    app('setTimetableMode("week")');
+  });
+  it('Monats-Überschriften in der Liste', () => {
+    app('switchView("timetable"); setTimetableMode("class")');
+    const months = [...document.querySelectorAll('.ttc-month')].map(m => m.textContent);
+    expect(months.slice(0, 3)).toEqual(['November 2026', 'Dezember 2026', 'Januar 2027']);
+    app('setTimetableMode("week")');
+  });
+});

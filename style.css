@@ -1307,7 +1307,9 @@ button.date-chip{font-family:inherit;padding:0;}
 @media (max-width: 699px){.tt-print-btn{display:none;}  /* Drucken vom iPad/PC – auf dem Handy braucht das Datum den Platz */
   .tt-mode{display:none;}.tt-mode-compact{display:flex;}.tt-mode-compact.active{background:var(--text-primary);color:var(--bg-primary);}}
 @media (pointer: coarse){.tt-mode button{min-height:44px;}}
-#view-timetable.tt-class-mode .header-actions:not(.tt-header-tools),#view-timetable.tt-class-mode #btn-tt-edit{display:none;}
+/* Klassen-Ansicht: Pfeile und Datum ergeben keinen Sinn, „Heute“ schon (zurück an den Anfang der Liste) */
+#view-timetable.tt-class-mode .header-actions:not(.tt-header-tools) > :not(.btn-heute),#view-timetable.tt-class-mode #btn-tt-edit{display:none !important;} /* Pfeile/Datum haben Inline-display */
+#view-timetable.tt-class-mode .btn-heute{background:var(--accent);color:var(--on-accent);border-color:var(--accent);}
 .tt-class-list{display:flex !important;flex-direction:column;max-width:900px;width:100%;padding:4px 0 20px;}
 .ttc-head{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:6px 4px 12px;}
 .ttc-select{width:auto;min-width:160px;}
@@ -1326,6 +1328,10 @@ button.date-chip{font-family:inherit;padding:0;}
 .ttc-done{color:var(--text-secondary);}
 .ttc-muted{color:var(--text-muted);}
 .ttc-badges{display:flex;gap:4px;}
+.ttc-month{font-size:13px;font-weight:600;color:var(--text-primary);padding:16px 6px 6px;border-bottom:1px solid var(--border);position:sticky;top:0;background:var(--bg-primary);z-index:1;}
+/* Klassen-Ansicht: kein Innenabstand oben, sonst schauen beim Scrollen Zeilen über der festen Monatszeile hervor */
+#view-timetable.tt-class-mode .timetable-grid-wrapper{padding-top:0;}
+.ttc-head{padding-top:14px !important;}
 .ttc-mark{font-size:12px;font-weight:600;color:var(--text-secondary);padding:14px 6px 6px;border-bottom:2px solid var(--text-muted);}
 .ttc-past-toggle{align-self:flex-start;margin:4px 6px 8px;font-size:13px;}
 @media (max-width: 600px){.ttc-row{grid-template-columns:86px minmax(0,1fr) auto;}.ttc-block{display:none;}}

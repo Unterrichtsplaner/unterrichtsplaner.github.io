@@ -632,7 +632,15 @@ function navigateWeek(dir) {
   else { currentWeekOffset += dir; timetableDay = null; timetableChosenOn = formatDate(new Date()); }
   renderTimetable();
 }
-function goToCurrentWeek()  { currentWeekOffset = 0; timetableDay = null; timetableChosenOn = ''; renderTimetable(); }
+function goToCurrentWeek()  {
+  currentWeekOffset = 0; timetableDay = null; timetableChosenOn = '';
+  if (timetableMode === 'class') ttClassShowPast = false;   // Klassen-Ansicht: frühere Stunden zu, heute oben
+  renderTimetable();
+  if (timetableMode === 'class') {
+    const wrap = document.getElementById('timetable-grid').parentElement;
+    if (wrap) wrap.scrollTop = 0;
+  }
+}
 function jumpToDate(dateStr) {
   if (!dateStr) return;
   const targetDate = parseDate(dateStr);
@@ -7515,14 +7523,22 @@ function renderTimetableClass(grid) {
         <span class="ttc-topic">${topic}</span><span class="ttc-badges">${badges}</span></div>`;
   };
   let html = head;
+  // Monats-Überschriften zur Orientierung beim Scrollen
+  let lastMonth = '';
+  const month = l => {
+    const m = l.dateStr.slice(0, 7);
+    if (m === lastMonth) return '';
+    lastMonth = m;
+    return `<div class="ttc-month">${escHtml(parseDate(l.dateStr).toLocaleDateString('de-DE', { month: 'long', year: 'numeric' }))}</div>`;
+  };
   if (past.length) {
     html += `<button type="button" class="link-btn ttc-past-toggle" data-act="past">${ttClassShowPast ? 'Frühere Stunden ausblenden' : `Frühere Stunden anzeigen (${past.length})`}</button>`;
-    if (ttClassShowPast) html += past.map(l => row(l, true)).join('');
+    if (ttClassShowPast) html += past.map(l => month(l) + row(l, true)).join('');
   }
   let marked = false;
   future.forEach(l => {
     if (!marked && halfYearEnd && l.dateStr > halfYearEnd) { html += `<div class="ttc-mark">Halbjahr · ${escHtml(formatDateDE(parseDate(halfYearEnd)))}</div>`; marked = true; }
-    html += row(l, false);
+    html += month(l) + row(l, false);
   });
   if (!future.length) html += '<div class="plan-empty">Keine kommenden Stunden im Stundenplan.</div>';
   grid.innerHTML = html;
