@@ -276,7 +276,7 @@ describe('Hinweis im Schüler-Fenster', () => {
   it('verborgen bis „Anzeigen“ (außer Noten sind eingeblendet)', () => {
     openSeating();
     app(`openSeatingStudentModal("a", "g1", "${MON}")`);
-    expect(hintBox().textContent).toMatch(/Hinweis vorhanden – verborgen/);
+    expect(hintBox().textContent).toMatch(/Hinweis vorhanden \(verborgen\)/);
     expect(hintBox().textContent).not.toContain('hörgeschädigt');
     app('renderSeatingStudentHint(true)');
     expect(document.getElementById('seating-student-hint-input').value).toBe('hörgeschädigt – vorne sitzen');

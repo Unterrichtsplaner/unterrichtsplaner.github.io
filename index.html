@@ -42,7 +42,7 @@
       }
     } catch(e) {}
   </script>
-  <link rel="stylesheet" href="style.css?v=318" />
+  <link rel="stylesheet" href="style.css?v=319" />
   <script>
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
@@ -640,7 +640,7 @@
     <div class="modal-body">
       <div class="form-group">
         <label for="new-group-class">Klasse</label>
-        <input type="text" id="new-group-class" placeholder="z. B. 7b – mehrere: 7a-d oder 7a, 7b" class="form-input" oninput="updateGroupClassPreview()" />
+        <input type="text" id="new-group-class" placeholder="z. B. 7b (mehrere: 7a-d oder 7a, 7b)" class="form-input" oninput="updateGroupClassPreview()" />
         <p id="group-class-preview" class="field-hint hidden" aria-live="polite"></p>
       </div>
       <div class="form-group">
@@ -690,7 +690,7 @@
         <div class="form-group"><label for="new-student-last">Nachname</label><input type="text" id="new-student-last" placeholder="Nachname" class="form-input" /></div>
       </div>
       <div class="form-group"><label for="new-student-birthday">Geburtstag (optional)</label><input type="date" id="new-student-birthday" class="form-input" /></div>
-      <div class="form-group"><label for="new-student-notes">Hinweise</label><textarea id="new-student-notes" placeholder="z. B. hörgeschädigt – vorne sitzen, mag Fußball …" class="form-input" rows="3"></textarea><p class="field-hint-muted">Erscheint im Sitzplan als Symbol auf der Karte, der Text erst beim Antippen.</p></div>
+      <div class="form-group"><label for="new-student-notes">Hinweise</label><textarea id="new-student-notes" placeholder="z. B. hörgeschädigt: vorne sitzen, mag Fußball …" class="form-input" rows="3"></textarea><p class="field-hint-muted">Erscheint im Sitzplan als Symbol auf der Karte, der Text erst beim Antippen.</p></div>
     </div>
     <div class="modal-footer">
       <button class="btn-secondary" onclick="closeModal('modal-add-student')">Abbrechen</button>
@@ -974,7 +974,7 @@
           <button class="btn-secondary" onclick="openClassReport()"><i data-icon="printer"></i>Klassen-Bericht (PDF/Excel)</button>
           <button class="btn-secondary" onclick="importDataClick()"><i data-icon="upload"></i>Importieren</button>
           <button class="btn-danger-outline" onclick="clearAllData()"><i data-icon="trash"></i>Alles löschen</button>
-          <button class="btn-danger-outline hidden" id="btn-clear-everywhere" onclick="clearAllDataEverywhere()"><i data-icon="trash"></i>Alles löschen – auch in der Cloud</button>
+          <button class="btn-danger-outline hidden" id="btn-clear-everywhere" onclick="clearAllDataEverywhere()"><i data-icon="trash"></i>Alles löschen, auch in der Cloud</button>
         </div>
         <input type="file" id="import-file-input" accept=".json" style="display:none" onchange="importData(event)" />
       </div>
@@ -1058,7 +1058,7 @@
               <label for="sync-master-password-confirm">Neues Master-Passwort wiederholen</label>
               <input type="password" id="sync-master-password-confirm" data-reveal class="form-input" placeholder="Zur Sicherheit noch einmal eingeben" onchange="confirmNewMasterPassword(this.value)" />
               <div style="font-size:11px; color:var(--text-secondary); margin-top:4px;">
-                In der Cloud liegen noch keine Daten. Erst wenn das Passwort zweimal gleich eingegeben ist, wird hochgeladen – ein Tippfehler würde die Cloud sonst für alle Geräte sperren.
+                In der Cloud liegen noch keine Daten. Erst wenn das Passwort zweimal gleich eingegeben ist, wird hochgeladen. Ein Tippfehler würde die Cloud sonst für alle Geräte sperren.
               </div>
             </div>
 
@@ -1132,7 +1132,7 @@
 
       <div class="settings-section">
         <h3>Datenschutz</h3>
-        <p style="font-size:12px;color:var(--text-muted);margin:6px 0 12px">Was wo gespeichert wird und wer es lesen kann – auch zum Vorlegen bei der Schulleitung.</p>
+        <p style="font-size:12px;color:var(--text-muted);margin:6px 0 12px">Was wo gespeichert wird und wer es lesen kann, auch zum Vorlegen bei der Schulleitung.</p>
         <button class="btn-secondary" onclick="openPrivacyNotice()"><i data-icon="lock"></i>Datenschutzhinweise</button>
       </div>
 
@@ -1173,7 +1173,7 @@
       <ul>
         <li>Deine Daten (Klassen, Schüler, Noten, Fehlzeiten, Notizen) liegen <strong>auf diesem Gerät</strong>, im Speicher des Browsers.</li>
         <li>Ohne Anmeldung beim Cloud-Sync verlassen sie das Gerät nie.</li>
-        <li>Mit Cloud-Sync geht nur eine <strong>verschlüsselte</strong> Kopie auf einen Server. Verschlüsselt wird auf deinem Gerät mit deinem Master-Passwort. Ohne dieses Passwort kann niemand die Daten lesen – auch nicht der Betreiber der App oder Google.</li>
+        <li>Mit Cloud-Sync geht nur eine <strong>verschlüsselte</strong> Kopie auf einen Server. Verschlüsselt wird auf deinem Gerät mit deinem Master-Passwort. Ohne dieses Passwort kann niemand die Daten lesen, auch nicht der Betreiber der App oder Google.</li>
         <li>Kein Tracking, keine Werbung, keine Analyse-Dienste, keine fremden Schriften oder Skripte.</li>
       </ul>
 
@@ -1181,7 +1181,7 @@
       <ul>
         <li>Die Daten liegen unverschlüsselt im Browser-Speicher (<code>localStorage</code>). Wer das Gerät entsperrt benutzen kann, kann sie sehen. Sperre das Gerät deshalb mit Code, Fingerabdruck oder Gesicht und nutze die App nicht in einem geteilten Benutzerkonto.</li>
         <li>Wenn du den Cloud-Sync nutzt, ist auch dein Master-Passwort auf diesem Gerät gespeichert, damit der Abgleich ohne erneute Eingabe läuft. Beim Abmelden wird es gelöscht.</li>
-        <li>Exportierte Dateien – Sicherung, Klassen-Bericht (PDF/Excel), Notenexport (CSV) – sind <strong>nicht</strong> verschlüsselt. Bewahre sie so sicher auf wie die Notenliste auf Papier und verschicke sie nicht über private Mail-Konten.</li>
+        <li>Exportierte Dateien (Sicherung, Klassen-Bericht als PDF/Excel, Notenexport als CSV) sind <strong>nicht</strong> verschlüsselt. Bewahre sie so sicher auf wie die Notenliste auf Papier und verschicke sie nicht über private Mail-Konten.</li>
         <li>Löschen: Einstellungen → Datenverwaltung → „Alles löschen“. Beim Abmelden fragt die App außerdem, ob die Daten auf dem Gerät bleiben sollen.</li>
       </ul>
 
@@ -1191,13 +1191,13 @@
         <li>Gespeichert werden: deine E-Mail-Adresse bzw. dein Google-Konto für die Anmeldung und ein verschlüsseltes Datenpaket (AES-256-GCM, Schlüssel aus dem Master-Passwort per PBKDF2) mit dem Zeitpunkt der letzten Änderung.</li>
         <li>Wie jeder Server-Dienst verarbeitet Google dabei technische Daten wie deine IP-Adresse. Eine Übermittlung in die USA ist dabei nicht ausgeschlossen. Schülerdaten sind davon nur verschlüsselt betroffen.</li>
         <li>Jedes Konto kann nur sein eigenes Datenpaket lesen und schreiben.</li>
-        <li>Deine Cloud-Daten und dein Konto löschen: selbst unter Einstellungen → Cloud-Synchronisierung → „Cloud-Konto löschen“ (nur die Cloud-Daten: Datenverwaltung → „Alles löschen – auch in der Cloud“). Klappt das nicht, genügt eine kurze E-Mail an den Betreiber (siehe unten).</li>
+        <li>Deine Cloud-Daten und dein Konto löschen: selbst unter Einstellungen → Cloud-Synchronisierung → „Cloud-Konto löschen“ (nur die Cloud-Daten: Datenverwaltung → „Alles löschen, auch in der Cloud“). Klappt das nicht, genügt eine kurze E-Mail an den Betreiber (siehe unten).</li>
       </ul>
 
       <h3>Aufruf der App</h3>
       <ul>
         <li>Die App wird über GitHub Pages ausgeliefert. Beim Laden erhält GitHub technische Daten wie die IP-Adresse. Danach läuft die App aus dem Speicher des Geräts, auch offline.</li>
-        <li>Der Quellcode ist öffentlich (Einstellungen → Open Source) – was die App tut, lässt sich dort nachprüfen.</li>
+        <li>Der Quellcode ist öffentlich (Einstellungen → Open Source). Was die App tut, lässt sich dort nachprüfen.</li>
         <li>„Ferien laden“ (Einstellungen → Ferien &amp; freie Tage) fragt nur auf Knopfdruck die Ferien deines Bundeslands bei der OpenHolidays API ab (openholidaysapi.org). Dabei erhält der Anbieter deine IP-Adresse und das gewählte Bundesland, sonst nichts.</li>
       </ul>
 
@@ -1277,10 +1277,10 @@
       <div class="form-group">
         <label for="print-from">Gültig ab (Woche)</label>
         <input type="date" id="print-from" class="form-input" />
-        <p class="field-hint-muted">Gedruckt wird der regelmäßige Plan dieser und der folgenden Woche (A/B-Wochen) – ohne Vertretungen und einmalige Stunden.</p>
+        <p class="field-hint-muted">Gedruckt wird der regelmäßige Plan dieser und der folgenden Woche (A/B-Wochen), ohne Vertretungen und einmalige Stunden.</p>
       </div>
       <label class="print-check" for="print-color"><input type="checkbox" id="print-color" checked /> Farbig (aus: schwarz-weiß, spart Toner)</label>
-      <p class="field-hint-muted">Der Plan passt immer auf eine Seite. Am schönsten im Querformat – falls der Druckdialog Hochformat zeigt, dort „Querformat“ wählen. Als PDF: im Druckdialog „Als PDF sichern“.</p>
+      <p class="field-hint-muted">Der Plan passt immer auf eine Seite. Am schönsten im Querformat. Zeigt der Druckdialog Hochformat, dort „Querformat“ wählen. Als PDF: im Druckdialog „Als PDF sichern“.</p>
     </div>
     <div class="modal-footer">
       <button class="btn-secondary" onclick="closeModal('modal-print')">Abbrechen</button>
@@ -1456,7 +1456,7 @@
         <button class="modal-close" aria-label="Schließen" onclick="closeModal('modal-class-report')">✕</button>
       </div>
       <div class="modal-body">
-        <p class="field-hint-muted" style="margin:0 0 12px">Je Klasse alle Noten mit Schnitten, Fehlzeiten, Mitarbeit und fehlende Hausaufgaben – als PDF zum Ausdrucken oder als Excel-Datei zum Weiterbearbeiten.</p>
+        <p class="field-hint-muted" style="margin:0 0 12px">Je Klasse alle Noten mit Schnitten, Fehlzeiten, Mitarbeit und fehlende Hausaufgaben. Als PDF zum Ausdrucken oder als Excel-Datei zum Weiterbearbeiten.</p>
         <button type="button" class="link-btn" id="class-report-all" onclick="toggleClassReportAll()">Alle / keine</button>
         <div id="class-report-list" class="class-report-list"></div>
         <p class="class-report-warn">Die Datei enthält Schülerdaten <strong>unverschlüsselt</strong>. Sicher aufbewahren, nicht über private Mail verschicken.</p>
@@ -1539,12 +1539,12 @@
   </div>
 
   <script src="lib/crypto-js.min.js"></script>
-  <script src="crypto-helper.js?v=318"></script>
+  <script src="crypto-helper.js?v=319"></script>
   <script src="lib/firebase-app-compat.js"></script>
   <script src="lib/firebase-auth-compat.js"></script>
   <script src="lib/firebase-firestore-compat.js"></script>
-  <script src="firebase-config.js?v=318"></script>
-  <script src="sync-manager.js?v=318"></script>
-  <script src="app.js?v=318"></script>
+  <script src="firebase-config.js?v=319"></script>
+  <script src="sync-manager.js?v=319"></script>
+  <script src="app.js?v=319"></script>
 </body>
 </html>

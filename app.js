@@ -329,11 +329,11 @@ window.addEventListener('storage', onStorageChanged);
 let saveFailureShown = false;
 function reportSaveFailure(error) {
   console.error('Speichern fehlgeschlagen:', error);
-  showToast('Nicht gespeichert – Speicher voll. Bitte Daten exportieren.', 'error');
+  showToast('Nicht gespeichert: Speicher voll. Bitte Daten exportieren.', 'error');
   if (saveFailureShown) return;
   saveFailureShown = true;
   const copies = rescueCopyKeys().length;
-  alert('❌ Deine letzte Eingabe konnte auf diesem Gerät nicht gespeichert werden – der Speicher des Browsers ist voll.\n\n'
+  alert('❌ Deine letzte Eingabe konnte auf diesem Gerät nicht gespeichert werden. Der Speicher des Browsers ist voll.\n\n'
     + 'Bitte sofort unter Einstellungen → „Exportieren“ eine Sicherung speichern. Solange die App offen bleibt, sind die Daten noch da'
     + (SyncManager.currentUser && SyncManager.masterPassword ? ' und werden weiter in die Cloud übertragen.' : '.')
     + (copies ? `\n\nPlatz belegen auch ${copies} alte Rettungskopie(n) unlesbarer Daten („lehrerapp_v3_defekt_…“).` : ''));
@@ -862,11 +862,11 @@ async function askMoveScope(slot, dateStr, { other = null, allowOnce = true } = 
   const text = (other
       ? `${DAYS[other.day]}, ${blockOf(other)}: Dort liegt schon ${lessonTitle(other).main}. ${lessonTitle(slot).main} und ${lessonTitle(other).main} tauschen die Plätze.\n\n`
       : '')
-    + (hasEarlier ? 'Für diese Stunde gibt es Notizen oder Hausaufgaben aus früheren Stunden – die bleiben, wie sie waren.\n\n' : '')
+    + (hasEarlier ? 'Für diese Stunde gibt es Notizen oder Hausaufgaben aus früheren Stunden. Die bleiben, wie sie waren.\n\n' : '')
     + 'Nur an diesem Tag oder dauerhaft?';
   const choices = [];
   if (allowOnce) choices.push({ label: `Nur am ${formatDateLong(dateStr)}`, value: 'once' });
-  choices.push({ label: hasEarlier ? `Für immer – ${fromPhrase(from)}` : 'Für immer', value: 'from', primary: true });
+  choices.push({ label: hasEarlier ? `Für immer (${fromPhrase(from)})` : 'Für immer', value: 'from', primary: true });
   if (hasEarlier) choices.push({ label: 'Alle Stunden ändern, auch frühere', value: 'all' });
   return askChoice(other ? 'Stunden tauschen' : 'Stunde ändern', text, choices);
 }
@@ -952,11 +952,11 @@ function updateTimetableUndoButton() {
   if (btn) btn.disabled = !ttUndoStack.length;
 }
 function undoTimetableChange(entry = ttUndoStack[ttUndoStack.length - 1]) {
-  if (!entry || ttUndoStack[ttUndoStack.length - 1] !== entry) { showToast('Nicht mehr möglich – danach wurde schon etwas anderes verschoben', 'error'); return; }
+  if (!entry || ttUndoStack[ttUndoStack.length - 1] !== entry) { showToast('Nicht mehr möglich: Danach wurde schon etwas anderes verschoben', 'error'); return; }
   if (db !== entry.db || scheduleState() !== entry.after) {
     ttUndoStack = [];
     updateTimetableUndoButton();
-    showToast('Nicht mehr möglich – inzwischen wurde etwas geändert', 'error');
+    showToast('Nicht mehr möglich: Inzwischen wurde etwas geändert', 'error');
     return;
   }
   ttUndoStack.pop();
@@ -978,7 +978,7 @@ async function moveLessonByDrag(slotId, sourceDate, target) {
   const part = target.part || slot.part || 'full';
   if (target.day === slot.day && target.block === slot.block && part === (slot.part || 'full') && target.dateStr === sourceDate) return false;
   const occupants = lessonsAt(target.dateStr, target.block).filter(s => s !== slot && partsOverlap(part, s.part));
-  if (occupants.length > 1) { showToast('Dort liegen schon zwei Stunden – bitte zuerst eine davon verschieben', 'error'); return false; }
+  if (occupants.length > 1) { showToast('Dort liegen schon zwei Stunden. Bitte zuerst eine davon verschieben', 'error'); return false; }
   const other = occupants[0] || null;
   const isRegular = s => s && !isOneOffSlot(s);
   let scope = 'once';
@@ -1015,7 +1015,7 @@ async function moveLessonByDrag(slotId, sourceDate, target) {
   }
   if (db !== dbAtStart) return false;
   if (!ok) {
-    if (scheduleState() !== before) { restore(); showToast('Nicht verschoben – alles wie vorher', 'error'); }
+    if (scheduleState() !== before) { restore(); showToast('Nicht verschoben, alles wie vorher', 'error'); }
     return false;
   }
   saveDB();
@@ -1327,7 +1327,7 @@ function buildTimetableCell(d, dayIdx, block, clock = timetableClock()) {
   };
 
   const renderEmptyHTML = (part) => {
-    return `<div class="tt-empty-cell" title="${DAYS[dayIdx]}, ${escHtml(block.label)} – Klicken zum Hinzufügen"
+    return `<div class="tt-empty-cell" title="${DAYS[dayIdx]}, ${escHtml(block.label)}: Stunde hinzufügen"
                  onclick="openAddLessonSlot(${dayIdx}, ${block.num}, ${jsArg(dateStr)}, ${jsArg(part)})">
               <span class="tt-add-icon">+</span>
             </div>`;
@@ -1460,7 +1460,7 @@ function fillGroupSelector(selectedGroupId = '') {
   db.groups.forEach(g => {
     const opt = document.createElement('option');
     opt.value = g.id;
-    opt.textContent = `${g.className} – ${g.subject}${g.year ? ' (' + g.year + ')' : ''}`;
+    opt.textContent = `${g.className} · ${g.subject}${g.year ? ' (' + g.year + ')' : ''}`;
     if (g.id === selectedGroupId) opt.selected = true;
     sel.appendChild(opt);
   });
@@ -1820,7 +1820,7 @@ async function commitLessonSlot(input, slot, { ignoreConflictWith = null, scope 
     if (candidate.validFrom) newSlot.validFrom = candidate.validFrom;
     db.lessonSlots.push(newSlot);
     const added = fields.substitute ? 'Vertretung eingetragen ✓' : 'Stunde hinzugefügt ✓';
-    showToast(replaced ? `${added} – ersetzt ${lessonTitle(replaced).main} an diesem Tag` : added);
+    showToast(replaced ? `${added.replace(' ✓', '')}, ersetzt ${lessonTitle(replaced).main} an diesem Tag ✓` : added);
   }
   saveDB();
   if (replaced) await offerMoveDueItems(replaced.id, specificDate, `${lessonTitle(replaced).main} fällt aus`); // BUGS R4
@@ -2204,7 +2204,7 @@ function populateDateChips(containerId, upcoming, type) {
 
   const label = document.createElement('div');
   label.style.cssText = 'font-size:10px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.4px;margin-bottom:5px';
-  label.textContent = 'Nächste Stunden – Datum auswählen:';
+  label.textContent = 'Nächste Stunden (Datum wählen):';
   container.appendChild(label);
 
   const chipRow = document.createElement('div');
@@ -2281,7 +2281,7 @@ function confirmTargetHasLesson(targetDate, fromClose) {
   const ids = new Set(relatedSlots(slot).map(x => x.id));
   // Eine ausfallende Stunde zählt nicht: dort hinge der Eintrag fest (BUGS V9)
   if (lessonsOnDate(targetDate).some(l => ids.has(l.slot.id) && !l.ausfall)) return true;
-  return confirm(`Am ${formatDateLong(targetDate)} hat die Klasse keine Stunde (oder sie fällt aus) – dort würde der Eintrag nirgends als fällig angezeigt.\n\nTrotzdem eintragen?`);
+  return confirm(`Am ${formatDateLong(targetDate)} hat die Klasse keine Stunde (oder sie fällt aus). Dort würde der Eintrag nirgends als fällig angezeigt.\n\nTrotzdem eintragen?`);
 }
 
 function addHWItem(fromClose = false) {
@@ -2711,7 +2711,7 @@ function saveSubjectGroup() {
       db.students[id] = [];
     });
     addedGroupsMessage = (fresh.length > 1 ? `${fresh.length} Klassen hinzugefügt ✓` : 'Klasse hinzugefügt ✓')
-      + (skipped.length ? ` – ${skipped.join(', ')} gab es schon` : '');
+      + (skipped.length ? ` (${skipped.join(', ')} gab es schon)` : '');
   }
   saveDB();
   closeModal('modal-add-group');
@@ -3098,7 +3098,7 @@ function updateInlineGrade(studentId, date, label, value, type = 'test', nth = 0
   // Weitere Spalte gleichen Namens (nth > 0), aber in den vorigen fehlt noch etwas: Die Note landete nach dem
   // Neuzeichnen in der ersten Spalte (BUGS U7)
   if (!grade && value && nth > 0 && !findColumnGrade(s, { date, label, type, nth: nth - 1 })) {
-    showToast('Bitte zuerst die erste Spalte „' + label + '“ ausfüllen – gleichnamige Spalten füllen sich von links', 'error');
+    showToast('Bitte zuerst die erste Spalte „' + label + '“ ausfüllen. Gleichnamige Spalten füllen sich von links', 'error');
     renderOverviewTable();
     return;
   }
@@ -3114,7 +3114,7 @@ function updateInlineGrade(studentId, date, label, value, type = 'test', nth = 0
       renderOverviewTable(); // Reset input
       return;
     }
-    if (parsed.number === null) showToast(`„${parsed.value}“ gespeichert – zählt nicht im Schnitt`);
+    if (parsed.number === null) showToast(`„${parsed.value}“ gespeichert, zählt nicht im Schnitt`);
     const finalValue = parsed.value;
     if (grade) {
       grade.value = finalValue; // Typ gehört zur Spalte und bleibt (BUGS K4)
@@ -3574,7 +3574,7 @@ function renderStudents() {
     row.className = 'student-row';
     row.setAttribute('role', 'button');
     row.tabIndex = 0;
-    row.setAttribute('aria-label', `${studentListName(s)} – Schülerakte öffnen`);
+    row.setAttribute('aria-label', `Schülerakte öffnen: ${studentListName(s)}`);
     row.innerHTML = `
       ${isStudentEditMode ? `<input type="checkbox" class="student-select-cb" data-id="${escHtml(s.id)}" onclick="event.stopPropagation(); updateMassDeleteBar()" style="margin-right: 12px; width: 18px; height: 18px; cursor: pointer;">` : ''}
       <div class="student-info">
@@ -3954,7 +3954,7 @@ function renderGradesList(s) {
       const cur = getCurrentStudent();
       const idx = cur && cur.id === s.id ? (cur.grades || []).indexOf(g) : -1;
       if (idx === -1) {
-        showToast('Die Liste war veraltet und wurde neu geladen – bitte noch einmal tippen', 'error');
+        showToast('Die Liste war veraltet und wurde neu geladen. Bitte noch einmal tippen', 'error');
         if (cur) renderGradesList(cur);
         return;
       }
@@ -4543,7 +4543,7 @@ async function loadHolidaysFromApi() {
     `Gefunden für dieses und nächstes Schuljahr:\n${fresh.map(c => `• ${c.label}: ${range(c)}`).join('\n')}\n\n`
     + (imported.length ? `Das ersetzt ${imported.length} früher geladene ${imported.length === 1 ? 'Eintrag' : 'Einträge'} (${sources}).\n\n` : '')
     + (overlapping.length ? `Überschneidet sich mit deinen eigenen Einträgen:\n${overlapping.map(m => `• ${(m.label || '').trim() || 'Ferien'}: ${range(m)}`).join('\n')}\n\n` : '')
-    + 'Bewegliche Ferientage deiner Schule kennt die Quelle nicht – die bitte selbst ergänzen.',
+    + 'Bewegliche Ferientage deiner Schule kennt die Quelle nicht. Die bitte selbst ergänzen.',
     overlapping.length
       ? [{ label: `Übernehmen und meine ersetzen`, value: 'replace', primary: true }, { label: 'Übernehmen, meine behalten', value: 'keep' }]
       : [{ label: `${n} ${word} übernehmen`, value: 'take', primary: true }]);
@@ -4554,7 +4554,7 @@ async function loadHolidaysFromApi() {
   fresh.forEach(c => holidaysDraft.push({ id: uid(), ...c, source: state }));
   holidaysDraft.sort((a, b) => (a.from || '9999').localeCompare(b.from || '9999'));
   renderHolidaysEditor();
-  showToast(`${n} ${word} eingetragen – mit „Speichern“ übernehmen`);
+  showToast(`${n} ${word} eingetragen. Mit „Speichern“ übernehmen`);
 }
 
 // HA/Tests ab heute, deren Termin in die Ferien fällt: wären nirgends fällig (Regel 52). Erste Stunde danach anbieten.
@@ -4646,7 +4646,7 @@ async function chooseBlockTemplate() {
   const choice = await askChoice('Vorlage für die Stundenzeiten',
     'Füllt die Liste neu, ab dem bisherigen Beginn. Danach kannst du jede Zeit noch anpassen.\n\n'
     + 'Deine Stunden bleiben in ihrer Reihe (1., 2., …), nur Zeiten und Namen ändern sich. Übernommen wird erst mit „Speichern“.'
-    + (halves ? `\n\n⚠️ Du hast ${halves === 1 ? '1 halbe Stunde' : halves + ' halbe Stunden'} (1./2. Hälfte). Bei Einzelstunden stehen sie danach in derselben Zeile – bitte im Stundenplan prüfen und ggf. auf eine eigene Stunde legen.` : ''),
+    + (halves ? `\n\n⚠️ Du hast ${halves === 1 ? '1 halbe Stunde' : halves + ' halbe Stunden'} (1./2. Hälfte). Bei Einzelstunden stehen sie danach in derselben Zeile. Bitte im Stundenplan prüfen und ggf. auf eine eigene Stunde legen.` : ''),
     [{ label: 'Einzelstunden (8 × 45 min)', value: 'single', primary: true },
      { label: 'Doppelstunden (4 × 90 min)', value: 'double' }]);
   if (choice && !document.getElementById('modal-settings').classList.contains('hidden')) applyBlockTemplate(choice);
@@ -4679,7 +4679,7 @@ function deleteBlockRow(idx) {
   if (blocksDraft.length <= 1) { showToast('Mindestens ein Block nötig', 'error'); return; }
   const used = db.lessonSlots.filter(s => s.block === block.num).length;
   if (used) {
-    showToast(`${block.label || 'Block'} enthält noch ${used} Stunde${used === 1 ? '' : 'n'} – bitte zuerst verschieben oder löschen`, 'error');
+    showToast(`${block.label || 'Block'} enthält noch ${used} Stunde${used === 1 ? '' : 'n'}. Bitte zuerst verschieben oder löschen`, 'error');
     return;
   }
   blocksDraft.splice(idx, 1);
@@ -4849,7 +4849,7 @@ function importBackup(parsed) {
 }
 function clearAllData() {
   const cloudHint = SyncManager.currentUser
-    ? '\n\nDie Daten in der Cloud bleiben erhalten und werden beim nächsten Sync wieder geladen. Um auch sie zu löschen: „Alles löschen – auch in der Cloud“.'
+    ? '\n\nDie Daten in der Cloud bleiben erhalten und werden beim nächsten Sync wieder geladen. Um auch sie zu löschen: „Alles löschen, auch in der Cloud“.'
     : '\n\nFalls Cloud-Sync aktiv ist, bleiben die Daten in der Cloud erhalten und werden beim nächsten Sync wieder geladen.';
   if (!confirm('ACHTUNG: Wirklich alle Daten auf diesem Gerät löschen?' + cloudHint)) return;
   wipeLocalData();
@@ -4874,7 +4874,7 @@ async function clearAllDataEverywhere() {
     alert('Dafür braucht es eine Internetverbindung. Es wurde nichts gelöscht.');
     return;
   }
-  if (syncRunning) { showToast('Gerade läuft ein Sync – bitte gleich noch einmal versuchen', 'error'); return; }
+  if (syncRunning) { showToast('Gerade läuft ein Sync. Bitte gleich noch einmal versuchen', 'error'); return; }
   syncRunning = true;
   try {
     // Passwort-Probe: Die Cloud wird nur überschrieben, wenn dieses Gerät sie lesen kann
@@ -4885,14 +4885,14 @@ async function clearAllDataEverywhere() {
     const lines = [];
     if (cloudData) lines.push('In der Cloud: ' + dataSummary(cloudData));
     if (!localEmpty) lines.push('Auf diesem Gerät: ' + dataSummary(db));
-    const answer = await askChoice('Alles löschen – auch in der Cloud',
+    const answer = await askChoice('Alles löschen, auch in der Cloud',
       'Alle Klassen, Schüler, Noten, Stunden und Einstellungen werden gelöscht: auf diesem Gerät, in der Cloud und auf '
       + 'allen deinen anderen Geräten, sobald sie sich abgleichen.\n\n' + (lines.length ? lines.join('\n') + '\n\n' : '')
       + 'Das lässt sich nicht rückgängig machen. Eine Sicherung ist danach die einzige Kopie.',
       [{ label: 'Sicherung speichern, dann alles löschen', value: 'backup', primary: true },
        { label: 'Ohne Sicherung alles löschen', value: 'delete', danger: true }]);
     if (!answer) return;
-    if (answer === 'delete' && !confirm('Wirklich ohne Sicherung alles löschen – auch in der Cloud?\n\nDas lässt sich nicht rückgängig machen.')) return;
+    if (answer === 'delete' && !confirm('Wirklich ohne Sicherung alles löschen, auch in der Cloud?\n\nDas lässt sich nicht rückgängig machen.')) return;
     if (answer === 'backup') {
       if (!localEmpty) exportData();
       // Steht in der Cloud etwas anderes (Änderungen anderer Geräte), das auch sichern
@@ -4915,13 +4915,13 @@ async function clearAllDataEverywhere() {
     SyncManager.updateStatus('synced');
     closeModal('modal-settings');
     updateSyncUI();
-    showToast('Alles gelöscht – auf diesem Gerät und in der Cloud.');
+    showToast('Alles gelöscht, auf diesem Gerät und in der Cloud.');
   } catch (e) {
     if (e.name === 'WrongPasswordError') {
       rejectMasterPassword();
       alert('❌ Das Master-Passwort passt nicht zu den Daten in der Cloud. Es wurde nichts gelöscht.');
     } else if (e.name === 'CloudChangedError') {
-      alert('Gerade hat ein anderes Gerät hochgeladen. Es wurde nichts gelöscht – bitte noch einmal versuchen.');
+      alert('Gerade hat ein anderes Gerät hochgeladen. Es wurde nichts gelöscht. Bitte noch einmal versuchen.');
     } else if (e.name === 'AccountDeletedError') {
       handleAccountDeleted();
     } else {
@@ -5442,12 +5442,12 @@ function renderSeatingStudentHint(show) {
   if (!s) return;
   const text = (s.notes || '').trim();
   if (text && !show) {
-    box.innerHTML = `<div class="seating-hint-hidden"><span>Hinweis vorhanden – verborgen</span>
+    box.innerHTML = `<div class="seating-hint-hidden"><span>Hinweis vorhanden (verborgen)</span>
       <button type="button" class="btn-secondary seating-reveal-btn" onclick="renderSeatingStudentHint(true)">Anzeigen</button></div>`;
     return;
   }
   box.innerHTML = `<textarea id="seating-student-hint-input" class="form-input seating-hint-input" rows="2"
-    placeholder="z. B. hörgeschädigt – vorne sitzen, mag Fußball …" aria-label="Hinweis zu ${escHtml(studentName(s))}"></textarea>`;
+    placeholder="z. B. hörgeschädigt: vorne sitzen, mag Fußball …" aria-label="Hinweis zu ${escHtml(studentName(s))}"></textarea>`;
   const ta = box.querySelector('textarea');
   ta.value = s.notes || '';
   ta.addEventListener('change', commitSeatingStudentHint);
@@ -5458,7 +5458,7 @@ function commitSeatingStudentHint() {
   if (!ta || !ctx) return;
   const s = (db.students[ctx.groupId] || []).find(x => x.id === ctx.studentId);
   const value = ta.value.trim();
-  if (!s) { if (value) showToast('Diesen Schüler gibt es nicht mehr (z. B. durch Sync) – Hinweis nicht gespeichert', 'error'); return; }
+  if (!s) { if (value) showToast('Diesen Schüler gibt es nicht mehr (z. B. durch Sync). Hinweis nicht gespeichert', 'error'); return; }
   if (value === (s.notes || '').trim()) return;
   s.notes = value;
   saveDB();
@@ -5786,7 +5786,7 @@ function renderSeatingPlan() {
     const missedLast = !!(cockpitToday && cockpitToday.t.missed.includes(s)); // nur während der Stunde (Cockpit)
     const marks = (hasHint ? `<span class="sc-mark sc-hint" title="Hinweis vorhanden">${icon('info')}</span>` : '')
       + (bday ? `<span class="sc-mark sc-bday" title="Geburtstag">${icon('cake')}</span>` : '')
-      + (missedLast ? `<span class="sc-mark sc-missed" title="Letzte Stunde gefehlt – Stoff nachholen">${icon('calendar-x')}</span>` : '');
+      + (missedLast ? `<span class="sc-mark sc-missed" title="Letzte Stunde gefehlt, Stoff nachholen">${icon('calendar-x')}</span>` : '');
     if (hasHint || bday || missedLast) card.setAttribute('aria-label', fullName + (bday ? ', Geburtstag' : '')
       + (missedLast ? ', letzte Stunde gefehlt' : '') + (hasHint ? ', Hinweis vorhanden' : ''));
     card.innerHTML = `
@@ -6218,7 +6218,7 @@ function setSeatingHomework() {
   const existingIdx = s.homework.findIndex(h => h.date === dateStr && !h.note);
   const labelled = s.homework.find(h => h.date === dateStr && h.note);
   if (existingIdx === -1 && labelled) {
-    showToast(`Steht schon in der HA-Spalte „${labelled.note}“ – bitte in der Tabelle ändern`, 'error');
+    showToast(`Steht schon in der HA-Spalte „${labelled.note}“. Bitte in der Tabelle ändern`, 'error');
     return;
   }
   if (existingIdx === -1) {
@@ -6404,7 +6404,7 @@ function renderSeatingStudentGrades(show) {
   if (!show) {
     gradesContainer.innerHTML = `
       <div style="display:flex; justify-content:space-between; align-items:center; font-size:12px; color:var(--text-muted); padding:8px 12px; background:var(--bg-secondary); border-radius:var(--radius-sm);">
-        <span>${s.grades.length === 1 ? '1 Note' : s.grades.length + ' Noten'} – verborgen</span>
+        <span>${s.grades.length === 1 ? '1 Note' : s.grades.length + ' Noten'} (verborgen)</span>
         <button class="btn-secondary seating-reveal-btn" style="padding:4px 10px; font-size:12px;" onclick="revealSeatingStudentGrades()">Anzeigen</button>
       </div>`;
     return;
@@ -6539,9 +6539,9 @@ function findGradeFormTarget() {
 
 function saveGradeFromForm() {
   const target = findGradeFormTarget();
-  if (!target) { showToast('Schüler nicht gefunden – Note wurde nicht gespeichert', 'error'); return; }
+  if (!target) { showToast('Schüler nicht gefunden, Note nicht gespeichert', 'error'); return; }
   const { s, groupId, idx, isEdit } = target;
-  if (isEdit && idx === -1) { showToast('Diese Note gibt es nicht mehr (z. B. durch Sync) – bitte neu öffnen', 'error'); return; }
+  if (isEdit && idx === -1) { showToast('Diese Note gibt es nicht mehr (z. B. durch Sync). Bitte neu öffnen', 'error'); return; }
 
   const type = document.getElementById('gf-type').value;
   const value = document.getElementById('gf-value').value.trim();
@@ -6575,7 +6575,7 @@ function deleteGradeFromForm() {
   const target = findGradeFormTarget();
   if (!target || !target.isEdit) return;
   const { s, groupId, idx } = target;
-  if (idx === -1) { showToast('Diese Note gibt es nicht mehr (z. B. durch Sync) – bitte neu öffnen', 'error'); return; }
+  if (idx === -1) { showToast('Diese Note gibt es nicht mehr (z. B. durch Sync). Bitte neu öffnen', 'error'); return; }
 
   const [removed] = s.grades.splice(idx, 1);
   saveDB();
@@ -6794,7 +6794,7 @@ function showUndoToast(msg, undo) {
 }
 // Eintrag wiederherstellen, sofern der Schüler noch da ist (Sync kann die DB inzwischen ersetzt haben)
 function restoreSeatingEntry(groupId, s, list, entry, after) {
-  if (!(db.students[groupId] || []).includes(s)) { showToast('Nicht mehr möglich – die Daten wurden inzwischen ersetzt', 'error'); return; }
+  if (!(db.students[groupId] || []).includes(s)) { showToast('Nicht mehr möglich: Die Daten wurden inzwischen ersetzt', 'error'); return; }
   if (!s[list]) s[list] = [];
   // Inzwischen neu eingetragen (z. B. „Entschuldigt“ statt des entfernten „Unentschuldigt“): nicht zwei Einträge
   // für denselben Tag anlegen (Regel 50, BUGS W4)
@@ -6803,7 +6803,7 @@ function restoreSeatingEntry(groupId, s, list, entry, after) {
     : list === 'participation' ? s.participation.some(p => p.date === entry.date && (p.label || '') === (entry.label || ''))
     : list === 'homework' ? s.homework.some(h => h.date === entry.date && (h.note || '') === (entry.note || ''))
     : false;
-  if (clash) { showToast('Nicht wiederhergestellt – für den ' + formatDateShort(entry.date) + ' gibt es schon einen Eintrag', 'error'); return; }
+  if (clash) { showToast('Nicht wiederhergestellt: Für den ' + formatDateShort(entry.date) + ' gibt es schon einen Eintrag', 'error'); return; }
   s[list].push(entry);
   if (after) after();
   saveDB();
@@ -7113,7 +7113,7 @@ const WHATS_NEW = {
   items: [
     { icon: 'seating',  title: 'Sitzplan im Unterricht', text: 'Läuft eine Stunde, zeigt der Sitzplan oben Restzeit, Thema, fällige HA, wer fehlt und Geburtstage. Der Bildschirm bleibt dann an. Tippen auf die Leiste zeigt alles im Detail.' },
     { icon: 'refresh',  title: 'Sitzplan von selbst', text: 'Im Unterricht startet die App gleich im Sitzplan der laufenden Klasse und wechselt zur nächsten Stunde von selbst. Abschalten: Einstellungen → Sitzplan.' },
-    { icon: 'info',     title: 'Hinweise und Geburtstage', text: 'Im Schüler-Fenster Hinweise eintragen (z. B. „hörgeschädigt – vorne sitzen“), auf der Karte steht nur ein Symbol. Geburtstag im Schüler-Formular.' },
+    { icon: 'info',     title: 'Hinweise und Geburtstage', text: 'Im Schüler-Fenster Hinweise eintragen (z. B. „hörgeschädigt: vorne sitzen“), auf der Karte steht nur ein Symbol. Geburtstag im Schüler-Formular.' },
     { icon: 'list',     title: 'Unterrichtsplanung', text: 'Klasse öffnen → Reiter „Planung“: Themen der Reihe nach eintragen, die App verteilt sie auf die nächsten Stunden. Im Stundenplan oben „Klasse“: alle Stunden mit Thema, „noch … bis zum Halbjahr“.' },
     { icon: 'edit',     title: 'Neues Aussehen', text: 'Hell und ruhiger, Klassen und Schüler als übersichtliche Listen. Lieber dunkel? Einstellungen → Darstellung → Hintergrundfarbe „Dunkel“.' },
   ],
@@ -7232,7 +7232,7 @@ function renderPlanTab() {
   };
   let html = `<div class="plan-view"><p class="plan-summary">${summary}</p>`;
   if (overflow.length) html += `<p class="plan-warn">${overflow.length} ${overflow.length === 1 ? 'Thema passt' : 'Themen passen'} nicht mehr bis zum Schuljahresende.</p>`;
-  if (!open.length) html += `<div class="plan-empty">Noch keine Themen. Trage die Reihenfolge ein – die App verteilt sie auf die kommenden Stunden. Für Parallelklassen: „Von Klasse übernehmen“.</div>`;
+  if (!open.length) html += `<div class="plan-empty">Noch keine Themen. Trage die Reihenfolge ein, die App verteilt sie auf die kommenden Stunden. Für Parallelklassen: „Von Klasse übernehmen“.</div>`;
   html += '<div class="plan-list">' + open.map((t, i) => `
     <div class="plan-row" data-id="${escHtml(t.id)}">
       <span class="plan-num">${i + 1}</span>
@@ -7273,10 +7273,10 @@ async function choosePlanSource(targetId) {
   const sources = db.groups.filter(x => x.id !== targetId && groupPlan(x).length)
     .sort((a, b) => (b.subject === target.subject) - (a.subject === target.subject)
       || (a.className || '').localeCompare(b.className || '', undefined, { numeric: true }));
-  if (!sources.length) { showToast('Noch keine andere Klasse hat Themen – erst dort planen, dann hier übernehmen', 'error'); return; }
+  if (!sources.length) { showToast('Noch keine andere Klasse hat Themen. Erst dort planen, dann hier übernehmen', 'error'); return; }
   const n = g => groupPlan(g).length;
   const choice = await askChoice('Themen übernehmen',
-    `Die Themen werden in derselben Reihenfolge hinten an die Liste der ${target.className} angehängt – ohne feste Termine und ohne „erledigt“.`,
+    `Die Themen werden in derselben Reihenfolge hinten an die Liste der ${target.className} angehängt, ohne feste Termine und ohne „erledigt“.`,
     sources.map((x, i) => ({ label: `${x.className} ${x.subject || ''} · ${n(x)} ${n(x) === 1 ? 'Thema' : 'Themen'}`, value: x.id, primary: i === 0 })));
   if (choice) copyPlanFrom(targetId, choice);
 }
@@ -7797,7 +7797,7 @@ if (typeof process === 'undefined' || process.env.NODE_ENV !== 'test') {
 async function forceAppUpdate() {
   // Offline den Cache zu löschen hieße: keine App bis zum nächsten WLAN (BUGS K12). Erst prüfen, ob der Server erreichbar ist.
   if (navigator.onLine === false || !(await serverReachable())) {
-    showToast('Keine Internetverbindung – Aktualisieren geht nur online.', 'error');
+    showToast('Keine Internetverbindung. Aktualisieren geht nur online.', 'error');
     return;
   }
   if ('serviceWorker' in navigator) {
@@ -8189,7 +8189,7 @@ function renderDashboardWarnings() {
   const warnings = collectWarnings();
   let html = `<section class="dash-section"><h2 class="dash-heading">Warnungen${warnings.length ? ` <span class="dash-heading-sub">${warnings.length}</span>` : ''}</h2>`;
   if (!warnings.length) {
-    return html + `<div class="dash-empty">Keine offenen Warnungen – alles im grünen Bereich.</div></section>`;
+    return html + `<div class="dash-empty">Keine offenen Warnungen.</div></section>`;
   }
   const icons = { absences: icon('absences'), grade: icon('trend-down'), homework: icon('homework') };
   const colors = { absences: 'var(--danger)', grade: 'var(--danger)', homework: 'var(--warning)' };
@@ -8570,7 +8570,7 @@ function loginEmail() {
     .catch(err => {
       // Auch ein gelöschtes Konto (BUGS Z2) landet hier; Firebase unterscheidet das nicht immer von einem falschen Passwort
       if (['auth/user-not-found', 'auth/wrong-password', 'auth/invalid-credential', 'auth/invalid-login-credentials'].includes(err && err.code)) {
-        alert('Anmeldung fehlgeschlagen: E-Mail oder Passwort stimmen nicht – oder das Konto wurde gelöscht.\n\nDie Daten auf diesem Gerät sind davon nicht betroffen.');
+        alert('Anmeldung fehlgeschlagen: E-Mail oder Passwort stimmen nicht, oder das Konto wurde gelöscht.\n\nDie Daten auf diesem Gerät sind davon nicht betroffen.');
       } else {
         alert('Fehler beim Login: ' + err.message);
       }
@@ -8617,7 +8617,7 @@ async function logoutSync() {
     const unsynced = isLocalDBChanged();
     answer = await askChoice('Abmelden',
       'Sollen deine Daten (Klassen, Schüler, Noten) auf diesem Gerät bleiben?\n\n'
-      + 'Eigenes Gerät: behalten. Geteiltes oder fremdes Gerät: löschen – in der Cloud bleiben sie erhalten.'
+      + 'Eigenes Gerät: behalten. Geteiltes oder fremdes Gerät: löschen. In der Cloud bleiben sie erhalten.'
       + (unsynced ? '\n\n⚠️ Die letzten Änderungen sind noch nicht in der Cloud. Beim Löschen gehen sie verloren.' : ''),
       [{ label: 'Abmelden, Daten behalten', value: 'keep', primary: true },
        { label: 'Abmelden und Daten von diesem Gerät löschen', value: 'delete', danger: true }]);
@@ -8681,7 +8681,7 @@ async function confirmDeleteAccount() {
   if (!choice || !SyncManager.currentUser) return;
   const password = document.getElementById('sync-delete-account-password').value;
   if (SyncManager.usesPasswordLogin() && !password) { showToast('Bitte das Anmelde-Passwort eingeben', 'error'); return; }
-  if (syncRunning) { showToast('Gerade läuft ein Sync – bitte gleich noch einmal versuchen', 'error'); return; }
+  if (syncRunning) { showToast('Gerade läuft ein Sync. Bitte gleich noch einmal versuchen', 'error'); return; }
   if (choice === 'delete' && isLocalDBChanged() && !isLocalDBEmpty()
       && !confirm('Die letzten Änderungen auf diesem Gerät sind nicht in der Cloud. Sie gehen beim Löschen verloren.\n\nTrotzdem löschen?')) return;
   syncRunning = true;
@@ -8828,7 +8828,7 @@ async function confirmCloudPasswordReset() {
     return;
   }
   if (isLocalDBEmpty()) { alert('Auf diesem Gerät sind keine Daten. Es wurde nichts geändert.'); return; }
-  if (syncRunning) { showToast('Gerade läuft ein Sync – bitte gleich noch einmal versuchen', 'error'); return; }
+  if (syncRunning) { showToast('Gerade läuft ein Sync. Bitte gleich noch einmal versuchen', 'error'); return; }
   syncRunning = true;
   const dbAtStart = db;
   const localModified = db.settings.lastModified;
@@ -8848,7 +8848,7 @@ async function confirmCloudPasswordReset() {
     warnIfCloudNearlyFull();
     showToast('Cloud mit neuem Master-Passwort gespeichert ✓');
   } catch (e) {
-    if (e.name === 'CloudChangedError') alert('Gerade hat ein anderes Gerät hochgeladen. Es wurde nichts geändert – bitte noch einmal versuchen.');
+    if (e.name === 'CloudChangedError') alert('Gerade hat ein anderes Gerät hochgeladen. Es wurde nichts geändert. Bitte noch einmal versuchen.');
     else if (e.name === 'CloudTooLargeError') showSyncProblem(e, true);
     else alert('Fehler: ' + e.message);
   } finally {
@@ -9010,7 +9010,7 @@ let syncSlowNoticeMs = 30000;
 // trotzdem in die Cloud, ohne dass das Gerät es sich merkte → Konflikt mit den eigenen Daten, und die Sperre
 // war frei für einen zweiten, parallelen Sync (BUGS P5).
 function noticeSlowSync(promise) {
-  const timer = setTimeout(() => showToast('Der Sync dauert ungewöhnlich lange – bitte Internetverbindung prüfen.', 'error'), syncSlowNoticeMs);
+  const timer = setTimeout(() => showToast('Der Sync dauert ungewöhnlich lange. Bitte Internetverbindung prüfen.', 'error'), syncSlowNoticeMs);
   return promise.finally(() => clearTimeout(timer));
 }
 
@@ -9142,7 +9142,7 @@ async function triggerSyncInternal({ manual = false } = {}) {
     } else if ((result.status === 'pulled' || result.status === 'conflict') && !freshEmpty && inputModalOpen()) {
       // Erst übernehmen bzw. fragen, wenn alle Eingabefenster zu sind (BUGS P1)
       syncAfterModalClose = true;
-      if (manual) showToast('Neuer Stand in der Cloud – wird übernommen, sobald das Fenster geschlossen ist.');
+      if (manual) showToast('Neuer Stand in der Cloud. Wird übernommen, sobald das Fenster geschlossen ist.');
     } else if (result.status === 'conflict') {
       showSyncConflict(result);
     } else if (result.status === 'pulled') {
@@ -9167,7 +9167,7 @@ async function triggerSyncInternal({ manual = false } = {}) {
       if (manual) showToast('Daten bereits auf dem neuesten Stand.');
       updateSyncUI();
     } else if (result.status === 'offline') {
-      if (manual) showToast('Offline – Sync folgt, sobald wieder Internet da ist.', 'error');
+      if (manual) showToast('Offline. Sync folgt, sobald wieder Internet da ist.', 'error');
     } else if (result.status === 'confirm_password') {
       showNewPasswordConfirm();
       // Auch beim Autosave einmal sagen: Bis zur Bestätigung geht nichts in die Cloud (BUGS T2)
@@ -9191,7 +9191,7 @@ async function triggerSyncInternal({ manual = false } = {}) {
       // Automatisch höchstens einmal, bis wieder ein Sync klappt – sonst kam nach jeder Eingabe ein roter Toast (BUGS T7)
       syncErrorShown = true;
       showToast(isConnectionError(error)
-        ? '❌ Keine Verbindung zur Cloud – deine Daten sind auf diesem Gerät gespeichert. Sync folgt später.'
+        ? '❌ Keine Verbindung zur Cloud. Deine Daten sind auf diesem Gerät gespeichert. Sync folgt später.'
         : '❌ Sync-Fehler: ' + error.message, 'error');
     }
   } finally {
@@ -9226,7 +9226,7 @@ function ownPendingUpload(localModified) {
 async function resolveConflict(decision) {
   const conflict = window.currentConflict;
   if (!conflict) return;
-  if (syncRunning) { showToast('Gerade läuft ein Sync – bitte gleich noch einmal versuchen', 'error'); return; }
+  if (syncRunning) { showToast('Gerade läuft ein Sync. Bitte gleich noch einmal versuchen', 'error'); return; }
 
   if (decision === 'push' && isFreshEmptyDB()) {
     // Z. B. „Alle Daten löschen“, während der Dialog offen war: Hochladen würde die Cloud leeren (BUGS P4)

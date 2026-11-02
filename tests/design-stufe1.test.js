@@ -23,6 +23,14 @@ describe('Anti-Slop Stufe 1', () => {
     expect(HTML).not.toMatch(/—/);
     expect(JS.replace(/\/\/.*$/gm, '').replace(/\[-–—\]/g, '')).not.toMatch(/—/);
   });
+  it('keine Gedankenstriche „ – “ in sichtbaren Texten, nur in Spannen (12.10. – 16.10., 07:45 – 08:30) (AE11)', () => {
+    // Spanne: Zahl oder ${…} auf beiden Seiten
+    const span = /(\d\.?|\}) – (\d|\$\{)/g;
+    const html = HTML.replace(/<!--[\s\S]*?-->/g, '').replace(span, '');
+    const js = JS.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '').replace(/\s\/\/ .*$/gm, '').replace(span, '');
+    expect(html.split('\n').filter(l => / – /.test(l))).toEqual([]);
+    expect(js.split('\n').filter(l => / – /.test(l))).toEqual([]);
+  });
   it('Darüberfahren vergrößert nichts (Bewegung nur für Zustände)', () => {
     const hoverBlocks = CSS.match(/@media \(hover: hover\)\{[^@]*?\}\}/g) || [];
     expect(hoverBlocks.filter(b => /scale\(/.test(b))).toEqual([]);

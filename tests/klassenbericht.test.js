@@ -182,6 +182,6 @@ describe('Fenster und Knöpfe', () => {
     expect(HTML).toMatch(/onclick="openClassReport\(\)"><i data-icon="printer"><\/i>Klassen-Bericht \(PDF\/Excel\)/);
     expect(HTML).toMatch(/openClassReport\(currentGroupId\)/);
     expect(document.getElementById('modal-class-report').textContent).toMatch(/unverschlüsselt/);
-    expect(HTML).toMatch(/Klassen-Bericht \(PDF\/Excel\), Notenexport \(CSV\) – sind <strong>nicht<\/strong> verschlüsselt/);
+    expect(HTML).toMatch(/Klassen-Bericht als PDF\/Excel, Notenexport als CSV\) sind <strong>nicht<\/strong> verschlüsselt/);
   });
 });

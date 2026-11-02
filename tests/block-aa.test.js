@@ -258,7 +258,7 @@ describe('AA3: Vertretungen sichtbar und schnell eingetragen', () => {
     // ersetzt die reguläre Stunde an diesem Tag
     expect(app(`lessonsAt('${MON}', 1)`).map(s => s.id)).toEqual([sub.id]);
     const toasts = [...document.querySelectorAll('#toast-container .toast')].map(t => t.textContent);
-    expect(toasts.some(t => t.startsWith('Vertretung eingetragen ✓ – ersetzt'))).toBe(true);
+    expect(toasts.some(t => t.startsWith('Vertretung eingetragen, ersetzt'))).toBe(true);
   });
 
   it('Kachel: „Vertretung“ bei Vertretungen, „einmalig“ bei anderen einmaligen, nichts bei regulären', () => {

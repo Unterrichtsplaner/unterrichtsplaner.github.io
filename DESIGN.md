@@ -36,7 +36,7 @@ Kalender mit Haken in Tinten-Blau `#2f55c9` auf Papier `#f5f1e9` (`icon.svg`, da
 3. **Rundungen nur über Grundwerte:** `--radius-xs` (Plaketten), `--radius-sm` (Knöpfe, Eingaben, Reiter), `--radius-md` (Karten), `--radius-lg/xl` (Fenster). Die Pille (`99px`) nur für Chips und Zähler, runde Icon-Knöpfe als Kreis. Der Regler „Rundung“ in den Einstellungen verschiebt alle Grundwerte.
 4. **Etiketten in normaler Schreibung**, nicht in Großbuchstaben. Ausnahme: winzige Überschriften wie „LETZTE STUNDE“ im Cockpit.
 5. **Kein Leuchten, kein Verlauf, keine Spaß-Bewegung.** Schatten nur `--shadow-sm/md/lg`. Bewegung nur für Zustände (Fenster öffnet, Ziehen, Drücken), 120–250 ms, nichts vergrößert sich beim Darüberfahren.
-6. **Texte ruhig und konkret:** keine Ausrufezeichen, kein „erfolgreich“, keine Geviertstriche (—). Meldungen sagen, was passiert ist („Sicherung gespeichert ✓“).
+6. **Texte ruhig und konkret:** keine Ausrufezeichen, kein „erfolgreich“, keine Geviertstriche (—) und keine Gedankenstriche („Nicht mehr möglich – inzwischen …“). Stattdessen Punkt, Komma, Doppelpunkt oder Klammer. Der Strich „–“ nur in Spannen (12.10. – 16.10., 07:45–08:30) und als Platzhalter „–“ für „kein Wert“. Meldungen sagen, was passiert ist („Sicherung gespeichert ✓“).
 7. **Neue Farbe/Größe/Rundung nötig?** Grundwert ergänzen (hier und in `style.css`), nie eine Einzelzahl in eine Regel oder einen Inline-Stil schreiben.
 
 ## Listen statt Karten
