@@ -99,10 +99,10 @@ describe('Y8c: Ferien laden', () => {
     expect(text).not.toContain('Weihnachtsfeiertag');     // liegt in den Ferien
     expect(text).not.toContain('Heilige Drei Könige');
     expect(text).not.toContain('Allerheiligen');          // anderes Bundesland
-    expect(text).not.toContain('Sommerferien');           // schon vorbei (heute 15.10.2026)
+    expect(text).toContain('Sommerferien');               // Schuljahresanfang zählt mit (Rückmeldung 02.11.)
     app('answerChoice("take")');
     await p;
-    expect(rowLabels()).toEqual(['Herbstferien', 'Weihnachtsferien', 'Ostermontag', 'Fronleichnam']);
+    expect(rowLabels()).toEqual(['Sommerferien', 'Herbstferien', 'Weihnachtsferien', 'Ostermontag', 'Fronleichnam']);
     expect(app('db.settings.holidays')).toEqual([]);      // noch nicht gespeichert
     app('saveSettings()');
     expect(app('db.settings.holidays').map(h => [h.label, h.from, h.until])).toContainEqual(['Herbstferien', '2026-11-02', '2026-11-06']);
@@ -254,5 +254,38 @@ describe('Y8c: erneut laden – ersetzen statt überlappen', () => {
     expect(text).toBe('');                              // keine Rückfrage nötig
     expect(values()).toHaveLength(2);
     expect(toast()).toMatch(/schon/);
+  });
+});
+
+describe('Rückmeldung 02.11.: vergangene Ferien des laufenden Schuljahrs', () => {
+  it('Laden nach den Herbstferien: Herbstferien kommen trotzdem mit', async () => {
+    vi.setSystemTime(new Date(2026, 10, 9, 10, 0)); // Mo 09.11. – Herbstferien (02.–06.11.) vorbei
+    app('openSettings()');
+    document.getElementById('settings-federal-state').value = 'DE-BY';
+    const p = app('loadHolidaysFromApi()');
+    await flush(); await flush();
+    expect(document.getElementById('modal-choice-text').textContent).toContain('Herbstferien');
+    app('answerChoice("take")');
+    await p;
+    expect(rowLabels()).toContain('Herbstferien');
+    app('saveSettings()');
+    expect(app('db.settings.holidays').map(h => h.label)).toContain('Herbstferien');
+    expect(app('isSchoolDay(parseDate("2026-11-04"))')).toBe(false);   // zählt als Ferientag
+  });
+
+  it('nochmal laden: früher geladene (auch vergangene) werden ersetzt, nicht doppelt; ältere Schuljahre bleiben', async () => {
+    vi.setSystemTime(new Date(2026, 10, 9, 10, 0));
+    app('db = ' + JSON.stringify(sampleDB([
+      { id: 'old', label: 'Pfingstferien', from: '2026-05-26', until: '2026-06-05', source: 'DE-BY' },   // Schuljahr davor
+      { id: 'h1', label: 'Herbstferien', from: '2026-11-02', until: '2026-11-06', source: 'DE-BY' },
+    ])));
+    app('openSettings()');
+    document.getElementById('settings-federal-state').value = 'DE-BY';
+    const p = app('loadHolidaysFromApi()');
+    await flush(); await flush();
+    app('answerChoice("take")');
+    await p;
+    expect(rowLabels().filter(l => l === 'Herbstferien')).toHaveLength(1);
+    expect(rowLabels()).toContain('Pfingstferien');
   });
 });

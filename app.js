@@ -4522,12 +4522,15 @@ async function loadHolidaysFromApi() {
     const wd = parseDate(c.from).getDay();
     return wd !== 0 && wd !== 6 && !covered(c, schoolEntries);
   });
-  const today = formatDate(now);
-  // Früher geladene Einträge (Herkunft `source`) werden ersetzt – auch nach einem Bundesland-Wechsel. Eigene nie still.
-  const imported = holidaysDraft.filter(h => h.source && h.until >= today);
+  // Das ganze laufende Schuljahr (ab 1. August), auch schon vergangene Ferien: Sie zählen für frühere Wochen,
+  // die Klassen-Ansicht und die Stundenzahlen (Rückmeldung 02.11.: Herbstferien fehlten nach dem Laden im November).
+  const schoolYearStart = `${y}-08-01`;
+  // Früher geladene Einträge (Herkunft `source`) dieses Schuljahrs werden ersetzt – auch nach einem Bundesland-Wechsel.
+  // Ältere Schuljahre bleiben stehen. Eigene Einträge nie still.
+  const imported = holidaysDraft.filter(h => h.source && h.until >= schoolYearStart);
   const manual = holidaysDraft.filter(h => !h.source);
-  // Schon vergangene (z. B. die Sommerferien, wenn man im Oktober lädt) und von eigenen Einträgen abgedeckte nicht
-  const fresh = [...schoolEntries, ...publicEntries].filter(c => c.until >= today && !covered(c, manual))
+  // Von eigenen Einträgen abgedeckte nicht doppelt
+  const fresh = [...schoolEntries, ...publicEntries].filter(c => c.until >= schoolYearStart && !covered(c, manual))
     .sort((a, b) => a.from.localeCompare(b.from));
   const same = (a, b) => a.from === b.from && a.until === b.until && a.label === b.label;
   const unchanged = fresh.length === imported.length && fresh.every(c => imported.some(h => same(h, c)));
@@ -7504,8 +7507,12 @@ function renderTimetableClass(grid) {
       <span class="ttc-counts">${counts.length ? 'Noch ' + counts.join(' · ') : 'Halbjahr/Schuljahresende in den Einstellungen eintragen'}</span>
       <button type="button" class="btn-secondary ttc-plan-btn" data-act="plan">${icon('list')}<span>Planung</span></button>
     </div>`;
+  let lastWeek = '';
   const row = (l, isPast) => {
     const key = lessonKeyOf(l);
+    const wk = formatDate(mondayOf(parseDate(l.dateStr)));
+    const kw = wk !== lastWeek ? `<small class="ttc-kw">KW ${getWeekNumber(parseDate(l.dateStr))}</small>` : '';
+    lastWeek = wk;
     const data = db.lessonData[key] || {};
     const doneT = topicDoneIn(g, key);
     const a = byKey.get(key);
@@ -7519,7 +7526,7 @@ function renderTimetableClass(grid) {
     const badges = (due.hw.length ? `<span class="dash-badge hw">HA</span>` : '') + (due.tests.length ? `<span class="dash-badge test">Test</span>` : '');
     return `<div class="ttc-row${isPast ? ' is-past' : ''}${l.dateStr === todayStr ? ' is-today' : ''}${l.ausfall ? ' is-off' : ''}" role="button" tabindex="0"
         data-slot="${escHtml(l.slot.id)}" data-date="${escHtml(l.dateStr)}" aria-label="${escHtml(formatWeekdayShort(l.dateStr) + ', ' + l.block.label)}">
-        <span class="ttc-date">${escHtml(formatWeekdayShort(l.dateStr))}</span><span class="ttc-block">${escHtml(l.block.label)}</span>
+        <span class="ttc-date">${escHtml(formatWeekdayShort(l.dateStr))}${kw}</span><span class="ttc-block">${escHtml(l.block.label)}</span>
         <span class="ttc-topic">${topic}</span><span class="ttc-badges">${badges}</span></div>`;
   };
   let html = head;
@@ -7542,7 +7549,9 @@ function renderTimetableClass(grid) {
   });
   if (!future.length) html += '<div class="plan-empty">Keine kommenden Stunden im Stundenplan.</div>';
   grid.innerHTML = html;
-  grid.querySelector('#ttc-group').addEventListener('change', e => { timetableClassGroupId = e.target.value; renderTimetable(); });
+  const sel = grid.querySelector('#ttc-group');
+  sel.addEventListener('change', e => { timetableClassGroupId = e.target.value; renderTimetable(); });
+  makeCustomFormDropdown(sel);   // sieht aus wie die anderen Auswahllisten (Pfeil), sonst kaum als Auswahl erkennbar
   grid.querySelector('[data-act="plan"]').addEventListener('click', () => openPlanForGroup(g.id));
   const pastBtn = grid.querySelector('[data-act="past"]');
   if (pastBtn) pastBtn.addEventListener('click', () => { ttClassShowPast = !ttClassShowPast; renderTimetable(); });

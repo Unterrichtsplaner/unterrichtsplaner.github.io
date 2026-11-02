@@ -325,3 +325,18 @@ describe('Klassen-Ansicht: „Heute“ und Monate', () => {
     app('setTimetableMode("week")');
   });
 });
+
+describe('Klassen-Ansicht: Kalenderwochen und Auswahl', () => {
+  it('KW bei der ersten Stunde jeder Woche', () => {
+    app('switchView("timetable"); setTimetableMode("class")');
+    const kws = [...document.querySelectorAll('.ttc-row')].slice(0, 4).map(r => (r.querySelector('.ttc-kw') || {}).textContent || '');
+    expect(kws).toEqual(['KW 46', '', 'KW 47', '']);   // Mo 09.11., Do 12.11., Mo 16.11., Do 19.11.
+    app('setTimetableMode("week")');
+  });
+  it('Klassen-Auswahl sieht aus wie die anderen Auswahllisten (mit Pfeil)', () => {
+    app('switchView("timetable"); setTimetableMode("class")');
+    expect(document.querySelector('.ttc-head .custom-form-dropdown .custom-form-dropdown-trigger svg')).not.toBeNull();
+    expect(document.getElementById('ttc-group').style.display).toBe('none');
+    app('setTimetableMode("week")');
+  });
+});

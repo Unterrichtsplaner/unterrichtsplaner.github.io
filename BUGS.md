@@ -561,6 +561,9 @@ Hier kommen neue Wünsche hin, bevor sie gebaut werden. Erst klären (offene Fra
 
 - [x] **AD10** 🟠 **Klassen-Ansicht ohne „Heute“** (Rückmeldung 02.11.: weit weggescrollt kam man kaum zurück): „Heute“ bleibt in der Klassen-Ansicht sichtbar (Pfeile/Datum weiter aus) und springt an den Anfang (frühere Stunden zu, Liste oben, `goToCurrentWeek`). Monats-Überschriften in der Liste, beim Scrollen oben fest; Liste ohne Innenabstand oben, damit nichts über der festen Zeile hervorschaut. Test: `tests/unterrichtsplanung.test.js`.
 
+- [x] **AD11** 🟠 **Vergangene Ferien kamen beim Laden nicht mit** (Rückmeldung 02.11.): „Ferien laden“ nahm nur Ferien ab heute → im November fehlten die Herbstferien (für frühere Wochen, Klassen-Ansicht, Stundenzahlen). Jetzt das ganze laufende Schuljahr ab 1. August; früher geladene Einträge dieses Schuljahrs werden ersetzt (nicht doppelt), ältere Schuljahre bleiben, eigene nie still. Hinweis: Geladenes gilt erst mit „Speichern“ (so war es in der Vorschau des Nutzers: nur eigene Einträge, kein Bundesland gespeichert). Test: `tests/ferien-laden.test.js`.
+- [x] **AD12** 🟢 **Klassen-Ansicht: KW und Auswahl** (Rückmeldung 02.11.): „KW 46“ unter dem Datum bei der ersten Stunde jeder Woche; Klassen-Auswahl als Dropdown wie im Rest der App (`makeCustomFormDropdown`, mit Pfeil, 240 px). Test: `tests/unterrichtsplanung.test.js`.
+
 ## AE. Anti-Slop-Prüfung (02.11.2026, deslop-Skill, nur Befunde)
 
 Was nach „generiert“ aussieht, sortiert nach Sichtbarkeit. Noch nichts entschieden.

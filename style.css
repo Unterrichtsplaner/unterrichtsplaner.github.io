@@ -1321,7 +1321,9 @@ button.date-chip{font-family:inherit;padding:0;}
 .ttc-row.is-past{color:var(--text-secondary);}
 .ttc-row.is-today{box-shadow:inset 3px 0 0 var(--accent);}
 .ttc-row.is-off .ttc-topic{text-decoration:line-through;}
-.ttc-date{font-weight:600;white-space:nowrap;font-variant-numeric:tabular-nums;}
+.ttc-date{font-weight:600;white-space:nowrap;font-variant-numeric:tabular-nums;display:flex;flex-direction:column;line-height:1.25;}
+.ttc-kw{font-size:11px;font-weight:500;color:var(--text-muted);}
+.ttc-head .custom-form-dropdown{flex:0 0 auto;width:240px;max-width:100%;}
 .ttc-block{font-size:12px;color:var(--text-muted);white-space:nowrap;}
 .ttc-topic{min-width:0;overflow-wrap:anywhere;}
 .ttc-topic small{color:var(--text-muted);}
