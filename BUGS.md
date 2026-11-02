@@ -518,6 +518,33 @@ Hier kommen neue Wünsche hin, bevor sie gebaut werden. Erst klären (offene Fra
   - **Offene Fragen:** Reichen PDF + Excel oder ausdrücklich Word? Auch Schüler-Notizen und Unterrichtsinhalte der Stunden, oder nur Noten/Fehlzeiten/Mitarbeit/HA? Knopf in den Einstellungen (alle Klassen) und zusätzlich in der Klassenansicht (nur diese Klasse)?
   - **Aufwand:** Hoch.
 
+- [ ] **AD2** 🟠 **Sitzplan als Unterrichts-Cockpit** („Commander-Ansicht“): alles, was man während der Stunde braucht, ohne über den Stundenplan zu gehen. Es gibt schon: Timer, Stoppuhr, Zufallsauswahl, Gruppen bilden, Noten-Auge (Regel 16), Schnellbewertung (Mitarbeit, zu spät, keine HA, fehlt), Schüler-Notizen (`s.notes` allgemein, `studentNotes` mit Datum).
+  - **Stundenleiste oben:** Klasse/Fach, Uhrzeit, „noch 23 Min“ + Fortschrittsbalken (`timetableClock`, Regel 21/28), danach: nächste Stunde mit Raum. Zwischen den Stunden: „Pause noch 8 Min – danach 9c in R132“.
+  - **Karten-Anzeige umschaltbar:** Name · Mitarbeit heute · Mitarbeit-Tendenz (letzte Wochen) · Noten (nur auf Knopfdruck, wird nie gespeichert) · Hinweise. Eine Leiste, ein Tippen.
+  - **Hinweise pro Schüler** (z. B. „hörgeschädigt – vorne sitzen“, „mag FCM“): bestehendes Feld `s.notes` nutzen (keine Migration, alte App-Versionen kennen es schon). Auf der Karte nur ein kleines Symbol; der Text erst beim Antippen (Schnellbewertung bekommt das Feld zum Lesen/Bearbeiten). Gesundheitsangaben sind besonders schützenswert (DSGVO Art. 9) → am Beamer nie offen anzeigen, wie Noten nur auf Knopfdruck.
+  - **Heute-Kasten:** Thema der Stunde (aus „Inhalt“ bzw. Planung AD3), letzte Stunde behandelt, heute fällige HA (wer hat sie nicht), angekündigter Test, wer fehlt heute, wer letzte Stunde gefehlt hat (Stoff nachholen).
+  - **Weitere Ideen:** „Noch nicht dran gewesen“ (Mitarbeit heute zählt mit, Zufallsauswahl bevorzugt diese Schüler) · Schnellnotiz zur Stunde (landet in den Notizen der Stunde) · „Stunde abschließen“ am Ende (Inhalt eintragen, HA vergeben, in einem Fenster) · Bildschirm bleibt an, solange das Cockpit offen ist (Wake Lock) · Geburtstag heute (bräuchte neues Feld).
+  - **Offene Fragen:** Cockpit als eigener Modus des Sitzplans (Knopf) oder einfach immer so? Gerät im Unterricht: iPad quer, hochkant, Laptop? Welche Karten-Anzeigen wirklich? Hinweise auf der Karte als Symbol ok?
+  - **Aufwand:** Hoch.
+- [ ] **AD3** 🟢 **Unterrichtsplanung** (Konzept, darf verworfen werden). **Empfehlung: kein neuer Hauptreiter**, sondern pro Klasse eine **Themenliste**, die sich automatisch auf die kommenden Stunden verteilt:
+  - Themen in Reihenfolge eintragen (optional gruppiert in Einheiten, z. B. „Bruchrechnen“). Sie hängen nicht an festen Daten, sondern rutschen in die nächsten Stunden, die wirklich stattfinden → fällt eine Stunde aus oder sind Ferien, wandert alles von selbst weiter. Einzelne Termine lassen sich festpinnen (Klassenarbeit am 12.12.).
+  - Im Stunden-Fenster steht „Geplant: …“; „Erledigt“ hakt das Thema ab und übernimmt es als Inhalt der Stunde (`lessonData.done`). Nicht geschafft → bleibt oben in der Liste.
+  - Wo: Reiter „Planung“ in der Klassenansicht + Klassen-Ansicht im Stundenplan (AD4) – beides zeigt dieselbe Liste. Ein eigener Hauptreiter würde dieselben Daten ein drittes Mal zeigen.
+  - Datenmodell: neues Feld an der Klasse (z. B. `group.plan`), Klassen werden per `Object.assign` gespeichert → ältere App-Versionen lassen das Feld stehen; vor dem Bau trotzdem prüfen (Regel 15).
+  - **Offene Fragen:** Reicht eine Liste pro Klasse, oder braucht es Vorlagen (gleiche Reihe für 7a und 7b)? Materialien/Links an Themen?
+  - **Aufwand:** Hoch (mit AD4 zusammen bauen).
+- [ ] **AD4** 🟠 **Mehr Ansichten im Stundenplan:** Umschalter **Woche · Tag · Klasse**.
+  - **Tag** (auch auf iPad/PC, bisher nur auf dem Handy): heute groß, pro Stunde Thema, HA, Test, Notizen-Vorschau.
+  - **Klasse:** alle Stunden dieser Klasse als Liste, Vergangenes mit dem, was behandelt wurde, Kommendes mit Themen aus AD3. Oben: „noch 10 Stunden bis zu den Sommerferien / bis zum Halbjahr“ (gezählt über `slotOccursOn`, Ferien und Ausfälle zählen nicht). Themen direkt in die Zeilen tippen.
+  - Dafür nötig: Ende des Halbjahres / Schuljahres. Sommerferien kommen schon aus „Ferien laden“; Halbjahr als neues Datum in den Einstellungen.
+  - **Offene Fragen:** Zählen bis Halbjahr, Schuljahresende oder beides? Klassen-Ansicht auch für freie Stunden ohne Klasse (gleicher Fachname, `relatedSlots`)?
+  - **Aufwand:** Hoch.
+- [ ] **AD5** 🟢 **Ideen aus dem Rundgang** (zum Aussuchen, noch nichts entschieden):
+  - **Klassenarbeit mit Punkten:** Punkte pro Schüler eintippen → Note über einen Notenschlüssel (Prozentgrenzen einstellbar), Notenspiegel und Schnitt; zeigt an, wenn mehr als ein Drittel unter 4 liegt (in vielen Ländern genehmigungspflichtig). Gibt es noch gar nicht.
+  - **Korrektur-Erinnerung:** „Arbeit eingesammelt am …, zurückgeben bis …“ im Dashboard.
+  - **Elterngespräche/Beobachtungen:** Anmerkungen mit Datum gibt es schon – eine Vorlage „Elterngespräch“ (Datum, Anlass, Vereinbarung) und eine Übersicht pro Klasse.
+  - **Geburtstage** (neues Feld, Hinweis im Cockpit/Dashboard).
+
 ---
 
 ## Erledigt
