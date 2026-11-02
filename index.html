@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="de">
+<html lang="de" data-theme="light">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
@@ -41,7 +41,7 @@
       }
     } catch(e) {}
   </script>
-  <link rel="stylesheet" href="style.css?v=298" />
+  <link rel="stylesheet" href="style.css?v=300" />
   <script>
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
@@ -906,17 +906,16 @@
         <div class="form-group">
           <span class="group-label" id="settings-bg-label">Hintergrundfarbe</span>
           <div style="display:flex; gap:10px; flex-wrap:wrap; margin-bottom:12px;" id="settings-bg-colors" role="group" aria-labelledby="settings-bg-label">
-            <div class="color-swatch settings-swatch-bg" role="button" tabindex="0" style="background:#14120f; --swatch-color:#77705f;" data-color="" data-mode="dark" data-card="" title="Standard (dunkel)" onclick="selectThemeBg(this, '', 'dark', '')"></div>
-            <div class="color-swatch settings-swatch-bg" role="button" tabindex="0" style="background:#f5f1e9; --swatch-color:#c9bfae;" data-color="#f5f1e9" data-mode="light" data-card="#fffdf8" title="Papier (hell)" onclick="selectThemeBg(this, '#f5f1e9', 'light', '#fffdf8')"></div>
+                        <div class="color-swatch settings-swatch-bg" role="button" tabindex="0" style="background:#f5f1e9; --swatch-color:#c9bfae;" data-color="#f5f1e9" data-mode="light" data-card="#fffdf8" title="Papier (hell)" onclick="selectThemeBg(this, '#f5f1e9', 'light', '#fffdf8')"></div>
             <!-- Light Backgrounds -->
             <div class="color-swatch settings-swatch-bg" role="button" tabindex="0" style="background:#fbcfe8; --swatch-color:#f9a8d4;" data-color="#fbcfe8" data-mode="light" data-card="#fce7f3" title="Pastellrosa" onclick="selectThemeBg(this, '#fbcfe8', 'light', '#fce7f3')"></div>
             <div class="color-swatch settings-swatch-bg" role="button" tabindex="0" style="background:#fae8b4; --swatch-color:#fcd34d;" data-color="#fae8b4" data-mode="light" data-card="#fdf4d8" title="Creme" onclick="selectThemeBg(this, '#fae8b4', 'light', '#fdf4d8')"></div>
             <div class="color-swatch settings-swatch-bg" role="button" tabindex="0" style="background:#c2d6c6; --swatch-color:#9eb8a4;" data-color="#c2d6c6" data-mode="light" data-card="#dbe7dd" title="Salbeigrün" onclick="selectThemeBg(this, '#c2d6c6', 'light', '#dbe7dd')"></div>
-            <div class="color-swatch settings-swatch-bg" role="button" tabindex="0" style="background:#bfdbfe; --swatch-color:#93c5fd;" data-color="#bfdbfe" data-mode="light" data-card="#dbeafe" title="Eisblau" onclick="selectThemeBg(this, '#bfdbfe', 'light', '#dbeafe')"></div>
+            <div class="color-swatch settings-swatch-bg" role="button" tabindex="0" style="background:#bfdbfe; --swatch-color:#93c5fd;" data-color="" data-mode="light" data-card="" title="Eisblau (Standard)" onclick="selectThemeBg(this, '', 'light', '')"></div>
             <div class="color-swatch settings-swatch-bg" role="button" tabindex="0" style="background:#ddd6fe; --swatch-color:#c4b5fd;" data-color="#ddd6fe" data-mode="light" data-card="#ede9fe" title="Lavendel" onclick="selectThemeBg(this, '#ddd6fe', 'light', '#ede9fe')"></div>
             <!-- Dark / Mid Backgrounds -->
             <div class="color-swatch settings-swatch-bg" role="button" tabindex="0" style="background:#1f2937; --swatch-color:#6b7280;" data-color="#1f2937" data-mode="dark" data-card="#374151" title="Schiefer" onclick="selectThemeBg(this, '#1f2937', 'dark', '#374151')"></div>
-            <div class="color-swatch settings-swatch-bg" role="button" tabindex="0" style="background:#18181b; --swatch-color:#71717a;" data-color="#18181b" data-mode="dark" data-card="#27272a" title="Dämmerung" onclick="selectThemeBg(this, '#18181b', 'dark', '#27272a')"></div>
+            <div class="color-swatch settings-swatch-bg" role="button" tabindex="0" style="background:#18181b; --swatch-color:#71717a;" data-color="#18181b" data-mode="dark" data-card="#27272a" title="Dunkel" onclick="selectThemeBg(this, '#18181b', 'dark', '#27272a')"></div>
             <div class="color-swatch settings-swatch-bg" role="button" tabindex="0" style="background:#0f172a; --swatch-color:#475569;" data-color="#0f172a" data-mode="dark" data-card="#1e293b" title="Tiefsee" onclick="selectThemeBg(this, '#0f172a', 'dark', '#1e293b')"></div>
           </div>
         </div>
@@ -931,7 +930,6 @@
             <div class="color-swatch settings-swatch-accent" role="button" tabindex="0" style="background:#eab308; --swatch-color:#eab308;" data-color="#eab308" title="Sonnengelb" onclick="selectThemeAccent(this, '#eab308')"></div>
             <div class="color-swatch settings-swatch-accent" role="button" tabindex="0" style="background:#4ade80; --swatch-color:#4ade80;" data-color="#4ade80" title="Mint Grün" onclick="selectThemeAccent(this, '#4ade80')"></div>
             <div class="color-swatch settings-swatch-accent" role="button" tabindex="0" style="background:#38bdf8; --swatch-color:#38bdf8;" data-color="#38bdf8" title="Himmelblau" onclick="selectThemeAccent(this, '#38bdf8')"></div>
-            <div class="color-swatch settings-swatch-accent" role="button" tabindex="0" style="background:#818cf8; --swatch-color:#818cf8;" data-color="#818cf8" title="Periwinkle" onclick="selectThemeAccent(this, '#818cf8')"></div>
             <div class="color-swatch settings-swatch-accent" role="button" tabindex="0" style="background:#f472b6; --swatch-color:#f472b6;" data-color="#f472b6" title="Blush Pink" onclick="selectThemeAccent(this, '#f472b6')"></div>
           </div>
         </div>
@@ -1468,12 +1466,12 @@
   </div>
 
   <script src="lib/crypto-js.min.js"></script>
-  <script src="crypto-helper.js?v=298"></script>
+  <script src="crypto-helper.js?v=300"></script>
   <script src="lib/firebase-app-compat.js"></script>
   <script src="lib/firebase-auth-compat.js"></script>
   <script src="lib/firebase-firestore-compat.js"></script>
-  <script src="firebase-config.js?v=298"></script>
-  <script src="sync-manager.js?v=298"></script>
-  <script src="app.js?v=298"></script>
+  <script src="firebase-config.js?v=300"></script>
+  <script src="sync-manager.js?v=300"></script>
+  <script src="app.js?v=300"></script>
 </body>
 </html>

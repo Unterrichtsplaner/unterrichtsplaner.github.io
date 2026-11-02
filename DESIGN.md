@@ -16,7 +16,9 @@ Kalender mit Haken in Tinten-Blau `#2f55c9` auf Papier `#f5f1e9` (`icon.svg`, da
 
 ## Grundwerte (style.css `:root`)
 
-| | Dunkel (Standard) | Hell („Papier“) |
+**Standard-Design (seit 02.11.2026): hell, Hintergrund Eisblau (`#bfdbfe`, Karten `#dbeafe`), Akzent Tinte** (`DEFAULT_THEME` in app.js). Dunkel ist wählbar („Dunkel“, „Schiefer“, „Tiefsee“), ebenso „Papier (hell)“.
+
+| | Dunkel | Hell (Grundwerte, Eisblau/Papier setzen Hintergrund und Karten darüber) |
 |---|---|---|
 | Hintergrund | `#14120f` warmes Dunkel | `#f5f1e9` Papier |
 | Karten | `#211e19` | `#fffdf8` |
@@ -25,7 +27,7 @@ Kalender mit Haken in Tinten-Blau `#2f55c9` auf Papier `#f5f1e9` (`icon.svg`, da
 | Schrift auf Akzent | `--on-accent` (weiß) | weiß |
 
 - Statusfarben (`--success`, `--warning`, `--danger`) und Notenfarben bleiben getrennt vom Akzent.
-- Nutzer können Akzent und Hintergrund in den Einstellungen wählen. „Standard“ wird **nicht gespeichert** (`savedThemeAccent`, `savedThemeBg`), damit eine neue Standardfarbe alle erreicht, die nie selbst gewählt haben.
+- Nutzer können Akzent und Hintergrund in den Einstellungen wählen. „Standard“ wird **nicht gespeichert** (`savedThemeAccent`, `savedThemeBg`, `savedThemeMode`), damit eine neue Standardfarbe alle erreicht, die nie selbst gewählt haben. Früher automatisch gespeicherte Standardwerte (`#0f1117`, `#6366f1`) gelten als Standard.
 
 ## Regeln
 

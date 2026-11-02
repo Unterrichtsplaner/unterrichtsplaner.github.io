@@ -116,20 +116,31 @@ describe('S6: Standard-Design bleibt Standard', () => {
     app('saveSettings(); clearTimeout(window.syncTimeout)');
     expect(app('db').settings.themeBg).toBeFalsy();
     expect(app('db').settings.themeCard).toBeFalsy();
-    expect(document.documentElement.style.getPropertyValue('--bg-secondary')).toBe('');
+    app('updateAppliedThemeFromDB()');   // wie beim Start der App
+    expect(document.documentElement.style.getPropertyValue('--bg-secondary')).toBe('#bfdbfe'); // Standard = Eisblau (02.11.)
+    expect(document.documentElement.getAttribute('data-theme')).toBe('light');
   });
   it('früher versehentlich gespeicherte Standardwerte gelten als Standard', () => {
     Object.assign(app('db').settings, { themeBg: '#0f1117', themeCard: '#1e2130' });
     app('updateAppliedThemeFromDB()');
-    expect(document.documentElement.style.getPropertyValue('--bg-secondary')).toBe('');
-    expect(document.documentElement.style.getPropertyValue('--bg-elevated')).toBe('');
+    expect(document.documentElement.style.getPropertyValue('--bg-secondary')).toBe('#bfdbfe');
+    expect(document.documentElement.style.getPropertyValue('--bg-elevated')).toBe('#dbeafe');
+    expect(document.documentElement.getAttribute('data-theme')).toBe('light');
+  });
+  it('gespeicherte Dunkel-Wahl („Dunkel“, früher „Dämmerung“) bleibt dunkel', () => {
+    Object.assign(app('db').settings, { themeBg: '#18181b', themeCard: '#27272a', theme: 'dark' });
+    app('updateAppliedThemeFromDB()');
+    expect(document.documentElement.getAttribute('data-theme')).toBe('dark');
+    expect(document.documentElement.style.getPropertyValue('--bg-secondary')).toBe('#18181b');
+    expect(document.querySelector('.settings-swatch-bg[data-color="#18181b"]').title).toBe('Dunkel');
   });
   it('es gibt ein Farbfeld „Standard“, das eine gewählte Farbe zurücknimmt', () => {
     Object.assign(app('db').settings, { themeBg: '#1f2937', themeCard: '#374151' });
     app('openSettings()');
     const std = document.querySelector('.settings-swatch-bg[data-color=""]');
     expect(std).toBeTruthy();
-    app('selectThemeBg')(std, '', 'dark', ''); // Inline-onclick läuft in jsdom nicht (Regel 18)
+    expect(std.title).toBe('Eisblau (Standard)');
+    app('selectThemeBg')(std, '', 'light', ''); // Inline-onclick läuft in jsdom nicht (Regel 18)
     expect(std.getAttribute('onclick')).toContain("selectThemeBg(this, ''");
     app('saveSettings(); clearTimeout(window.syncTimeout)');
     expect(app('db').settings.themeBg).toBeFalsy();

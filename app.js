@@ -4257,9 +4257,12 @@ function applyInitialSidebar() {
 applyInitialSidebar();
 
 let currentThemeAccent = savedThemeAccent();
-let currentThemeBg = db.settings.themeBg || '#0f1117';
-let currentThemeMode = db.settings.theme || 'dark'; // db.settings.theme stores the mode
-let currentThemeCard = db.settings.themeCard || '#1e2130';
+// Standard-Design: hell, Hintergrund Eisblau, Akzent Tinte (02.11.2026). „Standard“ wird nie gespeichert
+// (themeBg fehlt), damit alle, die nie selbst gewählt haben, einen neuen Standard bekommen (BUGS S6, AE4).
+const DEFAULT_THEME = { bg: '#bfdbfe', card: '#dbeafe', mode: 'light' };
+let currentThemeBg = savedThemeBg();                        // '' = Standard
+let currentThemeMode = savedThemeMode();
+let currentThemeCard = currentThemeBg ? (db.settings.themeCard || '') : '';
 
 function selectThemeAccent(el, color) {
   document.querySelectorAll('.settings-swatch-accent').forEach(s => s.classList.remove('selected'));
@@ -4320,11 +4323,13 @@ function appVersion() {
 
 function applyThemePreview() {
   const radEl = document.getElementById('settings-radius');
-  document.documentElement.setAttribute('data-theme', currentThemeMode);
+  document.documentElement.setAttribute('data-theme', document.querySelector('.settings-swatch-bg.selected') ? currentThemeMode : savedThemeMode());
 
   const accent = document.querySelector('.settings-swatch-accent.selected') ? currentThemeAccent : savedThemeAccent();
-  const bg = document.querySelector('.settings-swatch-bg.selected') ? currentThemeBg : savedThemeBg();
-  const card = bg ? (document.querySelector('.settings-swatch-bg.selected') ? currentThemeCard : (db.settings.themeCard || null)) : null;
+  const picked = !!document.querySelector('.settings-swatch-bg.selected');
+  const chosenBg = picked ? currentThemeBg : savedThemeBg();   // '' = Standard (Eisblau)
+  const bg = chosenBg || DEFAULT_THEME.bg;
+  const card = chosenBg ? (picked ? currentThemeCard : (db.settings.themeCard || null)) : DEFAULT_THEME.card;
   let rad = radEl ? parseInt(radEl.value) : db.settings.themeRadius;
   if (rad > 12) rad = 12; // Clamp max radius to 12
 
@@ -7058,7 +7063,7 @@ const WHATS_NEW = {
     { icon: 'seating',  title: 'Sitzplan im Unterricht', text: 'Läuft eine Stunde, zeigt der Sitzplan oben Restzeit, Thema, fällige HA, wer fehlt und Geburtstage. Der Bildschirm bleibt dann an. Tippen auf die Leiste zeigt alles im Detail.' },
     { icon: 'refresh',  title: 'Sitzplan von selbst', text: 'Im Unterricht startet die App gleich im Sitzplan der laufenden Klasse und wechselt zur nächsten Stunde von selbst. Abschalten: Einstellungen → Sitzplan.' },
     { icon: 'info',     title: 'Hinweise und Geburtstage', text: 'Im Schüler-Fenster Hinweise eintragen (z. B. „hörgeschädigt – vorne sitzen“), auf der Karte steht nur ein Symbol. Geburtstag im Schüler-Formular.' },
-    { icon: 'edit',     title: 'Neues Aussehen', text: 'Ruhigere Farben, Klassen und Schüler als übersichtliche Listen. Heller Modus: Einstellungen → Darstellung → „Papier (hell)“.' },
+    { icon: 'edit',     title: 'Neues Aussehen', text: 'Hell und ruhiger, Klassen und Schüler als übersichtliche Listen. Lieber dunkel? Einstellungen → Darstellung → Hintergrundfarbe „Dunkel“.' },
   ],
 };
 const WHATS_NEW_SEEN_KEY = 'whats_new_seen';
@@ -8596,7 +8601,7 @@ function loadThemeSelection() {
   currentThemeAccent = savedThemeAccent();
   document.querySelectorAll('.settings-swatch-accent').forEach(s => s.classList.toggle('selected', s.dataset.color === currentThemeAccent));
   currentThemeBg   = savedThemeBg();
-  currentThemeMode = db.settings.theme || 'dark';
+  currentThemeMode = savedThemeMode();
   currentThemeCard = currentThemeBg ? (db.settings.themeCard || '') : '';
   document.querySelectorAll('.settings-swatch-bg').forEach(s => s.classList.toggle('selected', s.dataset.color === currentThemeBg));
   let radVal = Number.isFinite(db.settings.themeRadius) ? db.settings.themeRadius : 8;
@@ -8615,7 +8620,11 @@ function savedThemeAccent() {
 }
 function savedThemeBg() {
   const bg = db.settings.themeBg || '';
-  return bg === '#0f1117' ? '' : bg;
+  return bg === '#0f1117' || bg === DEFAULT_THEME.bg ? '' : bg;   // früheres Dunkel-Standard bzw. Eisblau = Standard
+}
+// Hell/dunkel: beim Standard immer hell; sonst wie gespeichert (das Farbfeld legt den Modus fest)
+function savedThemeMode() {
+  return savedThemeBg() ? (db.settings.theme || 'dark') : DEFAULT_THEME.mode;
 }
 // Hilfsfunktion zum Aktualisieren des Themes aus den Einstellungen in der DB
 function updateAppliedThemeFromDB() {

@@ -84,7 +84,7 @@ describe('H13: Namen auf kleinen Sitzplan-Karten', () => {
 
   it('lange Namen werden mit Silbentrennung umbrochen („Maximi-liane“), nicht hart mitten im Wort', () => {
     const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
-    expect(html).toMatch(/<html lang="de">/);   // Silbentrennung braucht die Sprache
+    expect(html).toMatch(/<html lang="de"[ >]/);   // Silbentrennung braucht die Sprache
     expect(css).toMatch(/\.seating-card \.sc-name\{[^}]*hyphens:auto/);
     expect(css).not.toMatch(/\.seating-card \.sc-name\{[^}]*word-break:break-word/);
   });

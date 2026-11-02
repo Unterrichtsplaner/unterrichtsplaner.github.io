@@ -76,7 +76,13 @@ describe('Farbwahl in den Einstellungen', () => {
     expect(app('db.settings.themeAccent')).toBe('#6466f1');            // „Indigo“ bewusst gewählt
     expect(rootVar('--accent')).toBe('#6466f1');
   });
-  it('heller Standard „Papier“ wählbar', () => {
+  it('Standard ist hell mit Eisblau; „Standard (dunkel)“ und Periwinkle gibt es nicht mehr, „Dunkel“ schon', () => {
+    expect(HTML).toMatch(/data-color="" data-mode="light" data-card="" title="Eisblau \(Standard\)"/);
+    expect(HTML).not.toMatch(/Standard \(dunkel\)|Periwinkle|Dämmerung/);
+    expect(HTML).toMatch(/title="Dunkel"/);
+    expect(HTML).toMatch(/<html lang="de" data-theme="light">/);
+  });
+  it('heller „Papier“ wählbar', () => {
     expect(HTML).toMatch(/data-color="#f5f1e9" data-mode="light" data-card="#fffdf8" title="Papier \(hell\)"/);
   });
 });
