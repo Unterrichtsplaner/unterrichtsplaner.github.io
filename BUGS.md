@@ -550,6 +550,22 @@ Hier kommen neue Wünsche hin, bevor sie gebaut werden. Erst klären (offene Fra
   - ~~Korrektur-Erinnerung~~, ~~Vorlage Elterngespräch~~: abgelehnt (02.11.).
 - [x] **AD6** 🟢 **Geburtstage** (gewünscht 02.11.): neues Feld am Schüler (`birthday`, `YYYY-MM-DD` oder nur `MM-DD`), im Schüler-Formular eintragen; Hinweis am Tag im Cockpit (Karte) und im Dashboard („Heute: Anna hat Geburtstag“), am Wochenende/in Ferien den nächsten Schultag mit Hinweis „hatte am Samstag“. Ältere App-Versionen lassen das Feld stehen, solange sie Schüler per Objekt bearbeiten – vor dem Bau prüfen (Regel 15). **Aufwand:** Normal, am besten zusammen mit AD2. **Umgesetzt (v281):** Feld `birthday` (`YYYY-MM-DD`) im Schüler-Formular, leer = Feld wird entfernt; beim Kopieren in andere Klassen mit. `birthdayInfo` (heute oder an freien Tagen seit dem letzten Schultag, höchstens 3 Wochen zurück; 29.02. in anderen Jahren am 28.02.; Alter). Torte auf der Karte, Kachel im Cockpit, Kasten im Dashboard (`dashboardBirthdaysHTML`, gleiche Person in zwei Fächern einmal). Ältere App-Versionen behalten das Feld (Schüler werden per `Object.assign` bearbeitet).
 
+## AE. Anti-Slop-Prüfung (02.11.2026, deslop-Skill, nur Befunde)
+
+Was nach „generiert“ aussieht, sortiert nach Sichtbarkeit. Noch nichts entschieden.
+
+- [ ] **AE1** 🟢 **Logo mit Farbverlauf** („Planer“ indigo → violett als Verlaufsschrift, `style.css` `.app-logo-block`). Lautestes KI-Merkmal. *Aufwand: klein.*
+- [ ] **AE2** 🟢 **Leuchteffekte** (`--shadow-accent`, `--accent-glow`, heller Leuchtrand um Fenster). *Klein.*
+- [ ] **AE3** 🟢 **Jubel-Toasts** („Daten erfolgreich gesichert! ✓“, „Registrierung erfolgreich!“ – 6 mit „!“), 3 Geviertstriche (—). *Klein.*
+- [ ] **AE4** 🟠 **Standard-Farben eines Baukastens als Markenfarbe:** Akzent = Tailwind-Indigo (#6366f1), Notenfarben = Tailwind grün/limette/bernstein/orange/rot, dunkles Marineblau. Akzent überall (Knöpfe, Reiter, Wochen-Label, Namen in Tabellen, Toggles, Plaketten) → hebt nichts mehr hervor. *Mittel:* eigene Akzentfarbe, nur für Hauptaktion + „jetzt“.
+- [ ] **AE5** 🟠 **Pillen und Rundungen ohne System:** 33× `99px` (Knöpfe, Reiter, Chips), dazu 4/6/8/10/12/14/16/20 px. *Mittel:* eine Rundung für Flächen, Pille nur für Chips.
+- [ ] **AE6** 🟠 **Keine Schriftgrößen-Skala:** ~20 Größen (9–28 px, auch 10,5/11,5), überall kleine Großbuchstaben-Etiketten (SCHÜLER, Ø NOTE, LEHRERNAME). Inter ist die ganze Identität. *Mittel.*
+- [ ] **AE7** 🟢 **Bunte Initialen-Kreise** in der Schülerliste (Zufallsfarbe je Schüler). *Klein.*
+- [ ] **AE8** 🟠 **Karten für alles:** Klassenübersicht = Raster gleicher Karten (Farbstreifen, Stift im Kreis, 3 Kennzahlen, breiter Pillen-Knopf); Schülerliste = jede Zeile eine Karte mit Pillen-Gruppen (MITARBEIT 0 0 0 / FEHLT 0 0). *Mittel–groß.*
+- [ ] **AE9** 🟢 **Bewegung ohne Aufgabe:** Fenster gleiten + skalieren, Farbfelder/Knöpfe vergrößern sich beim Darüberfahren (scale 1.05–1.15). *Klein.*
+- [ ] **AE10** 🟠 **213 Inline-Stile in index.html** – Gestaltung lässt sich nicht zentral steuern, daher die Uneinheitlichkeit. *Groß, nur zusammen mit einem Umbau.*
+- Gut und eigen (bleibt): Sitzplan, Stundenplan, Cockpit sind fachlich gedacht; eigene Linien-Icons durchgängig; ruhige deutsche Texte ohne Werbesprache.
+
 ---
 
 ## Erledigt
