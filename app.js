@@ -2565,7 +2565,7 @@ function renderSubjectGroups() {
           <div class="sgc-stat"><div class="sgc-stat-value">${gradeCount}</div><div class="sgc-stat-label">Noten</div></div>
         </div>
         <div style="margin-top:12px; display:flex; gap:8px;">
-          <button class="btn-primary" style="flex:1; justify-content:center;" onclick="event.stopPropagation();openSeatingForGroup(${jsArg(g.id)})">${icon('seating')}Sitzplan</button>
+          <button class="btn-secondary" style="flex:1; justify-content:center;" onclick="event.stopPropagation();openSeatingForGroup(${jsArg(g.id)})">${icon('seating')}Sitzplan</button>
         </div>`;
       card.addEventListener('click', () => openGroupStudents(g.id));
       grid.appendChild(card);
@@ -2972,7 +2972,7 @@ function renderOverviewTable() {
         else if (val === 'neutral') emoji = '😐';
         else if (val === 'negative') emoji = '☹️';
         html += `<td style="text-align:center; padding:4px;">
-          <button style="background:none; border:none; font-size:18px; cursor:pointer;" onclick="cycleInlineParticipation(${jsArg(s.id)}, ${jsArg(ev.date)}, ${jsArg(ev.label||'')})">${emoji}</button>
+          <button style="background:none; border:none; font-size:20px; cursor:pointer;" onclick="cycleInlineParticipation(${jsArg(s.id)}, ${jsArg(ev.date)}, ${jsArg(ev.label||'')})">${emoji}</button>
         </td>`;
       });
       html += `</tr>`;
@@ -3930,7 +3930,7 @@ function renderGradesList(s) {
       ${Object.entries(byType).map(([type,vals]) => {
         const ta = vals.reduce((a,b)=>a+b,0)/vals.length;
         return `<div class="grade-summary-item">
-          <div style="font-size:15px;font-weight:700;color:${gradeColor(ta, scale)}">${formatGradeAverage(ta)}</div>
+          <div style="font-size:14px;font-weight:700;color:${gradeColor(ta, scale)}">${formatGradeAverage(ta)}</div>
           <div class="grade-avg-label">${escHtml(gradeTypeName(type))} (${vals.length})</div>
         </div>`;
       }).join('')}`;
@@ -4283,7 +4283,7 @@ function applyInitialSidebar() {
 }
 applyInitialSidebar();
 
-let currentThemeAccent = db.settings.themeAccent || '#6366f1';
+let currentThemeAccent = savedThemeAccent();
 let currentThemeBg = db.settings.themeBg || '#0f1117';
 let currentThemeMode = db.settings.theme || 'dark'; // db.settings.theme stores the mode
 let currentThemeCard = db.settings.themeCard || '#1e2130';
@@ -4347,7 +4347,7 @@ function applyThemePreview() {
   const radEl = document.getElementById('settings-radius');
   document.documentElement.setAttribute('data-theme', currentThemeMode);
 
-  const accent = document.querySelector('.settings-swatch-accent.selected') ? currentThemeAccent : (db.settings.themeAccent || '#6366f1');
+  const accent = document.querySelector('.settings-swatch-accent.selected') ? currentThemeAccent : savedThemeAccent();
   const bg = document.querySelector('.settings-swatch-bg.selected') ? currentThemeBg : savedThemeBg();
   const card = bg ? (document.querySelector('.settings-swatch-bg.selected') ? currentThemeCard : (db.settings.themeCard || null)) : null;
   let rad = radEl ? parseInt(radEl.value) : db.settings.themeRadius;
@@ -4721,7 +4721,7 @@ function saveSettings() {
   // Nur eine wirklich gewählte Farbe speichern; Standard = nichts gespeichert (BUGS S6)
   if (currentThemeBg) { db.settings.themeBg = currentThemeBg; db.settings.themeCard = currentThemeCard; }
   else { delete db.settings.themeBg; delete db.settings.themeCard; }
-  db.settings.themeAccent = currentThemeAccent;
+  if (currentThemeAccent) db.settings.themeAccent = currentThemeAccent; else delete db.settings.themeAccent; // Standard = nichts gespeichert
   db.settings.themeRadius = parseInt(document.getElementById('settings-radius').value);
   db.settings.studentSortOrder = document.getElementById('settings-sort-order').value;
 
@@ -5695,7 +5695,7 @@ function renderSeatingPlan() {
     if (participation) {
       const valLabels = { 'positive':'<span style="color:var(--success)">+</span>', 'neutral':'<span style="color:var(--warning)">=</span>', 'negative':'<span style="color:var(--danger)">-</span>' };
       // valLabels ist fertiges HTML; nur ein unbekannter Wert (Import/Sync) stammt aus den Daten und wird escaped
-      partHtml = `<div class="sc-part" style="position:absolute; top:-6px; right:-6px; font-size:16px; font-weight:800; background:var(--bg-elevated); padding:0 6px; border-radius:8px; border:2px solid var(--border); box-shadow:0 2px 6px rgba(0,0,0,0.3); line-height:1.2; z-index:10;">${valLabels[participation.value] || escHtml(participation.value)}</div>`;
+      partHtml = `<div class="sc-part" style="position:absolute; top:-6px; right:-6px; font-size:16px; font-weight:800; background:var(--bg-elevated); padding:0 6px; border-radius:var(--radius-sm); border:2px solid var(--border); box-shadow:0 2px 6px rgba(0,0,0,0.3); line-height:1.2; z-index:10;">${valLabels[participation.value] || escHtml(participation.value)}</div>`;
     }
 
     const fullName = [s.firstName, s.lastName].filter(Boolean).join(' ');
@@ -6324,7 +6324,7 @@ function renderSeatingStudentGrades(show) {
   }
   if (!show) {
     gradesContainer.innerHTML = `
-      <div style="display:flex; justify-content:space-between; align-items:center; font-size:12px; color:var(--text-muted); padding:8px 12px; background:var(--bg-secondary); border-radius:8px;">
+      <div style="display:flex; justify-content:space-between; align-items:center; font-size:12px; color:var(--text-muted); padding:8px 12px; background:var(--bg-secondary); border-radius:var(--radius-sm);">
         <span>${s.grades.length === 1 ? '1 Note' : s.grades.length + ' Noten'} – verborgen</span>
         <button class="btn-secondary seating-reveal-btn" style="padding:4px 10px; font-size:12px;" onclick="revealSeatingStudentGrades()">Anzeigen</button>
       </div>`;
@@ -6334,7 +6334,7 @@ function renderSeatingStudentGrades(show) {
   const sortedGrades = [...s.grades].sort((a,b) => (b.date||'').localeCompare(a.date||''));
   sortedGrades.forEach(g => {
     const el = document.createElement('div');
-    el.style.cssText = 'display:flex; justify-content:space-between; align-items:center; background:var(--bg-secondary); padding:8px 12px; border-radius:8px; font-size:13px;';
+    el.style.cssText = 'display:flex; justify-content:space-between; align-items:center; background:var(--bg-secondary); padding:8px 12px; border-radius:var(--radius-sm); font-size:13px;';
     const valColor = gradeColor(gradeNumber(g.value), gradeScale(groupId));
     el.innerHTML = `
       <div style="display:flex; flex-direction:column; flex:1;">
@@ -6342,7 +6342,7 @@ function renderSeatingStudentGrades(show) {
         <span style="font-size:11px; color:var(--text-muted)">${g.date ? formatDateShort(g.date) : ''}</span>
       </div>
       <div style="display:flex; align-items:center; gap:12px;">
-        <div style="font-weight:800; font-size:15px; color:${valColor}">${escHtml(gradeText(g.value))}</div>
+        <div style="font-weight:800; font-size:14px; color:${valColor}">${escHtml(gradeText(g.value))}</div>
         <button class="btn-icon seating-grade-edit-btn" style="padding:4px;" aria-label="Note bearbeiten">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
         </button>
@@ -8567,7 +8567,7 @@ async function resolveConflict(decision) {
 // Gespeicherte Darstellung in Auswahl, Regler und Variablen laden (Einstellungen öffnen/verwerfen, Start).
 // Der Radius kommt aus db, nicht vom Regler, der beim Start auf seinem HTML-Wert steht (BUGS O3).
 function loadThemeSelection() {
-  currentThemeAccent = db.settings.themeAccent || '#6366f1';
+  currentThemeAccent = savedThemeAccent();
   document.querySelectorAll('.settings-swatch-accent').forEach(s => s.classList.toggle('selected', s.dataset.color === currentThemeAccent));
   currentThemeBg   = savedThemeBg();
   currentThemeMode = db.settings.theme || 'dark';
@@ -8580,6 +8580,13 @@ function loadThemeSelection() {
 }
 // Gespeicherter Hintergrund, '' = Standard. '#0f1117' gibt es als Farbfeld nicht: Den hat früher jedes
 // „Speichern“ ohne Farbwahl geschrieben (samt Karte '#1e2130'), er bedeutet also „Standard“ (BUGS S6).
+// Gespeicherte Akzentfarbe, '' = Standard (Tinte, je Modus aus style.css). '#6366f1' (das frühere Indigo)
+// hat jedes „Speichern“ ohne Farbwahl geschrieben – es bedeutet also „Standard“, wie beim Hintergrund (BUGS S6, AE4).
+// Wer Indigo wirklich will, wählt das Farbfeld „Indigo“ (#6466f1).
+function savedThemeAccent() {
+  const a = db.settings.themeAccent || '';
+  return a === '#6366f1' ? '' : a;
+}
 function savedThemeBg() {
   const bg = db.settings.themeBg || '';
   return bg === '#0f1117' ? '' : bg;

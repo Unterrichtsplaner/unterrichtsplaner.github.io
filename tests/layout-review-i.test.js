@@ -460,7 +460,7 @@ describe('Paket 5c: Knöpfe, Einstellungen, Formular', () => {
     app('db.settings.themeAccent = undefined; openSettings()');
     const sel = document.querySelector('.settings-swatch-accent.selected');
     expect(sel).not.toBeNull();
-    expect(sel.dataset.color).toBe('#6366f1');
+    expect(sel.dataset.color).toBe('');   // „Tinte (Standard)“ (AE4)
     app('closeModal("modal-settings")');
   });
 
@@ -510,7 +510,7 @@ describe('Block J', () => {
     expect(light).toMatch(/--success:\s*#166534/);
     expect(light).toMatch(/--warning:\s*#92400e/);
     expect(light).toMatch(/--danger:\s*#b91c1c/);
-    expect(light).toMatch(/--text-muted:\s*#64748b/);
+    expect(light).toMatch(/--text-muted:\s*#716859/);   // Papier-Modus (AE4), 5,4:1 auf Karten
   });
 
   it('J2: keine fest eingetragenen Status-Farben mehr, alles über Variablen', () => {

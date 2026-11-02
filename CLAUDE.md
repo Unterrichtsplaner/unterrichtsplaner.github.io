@@ -1,7 +1,7 @@
 # Unterrichtsplaner – Projektwissen für KI-Assistenten
 
 > Diese Datei zuerst lesen. Sie ist das Gedächtnis des Projekts über alle Sitzungen hinweg.
-> Offene Fehler, Aufgaben und Wünsche stehen in **[BUGS.md](BUGS.md)** – das ist die Liste. Neue Wünsche dort zuerst eintragen (Block AD …), dann bauen.
+> Gestaltung: **[DESIGN.md](DESIGN.md)**. Offene Fehler, Aufgaben und Wünsche stehen in **[BUGS.md](BUGS.md)** – das ist die Liste. Neue Wünsche dort zuerst eintragen (Block AD …), dann bauen.
 
 ## Zusammenarbeit (Grundregeln)
 
@@ -182,6 +182,8 @@ Datumswerte sind Strings `YYYY-MM-DD` in **lokaler** Zeit (`formatDate()`). Nie 
 
 66. **Sitzplan-Cockpit nur über `seatingCockpitInfo`/`renderSeatingCockpit`** (AD2). Es erscheint von selbst während einer Stunde der Klasse (kein Modus-Knopf) und hält dann den Bildschirm an (`setSeatingWakeLock`, beim Verlassen wieder frei). Ändert sich seine Sichtbarkeit, muss das Raster neu eingepasst werden (`refreshSeatingCockpit`), nie mitten im Bearbeiten-Modus.
 67. **Leistungs- und Gesundheitsangaben im Sitzplan nur auf Knopfdruck:** Noten, Mitarbeit-Verlauf und der Text von Hinweisen (`s.notes`). Auf Karten höchstens ein Symbol. Der Zustand „eingeblendet“ wird nie gespeichert und fällt beim Öffnen und beim Klassenwechsel weg (`hideSeatingGrades`).
+
+68. **Aussehen nach `DESIGN.md` („Papier & Tinte“).** Farben, Schriftgrößen und Rundungen nur über die Grundwerte in `style.css` (`--accent` nur für Hauptaktion und „jetzt“, Schrift auf Akzent über `--on-accent`, Größen aus der Reihe 10–26 px, Rundungen `--radius-*`). Keine Verläufe, kein Leuchten, keine Ausrufezeichen in Meldungen. `tests/design-stufe1.test.js` und `tests/design-stufe2.test.js` prüfen das. Standardfarben werden nie gespeichert (`savedThemeAccent`/`savedThemeBg`).
 
 ## Arbeitsablauf
 

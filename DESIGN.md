@@ -1,0 +1,40 @@
+# Gestaltung: „Papier & Tinte“
+
+> Gilt für jede Änderung an Aussehen und Texten. Ziel: Die App sieht aus wie von einem Menschen mit Geschmack gemacht, nicht wie der Durchschnitt aller generierten Apps (BUGS AE, Anti-Slop-Prüfung 02.11.2026).
+
+## Charakter
+
+**Schulheft, Lehrerzimmer, ruhig.** Ein Werkzeug, das jeden Tag im Unterricht offen ist – am Pult, manchmal am Beamer. Es drängt sich nicht auf; die Klassenfarben im Stundenplan und Sitzplan tragen die Information, der Rest tritt zurück.
+
+## Der eine eigene Akzent
+
+**Überschriften in einer Buchschrift** (`--font-display`: Iowan Old Style auf iPad/Mac, sonst Palatino/Georgia). Nur Ansichtstitel, Fenstertitel, Logo, Abschnittsüberschriften im Dashboard, leere Zustände. Alles andere bleibt Inter. Keine zweite Besonderheit daneben.
+
+## Grundwerte (style.css `:root`)
+
+| | Dunkel (Standard) | Hell („Papier“) |
+|---|---|---|
+| Hintergrund | `#14120f` warmes Dunkel | `#f5f1e9` Papier |
+| Karten | `#211e19` | `#fffdf8` |
+| Schrift | `#efe9de` / Neben `#a59d90` / leise `#908877` | `#27221b` / `#5f574b` / `#716859` |
+| Akzent | `#3d63dd` Tinte, Text auf dunkel `#8aa4f5` | `#2f55c9` |
+| Schrift auf Akzent | `--on-accent` (weiß) | weiß |
+
+- Statusfarben (`--success`, `--warning`, `--danger`) und Notenfarben bleiben getrennt vom Akzent.
+- Nutzer können Akzent und Hintergrund in den Einstellungen wählen. „Standard“ wird **nicht gespeichert** (`savedThemeAccent`, `savedThemeBg`), damit eine neue Standardfarbe alle erreicht, die nie selbst gewählt haben.
+
+## Regeln
+
+1. **Akzent nur für die Hauptaktion und „jetzt“** (Hauptknopf, „Heute“, laufende/nächste Stunde, gewählter Tag, Schalter an). Nicht für Menü, Reiter, Namen, Plaketten, Wochentage. „Gewählt“ ohne Akzent: Tinte auf Papier (`.tab-btn.active`) oder eine schmale Akzentmarke (`.nav-item.active`).
+2. **Schriftgrößen nur aus der Reihe** 10 · 11 · 12 · 13 · 14 · 16 · 20 · 26 px (+ 36 für die Restzeit im Cockpit, große Symbole). `tests/design-stufe2.test.js` prüft das.
+3. **Rundungen nur über Grundwerte:** `--radius-xs` (Plaketten), `--radius-sm` (Knöpfe, Eingaben, Reiter), `--radius-md` (Karten), `--radius-lg/xl` (Fenster). Die Pille (`99px`) nur für Chips und Zähler, runde Icon-Knöpfe als Kreis. Der Regler „Rundung“ in den Einstellungen verschiebt alle Grundwerte.
+4. **Etiketten in normaler Schreibung**, nicht in Großbuchstaben. Ausnahme: winzige Überschriften wie „LETZTE STUNDE“ im Cockpit.
+5. **Kein Leuchten, kein Verlauf, keine Spaß-Bewegung.** Schatten nur `--shadow-sm/md/lg`. Bewegung nur für Zustände (Fenster öffnet, Ziehen, Drücken), 120–250 ms, nichts vergrößert sich beim Darüberfahren.
+6. **Texte ruhig und konkret:** keine Ausrufezeichen, kein „erfolgreich“, keine Geviertstriche (—). Meldungen sagen, was passiert ist („Sicherung gespeichert ✓“).
+7. **Neue Farbe/Größe/Rundung nötig?** Grundwert ergänzen (hier und in `style.css`), nie eine Einzelzahl in eine Regel oder einen Inline-Stil schreiben.
+
+## Noch offen
+
+- Klassenübersicht und Schülerliste sind „Karten für alles“ (BUGS AE8).
+- Über 200 Inline-Stile in `index.html` (BUGS AE10) – bei Umbauten dieser Stellen in `style.css` verlegen.
+- App-Symbol (Startbildschirm) ist noch das iOS-Blau.

@@ -62,7 +62,7 @@ describe('O2/O3: Darstellung', () => {
     expect(rootVar('--accent')).toBe('#be123c');
     app('closeTopModal()');
     expect(hidden('modal-settings')).toBe(true);
-    expect(rootVar('--accent')).toBe('#6366f1');
+    expect(rootVar('--accent')).toBe('');   // gespeichertes altes Indigo = Standard → Farbe aus style.css (AE4)
   });
 
   it('O2: auch der ✕-Knopf verwirft die Vorschau', () => {
