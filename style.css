@@ -1392,3 +1392,40 @@ h1,h2,h3,.dash-heading,.subject-heading{text-wrap:balance;}
 /* Klassen-Ansicht: „+ Thema“ als Knopf (Rückmeldung 02.11.: als Link zu schwer zu treffen) */
 .ttc-add-btn{min-height:32px;padding:0 12px;font-size:13px;}
 @media (pointer: coarse){.ttc-add-btn{min-height:44px;padding:0 16px;}}
+
+/* ── Klassennotizen (AD15) ── */
+.class-row.has-notes{grid-template-areas:"name meta nums btns" "name notes notes notes";row-gap:8px;}
+.cr-notes{grid-area:notes;min-width:0;}
+@container (max-width: 560px){.class-row.has-notes{grid-template-areas:"name meta" "name notes" "name nums" "name btns";}}  /* nach der breiten Regel, sonst gewinnt die */
+.cn-inline{display:flex;align-items:flex-start;gap:6px;min-width:0;color:var(--text-muted);}
+.cn-inline > .ico{width:14px;height:14px;flex-shrink:0;margin-top:3px;}
+.cn-inline-list{display:flex;flex-wrap:wrap;gap:4px 6px;min-width:0;}
+.cn-chip{font-size:13px;line-height:1.35;color:var(--text-primary);background:var(--bg-elevated);border:1px solid var(--border);border-radius:var(--radius-xs);padding:1px 7px;overflow-wrap:anywhere;}
+.cn-chip small{font-size:11px;color:var(--text-muted);white-space:nowrap;}
+.dash-lesson-cnotes{margin-top:4px;}
+.dash-lesson-cnotes .cn-chip{font-size:12px;background:var(--bg-card);}
+.dash-next-cnotes{margin-top:10px;}
+.lcn-row{display:flex;align-items:center;gap:12px;}
+.lcn-row .cn-inline{flex:1;}
+.lcn-btn{flex-shrink:0;}
+.tt-status-klasse{color:var(--text-secondary);}
+.cr-notes-btn .ico{width:18px;height:18px;}
+.cn-box{margin-bottom:16px;}
+.cn-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;border-top:1px solid var(--border);}
+.cn-item{display:flex;align-items:center;gap:8px;border-bottom:1px solid var(--border);}
+.cn-text{flex:1;min-width:0;display:flex;flex-direction:column;align-items:flex-start;gap:2px;text-align:left;padding:10px 4px;min-height:44px;background:none;border:0;color:var(--text-primary);font:inherit;font-size:14px;cursor:pointer;overflow-wrap:anywhere;}
+.cn-text small{font-size:12px;color:var(--text-muted);}
+.cn-item.is-editing .cn-text span{font-weight:600;}
+.cn-item.is-editing{background:var(--bg-elevated);}
+.cn-item.is-expired .cn-text span{color:var(--text-muted);}
+.cn-empty{font-size:13px;color:var(--text-muted);margin:0;}
+.cn-sub{font-size:12px;font-weight:600;color:var(--text-muted);margin:14px 0 6px;}
+.cn-suggestions{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin:-4px 0 12px;}
+.cn-sugg-label{font-size:12px;color:var(--text-muted);}
+.cn-suggest{display:inline-flex;align-items:center;gap:4px;min-height:32px;padding:0 10px;font:inherit;font-size:13px;color:var(--text-primary);background:var(--bg-elevated);border:1px solid var(--border);border-radius:99px;cursor:pointer;}
+.cn-suggest .ico{width:13px;height:13px;}
+.cn-suggest small{font-size:11px;color:var(--text-muted);}
+@media (pointer: coarse){.cn-suggest{min-height:40px;}}
+.cn-form-row{display:flex;align-items:flex-end;gap:8px;flex-wrap:wrap;}
+.cn-form-row .form-group{flex:1;min-width:150px;margin-bottom:0;}
+.cn-form-row .btn-primary,.cn-form-row .btn-secondary{min-height:40px;}

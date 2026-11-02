@@ -17,6 +17,7 @@ function evilDB() {
     groups: [{
       id: g, subject: X, className: X, year: X, color: `red"><img data-xss src=x>`, schularbeitWeight: 50,
       plan: [{ id: ID('t'), title: X, note: X, lessons: 2 }],
+      classNotes: [{ id: ID('n'), text: X, date: '2026-09-20', until: '2026-09-30' }, { id: ID('n2'), text: X, until: X }], // AD15, auch kaputtes Datum
       seatingRows: 2, seatingCols: 2, seatingPlan: [{ studentId: s, x: 0, y: 0, row: 0, col: 0 }],
       gradeEvents: [{ date: '2026-09-01', label: X, type: 'test' }],
       participationEvents: [{ date: '2026-09-02', label: X }],
@@ -110,6 +111,21 @@ describe('Ansichten mit präparierten Daten', () => {
     },
     'stunde mit geplantem thema': () => app(`openLessonDetail(${JSON.stringify(ID('slot'))}, "2026-09-21"); renderLessonPlanBox(db.lessonSlots[0], "2026-09-21")`),
     'sitzplan heute-fenster': () => app(`switchView("seating"); currentSeatingGroupId = ${G}; currentSeatingDateStr = "2026-09-21"; renderSeatingPlan(); openSeatingToday()`),
+    'klassennotizen (liste, dashboard, stunde)': () => {
+      app('switchView("classes")');
+      expect(document.querySelector('.cr-notes')).not.toBeNull();   // Notizen wirklich gezeichnet
+      expect(injected()).toBe(0); expect(brokenHandlers()).toEqual([]);
+      app(`openLessonDetail(${JSON.stringify(ID('slot'))}, "2026-09-21")`);
+      expect(document.getElementById('lesson-class-notes').classList.contains('hidden')).toBe(false);
+      expect(injected()).toBe(0); expect(brokenHandlers()).toEqual([]);
+      app('closeModal("modal-lesson")');
+    },
+    'klassennotizen-fenster': () => {
+      app(`db.groups.push({ id: 'g-andere', className: '8a', subject: 'D', classNotes: [{ id: 'z', text: ${JSON.stringify(X)} }] }); openClassNotes(${G})`);
+      expect(document.querySelectorAll('#class-notes-list .cn-item').length).toBe(2);
+      expect(document.querySelectorAll('.cn-suggest').length).toBe(0);   // gleicher Text schon da
+      app('closeModal("modal-class-notes"); db.groups.pop()');
+    },
     einstellungen: () => app('openSettings()'),
   };
 

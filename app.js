@@ -70,6 +70,7 @@ const ICONS = {
   info:         '<circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/>',
   cake:         '<path d="M20 21v-8a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8"/><path d="M4 16s.5-1 2-1 2.5 2 4 2 2.5-2 4-2 2.5 2 4 2 2-1 2-1"/><path d="M2 21h20"/><path d="M7 8v3"/><path d="M12 8v3"/><path d="M17 8v3"/><path d="M7 4h.01"/><path d="M12 4h.01"/><path d="M17 4h.01"/>',
   activity:     '<polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>',
+  pin:          '<line x1="12" y1="17" x2="12" y2="22"/><path d="M5 17h14v-1.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V6h1a2 2 0 0 0 0-4H8a2 2 0 0 0 0 4h1v4.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24Z"/>',
   'calendar-x': '<rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><line x1="10" y1="14" x2="14" y2="18"/><line x1="14" y1="14" x2="10" y2="18"/>',
 };
 function icon(name) {
@@ -1262,8 +1263,8 @@ setInterval(refreshTimetableClock, 20000);
 document.addEventListener('visibilitychange', refreshTimetableClock);
 
 // Linien-Icons für die Status-Symbole einer Stunde
-const TT_STATUS_ICONS = { inhalt: ICONS.content, hw: ICONS.homework, test: ICONS.test, notiz: ICONS.notes };
-const TT_STATUS_TITLES = { inhalt: 'Inhalt', hw: 'Hausaufgabe', test: 'Test angekündigt', notiz: 'Notiz' };
+const TT_STATUS_ICONS = { inhalt: ICONS.content, hw: ICONS.homework, test: ICONS.test, notiz: ICONS.notes, klasse: ICONS.pin };
+const TT_STATUS_TITLES = { inhalt: 'Inhalt', hw: 'Hausaufgabe', test: 'Test angekündigt', notiz: 'Notiz', klasse: 'Klassennotiz' };
 function ttStatusIcon(kind) {
   return `<span class="tt-status tt-status-${kind}" data-kind="${kind}" title="${TT_STATUS_TITLES[kind]}">` +
     `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${TT_STATUS_ICONS[kind]}</svg></span>`;
@@ -1299,6 +1300,8 @@ function buildTimetableCell(d, dayIdx, block, clock = timetableClock()) {
     if (hasHW)   status.push('hw');
     if (hasTest) status.push('test');
     if (data.notes && data.notes.trim()) status.push('notiz');
+    // Klassennotiz (AD15): nur Symbol, Text im Stunden-Fenster; vergangene Stunden brauchen keinen Hinweis
+    if (lesson.groupId && dateStr >= clock.todayStr && activeClassNotes(db.groups.find(g => g.id === lesson.groupId), dateStr).length) status.push('klasse');
 
     // Klasse groß, Fach (+ Raum) klein; ohne Klasse ist das Fach der Titel.
     // Raum als eigener Teil: in ganzen Stunden eigene Zeile, in halben mit „·“ dahinter (BUGS I6)
@@ -2090,6 +2093,7 @@ function openLessonDetail(slotId, dateStr) {
 
   renderLessonAbsent(slot, dateStr);
   renderLessonPlanBox(slot, dateStr);   // AD3
+  renderLessonClassNotes(slot, dateStr); // AD15
 
   // ── Find upcoming lesson dates (all slots with same subject) ──
   _upcomingDates = findUpcomingLessonDates(slotId, dateStr);
@@ -2542,7 +2546,8 @@ function renderSubjectGroups() {
       const meta = [days || '<span class="cr-no-schedule">Kein Stundenplan verknüpft</span>', gradeCount + ' Noten'].join(' · ');
 
       const row = document.createElement('div');
-      row.className = 'class-row';
+      const cNotes = activeClassNotes(g, todayStr);
+      row.className = 'class-row' + (cNotes.length ? ' has-notes' : '');
       row.setAttribute('role', 'button');
       row.tabIndex = 0;
       row.setAttribute('aria-label', `Klasse ${g.className} ${g.subject || ''} öffnen`.replace(/\s+/g, ' '));
@@ -2554,7 +2559,9 @@ function renderSubjectGroups() {
           <span><em>${students.length}</em> Schüler</span>
           <span><em class="cr-avg" style="color:${gradeColor(groupAvg, scale)}">${formatGradeAverage(groupAvg)}</em> ${scale.higherIsBetter ? 'Pkt.' : 'Ø'}</span>
         </div>
+        ${cNotes.length ? classNotesInlineHTML(cNotes, 'cr-notes') : ''}
         <div class="cr-btns">
+          <button class="btn-icon cr-notes-btn" title="Notizen" aria-label="Notizen ${escHtml(g.className)}" onclick="event.stopPropagation();openClassNotes(${jsArg(g.id)})">${icon('pin')}</button>
           <button class="btn-secondary cr-seating-btn" title="Sitzplan" aria-label="Sitzplan ${escHtml(g.className)}" onclick="event.stopPropagation();openSeatingForGroup(${jsArg(g.id)})">${icon('seating')}<span>Sitzplan</span></button>
           <button class="btn-icon" title="Bearbeiten" aria-label="${escHtml(g.className)} bearbeiten" onclick="event.stopPropagation();openEditGroup(${jsArg(g.id)})">${icon('edit')}</button>
         </div>`;
@@ -6934,6 +6941,7 @@ const MODAL_CLOSE_ACTIONS = {
   'modal-supervision': () => cancelSupervision(),    // bei Änderungen fragen (AA4)
   'modal-whats-new': () => closeWhatsNew(),          // Wegdrücken zählt als gelesen
   'modal-plan-topic': () => cancelPlanTopic(),       // bei Änderungen fragen (Regel 55)
+  'modal-class-notes': () => closeClassNotes(),      // Eingetipptes übernehmen, nicht verwerfen (AD15)
 };
 function closeModalLikeButton(id) {
   const action = id in MODAL_CLOSE_ACTIONS ? MODAL_CLOSE_ACTIONS[id] : () => closeModal(id);
@@ -7313,6 +7321,181 @@ function movePlanTopic(groupId, t, dir) {
   saveDB();
   refreshPlanViews(groupId);
 }
+// ── Klassennotizen (AD15): kurze Notizen pro Klasse („schon unterrichtet“, „auf Klassenfahrt“), wahlweise „gilt bis“.
+// Sichtbar in Klassenliste, Dashboard, Stundenplan (Symbol) und Stunden-Fenster – nie im Sitzplan (Beamer).
+function classNotesOf(g) {
+  return g && Array.isArray(g.classNotes) ? g.classNotes.filter(n => n && typeof n.text === 'string' && n.text.trim()) : [];
+}
+function classNoteActive(n, dateStr) { return !isDateStr(n.until) || n.until >= dateStr; }
+function activeClassNotes(g, dateStr = formatDate(new Date())) {
+  return classNotesOf(g).filter(n => classNoteActive(n, dateStr));
+}
+function classNotesInlineHTML(notes, cls) {
+  return `<div class="cn-inline ${cls}">${icon('pin')}<span class="cn-inline-list">${notes.map(n =>
+    `<span class="cn-chip">${escHtml(n.text.trim())}${isDateStr(n.until) ? ` <small>bis ${escHtml(formatDateDE(parseDate(n.until)))}</small>` : ''}</span>`).join('')}</span></div>`;
+}
+function refreshClassNoteViews() {
+  const active = id => document.getElementById(id)?.classList.contains('active');
+  if (active('view-classes')) renderSubjectGroups();
+  if (active('view-dashboard')) renderDashboard();
+  if (active('view-timetable')) renderTimetable();
+  const slot = activeLessonId && db.lessonSlots.find(s => s.id === activeLessonId);
+  if (slot && !document.getElementById('modal-lesson').classList.contains('hidden')) renderLessonClassNotes(slot, activeLessonDate);
+}
+function renderLessonClassNotes(slot, dateStr) {
+  const box = document.getElementById('lesson-class-notes');
+  if (!box) return;
+  const g = slot.groupId && db.groups.find(x => x.id === slot.groupId);
+  const notes = g ? activeClassNotes(g, dateStr) : [];
+  box.classList.toggle('hidden', !notes.length);
+  box.innerHTML = notes.length ? `<div class="lcn-row">${classNotesInlineHTML(notes, 'lcn-notes')}<button type="button" class="btn-secondary lcn-btn">Ändern</button></div>` : '';
+  const btn = box.querySelector('.lcn-btn');
+  if (btn) btn.addEventListener('click', () => openClassNotes(g.id));
+}
+
+// ── Fenster „Notizen“ ──
+let classNotesCtx = null;   // { groupId, note } – note = bearbeitete Notiz per Referenz (Regel 8), null = neue
+function classNotesGroup() { return (classNotesCtx && db.groups.find(g => g.id === classNotesCtx.groupId)) || null; }
+function openClassNotes(groupId) {
+  const g = db.groups.find(x => x.id === groupId);
+  if (!g) return;
+  classNotesCtx = { groupId, note: null };
+  document.getElementById('class-notes-title').textContent = 'Notizen ' + [g.className, g.subject].filter(Boolean).join(' ');
+  resetClassNoteForm();
+  renderClassNotesList();
+  openModal('modal-class-notes');
+}
+function resetClassNoteForm() {
+  if (classNotesCtx) classNotesCtx.note = null;
+  document.getElementById('class-note-text').value = '';
+  document.getElementById('class-note-until').value = '';
+  document.getElementById('class-note-until').min = formatDate(new Date());
+  document.getElementById('class-note-label').textContent = 'Neue Notiz';
+  document.getElementById('btn-class-note-save').textContent = 'Hinzufügen';
+  document.getElementById('btn-class-note-cancel').classList.add('hidden');
+}
+function editClassNote(note) {
+  if (!classNotesCtx) return;
+  classNotesCtx.note = note;
+  document.getElementById('class-note-text').value = note.text;
+  document.getElementById('class-note-until').value = isDateStr(note.until) ? note.until : '';
+  document.getElementById('class-note-label').textContent = 'Notiz ändern';
+  document.getElementById('btn-class-note-save').textContent = 'Speichern';
+  document.getElementById('btn-class-note-cancel').classList.remove('hidden');
+  renderClassNotesList();
+  document.getElementById('class-note-text').focus();
+}
+function cancelClassNoteEdit() { resetClassNoteForm(); renderClassNotesList(); }
+function classNoteFormDirty() {
+  const text = document.getElementById('class-note-text').value.trim();
+  const until = document.getElementById('class-note-until').value;
+  const n = classNotesCtx && classNotesCtx.note;
+  return n ? (text !== n.text || until !== (isDateStr(n.until) ? n.until : '')) : !!text;
+}
+function saveClassNoteFromForm() {
+  const g = classNotesGroup();
+  if (!g) { showToast('Diese Klasse gibt es nicht mehr (z. B. durch Sync)', 'error'); return false; }
+  const text = document.getElementById('class-note-text').value.trim();
+  const until = document.getElementById('class-note-until').value;
+  if (!text) { showToast('Bitte einen Text eingeben', 'error'); return false; }
+  if (!Array.isArray(g.classNotes)) g.classNotes = [];
+  const n = classNotesCtx.note;
+  if (n) {
+    if (!g.classNotes.includes(n)) { showToast('Diese Notiz gibt es nicht mehr (z. B. durch Sync)', 'error'); return false; }
+    n.text = text;
+    if (isDateStr(until)) n.until = until; else delete n.until;
+  } else {
+    g.classNotes.push({ id: uid(), text, date: formatDate(new Date()), ...(isDateStr(until) ? { until } : {}) });
+  }
+  saveDB();
+  resetClassNoteForm();
+  renderClassNotesList();
+  refreshClassNoteViews();
+  return true;
+}
+// Texte aus anderen Klassen zum Antippen („schon unterrichtet“ bei 18 Klassen nicht 18-mal tippen)
+function classNoteSuggestions(g) {
+  if (!g) return [];
+  const today = formatDate(new Date());
+  const own = new Set(activeClassNotes(g, today).map(n => n.text.trim().toLowerCase()));
+  const seen = new Map();
+  db.groups.forEach(x => {
+    if (x === g) return;
+    activeClassNotes(x, today).forEach(n => {
+      const t = n.text.trim(), k = t.toLowerCase();
+      if (own.has(k) || t.length > 40) return;
+      const e = seen.get(k) || { t, count: 0, date: '', until: null };
+      e.count++;
+      if ((n.date || '') >= e.date) { e.date = n.date || ''; e.until = isDateStr(n.until) ? n.until : null; } // „gilt bis“ der neuesten übernehmen
+      seen.set(k, e);
+    });
+  });
+  return [...seen.values()].sort((a, b) => b.count - a.count || b.date.localeCompare(a.date)).slice(0, 4).map(e => ({ text: e.t, until: e.until }));
+}
+function addSuggestedClassNote({ text, until }) {
+  const g = classNotesGroup();
+  if (!g) { showToast('Diese Klasse gibt es nicht mehr (z. B. durch Sync)', 'error'); return; }
+  if (!Array.isArray(g.classNotes)) g.classNotes = [];
+  g.classNotes.push({ id: uid(), text, date: formatDate(new Date()), ...(until ? { until } : {}) });
+  saveDB();
+  renderClassNotesList();
+  refreshClassNoteViews();
+}
+function deleteClassNote(note) {
+  const g = classNotesGroup();
+  const list = g && Array.isArray(g.classNotes) ? g.classNotes : [];
+  const i = list.indexOf(note);
+  if (i < 0) { renderClassNotesList(); return; }   // inzwischen weg (z. B. Sync): nichts löschen
+  list.splice(i, 1);
+  if (classNotesCtx.note === note) resetClassNoteForm();
+  saveDB();
+  renderClassNotesList();
+  refreshClassNoteViews();
+  const gid = g.id;
+  showUndoToast('Notiz gelöscht', () => {
+    const gg = db.groups.find(x => x.id === gid);
+    if (!gg) return;
+    if (!Array.isArray(gg.classNotes)) gg.classNotes = [];
+    if (gg.classNotes.some(n => n.id === note.id)) return;
+    gg.classNotes.splice(Math.min(i, gg.classNotes.length), 0, note);
+    saveDB();
+    refreshClassNoteViews();
+    if (classNotesCtx && classNotesCtx.groupId === gid && !document.getElementById('modal-class-notes').classList.contains('hidden')) renderClassNotesList();
+  });
+}
+function renderClassNotesList() {
+  const box = document.getElementById('class-notes-list');
+  const g = classNotesGroup();
+  const today = formatDate(new Date());
+  const notes = classNotesOf(g);
+  const current = notes.filter(n => classNoteActive(n, today));
+  const expired = notes.filter(n => !classNoteActive(n, today));
+  const editing = classNotesCtx && classNotesCtx.note;
+  const item = (n, isExp) => `<li class="cn-item${isExp ? ' is-expired' : ''}${editing === n ? ' is-editing' : ''}">
+      <button type="button" class="cn-text" aria-label="Notiz ändern: ${escHtml(n.text)}"><span>${escHtml(n.text)}</span>${isDateStr(n.until)
+        ? `<small>${isExp ? 'galt' : 'gilt'} bis ${escHtml(formatDateLong(n.until))}</small>` : ''}</button>
+      <button type="button" class="btn-icon cn-del" title="Löschen" aria-label="Notiz löschen: ${escHtml(n.text)}">${icon('trash')}</button></li>`;
+  box.innerHTML = (current.length ? `<ul class="cn-list">${current.map(n => item(n, false)).join('')}</ul>` : '<p class="cn-empty">Noch keine Notiz.</p>')
+    + (expired.length ? `<p class="cn-sub">Abgelaufen</p><ul class="cn-list">${expired.map(n => item(n, true)).join('')}</ul>` : '');
+  const all = [...current, ...expired];
+  box.querySelectorAll('.cn-item').forEach((li, i) => {
+    li.querySelector('.cn-text').addEventListener('click', () => editClassNote(all[i]));
+    li.querySelector('.cn-del').addEventListener('click', () => deleteClassNote(all[i]));
+  });
+  const sugBox = document.getElementById('class-note-suggestions');
+  const sugg = classNoteSuggestions(g);
+  sugBox.innerHTML = sugg.length ? '<span class="cn-sugg-label">Aus anderen Klassen:</span>'
+    + sugg.map(x => `<button type="button" class="cn-suggest">${icon('plus')}${escHtml(x.text)}${x.until ? ` <small>bis ${escHtml(formatDateDE(parseDate(x.until)))}</small>` : ''}</button>`).join('') : '';
+  sugBox.classList.toggle('hidden', !sugg.length);
+  sugBox.querySelectorAll('.cn-suggest').forEach((b, i) => b.addEventListener('click', () => addSuggestedClassNote(sugg[i])));
+}
+// Schließen (✕, Fertig, Escape, daneben tippen): Eingetipptes übernehmen statt verwerfen (Regel 27)
+function closeClassNotes() {
+  if (classNotesCtx && classNoteFormDirty() && document.getElementById('class-note-text').value.trim()) saveClassNoteFromForm();
+  closeModal('modal-class-notes');
+  classNotesCtx = null;
+}
+
 function refreshPlanViews(groupId) {
   const active = id => document.getElementById(id)?.classList.contains('active');
   if (active('view-students') && currentOverviewGroupId === groupId && currentOverviewTab === 'plan'
@@ -8023,12 +8206,14 @@ function renderDashboardToday() {
       if (due.hw.length)    badges.push(`<span class="dash-badge hw">HA ${due.hw.length}</span>`);
       if (due.tests.length) badges.push(`<span class="dash-badge test">Test ${due.tests.length}</span>`);
       if (data.notes)       badges.push(`<span class="dash-badge note">Notiz</span>`);
+      const cNotes = l.slot.groupId ? activeClassNotes(db.groups.find(g => g.id === l.slot.groupId), dayStr) : [];
       html += `<div class="dash-lesson ${state}" data-slot="${escHtml(l.slot.id)}" style="--lesson-color:${escHtml(l.slot.color || '#6366f1')}"
                     onclick="openLessonDetail(${jsArg(l.slot.id)},${jsArg(dayStr)})">
           <div class="dash-lesson-time">${l.range ? minsToTime(l.range.start) : ''}<small>${escHtml(l.block.label)}</small></div>
           <div class="dash-lesson-main">
             <div class="dash-lesson-title">${escHtml(t.main)}${t.sub ? ` <span>${escHtml(t.sub)}</span>` : ''}</div>
             ${l.slot.room ? `<div class="dash-lesson-room">${escHtml(l.slot.room)}</div>` : ''}
+            ${cNotes.length ? classNotesInlineHTML(cNotes, 'dash-lesson-cnotes') : ''}
           </div>
           <div class="dash-lesson-badges">${badges.join('')}</div>
           ${status ? `<div class="dash-lesson-status">${status}</div>` : ''}
@@ -8048,7 +8233,9 @@ function renderDashboardToday() {
       : parseDate(next.dateStr).toLocaleDateString('de-DE', { weekday: 'short', day: '2-digit', month: '2-digit' }) + (next.range ? ', ' + minsToTime(next.range.start) : '');
     const itemList = (label, cls, items) => items.length ? `<div class="dash-next-items ${cls}"><strong>${label}</strong><ul>${
       items.map(i => `<li>${escHtml(i.text)}</li>`).join('')}</ul></div>` : '';
-    const body = (data.notes ? `<div class="dash-next-notes">${escHtml(data.notes)}</div>` : '')
+    const nextNotes = next.slot.groupId ? activeClassNotes(db.groups.find(g => g.id === next.slot.groupId), next.dateStr) : [];
+    const body = (nextNotes.length ? classNotesInlineHTML(nextNotes, 'dash-next-cnotes') : '')
+      + (data.notes ? `<div class="dash-next-notes">${escHtml(data.notes)}</div>` : '')
       + itemList('Hausaufgaben fällig', 'hw', due.hw) + itemList('Test', 'test', due.tests);
     html += `<section class="dash-section">
       <div class="dash-next" data-slot="${escHtml(next.slot.id)}" style="--lesson-color:${escHtml(next.slot.color || '#6366f1')}" onclick="openLessonDetail(${jsArg(next.slot.id)},${jsArg(next.dateStr)})">

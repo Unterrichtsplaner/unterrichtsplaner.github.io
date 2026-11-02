@@ -42,7 +42,7 @@
       }
     } catch(e) {}
   </script>
-  <link rel="stylesheet" href="style.css?v=319" />
+  <link rel="stylesheet" href="style.css?v=322" />
   <script>
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
@@ -400,6 +400,9 @@
         </div>
         <ul id="lesson-absent-list" class="lesson-absent-list"></ul>
       </div>
+
+      <!-- Klassennotizen (AD15) -->
+      <div id="lesson-class-notes" class="notes-section lesson-class-notes hidden"></div>
 
       <!-- Geplantes Thema (AD3) -->
       <div id="lesson-plan-box" class="notes-section lesson-plan-box hidden"></div>
@@ -1448,6 +1451,40 @@
     </div>
   </div>
 
+  <!-- Klassennotizen (AD15) -->
+  <div id="modal-class-notes" class="modal-overlay hidden" onclick="closeModalOnOverlay(event,'modal-class-notes')">
+    <div class="modal modal-small" onclick="event.stopPropagation()">
+      <div class="modal-header">
+        <h2 id="class-notes-title">Notizen</h2>
+        <button class="modal-close" aria-label="Schließen" onclick="closeModalLikeButton('modal-class-notes')">✕</button>
+      </div>
+      <div class="modal-body">
+        <div id="class-notes-list" class="cn-box"></div>
+        <div class="cn-form">
+          <div class="form-group">
+            <label for="class-note-text" id="class-note-label">Neue Notiz</label>
+            <input type="text" id="class-note-text" class="form-input" maxlength="200" enterkeyhint="done" autocomplete="off"
+                   placeholder="z. B. schon unterrichtet, auf Klassenfahrt …"
+                   onkeydown="if(event.key==='Enter'){event.preventDefault();saveClassNoteFromForm()}" />
+          </div>
+          <div id="class-note-suggestions" class="cn-suggestions hidden"></div>
+          <div class="cn-form-row">
+            <div class="form-group">
+              <label for="class-note-until">Gilt bis (optional)</label>
+              <input type="date" id="class-note-until" class="form-input" />
+            </div>
+            <button class="btn-secondary hidden" id="btn-class-note-cancel" onclick="cancelClassNoteEdit()">Abbrechen</button>
+            <button class="btn-primary" id="btn-class-note-save" onclick="saveClassNoteFromForm()">Hinzufügen</button>
+          </div>
+          <p class="field-hint-muted">Mit Datum verschwindet die Notiz danach von selbst. Im Sitzplan erscheinen Klassennotizen nie.</p>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-secondary" onclick="closeModalLikeButton('modal-class-notes')">Fertig</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Klassen-Bericht (AD1) -->
   <div id="modal-class-report" class="modal-overlay hidden" onclick="closeModalOnOverlay(event,'modal-class-report')">
     <div class="modal modal-small" onclick="event.stopPropagation()">
@@ -1539,12 +1576,12 @@
   </div>
 
   <script src="lib/crypto-js.min.js"></script>
-  <script src="crypto-helper.js?v=319"></script>
+  <script src="crypto-helper.js?v=322"></script>
   <script src="lib/firebase-app-compat.js"></script>
   <script src="lib/firebase-auth-compat.js"></script>
   <script src="lib/firebase-firestore-compat.js"></script>
-  <script src="firebase-config.js?v=319"></script>
-  <script src="sync-manager.js?v=319"></script>
-  <script src="app.js?v=319"></script>
+  <script src="firebase-config.js?v=322"></script>
+  <script src="sync-manager.js?v=322"></script>
+  <script src="app.js?v=322"></script>
 </body>
 </html>

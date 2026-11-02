@@ -61,7 +61,8 @@ db = {
                   validFrom, validUntil /*optional, YYYY-MM-DD inkl.: Stundenplanwechsel „ab dieser Woche“*/ }],
   lessonData: { '<slotId>_<YYYY-MM-DD>': { done, notes, ausfall, movedTo /*{ slotId, date }*/, hwEnabled, testEnabled, … } },
   groups: [{ id, subject, className, year, color, schularbeitWeight /*0–100*/,
-             plan /*[{ id, title, lessons?, pinned?, note?, doneLessons?: [lessonData-Schlüssel], done? }] Unterrichtsplanung (AD3)*/, gradeScale /*'1-6' (Standard, fehlt bei Altdaten) | '0-15'*/,
+             plan /*[{ id, title, lessons?, pinned?, note?, doneLessons?: [lessonData-Schlüssel], done? }] Unterrichtsplanung (AD3)*/,
+             classNotes /*[{ id, text, date, until? }] Klassennotizen (AD15)*/, gradeScale /*'1-6' (Standard, fehlt bei Altdaten) | '0-15'*/,
              seatingRows, seatingCols, teacherDeskX, teacherDeskY, seatingPlan: [{ studentId, … }],
              gradeEvents, attendanceEvents, participationEvents, homeworkEvents }],
   students: { '<groupId>': [{ id, firstName, lastName, notes /*Hinweis, im Sitzplan als Symbol (AD2)*/, birthday? /*YYYY-MM-DD (AD6)*/,
@@ -189,6 +190,8 @@ Datumswerte sind Strings `YYYY-MM-DD` in **lokaler** Zeit (`formatDate()`). Nie 
 69. **Unterrichtsplanung nur über `planAssignments(g)`** (Themen hängen an der Reihenfolge, nicht an Daten; Ausfall/Ferien verschieben von selbst). Erledigt wird pro Stunde (`doneLessons`); im offenen Stunden-Fenster nie direkt `lessonData` schreiben, sondern das Formularfeld füllen (`toggleLessonTopicDone`). Restzahlen bis Halbjahr/Schuljahresende über `schoolYearMarks`/`countLessons`. Stundenplan-Ansicht über `setTimetableMode` (Woche · Tag · Klasse), nicht über `timetableMode` direkt.
 
 70. **Dateien mit Schülerdaten (Sicherung, Klassen-Bericht, CSV) sind unverschlüsselt:** Beim Anbieten darauf hinweisen und in den Datenschutzhinweisen nennen. Inhalte des Klassen-Berichts nur über `classReportData` (keine Hinweise/Gesundheitsangaben). Excel-Dateien entstehen ohne Bibliothek (`zipStore`, `classReportSheetXML`) – wer daran ändert, prüft die Datei mit openpyxl oder LibreOffice.
+
+71. **Klassennotizen nur über `activeClassNotes(g, dateStr)`** (gilt bis einschließlich `until`), anlegen/ändern/löschen nur im Fenster `openClassNotes` (Notiz per Referenz, Löschen mit „Rückgängig“, Schließen übernimmt Eingetipptes). Nach Änderungen `refreshClassNoteViews()`. **Nie im Sitzplan anzeigen** (Beamer); auf Stundenplan-Kacheln nur das Symbol.
 
 ## Arbeitsablauf
 
