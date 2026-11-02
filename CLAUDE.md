@@ -188,6 +188,8 @@ Datumswerte sind Strings `YYYY-MM-DD` in **lokaler** Zeit (`formatDate()`). Nie 
 
 69. **Unterrichtsplanung nur über `planAssignments(g)`** (Themen hängen an der Reihenfolge, nicht an Daten; Ausfall/Ferien verschieben von selbst). Erledigt wird pro Stunde (`doneLessons`); im offenen Stunden-Fenster nie direkt `lessonData` schreiben, sondern das Formularfeld füllen (`toggleLessonTopicDone`). Restzahlen bis Halbjahr/Schuljahresende über `schoolYearMarks`/`countLessons`. Stundenplan-Ansicht über `setTimetableMode` (Woche · Tag · Klasse), nicht über `timetableMode` direkt.
 
+70. **Dateien mit Schülerdaten (Sicherung, Klassen-Bericht, CSV) sind unverschlüsselt:** Beim Anbieten darauf hinweisen und in den Datenschutzhinweisen nennen. Inhalte des Klassen-Berichts nur über `classReportData` (keine Hinweise/Gesundheitsangaben). Excel-Dateien entstehen ohne Bibliothek (`zipStore`, `classReportSheetXML`) – wer daran ändert, prüft die Datei mit openpyxl oder LibreOffice.
+
 ## Arbeitsablauf
 
 1. Aufgabe aus `BUGS.md` wählen (ein Block pro Sitzung).
