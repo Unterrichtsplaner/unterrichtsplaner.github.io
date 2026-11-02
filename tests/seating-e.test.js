@@ -195,7 +195,7 @@ describe('E6: Zufallsauswahl und Gruppen', () => {
       vi.advanceTimersByTime(5000);
       spy.mockRestore();
       app('startSeatingRandomizer()'); // nach dem Ende geht es wieder
-      expect(document.getElementById('random-student-name').textContent).toBe('Auswahl läuft...');
+      expect(document.getElementById('random-student-name').textContent).toBe('Auswahl läuft …');
       vi.advanceTimersByTime(5000);
     } finally {
       vi.useRealTimers();

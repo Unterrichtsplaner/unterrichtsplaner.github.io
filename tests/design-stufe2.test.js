@@ -99,3 +99,21 @@ describe('Kontrast im hellen Standard (Eisblau) und auf allen hellen Farbfeldern
     for (const bg of bgs) for (const fg of fgs) expect(ratio(fg, bg), `${fg} auf ${bg}`).toBeGreaterThanOrEqual(4.5);
   });
 });
+
+describe('Bedienbarkeit (Web-Richtlinien, 02.11.2026)', () => {
+  it('kein transition: all, „Bewegung reduzieren“ wird beachtet, sichtbarer Tastatur-Fokus', () => {
+    expect(CSS).not.toMatch(/transition:\s*all/);
+    expect(CSS).toMatch(/@media \(prefers-reduced-motion: reduce\)\{[^@]*animation-duration:\.01ms/);
+    expect(CSS).toMatch(/button:focus-visible,\[role="button"\]:focus-visible[^{]*\{outline:2px solid var\(--accent\)/);
+  });
+  it('„…“ statt „...“ in sichtbaren Texten; theme-color vorhanden; Cockpit liest den Countdown nicht ständig vor', () => {
+    expect(HTML).not.toMatch(/placeholder="[^"]*\.\.\."/);
+    expect(HTML).not.toMatch(/>[^<]*\.\.\.</);
+    expect(JS).not.toMatch(/showToast\('[^']*\.\.\.'/);
+    expect(HTML).toMatch(/<meta name="theme-color" content="#bfdbfe" \/>/);
+    expect(HTML).not.toMatch(/id="seating-cockpit"[^>]*aria-live/);
+  });
+  it('Schülerzeilen per Tastatur erreichbar', () => {
+    expect(JS).toMatch(/row\.className = 'student-row';\s*row\.setAttribute\('role', 'button'\);\s*row\.tabIndex = 0;/);
+  });
+});

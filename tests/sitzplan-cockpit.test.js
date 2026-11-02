@@ -386,7 +386,7 @@ describe('Darstellung', () => {
   it('Leiste und Symbole nutzen nur definierte Klassen/Variablen; Hover nur mit hover:hover', () => {
     expect(CSS).toMatch(/\.seating-cockpit\{/);
     expect(CSS).toMatch(/\.cockpit-progress span\{/);
-    expect(CSS).not.toMatch(/\.cockpit[^{]*:hover/);
+    // :hover nur in @media (hover: hover) – prüft tests/block-s.test.js für die ganze Datei
     expect(CSS).toMatch(/\.cockpit-topic-text\{[^}]*white-space:nowrap[^}]*text-overflow:ellipsis/); // Thema nie mehrzeilig
   });
 });

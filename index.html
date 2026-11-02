@@ -9,6 +9,7 @@
   <meta name="apple-mobile-web-app-title" content="Unterrichtsplaner" />
   <title>Unterrichtsplaner</title>
   <link rel="manifest" href="manifest.json" />
+  <meta name="theme-color" content="#bfdbfe" />
   <link rel="apple-touch-icon" sizes="180x180" href="icon-180.png" />
   <link rel="icon" type="image/svg+xml" href="icon.svg" />
   <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png" />
@@ -41,7 +42,7 @@
       }
     } catch(e) {}
   </script>
-  <link rel="stylesheet" href="style.css?v=307" />
+  <link rel="stylesheet" href="style.css?v=308" />
   <script>
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
@@ -282,7 +283,7 @@
         </div>
       </div>
       <!-- Unterrichts-Cockpit (AD2): nur während einer Stunde dieser Klasse, renderSeatingCockpit -->
-      <div id="seating-cockpit" class="seating-cockpit hidden" aria-live="polite"></div>
+      <div id="seating-cockpit" class="seating-cockpit hidden" role="region" aria-label="Laufende Stunde"></div>
       <div id="seating-overflow-hint" class="seating-overflow-hint hidden" role="status"></div>
       <div id="seating-canvas-wrapper" style="flex:1; display:flex; overflow:hidden; padding:20px;">
         <div class="seating-canvas" id="seating-canvas">
@@ -407,7 +408,7 @@
           <span class="notes-section-icon"><i data-icon="content"></i></span>
           <span class="notes-section-label">Unterrichtsinhalt</span>
         </div>
-        <textarea id="lesson-done-text" placeholder="Was wurde heute behandelt / durchgenommen..." class="notes-textarea" style="margin-top:10px"></textarea>
+        <textarea id="lesson-done-text" placeholder="Was wurde heute behandelt / durchgenommen …" class="notes-textarea" style="margin-top:10px"></textarea>
       </div>
 
       <!-- Hausaufgaben -->
@@ -451,7 +452,7 @@
           <div id="test-items-list" class="entry-list" style="margin-top:8px"></div>
           <div class="upcoming-chips-row" id="test-date-chips"></div>
           <div class="add-entry-row" style="margin-top:6px">
-            <input type="text" id="new-test-text" placeholder="Stoff, Themen, Art der Prüfung..." class="entry-input" />
+            <input type="text" id="new-test-text" placeholder="Stoff, Themen, Art der Prüfung …" class="entry-input" />
             <input type="date" id="new-test-date" class="entry-date" />
             <button class="btn-primary btn-circle" onclick="addTestItem()" aria-label="Test hinzufügen">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
@@ -466,7 +467,7 @@
           <span class="notes-section-icon"><i data-icon="notes"></i></span>
           <span class="notes-section-label">Notizen & Anmerkungen</span>
         </div>
-        <textarea id="lesson-notes-text" placeholder="Allgemeine Notizen, Beobachtungen, Besonderes..." class="notes-textarea notes-textarea-sm" style="margin-top:10px"></textarea>
+        <textarea id="lesson-notes-text" placeholder="Allgemeine Notizen, Beobachtungen, Besonderes …" class="notes-textarea notes-textarea-sm" style="margin-top:10px"></textarea>
       </div>
 
     </div><!-- /lesson-notes-form -->
@@ -714,7 +715,7 @@
       <div style="margin: 16px 0; border-bottom: 1px solid var(--border);"></div>
       <div class="form-group">
         <label for="import-text">Oder Namen einfügen (ein Name pro Zeile, „Vorname Nachname“ oder aus Excel zwei Spalten Vorname | Nachname):</label>
-        <textarea id="import-text" class="form-input" style="height: 120px;" placeholder="Max Mustermann&#10;Anna Schmidt&#10;..."></textarea>
+        <textarea id="import-text" class="form-input" style="height: 120px;" placeholder="Max Mustermann&#10;Anna Schmidt&#10;…"></textarea>
       </div>
       <div class="form-group" style="margin-top: 12px; margin-bottom: 12px;">
         <label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
@@ -816,7 +817,7 @@
       <div id="student-tab-notes" class="s-tab hidden">
         <div class="entry-list" id="student-notes-list"></div>
         <div class="add-entry-row">
-          <input type="text" id="new-student-note-text" placeholder="Neue Anmerkung..." class="entry-input" />
+          <input type="text" id="new-student-note-text" placeholder="Neue Anmerkung …" class="entry-input" />
           <input type="date" id="new-student-note-date" class="entry-date" />
           <button class="btn-primary" onclick="addStudentNote()">Hinzufügen</button>
         </div>
@@ -830,7 +831,7 @@
             <option value="entschuldigt">Entschuldigt</option>
             <option value="zuspät">Zu spät</option>
           </select>
-          <input type="text" id="new-att-note" placeholder="Grund..." class="entry-input" style="flex:1" />
+          <input type="text" id="new-att-note" placeholder="Grund …" class="entry-input" style="flex:1" />
           <button class="btn-primary btn-circle" onclick="addAttendanceEntry()" aria-label="Fehlzeit eintragen">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
           </button>
@@ -1332,7 +1333,7 @@
       <div class="modal-body" style="padding: 24px 30px 30px 30px;">
         <div style="font-size: 48px; margin-bottom: 16px; animation: bounce 1s infinite; color: var(--accent);"><i data-icon="dice"></i></div>
         <h3 style="font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: var(--text-secondary); margin: 0 0 8px 0;">Zufallsauswahl</h3>
-        <h2 id="random-student-name" style="font-size: 26px; font-weight: 800; color: var(--text-primary); margin: 0 0 24px 0; min-height: 38px;">Auswahl läuft...</h2>
+        <h2 id="random-student-name" style="font-size: 26px; font-weight: 800; color: var(--text-primary); margin: 0 0 24px 0; min-height: 38px;">Auswahl läuft …</h2>
       </div>
     </div>
   </div>
@@ -1420,7 +1421,7 @@
       <div class="modal-body">
         <div class="form-group">
           <label for="plan-topic-title">Thema</label>
-          <textarea id="plan-topic-title" class="form-input" rows="4" placeholder="z. B. Bruchrechnen: Erweitern und Kürzen"></textarea>
+          <textarea id="plan-topic-title" class="form-input" rows="4" placeholder="z. B. Bruchrechnen: Erweitern und Kürzen …"></textarea>
           <p id="plan-topic-hint" class="field-hint-muted">Mehrere Zeilen = mehrere Themen in dieser Reihenfolge (z. B. aus dem Stoffverteilungsplan einfügen).</p>
         </div>
         <div class="form-row-2">
@@ -1429,7 +1430,7 @@
         </div>
         <div class="form-group">
           <label for="plan-topic-note">Notiz, Material, Link (optional)</label>
-          <textarea id="plan-topic-note" class="form-input" rows="2" placeholder="z. B. Buch S. 34, Arbeitsblatt 3"></textarea>
+          <textarea id="plan-topic-note" class="form-input" rows="2" placeholder="z. B. Buch S. 34, Arbeitsblatt 3 …"></textarea>
         </div>
       </div>
       <div class="modal-footer">
@@ -1512,12 +1513,12 @@
   </div>
 
   <script src="lib/crypto-js.min.js"></script>
-  <script src="crypto-helper.js?v=307"></script>
+  <script src="crypto-helper.js?v=308"></script>
   <script src="lib/firebase-app-compat.js"></script>
   <script src="lib/firebase-auth-compat.js"></script>
   <script src="lib/firebase-firestore-compat.js"></script>
-  <script src="firebase-config.js?v=307"></script>
-  <script src="sync-manager.js?v=307"></script>
-  <script src="app.js?v=307"></script>
+  <script src="firebase-config.js?v=308"></script>
+  <script src="sync-manager.js?v=308"></script>
+  <script src="app.js?v=308"></script>
 </body>
 </html>

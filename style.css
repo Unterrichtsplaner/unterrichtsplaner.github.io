@@ -69,13 +69,13 @@ input[type="date"] { min-height: 1.2em; } /* Fix iOS Safari date input collapse 
 /* ─── Sidebar ────────────────────────── */
 #sidebar{width:var(--sidebar-width);background:var(--sidebar-bg);border-right:1px solid var(--border);display:flex;flex-direction:column;padding:0;flex-shrink:0;z-index:100;position:sticky;left:0;transition:width var(--transition), padding var(--transition);overflow:hidden;}
 .sidebar-header{height:68px;box-sizing:border-box;padding:0 12px;border-bottom:1px solid var(--border);margin-bottom:16px;display:flex;justify-content:space-between;align-items:center;}
-.sidebar-toggle-btn{width:36px;height:36px;border-radius:var(--radius-md);background:transparent;border:none;color:var(--text-secondary);cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all var(--transition);}
+.sidebar-toggle-btn{width:36px;height:36px;border-radius:var(--radius-md);background:transparent;border:none;color:var(--text-secondary);cursor:pointer;display:flex;align-items:center;justify-content:center;transition:background-color var(--transition),color var(--transition),border-color var(--transition),box-shadow var(--transition),opacity var(--transition),transform var(--transition);}
 @media (hover: hover){.sidebar-toggle-btn:hover{background:var(--bg-card-hover);color:var(--text-primary);}}
 .app-logo{display:flex;align-items:center;gap:10px;}
 .app-logo-block{font-family:var(--font-display);font-weight:600;font-size:20px;letter-spacing:0;color:var(--text-primary);display:flex;align-items:center;justify-content:center;height:40px;box-sizing:border-box;}
 .app-logo-block .logo-short{display:none;}
 .nav-items{display:flex;flex-direction:column;gap:4px;flex:1;padding:0 8px;}
-.nav-item{display:flex;align-items:center;gap:10px;padding:10px 10px;border-radius:99px;background:transparent;border:none;color:var(--text-secondary);cursor:pointer;font-family:inherit;font-size:14px;font-weight:500;transition:all var(--transition);width:100%;text-align:left;}
+.nav-item{display:flex;align-items:center;gap:10px;padding:10px 10px;border-radius:99px;background:transparent;border:none;color:var(--text-secondary);cursor:pointer;font-family:inherit;font-size:14px;font-weight:500;transition:background-color var(--transition),color var(--transition),border-color var(--transition),box-shadow var(--transition),opacity var(--transition),transform var(--transition);width:100%;text-align:left;}
 @media (hover: hover){.nav-item:hover{background:var(--bg-elevated);color:var(--text-primary);}}
 .nav-item.active{background:var(--bg-elevated);color:var(--text-primary);font-weight:600;box-shadow:inset 0 0 0 1px var(--border);} /* gewählt ohne Farbe und ohne Kante (AE4) */
 /* Cloud-Sync pausiert (kein Master-Passwort): Punkt am Menüpunkt „Einstellungen“ (BUGS K7) */
@@ -103,25 +103,25 @@ input[type="date"] { min-height: 1.2em; } /* Fix iOS Safari date input collapse 
 .view-header h1{font-family:var(--font-display);font-size:26px;font-weight:600;letter-spacing:0;}
 @media (max-width: 600px){.view-header h1,.breadcrumb-info h1{font-size:20px;}}  /* Handy: Titel bleibt einzeilig */
 .header-actions{display:flex;align-items:center;gap:8px;margin-left:auto;}
-.week-label{font-size:13px;font-weight:600;color:var(--text-secondary);padding:8px 13px;background:var(--bg-card);border-radius:var(--radius-sm);border:1px solid var(--border);min-width:200px;text-align:center;transition:all var(--transition);}
+.week-label{font-size:13px;font-weight:600;color:var(--text-secondary);padding:8px 13px;background:var(--bg-card);border-radius:var(--radius-sm);border:1px solid var(--border);min-width:200px;text-align:center;transition:background-color var(--transition),color var(--transition),border-color var(--transition),box-shadow var(--transition),opacity var(--transition),transform var(--transition);}
 /* Aktuelle Woche dezent: gefüllt ist nur „Heute“ (BUGS I17) */
 .week-label.active{color:var(--text-accent);border-color:var(--border-active);background:var(--accent-soft);}
-.btn-heute{padding:8px 16px;background:var(--bg-elevated);color:var(--text-secondary);border:1px solid var(--border);border-radius:var(--radius-sm);font-family:inherit;font-size:13px;font-weight:600;cursor:pointer;transition:all var(--transition);white-space:nowrap;}
+.btn-heute{padding:8px 16px;background:var(--bg-elevated);color:var(--text-secondary);border:1px solid var(--border);border-radius:var(--radius-sm);font-family:inherit;font-size:13px;font-weight:600;cursor:pointer;transition:background-color var(--transition),color var(--transition),border-color var(--transition),box-shadow var(--transition),opacity var(--transition),transform var(--transition);white-space:nowrap;}
 .btn-heute.active{background:var(--accent);color:var(--on-accent);border-color:var(--accent);}
 .breadcrumb-info{flex:1;}.breadcrumb-info h1{font-family:var(--font-display);font-size:26px;font-weight:600;}
 .subtitle{font-size:12px;color:var(--text-secondary);}
 
 /* ─── Buttons ────────────────────────── */
-.btn-primary{padding:8px 16px;background:var(--accent);color:var(--on-accent);border:none;border-radius:var(--radius-sm);font-family:inherit;font-size:13px;font-weight:600;cursor:pointer;transition:all var(--transition);white-space:nowrap;}
+.btn-primary{padding:8px 16px;background:var(--accent);color:var(--on-accent);border:none;border-radius:var(--radius-sm);font-family:inherit;font-size:13px;font-weight:600;cursor:pointer;transition:background-color var(--transition),color var(--transition),border-color var(--transition),box-shadow var(--transition),opacity var(--transition),transform var(--transition);white-space:nowrap;}
 @media (hover: hover){.btn-primary:hover{background:var(--accent-hover);}}
 .btn-circle{width:34px;height:34px;padding:0;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
-.btn-secondary{padding:8px 13px;background:var(--bg-elevated);color:var(--text-primary);border:1px solid var(--border);border-radius:var(--radius-sm);font-family:inherit;font-size:13px;font-weight:500;cursor:pointer;transition:all var(--transition);white-space:nowrap;}
+.btn-secondary{padding:8px 13px;background:var(--bg-elevated);color:var(--text-primary);border:1px solid var(--border);border-radius:var(--radius-sm);font-family:inherit;font-size:13px;font-weight:500;cursor:pointer;transition:background-color var(--transition),color var(--transition),border-color var(--transition),box-shadow var(--transition),opacity var(--transition),transform var(--transition);white-space:nowrap;}
 @media (hover: hover){.btn-secondary:hover{background:var(--bg-card-hover);border-color:var(--border-active);}}
-.btn-icon{width:34px;height:34px;display:flex;align-items:center;justify-content:center;background:var(--bg-elevated);border:1px solid var(--border);border-radius:99px;color:var(--text-secondary);cursor:pointer;transition:all var(--transition);flex-shrink:0;}
+.btn-icon{width:34px;height:34px;display:flex;align-items:center;justify-content:center;background:var(--bg-elevated);border:1px solid var(--border);border-radius:99px;color:var(--text-secondary);cursor:pointer;transition:background-color var(--transition),color var(--transition),border-color var(--transition),box-shadow var(--transition),opacity var(--transition),transform var(--transition);flex-shrink:0;}
 @media (hover: hover){.btn-icon:hover{color:var(--text-primary);background:var(--bg-card-hover);}}
-.btn-back{display:flex;align-items:center;gap:6px;padding:7px 11px;background:transparent;border:1px solid var(--border);border-radius:99px;color:var(--text-secondary);cursor:pointer;font-family:inherit;font-size:13px;font-weight:500;transition:all var(--transition);flex-shrink:0;}
+.btn-back{display:flex;align-items:center;gap:6px;padding:7px 11px;background:transparent;border:1px solid var(--border);border-radius:99px;color:var(--text-secondary);cursor:pointer;font-family:inherit;font-size:13px;font-weight:500;transition:background-color var(--transition),color var(--transition),border-color var(--transition),box-shadow var(--transition),opacity var(--transition),transform var(--transition);flex-shrink:0;}
 @media (hover: hover){.btn-back:hover{color:var(--text-primary);background:var(--bg-elevated);}}
-.btn-danger-outline{padding:7px 13px;background:transparent;color:var(--danger);border:1px solid var(--danger);border-radius:var(--radius-sm);font-family:inherit;font-size:13px;cursor:pointer;transition:all var(--transition);}
+.btn-danger-outline{padding:7px 13px;background:transparent;color:var(--danger);border:1px solid var(--danger);border-radius:var(--radius-sm);font-family:inherit;font-size:13px;cursor:pointer;transition:background-color var(--transition),color var(--transition),border-color var(--transition),box-shadow var(--transition),opacity var(--transition),transform var(--transition);}
 @media (hover: hover){.btn-danger-outline:hover{background:var(--danger-soft);}}
 .btn-danger-icon{background:var(--danger-soft);border-color:rgba(239,68,68,0.2);color:var(--danger);}
 @media (hover: hover){.btn-danger-icon:hover{background:rgba(239,68,68,0.25);}}
@@ -157,7 +157,7 @@ input[type="date"] { min-height: 1.2em; } /* Fix iOS Safari date input collapse 
 .tt-time-block-name{font-size:12px;font-weight:700;color:var(--text-secondary);}
 .tt-time-block-range{font-size:11px;color:var(--text-muted);margin-top:4px;line-height:1.5;}
 .tt-cell{border-radius:var(--radius-md);background:var(--bg-card);border:1px solid var(--border);padding:5px;position:relative;}
-.tt-lesson{color:var(--lesson-color);border-radius:var(--radius-sm);padding:10px 10px;min-width:0;cursor:pointer;transition:all var(--transition);height:100%;display:flex;flex-direction:column;justify-content:space-between;position:relative;overflow:hidden;}
+.tt-lesson{color:var(--lesson-color);border-radius:var(--radius-sm);padding:10px 10px;min-width:0;cursor:pointer;transition:background-color var(--transition),color var(--transition),border-color var(--transition),box-shadow var(--transition),opacity var(--transition),transform var(--transition);height:100%;display:flex;flex-direction:column;justify-content:space-between;position:relative;overflow:hidden;}
 .tt-lesson::before{content:'';position:absolute;left:0;top:0;bottom:0;width:4px;border-radius:var(--radius-xs) 0 0 4px;background:currentColor;opacity:.8;}
 @media (hover: hover){.tt-lesson:hover{transform:translateY(-1px);box-shadow:var(--shadow-md);filter:brightness(1.1);}}
 .tt-lesson:active{transform:scale(.98);}
@@ -201,8 +201,8 @@ input[type="date"] { min-height: 1.2em; } /* Fix iOS Safari date input collapse 
 .group-preview-dot{color:var(--text-muted);font-size:14px;}
 .group-preview-hint{font-size:11px;color:var(--text-muted);margin-top:4px;}
 
-.tt-empty-cell{height:100%;display:flex;align-items:center;justify-content:center;border-radius:var(--radius-sm);border:1.5px dashed transparent;transition:all var(--transition);cursor:pointer;width:100%;}
-.tt-add-icon{font-size:20px;font-weight:200;color:transparent;transition:all var(--transition);}
+.tt-empty-cell{height:100%;display:flex;align-items:center;justify-content:center;border-radius:var(--radius-sm);border:1.5px dashed transparent;transition:background-color var(--transition),color var(--transition),border-color var(--transition),box-shadow var(--transition),opacity var(--transition),transform var(--transition);cursor:pointer;width:100%;}
+.tt-add-icon{font-size:20px;font-weight:200;color:transparent;transition:background-color var(--transition),color var(--transition),border-color var(--transition),box-shadow var(--transition),opacity var(--transition),transform var(--transition);}
 @media (hover: hover){.tt-empty-cell:hover{border-color:var(--accent);background:var(--accent-soft);}}
 @media (hover: hover){.tt-empty-cell:hover .tt-add-icon{color:var(--accent);}}
 .tt-empty-cell:active{transform:scale(.97);}
@@ -327,13 +327,13 @@ input[type="date"] { min-height: 1.2em; } /* Fix iOS Safari date input collapse 
 .modal-header{display:flex;align-items:flex-start;justify-content:space-between;padding:16px 18px 13px;border-bottom:1px solid var(--border);flex-shrink:0;}
 .modal-header h2{font-family:var(--font-display);font-size:20px;font-weight:600;letter-spacing:0;}
 .modal-subtitle{font-size:11px;color:var(--text-secondary);display:block;margin-top:2px;}
-.modal-close{width:34px;height:34px;border-radius:99px;background:var(--bg-elevated);border:1px solid var(--border);color:var(--text-secondary);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:14px;transition:all var(--transition);flex-shrink:0;}
+.modal-close{width:34px;height:34px;border-radius:99px;background:var(--bg-elevated);border:1px solid var(--border);color:var(--text-secondary);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:14px;transition:background-color var(--transition),color var(--transition),border-color var(--transition),box-shadow var(--transition),opacity var(--transition),transform var(--transition);flex-shrink:0;}
 @media (hover: hover){.modal-close:hover{color:var(--text-primary);background:var(--bg-card-hover);}}
 .modal-tabs{display:flex;gap:6px;padding:12px 18px;border-bottom:1px solid var(--border);flex-shrink:0;overflow-x:auto;scrollbar-width:none;}
 .modal-tabs::-webkit-scrollbar{display:none;}
 /* Weitere Reiter rechts außerhalb: Rand ausblenden, damit man sieht, dass es weitergeht (BUGS S15) */
 .modal-tabs{mask-image:linear-gradient(to right,#000 calc(100% - 28px),transparent);-webkit-mask-image:linear-gradient(to right,#000 calc(100% - 28px),transparent);padding-right:28px;}
-.tab-btn{padding:8px 16px;background:var(--bg-elevated);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text-secondary);cursor:pointer;font-family:inherit;font-size:13px;font-weight:500;transition:all var(--transition);white-space:nowrap;}
+.tab-btn{padding:8px 16px;background:var(--bg-elevated);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text-secondary);cursor:pointer;font-family:inherit;font-size:13px;font-weight:500;transition:background-color var(--transition),color var(--transition),border-color var(--transition),box-shadow var(--transition),opacity var(--transition),transform var(--transition);white-space:nowrap;}
 @media (hover: hover){.tab-btn:hover{background:var(--bg-card-hover);color:var(--text-primary);}}
 .tab-btn.active{background:var(--text-primary);color:var(--bg-primary);border-color:var(--text-primary);font-weight:600;} /* gewählt = Tinte auf Papier, ohne Akzent */
 
@@ -358,7 +358,7 @@ input[type="date"] { min-height: 1.2em; } /* Fix iOS Safari date input collapse 
 .seating-canvas.show-grid-always .seating-grid-cell{opacity:0.45;}
 .seating-card{position:absolute;background:var(--bg-card);border-radius:var(--radius-md);border:1px solid var(--border);box-shadow:var(--shadow-sm);display:flex;flex-direction:column;justify-content:center;align-items:center;padding:8px;text-align:center;cursor:pointer;transition:box-shadow 0.2s, transform 0.2s, border-color 0.2s, left 0.1s, top 0.1s;z-index:10;}
 @media (hover: hover){.seating-card:hover{transform:translateY(-2px);box-shadow:var(--shadow-md);border-color:var(--border-active);}}
-.teacher-desk{position:absolute;background:var(--bg-elevated);border-radius:var(--radius-md);border:1.5px solid var(--border);box-shadow:var(--shadow-sm);display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;color:var(--text-secondary);font-weight:700;font-size:13px;cursor:pointer;transition:all 0.2s ease;z-index:10;}
+.teacher-desk{position:absolute;background:var(--bg-elevated);border-radius:var(--radius-md);border:1.5px solid var(--border);box-shadow:var(--shadow-sm);display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;color:var(--text-secondary);font-weight:700;font-size:13px;cursor:pointer;transition:background-color 0.2s,color 0.2s,border-color 0.2s,box-shadow 0.2s,opacity 0.2s,transform 0.2s;z-index:10;}
 .teacher-desk.draggable-mode{cursor:grab;user-select:none;touch-action:none;border-color:var(--warning, #fbbf24);box-shadow:0 0 0 2px rgba(251, 191, 36, 0.3);}
 .teacher-desk.draggable-mode.dragging{transition:box-shadow 0.2s, transform 0.2s;z-index:1000 !important;}
 .teacher-desk.draggable-mode:active{cursor:grabbing;box-shadow:var(--shadow-md);transform:scale(1.05);z-index:20;}
@@ -446,7 +446,7 @@ input[type="date"] { min-height: 1.2em; } /* Fix iOS Safari date input collapse 
 /* ─── Next lesson chip (in date row) ─────── */
 .upcoming-chips-row{padding:8px 0 4px;}
 .date-chips-container{display:flex;gap:6px;flex-wrap:wrap;}
-.next-lesson-chip{padding:4px 9px;background:var(--accent-soft);color:var(--text-accent);border:1px solid var(--border-active);border-radius:99px;font-size:11px;font-weight:600;cursor:pointer;transition:all var(--transition);white-space:nowrap;font-family:inherit;}
+.next-lesson-chip{padding:4px 9px;background:var(--accent-soft);color:var(--text-accent);border:1px solid var(--border-active);border-radius:99px;font-size:11px;font-weight:600;cursor:pointer;transition:background-color var(--transition),color var(--transition),border-color var(--transition),box-shadow var(--transition),opacity var(--transition),transform var(--transition);white-space:nowrap;font-family:inherit;}
 @media (hover: hover){.next-lesson-chip:hover{background:var(--accent);color:white;}}
 .next-lesson-chip.chip-active{background:var(--accent);color:var(--on-accent);}
 .next-lesson-chip:empty{display:none;}
@@ -460,8 +460,8 @@ input[type="date"] { min-height: 1.2em; } /* Fix iOS Safari date input collapse 
 /* ─── Toggle switch ──────────────────── */
 .toggle-switch{position:relative;display:inline-block;width:36px;height:20px;flex-shrink:0;}
 .toggle-switch input{opacity:0;width:0;height:0;}
-.toggle-slider{position:absolute;cursor:pointer;inset:0;background:var(--bg-elevated);border:1px solid var(--border);border-radius:99px;transition:all var(--transition);}
-.toggle-slider:before{content:'';position:absolute;height:14px;width:14px;left:2px;bottom:2px;background:var(--text-muted);border-radius:50%;transition:all var(--transition);}
+.toggle-slider{position:absolute;cursor:pointer;inset:0;background:var(--bg-elevated);border:1px solid var(--border);border-radius:99px;transition:background-color var(--transition),color var(--transition),border-color var(--transition),box-shadow var(--transition),opacity var(--transition),transform var(--transition);}
+.toggle-slider:before{content:'';position:absolute;height:14px;width:14px;left:2px;bottom:2px;background:var(--text-muted);border-radius:50%;transition:background-color var(--transition),color var(--transition),border-color var(--transition),box-shadow var(--transition),opacity var(--transition),transform var(--transition);}
 .toggle-switch input:checked + .toggle-slider{background:var(--accent);border-color:var(--accent);}
 .toggle-switch input:checked + .toggle-slider:before{transform:translateX(16px);background:white;}
 
@@ -472,7 +472,7 @@ input[type="date"] { min-height: 1.2em; } /* Fix iOS Safari date input collapse 
   font-weight: 600;
   padding: 8px 12px;
   color: var(--text-secondary);
-  transition: all 0.2s ease;
+  transition:background-color 0.2s,color 0.2s,border-color 0.2s,box-shadow 0.2s,opacity 0.2s,transform 0.2s;
   height: 100%;
   display: flex;
   align-items: center;
@@ -509,7 +509,7 @@ input[name="new-lesson-part"]:checked + .duration-btn {
 .entry-item-text{flex:1;font-size:13px;}
 .entry-item-date{font-size:11px;color:var(--text-muted);flex-shrink:0;}
 .entry-item-target{font-size:10px;font-weight:600;padding:1px 6px;border-radius:99px;background:var(--bg-elevated);color:var(--text-secondary);flex-shrink:0;}
-.entry-item-delete{width:22px;height:22px;border-radius:var(--radius-xs);background:transparent;border:none;color:var(--text-muted);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:12px;transition:all var(--transition);flex-shrink:0;}
+.entry-item-delete{width:22px;height:22px;border-radius:var(--radius-xs);background:transparent;border:none;color:var(--text-muted);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:12px;transition:background-color var(--transition),color var(--transition),border-color var(--transition),box-shadow var(--transition),opacity var(--transition),transform var(--transition);flex-shrink:0;}
 @media (hover: hover){.entry-item-delete:hover{color:var(--danger);background:var(--danger-soft);}}
 .add-entry-row{display:flex;gap:7px;align-items:center;flex-wrap:wrap;padding:9px;background:var(--bg-card);border-radius:var(--radius-md);border:1px solid var(--border);}
 
@@ -518,7 +518,7 @@ input[name="new-lesson-part"]:checked + .duration-btn {
 .form-group label{font-size:12px;font-weight:600;color:var(--text-secondary);}
 /* Hinweis unter einem Feld, z. B. an welchem Tag eine einmalige Stunde liegt (BUGS R13) */
 .form-hint{font-size:12px;color:var(--text-secondary);margin-top:2px;}
-.form-input{background:var(--bg-input);border:1px solid var(--border);border-radius:var(--radius-md);color:var(--text-primary);font-family:inherit;font-size:14px;padding:9px 11px;transition:all var(--transition);width:100%;}
+.form-input{background:var(--bg-input);border:1px solid var(--border);border-radius:var(--radius-md);color:var(--text-primary);font-family:inherit;font-size:14px;padding:9px 11px;transition:background-color var(--transition),color var(--transition),border-color var(--transition),box-shadow var(--transition),opacity var(--transition),transform var(--transition);width:100%;}
 .form-input:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 2px var(--accent-glow);}
 .form-input::placeholder{color:var(--text-muted);}
 
@@ -536,7 +536,7 @@ input[name="new-lesson-part"]:checked + .duration-btn {
   font-family: inherit;
   font-size: 14px;
   padding: 9px 11px;
-  transition: all var(--transition);
+  transition:background-color var(--transition),color var(--transition),border-color var(--transition),box-shadow var(--transition),opacity var(--transition),transform var(--transition);
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -567,7 +567,7 @@ input[name="new-lesson-part"]:checked + .duration-btn {
   opacity: 0;
   pointer-events: none;
   transform: translateY(-5px);
-  transition: all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  transition:background-color 0.2s,color 0.2s,border-color 0.2s,box-shadow 0.2s,opacity 0.2s,transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
 }
 .custom-form-dropdown-menu.show {
   opacity: 1;
@@ -616,7 +616,7 @@ input[name="new-lesson-part"]:checked + .duration-btn {
 /* 14 Klassenfarben in zwei gleich langen Reihen statt 13 + 1 (BUGS I23) */
 #lesson-color-picker,#group-color-picker{display:grid;grid-template-columns:repeat(7,26px);gap:10px 12px;}
 .settings-footer-hint{font-size:12px;color:var(--text-muted);}
-.color-swatch{width:26px;height:26px;border-radius:50%;cursor:pointer;border:2.5px solid transparent;transition:all var(--transition);position:relative;}
+.color-swatch{width:26px;height:26px;border-radius:50%;cursor:pointer;border:2.5px solid transparent;transition:background-color var(--transition),color var(--transition),border-color var(--transition),box-shadow var(--transition),opacity var(--transition),transform var(--transition);position:relative;}
 @media (hover: hover){.color-swatch:hover{box-shadow:0 0 0 2px var(--border-active);}}
 .color-swatch.selected{border-color:white !important;box-shadow:0 0 0 2px var(--swatch-color);}
 .color-swatch.selected::after{content:'✓';position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:white;}
@@ -645,7 +645,7 @@ input[name="new-lesson-part"]:checked + .duration-btn {
 .block-time-input{width:105px;background:var(--bg-input);border:1px solid var(--border);border-radius:var(--radius-md);color:var(--text-primary);font-family:inherit;font-size:12px;padding:6px 8px;}
 .block-time-input:focus{outline:none;border-color:var(--accent);}
 .block-sep{font-size:11px;color:var(--text-muted);}
-.block-delete-btn{width:24px;height:24px;border-radius:var(--radius-xs);background:transparent;border:1px solid var(--border);color:var(--text-muted);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:12px;transition:all var(--transition);}
+.block-delete-btn{width:24px;height:24px;border-radius:var(--radius-xs);background:transparent;border:1px solid var(--border);color:var(--text-muted);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:12px;transition:background-color var(--transition),color var(--transition),border-color var(--transition),box-shadow var(--transition),opacity var(--transition),transform var(--transition);}
 @media (hover: hover){.block-delete-btn:hover{color:var(--danger);background:var(--danger-soft);}}
 
 /* ─── Empty state ────────────────────── */
@@ -728,10 +728,10 @@ select option{background:var(--bg-secondary);}
 /* ─── Horizontal Scroll Chips ────────── */
 .scroll-chips-container { display: flex; gap: 8px; overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; max-width: 100%; align-items: center; }
 .scroll-chips-container::-webkit-scrollbar { display: none; }
-.filter-chip { padding: 8px 16px; border-radius:var(--radius-lg); background: var(--bg-elevated); border: 1px solid var(--border); color: var(--text-secondary); font-size: 13px; font-weight: 600; cursor: pointer; white-space: nowrap; transition: all var(--transition); user-select: none; }
+.filter-chip { padding: 8px 16px; border-radius:var(--radius-lg); background: var(--bg-elevated); border: 1px solid var(--border); color: var(--text-secondary); font-size: 13px; font-weight: 600; cursor: pointer; white-space: nowrap; transition:background-color var(--transition),color var(--transition),border-color var(--transition),box-shadow var(--transition),opacity var(--transition),transform var(--transition); user-select: none; }
 @media (hover: hover){.filter-chip:hover{ background: var(--bg-card-hover); color: var(--text-primary); }}
 .filter-chip.active { background: var(--accent); color: #fff; border-color: var(--accent); box-shadow: var(--shadow-sm); }
-.date-chip { display: flex; flex-direction: column; align-items: center; justify-content: center; width: 34px; height: 34px; border-radius: 99px; background: var(--bg-elevated); border: 1px solid var(--border); color: var(--text-secondary); cursor: pointer; transition: all var(--transition); user-select: none; flex-shrink: 0; }
+.date-chip { display: flex; flex-direction: column; align-items: center; justify-content: center; width: 34px; height: 34px; border-radius: 99px; background: var(--bg-elevated); border: 1px solid var(--border); color: var(--text-secondary); cursor: pointer; transition:background-color var(--transition),color var(--transition),border-color var(--transition),box-shadow var(--transition),opacity var(--transition),transform var(--transition); user-select: none; flex-shrink: 0; }
 @media (hover: hover){.date-chip:hover{ background: var(--bg-card-hover); }}
 .date-chip.active { width: 40px; height: 40px; background: var(--accent); color:var(--on-accent); border-color: var(--accent); box-shadow: var(--shadow-sm); }
 .date-chip-day { font-size: 10px; text-transform: uppercase; font-weight: 700; opacity: 0.8; margin-bottom: 1px; transition: font-size var(--transition); }
@@ -1334,4 +1334,21 @@ button.date-chip{font-family:inherit;padding:0;}
 .tt-lesson-topic{display:none;}
 @media (min-width: 700px){   /* Tagesansicht auf iPad/PC: Platz rechts in der Kachel */
   .timetable-grid.day-view .tt-lesson-topic{display:block;position:absolute;right:12px;top:50%;transform:translateY(-50%);max-width:55%;font-size:13px;font-weight:500;color:var(--text-primary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:right;}
+}
+
+/* ─── Bedienbarkeit (Prüfung nach Web-Richtlinien, 02.11.2026) ─── */
+/* Sichtbarer Fokus für Tastatur (nicht beim Antippen): einheitlich in Tinte */
+button:focus-visible,[role="button"]:focus-visible,a:focus-visible,summary:focus-visible,.color-swatch:focus-visible{outline:2px solid var(--accent);outline-offset:2px;}
+/* iPad-Einstellung „Bewegung reduzieren“: keine Animationen, Übergänge sofort */
+@media (prefers-reduced-motion: reduce){
+  *,*::before,*::after{animation-duration:.01ms !important;animation-iteration-count:1 !important;transition-duration:.01ms !important;scroll-behavior:auto !important;}
+}
+/* Scrollen im Fenster läuft nicht in die Seite dahinter durch */
+.modal-body,#seating-today-body{overscroll-behavior:contain;}
+/* Überschriften ohne einzelnes Wort in der letzten Zeile */
+h1,h2,h3,.dash-heading,.subject-heading{text-wrap:balance;}
+/* Rückmeldung beim Darüberfahren (nur mit Maus, Regel 54) */
+@media (hover: hover){
+  .cockpit-count:hover,.tt-mode button:not(.active):hover{background:var(--bg-card-hover);}
+  .plan-main:hover b,.cockpit-topic:hover .cockpit-topic-text{text-decoration:underline;text-underline-offset:3px;}
 }

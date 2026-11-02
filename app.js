@@ -3564,6 +3564,9 @@ function renderStudents() {
     const grades = s.grades || [];
     const row = document.createElement('div');
     row.className = 'student-row';
+    row.setAttribute('role', 'button');
+    row.tabIndex = 0;
+    row.setAttribute('aria-label', `${studentListName(s)} – Schülerakte öffnen`);
     row.innerHTML = `
       ${isStudentEditMode ? `<input type="checkbox" class="student-select-cb" data-id="${escHtml(s.id)}" onclick="event.stopPropagation(); updateMassDeleteBar()" style="margin-right: 12px; width: 18px; height: 18px; cursor: pointer;">` : ''}
       <div class="student-info">
@@ -4355,6 +4358,8 @@ function applyThemePreview() {
   let rad = radEl ? parseInt(radEl.value) : db.settings.themeRadius;
   if (rad > 12) rad = 12; // Clamp max radius to 12
 
+  const themeMeta = document.querySelector('meta[name="theme-color"]');
+  if (themeMeta && bg) themeMeta.setAttribute('content', bg);   // Statusleiste der installierten App
   if (bg) { 
     document.documentElement.style.setProperty('--bg-primary', bg); 
     document.documentElement.style.setProperty('--sidebar-bg', bg);
@@ -5863,7 +5868,7 @@ function startSeatingRandomizer() {
   const modal = document.getElementById('modal-seating-randomizer');
   const nameEl = document.getElementById('random-student-name');
   
-  nameEl.textContent = 'Auswahl läuft...';
+  nameEl.textContent = 'Auswahl läuft …';
   openModal('modal-seating-randomizer'); // Fokus-Übergabe und -Rückgabe (Regel 46, BUGS S11)
   seatingRandomizerRunning = true;
 
@@ -6994,7 +6999,7 @@ function makeCustomFormDropdown(selectEl) {
 
   function renderMenu() {
     menu.innerHTML = '';
-    let selectedText = '...';
+    let selectedText = '…';
     
     const renderOption = (opt) => {
       const item = document.createElement('div');
@@ -7535,7 +7540,7 @@ async function forceAppUpdate() {
     return;
   }
   if ('serviceWorker' in navigator) {
-    showToast('App wird aktualisiert...', 'success');
+    showToast('App wird aktualisiert …', 'success');
     // Erst alles wirklich entfernen, dann neu laden (sonst kommt u. U. wieder der alte Cache)
     const registrations = await navigator.serviceWorker.getRegistrations();
     await Promise.all(registrations.map(r => r.unregister()));
@@ -8215,7 +8220,7 @@ function initSync() {
     const badge = document.getElementById('sync-status-badge');
     if (!badge) return;
     if (status === 'checking') {
-      badge.textContent = 'Status: Prüfe...';
+      badge.textContent = 'Status: Prüfe …';
       badge.style.background = 'var(--warning-soft)';
       badge.style.color = 'var(--warning)';
     } else if (status === 'synced') {

@@ -589,6 +589,20 @@ Geprüft: alles seit dem letzten Live-Stand (`196d3d9`, v278) bis v301 – Cockp
   - *XSS:* Cockpit, Fenster „Heute“, Hinweise, Klassen-Zeilen in `tests/xss.test.js`.
 - Bekannt, bewusst so: Wer früher ausdrücklich „Standard (dunkel)“ gewählt hatte, sieht jetzt hell (nicht von „nie gewählt“ unterscheidbar), Hinweis im „Das ist neu“-Fenster. Bei gewähltem Dunkel blitzt beim Start kurz hell auf (bis app.js läuft).
 
+
+## AG. Bedienbarkeit nach Web-Richtlinien (02.11.2026, web-design-guidelines-Skill)
+
+Geprüft: Cockpit, Fenster „Heute“, Schüler-Hinweis, Schülerliste/Klassenübersicht als Zeilen, Planung, Woche · Tag · Klasse – bei billigen Punkten die ganze App.
+
+- [x] **AG1** 🟠 Schülerzeilen nicht per Tastatur erreichbar → `role="button"`, `tabindex`, Name (globaler Enter/Leertaste-Handler, Regel 55).
+- [x] **AG2** 🟠 Cockpit-Leiste mit `aria-live` las den Countdown alle 15 s vor → Region mit Namen statt Live-Bereich.
+- [x] **AG3** 🟢 Kein einheitlicher Tastatur-Fokus → `:focus-visible` (Tinte, 2 px) für Knöpfe, `role=button`, Links, Farbfelder.
+- [x] **AG4** 🟢 „Bewegung reduzieren“ (iPad-Einstellung) ignoriert → Animationen/Übergänge dann aus; 27× `transition: all` durch feste Eigenschaften ersetzt.
+- [x] **AG5** 🟢 „...“ statt „…“ in 9 sichtbaren Texten; neue Platzhalter enden mit „…“.
+- [x] **AG6** 🟢 `theme-color` fehlte → Statusleiste der installierten App folgt dem Hintergrund (`applyThemePreview`).
+- [x] **AG7** 🟢 Scrollen im Fenster lief in die Seite durch → `overscroll-behavior: contain`; Überschriften `text-wrap: balance`; Darüberfahren-Rückmeldung für neue Knöpfe.
+- Bewusst nicht übernommen: Großschreibung jedes Worts (englische Regel), Daten in der Adresszeile (App ohne Seiten), virtuelles Scrollen (Listen ≤ ~150 Zeilen). Test: `tests/design-stufe2.test.js`.
+
 ---
 
 ## Erledigt
