@@ -41,7 +41,7 @@
       }
     } catch(e) {}
   </script>
-  <link rel="stylesheet" href="style.css?v=278" />
+  <link rel="stylesheet" href="style.css?v=281" />
   <script>
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
@@ -266,12 +266,16 @@
             <svg class="eye-closed" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="pointer-events:none;"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/><path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/><path d="M14.12 14.12a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
             <svg class="eye-open" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="pointer-events:none; display:none;"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
           </button>
+          <!-- Mitarbeit-Verlauf auf den Karten (AD2), wie Noten nur auf Knopfdruck -->
+          <button id="btn-seating-trend" class="btn-icon seating-tool-btn" onclick="toggleSeatingTrend()" title="Mitarbeit-Verlauf anzeigen" aria-label="Mitarbeit-Verlauf anzeigen" aria-pressed="false"><i data-icon="activity"></i></button>
           <!-- Bearbeiten -->
           <button id="btn-seating-edit" class="btn-icon seating-tool-btn" onclick="toggleSeatingEditMode()" title="Sitzplan bearbeiten" aria-label="Sitzplan bearbeiten" aria-pressed="false">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="pointer-events:none;"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
           </button>
         </div>
       </div>
+      <!-- Unterrichts-Cockpit (AD2): nur während einer Stunde dieser Klasse, renderSeatingCockpit -->
+      <div id="seating-cockpit" class="seating-cockpit hidden" aria-live="polite"></div>
       <div id="seating-overflow-hint" class="seating-overflow-hint hidden" role="status"></div>
       <div id="seating-canvas-wrapper" style="flex:1; display:flex; overflow:hidden; padding:20px;">
         <div class="seating-canvas" id="seating-canvas">
@@ -672,7 +676,8 @@
         <div class="form-group"><label for="new-student-first">Vorname</label><input type="text" id="new-student-first" placeholder="Vorname" class="form-input" /></div>
         <div class="form-group"><label for="new-student-last">Nachname</label><input type="text" id="new-student-last" placeholder="Nachname" class="form-input" /></div>
       </div>
-      <div class="form-group"><label for="new-student-notes">Notizen</label><textarea id="new-student-notes" placeholder="Besonderheiten..." class="form-input" rows="3"></textarea></div>
+      <div class="form-group"><label for="new-student-birthday">Geburtstag (optional)</label><input type="date" id="new-student-birthday" class="form-input" /></div>
+      <div class="form-group"><label for="new-student-notes">Hinweise</label><textarea id="new-student-notes" placeholder="z. B. hörgeschädigt – vorne sitzen, mag Fußball …" class="form-input" rows="3"></textarea><p class="field-hint-muted">Erscheint im Sitzplan als Symbol auf der Karte, der Text erst beim Antippen.</p></div>
     </div>
     <div class="modal-footer">
       <button class="btn-secondary" onclick="closeModal('modal-add-student')">Abbrechen</button>
@@ -1359,6 +1364,10 @@
             </div>
           </div>
         </div>
+        <div class="seating-hint-block">
+          <h3 class="seating-hint-title"><i data-icon="info"></i>Hinweis</h3>
+          <div id="seating-student-hint"></div>
+        </div>
         <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--border); padding-bottom:6px; margin-bottom:10px;">
           <h3 style="font-size:13px; font-weight:600; color:var(--text-secondary); margin:0;">Bisherige Noten</h3>
           <button class="btn-secondary" onclick="openGradeFormForCurrentStudent()"><i data-icon="plus"></i>Neue Note</button>
@@ -1439,12 +1448,12 @@
   </div>
 
   <script src="lib/crypto-js.min.js"></script>
-  <script src="crypto-helper.js?v=278"></script>
+  <script src="crypto-helper.js?v=281"></script>
   <script src="lib/firebase-app-compat.js"></script>
   <script src="lib/firebase-auth-compat.js"></script>
   <script src="lib/firebase-firestore-compat.js"></script>
-  <script src="firebase-config.js?v=278"></script>
-  <script src="sync-manager.js?v=278"></script>
-  <script src="app.js?v=278"></script>
+  <script src="firebase-config.js?v=281"></script>
+  <script src="sync-manager.js?v=281"></script>
+  <script src="app.js?v=281"></script>
 </body>
 </html>

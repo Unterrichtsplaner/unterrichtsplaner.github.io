@@ -938,6 +938,64 @@ select option{background:var(--bg-secondary);}
   .seating-live-btn { height: 40px; padding: 0 14px; font-size: 14px; }
 }
 
+/* ─── Unterrichts-Cockpit im Sitzplan (AD2) ─── */
+.seating-cockpit{position:relative;display:flex;align-items:center;gap:14px;margin:10px 20px 0;padding:8px 10px 12px 14px;background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-md);overflow:hidden;flex-shrink:0;}
+.cockpit-time{flex-shrink:0;min-width:92px;line-height:1.1;}
+.cockpit-mins{font-size:14px;font-weight:600;color:var(--text-secondary);white-space:nowrap;}
+.cockpit-mins b{font-size:26px;font-weight:800;color:var(--text-primary);font-variant-numeric:tabular-nums;}
+.cockpit-soon b{font-size:22px;}
+.cockpit-sub{font-size:11px;color:var(--text-muted);white-space:nowrap;margin-top:2px;}
+.cockpit-chips{flex:1;min-width:0;display:flex;flex-wrap:wrap;gap:6px 8px;align-items:center;}
+.cockpit-chip{flex-shrink:1;min-width:0;max-width:100%;display:inline-flex;align-items:center;gap:5px;padding:6px 11px;border-radius:99px;font-size:13px;line-height:1.2;background:var(--bg-elevated);border:1px solid var(--border);color:var(--text-primary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.cockpit-chip b{font-weight:700;color:var(--text-secondary);}
+.cockpit-chip.muted{color:var(--text-secondary);}
+.cockpit-chip.hw{border-color:var(--warning);}
+.cockpit-chip.test{border-color:var(--danger);}
+.cockpit-chip.absent{border-color:var(--danger);}
+.cockpit-chip.bday{border-color:var(--accent);background:var(--accent-soft);}
+.cockpit-chip .ico{width:14px;height:14px;flex-shrink:0;}
+.cockpit-empty{font-size:13px;color:var(--text-muted);}
+.cockpit-lesson-btn{flex-shrink:0;display:flex;align-items:center;gap:6px;min-height:40px;}
+.cockpit-progress{position:absolute;left:0;right:0;bottom:0;height:4px;background:var(--bg-elevated);}
+.cockpit-progress span{display:block;height:100%;background:var(--accent);border-radius:0 2px 2px 0;transition:width .5s;}
+@container seating (max-width: 520px) {
+  /* Handy: Höhe ist knapp → Kacheln in einer Zeile zum Wischen statt umbrechen */
+  .seating-cockpit{margin:8px 10px 0;gap:10px;padding:6px 8px 10px 10px;}
+  .cockpit-time{min-width:0;}
+  .cockpit-mins b{font-size:22px;}
+  .cockpit-chips{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;}
+  .cockpit-chips::-webkit-scrollbar{display:none;}
+  .cockpit-chip{flex-shrink:0;max-width:220px;}
+  .cockpit-lesson-btn{min-height:40px;padding:0 10px;}
+  .cockpit-lesson-btn span{display:none;}
+}
+/* Karten: Symbole oben links, Mitarbeit-Verlauf als Punkte */
+.seating-card .sc-marks{position:absolute;top:5px;left:6px;display:flex;gap:3px;color:var(--text-muted);}
+.seating-card .sc-mark .ico{width:13px;height:13px;margin:0;}
+.seating-card .sc-bday{color:var(--text-accent);}
+.seating-card .sc-trend{display:flex;gap:3px;justify-content:center;margin-top:3px;}
+.seating-card .sc-trend i{width:8px;height:8px;border-radius:50%;display:block;}
+.seating-card .sc-trend .t-positive{background:var(--success);}
+.seating-card .sc-trend .t-neutral{background:var(--warning);}
+.seating-card .sc-trend .t-negative{background:var(--danger);}
+.seating-card .sc-trend-empty{font-size:11px;color:var(--text-muted);}
+.seating-card.tiny .sc-marks{top:3px;left:3px;}
+/* kleine Karten (Handy): Symbole als Punkte, sonst verdecken sie den Namen */
+.seating-card.tiny .sc-mark .ico{display:none;}
+.seating-card.tiny .sc-mark{display:block;width:5px;height:5px;border-radius:50%;background:currentColor;}
+.seating-card.tiny .sc-trend i{width:6px;height:6px;}
+#btn-seating-trend.active,#btn-seating-grades.active{background:var(--accent-soft);color:var(--text-accent);}
+/* Schüler-Fenster: Hinweis */
+.seating-hint-block{margin-bottom:16px;}
+.seating-hint-title{display:flex;align-items:center;gap:6px;font-size:13px;font-weight:600;color:var(--text-secondary);margin:0 0 8px;}
+.seating-hint-title .ico{width:14px;height:14px;}
+.seating-hint-hidden{display:flex;justify-content:space-between;align-items:center;font-size:12px;color:var(--text-muted);padding:8px 12px;background:var(--bg-secondary);border-radius:8px;}
+.seating-hint-input{width:100%;resize:vertical;min-height:52px;font-size:14px;}
+/* Dashboard: Geburtstage (AD6) */
+.dash-birthdays{display:flex;align-items:flex-start;gap:8px;margin:0 0 12px;padding:10px 12px;border-radius:var(--radius-md);background:var(--accent-soft);color:var(--text-primary);font-size:14px;}
+.dash-birthdays .ico{width:18px;height:18px;flex-shrink:0;color:var(--text-accent);margin-top:1px;}
+.dash-bday-item small{color:var(--text-secondary);}
+
 /* ─── Sitzplan (BUGS N1, N6, N10–N12) ─── */
 .seating-overflow-hint{margin:8px 20px 0;padding:8px 12px;border:1px solid var(--warning);border-radius:var(--radius-md);background:var(--warning-soft);color:var(--warning);font-size:13px;font-weight:600;text-align:center;}
 .seating-tool-slot{position:relative;width:34px;height:34px;flex-shrink:0;}

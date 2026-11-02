@@ -13,7 +13,7 @@ function evilDB() {
     lessonSlots: [
       { id: slot, day: 0, block: 1, subject: X, room: X, groupId: g, recurring: 'weekly', color: `red"><img data-xss src=x>` },
     ],
-    lessonData: { [`${slot}_2026-09-21`]: { notes: X, hwEnabled: true, hwText: X, testEnabled: true, testText: X } },
+    lessonData: { [`${slot}_2026-09-21`]: { notes: X, done: X, hwEnabled: true, hwText: X, testEnabled: true, testText: X, hwItems: [{ id: 'h1', text: X, targetDate: '2026-09-21' }], testItems: [{ id: 't1', text: X, targetDate: '2026-09-21' }] } },
     groups: [{
       id: g, subject: X, className: X, year: X, color: `red"><img data-xss src=x>`, schularbeitWeight: 50,
       seatingRows: 2, seatingCols: 2, seatingPlan: [{ studentId: s, x: 0, y: 0, row: 0, col: 0 }],
@@ -24,7 +24,7 @@ function evilDB() {
     }],
     students: {
       [g]: [{
-        id: s, firstName: X, lastName: X,
+        id: s, firstName: X, lastName: X, notes: X, birthday: '2010-09-21', // Hinweis + Geburtstag (AD2/AD6)
         grades: [{ type: 'test', value: X, date: '2026-09-01', note: X }, { type: X, value: '2', date: '2026-09-02', note: X }], // präparierter Typ: BUGS Q1
         attendance: [{ id: ID('a'), date: '2026-09-03', type: 'absent', note: X }],
         participation: [{ id: ID('p'), date: '2026-09-02', value: X, label: X }, { id: ID('p2'), date: '2026-09-21', value: X }],
@@ -87,6 +87,12 @@ describe('Ansichten mit präparierten Daten', () => {
     stunde: () => app(`openLessonDetail(${JSON.stringify(ID('slot'))}, "2026-09-21")`),
     sitzplan: () => app(`switchView("seating"); currentSeatingGroupId = ${G}; currentSeatingDateStr = "2026-09-21"; renderSeatingPlan()`),
     'sitzplan schüler': () => app(`openSeatingStudentModal(${S}, ${G}, "2026-09-21"); revealSeatingStudentGrades()`),
+    'sitzplan schüler hinweis': () => app(`openSeatingStudentModal(${S}, ${G}, "2026-09-21"); renderSeatingStudentHint(true)`),
+    'sitzplan cockpit + verlauf': () => {
+      app(`switchView("seating"); currentSeatingGroupId = ${G}; currentSeatingDateStr = "2026-09-21"; seatingShowTrend = true; renderSeatingPlan()`);
+      expect(document.getElementById('seating-cockpit').classList.contains('hidden')).toBe(false); // Cockpit wirklich gezeichnet
+      app('seatingShowTrend = false');
+    },
     einstellungen: () => app('openSettings()'),
   };
 

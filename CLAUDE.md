@@ -63,7 +63,7 @@ db = {
   groups: [{ id, subject, className, year, color, schularbeitWeight /*0–100*/, gradeScale /*'1-6' (Standard, fehlt bei Altdaten) | '0-15'*/,
              seatingRows, seatingCols, teacherDeskX, teacherDeskY, seatingPlan: [{ studentId, … }],
              gradeEvents, attendanceEvents, participationEvents, homeworkEvents }],
-  students: { '<groupId>': [{ id, firstName, lastName,
+  students: { '<groupId>': [{ id, firstName, lastName, notes /*Hinweis, im Sitzplan als Symbol (AD2)*/, birthday? /*YYYY-MM-DD (AD6)*/,
              grades: [{ type, value /*String! '2.0', '2-' (Tendenz), '+' (zählt nicht)*/, date, note }],
              attendance: [{ id?, date, type, note }],
              participation: [{ id?, date, value, label? }],
@@ -178,6 +178,10 @@ Datumswerte sind Strings `YYYY-MM-DD` in **lokaler** Zeit (`formatDate()`). Nie 
 64. **Stunden ändern immer über `commitLessonSlot(input, slot)`** (Kern von `saveLessonSlot`; auch Ziehen im Stift-Modus, AC2). Nie Tag/Block einer Stunde direkt setzen: Nur dort laufen „ab wann ändern?“, `moveLessonData`, `retargetDueItems` und die Überschneidungsprüfung.
 
 65. **Eine Stunde „nur an einem Tag“ ändern/verschieben nur über `moveOccurrenceOnce`** (einmalige Stunde mit `movedFrom`, Ursprung `lessonData` mit `{ausfall, movedTo}`), aufheben nur über `revertMovedLesson`. Wer eine Stunde mit `movedFrom` löscht, hebt die Verlegung auf, statt Notizen zu verwerfen. Pro Aktion **eine** Rückfrage (`askMoveScope`), Folgeschritte bekommen die Antwort als `scope` mit.
+
+
+66. **Sitzplan-Cockpit nur über `seatingCockpitInfo`/`renderSeatingCockpit`** (AD2). Es erscheint von selbst während einer Stunde der Klasse (kein Modus-Knopf) und hält dann den Bildschirm an (`setSeatingWakeLock`, beim Verlassen wieder frei). Ändert sich seine Sichtbarkeit, muss das Raster neu eingepasst werden (`refreshSeatingCockpit`), nie mitten im Bearbeiten-Modus.
+67. **Leistungs- und Gesundheitsangaben im Sitzplan nur auf Knopfdruck:** Noten, Mitarbeit-Verlauf und der Text von Hinweisen (`s.notes`). Auf Karten höchstens ein Symbol. Der Zustand „eingeblendet“ wird nie gespeichert und fällt beim Öffnen und beim Klassenwechsel weg (`hideSeatingGrades`).
 
 ## Arbeitsablauf
 

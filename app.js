@@ -69,6 +69,9 @@ const ICONS = {
   printer:      '<polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/>',
   'eye-off':    '<path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/><path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/><path d="M14.12 14.12a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/>',
   calendar:     '<rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>',
+  info:         '<circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/>',
+  cake:         '<path d="M20 21v-8a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8"/><path d="M4 16s.5-1 2-1 2.5 2 4 2 2.5-2 4-2 2.5 2 4 2 2-1 2-1"/><path d="M2 21h20"/><path d="M7 8v3"/><path d="M12 8v3"/><path d="M17 8v3"/><path d="M7 4h.01"/><path d="M12 4h.01"/><path d="M17 4h.01"/>',
+  activity:     '<polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>',
 };
 function icon(name) {
   if (!ICONS[name]) throw new Error('Unbekanntes Icon: ' + name);
@@ -385,6 +388,7 @@ function switchView(name) {
     toggleSeatingEditMode();
   }
   if (name !== 'timetable' && timetableEditMode) setTimetableEditUI(false); // AC2
+  if (name !== 'seating') setSeatingWakeLock(false); // Bildschirm darf wieder ausgehen (AD2)
   document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
   document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
   const viewEl = document.getElementById('view-' + name);
@@ -1240,6 +1244,7 @@ function refreshTimetableClock() {
 function renderScheduleViews() {
   renderTimetable();
   if (document.getElementById('view-dashboard')?.classList.contains('active')) renderDashboard();
+  refreshSeatingCockpit(); // Inhalt/HA der laufenden Stunde geändert (AD2)
 }
 setInterval(refreshTimetableClock, 20000);
 document.addEventListener('visibilitychange', refreshTimetableClock);
@@ -3755,7 +3760,7 @@ function importStudentsFromGroup() {
       if (exists) return;
     }
     db.students[currentGroupId].push({
-      id: uid(), firstName: s.firstName, lastName: s.lastName, notes: s.notes, grades: [], studentNotes: [], attendance: []
+      id: uid(), firstName: s.firstName, lastName: s.lastName, notes: s.notes, ...(s.birthday ? { birthday: s.birthday } : {}), grades: [], studentNotes: [], attendance: []
     });
     count++;
   });
@@ -3819,7 +3824,7 @@ function importStudentsFromText() {
 function openAddStudent() {
   editingStudentId = null;
   document.getElementById('student-modal-title').textContent = 'Schüler hinzufügen';
-  ['new-student-first','new-student-last','new-student-notes'].forEach(id => document.getElementById(id).value = '');
+  ['new-student-first','new-student-last','new-student-notes','new-student-birthday'].forEach(id => document.getElementById(id).value = '');
   openModal('modal-add-student');
 }
 
@@ -3827,6 +3832,7 @@ function saveStudent() {
   const firstName = document.getElementById('new-student-first').value.trim();
   const lastName  = document.getElementById('new-student-last').value.trim();
   const notes     = document.getElementById('new-student-notes').value.trim();
+  const birthday  = document.getElementById('new-student-birthday').value; // AD6, YYYY-MM-DD oder leer
   // Ein Name genügt: der Import erlaubt Schüler mit nur einem Namen, die müssen bearbeitbar bleiben (BUGS L8)
   if (!firstName && !lastName) { showToast('Bitte einen Namen eingeben', 'error'); return; }
   if (!db.students[currentGroupId]) db.students[currentGroupId] = [];
@@ -3835,10 +3841,11 @@ function saveStudent() {
     if (s) {
       const oldStudent = { firstName: s.firstName, lastName: s.lastName };
       Object.assign(s, { firstName, lastName, notes });
+      if (birthday) s.birthday = birthday; else delete s.birthday; // kein leeres Feld an alle Schüler hängen
       renameAbsenceNotes(currentGroupId, oldStudent, s);
     }
   } else {
-    db.students[currentGroupId].push({ id:uid(), firstName, lastName, notes, grades:[], studentNotes:[], attendance:[] });
+    db.students[currentGroupId].push({ id:uid(), firstName, lastName, notes, ...(birthday ? { birthday } : {}), grades:[], studentNotes:[], attendance:[] });
   }
   saveDB();
   closeModal('modal-add-student');
@@ -4168,6 +4175,7 @@ function openEditStudent() {
   document.getElementById('new-student-first').value = s.firstName;
   document.getElementById('new-student-last').value  = s.lastName;
   document.getElementById('new-student-notes').value = s.notes||'';
+  document.getElementById('new-student-birthday').value = validBirthday(s.birthday) ? s.birthday : '';
   closeModal('modal-student-detail');
   openModal('modal-add-student');
 }
@@ -4964,6 +4972,7 @@ function initSeatingPlan() {
   else refreshSeatingDate();
   // Datenschutz (BUGS H1): Noten bei jedem Öffnen wieder verborgen, Zustand wird nicht gespeichert
   seatingShowGrades = false;
+  seatingShowTrend = false;
   updateSeatingGradesButton();
   
   const suggestedGroupId = request ? request.groupId : getSuggestedSeatingGroupId();
@@ -5123,16 +5132,33 @@ function onHiddenDateChange(val) {
 // BUGS H1: Notenschnitt auf den Karten nur auf Knopfdruck (Tablet am Pult / Beamer)
 let seatingShowGrades = false;
 function hideSeatingGrades() {
-  if (!seatingShowGrades) return;
+  if (!seatingShowGrades && !seatingShowTrend) return;
   seatingShowGrades = false;
+  seatingShowTrend = false;
   updateSeatingGradesButton();
 }
 function toggleSeatingGrades() {
   seatingShowGrades = !seatingShowGrades;
+  if (seatingShowGrades) seatingShowTrend = false; // eins von beiden: Noten oder Mitarbeit-Verlauf
+  updateSeatingGradesButton();
+  renderSeatingPlan();
+}
+// Mitarbeit-Verlauf auf den Karten (AD2): letzte Smileys als Punkte. Leistungsdaten → wie Noten nur auf
+// Knopfdruck, nie gespeichert, beim Öffnen und Klassenwechsel wieder aus (Regel 16).
+let seatingShowTrend = false;
+function toggleSeatingTrend() {
+  seatingShowTrend = !seatingShowTrend;
+  if (seatingShowTrend) seatingShowGrades = false;
   updateSeatingGradesButton();
   renderSeatingPlan();
 }
 function updateSeatingGradesButton() {
+  const trend = document.getElementById('btn-seating-trend');
+  if (trend) {
+    trend.classList.toggle('active', seatingShowTrend);
+    trend.setAttribute('aria-pressed', seatingShowTrend ? 'true' : 'false');
+    trend.title = seatingShowTrend ? 'Mitarbeit-Verlauf verbergen' : 'Mitarbeit-Verlauf anzeigen';
+  }
   const btn = document.getElementById('btn-seating-grades');
   if (!btn) return;
   btn.classList.toggle('active', seatingShowGrades);
@@ -5140,6 +5166,212 @@ function updateSeatingGradesButton() {
   btn.setAttribute('aria-pressed', seatingShowGrades ? 'true' : 'false');
   btn.querySelector('.eye-open').style.display = seatingShowGrades ? '' : 'none';
   btn.querySelector('.eye-closed').style.display = seatingShowGrades ? 'none' : '';
+}
+
+// ─── Unterrichts-Cockpit im Sitzplan (AD2) ─────────────────────────────────
+// Läuft heute gerade eine Stunde dieser Klasse (oder beginnt sie gleich), zeigt der Sitzplan oben eine Leiste:
+// Restzeit, was danach kommt, Thema, fällige HA/Tests, wer fehlt, Geburtstage – und hält den Bildschirm an.
+// Kein eigener Modus: außerhalb der Stunde (Planen, Plätze tauschen) bleibt die ruhige Ansicht.
+const COCKPIT_LEAD_MINS = 15; // so lange vorher erscheint „beginnt in …“
+function seatingCockpitInfo(groupId, dateStr, now = new Date()) {
+  const todayStr = formatDate(now);
+  if (!groupId || dateStr !== todayStr) return null;
+  const nowMins = now.getHours() * 60 + now.getMinutes() + now.getSeconds() / 60;
+  const day = lessonsOnDate(todayStr).filter(l => l.range && !l.ausfall);
+  const mine = day.filter(l => l.slot.groupId === groupId);
+  const running = mine.find(l => l.range.start <= nowMins && nowMins < l.range.end);
+  const upcoming = !running && mine.find(l => l.range.start > nowMins && l.range.start - nowMins <= COCKPIT_LEAD_MINS);
+  const lesson = running || upcoming;
+  if (!lesson) return null;
+  const { start, end } = lesson.range;
+  const next = day.find(l => l !== lesson && l.range.start >= end) || null;
+  return {
+    lesson, running: !!running, next,
+    minsLeft: Math.max(0, Math.ceil(end - nowMins)),
+    startsIn: running ? 0 : Math.max(1, Math.ceil(start - nowMins)),
+    progress: running ? Math.min(1, (nowMins - start) / Math.max(1, end - start)) : 0,
+  };
+}
+// Letzte Stunde der Klasse vor dieser (heute früher oder an einem früheren Tag), die stattgefunden hat
+function previousLessonOfGroup(groupId, dateStr, beforeMins) {
+  let d = parseDate(dateStr);
+  for (let i = 0; i < 70; i++, d = addDays(d, -1)) {   // auch über die Sommerferien (Y8)
+    const ds = formatDate(d);
+    if (i > 0 && !isSchoolDay(d)) continue;
+    const hits = lessonsOnDate(ds).filter(l => l.slot.groupId === groupId && !l.ausfall
+      && (i > 0 || (l.range && l.range.end <= beforeMins)));
+    if (hits.length) return hits[hits.length - 1];
+  }
+  return null;
+}
+const firstLine = t => String(t || '').split('\n').map(x => x.trim()).find(Boolean) || '';
+const studentName = s => [s.firstName, s.lastName].filter(Boolean).join(' ');
+function seatingTodayInfo(groupId, info) {
+  const { lesson } = info;
+  const dateStr = lesson.dateStr;
+  const data = db.lessonData[lesson.slot.id + '_' + dateStr] || {};
+  const students = db.students[groupId] || [];
+  const prev = previousLessonOfGroup(groupId, dateStr, lesson.range.start);
+  const prevData = prev ? (db.lessonData[prev.slot.id + '_' + prev.dateStr] || {}) : {};
+  const absentOn = ds => students.filter(s => (s.attendance || []).some(a => a.date === ds && (a.type === 'abwesend' || a.type === 'entschuldigt')));
+  const absent = absentOn(dateStr);
+  return {
+    topic: firstLine(data.done),
+    prevTopic: firstLine(prevData.done), prev,
+    due: dueItemsFor(lesson.slot.id, dateStr),
+    absent,
+    // Wer letzte Stunde gefehlt hat und heute da ist: Stoff nachholen
+    missed: prev && prev.dateStr !== dateStr ? absentOn(prev.dateStr).filter(s => !absent.includes(s)) : [],
+    birthdays: students.map(s => ({ s, b: birthdayInfo(s, dateStr) })).filter(x => x.b),
+  };
+}
+function cockpitChip(cls, label, text, title = text) {
+  return `<span class="cockpit-chip ${cls}" title="${escHtml(title)}">${label ? `<b>${label}</b> ` : ''}${escHtml(text)}</span>`;
+}
+const namesList = list => list.map(s => s.firstName || s.lastName).join(', ');
+// Zeichnet die Leiste; liefert true, wenn sie erschienen oder verschwunden ist (dann ändert sich die Rasterhöhe)
+function renderSeatingCockpit(now = new Date()) {
+  const el = document.getElementById('seating-cockpit');
+  if (!el) return false;
+  const viewOpen = document.getElementById('view-seating')?.classList.contains('active');
+  const info = viewOpen && !seatingEditMode ? seatingCockpitInfo(currentSeatingGroupId, currentSeatingDateStr, now) : null;
+  const wasShown = !el.classList.contains('hidden');
+  el.classList.toggle('hidden', !info);
+  setSeatingWakeLock(!!info);
+  if (!info) { el.innerHTML = ''; cockpitLesson = null; return wasShown; }
+  cockpitLesson = { slotId: info.lesson.slot.id, dateStr: info.lesson.dateStr };
+  const t = seatingTodayInfo(currentSeatingGroupId, info);
+  const { range, block } = info.lesson;
+  const timeHTML = info.running
+    ? `<div class="cockpit-mins"><b>${info.minsLeft}</b> Min</div><div class="cockpit-sub">noch · bis ${minsToTime(range.end)}</div>`
+    : `<div class="cockpit-mins cockpit-soon">in <b>${info.startsIn}</b> Min</div><div class="cockpit-sub">${escHtml(block.label)} · ab ${minsToTime(range.start)}</div>`;
+  const chips = [];
+  if (t.topic) chips.push(cockpitChip('topic', 'Thema', t.topic));
+  else if (t.prevTopic) chips.push(cockpitChip('topic muted', 'Letzte Stunde', t.prevTopic));
+  if (t.due.hw.length) chips.push(cockpitChip('hw', 'HA', t.due.hw.map(i => i.text).join(' · ')));
+  if (t.due.tests.length) chips.push(cockpitChip('test', 'Test', t.due.tests.map(i => i.text).join(' · ')));
+  if (t.absent.length) chips.push(cockpitChip('absent', 'Fehlt', namesList(t.absent), t.absent.map(studentName).join(', ')));
+  if (t.missed.length) chips.push(cockpitChip('missed', 'Letzte Std. gefehlt', namesList(t.missed), t.missed.map(studentName).join(', ')));
+  t.birthdays.forEach(({ s, b }) => {
+    const text = (s.firstName || s.lastName) + (b.age ? ` (${b.age})` : '') + (b.when === 'past' ? ` · ${formatWeekdayShort(b.date)}` : '');
+    chips.push(`<span class="cockpit-chip bday" title="${escHtml(studentName(s))} hat ${b.when === 'past' ? 'am ' + formatWeekdayShort(b.date) + ' ' : ''}Geburtstag">${icon('cake')}${escHtml(text)}</span>`);
+  });
+  if (info.next) {
+    const nt = lessonTitle(info.next.slot);
+    chips.push(cockpitChip('next muted', 'Danach', [nt.main, info.next.slot.room].filter(Boolean).join(' · ') + ` · ${minsToTime(info.next.range.start)}`));
+  }
+  el.innerHTML = `
+    <div class="cockpit-time">${timeHTML}</div>
+    <div class="cockpit-chips">${chips.join('') || '<span class="cockpit-empty">Nichts fällig, alle da.</span>'}</div>
+    <button type="button" class="btn-secondary cockpit-lesson-btn" onclick="openCockpitLesson()" aria-label="Diese Stunde: Inhalt, Notiz, Hausaufgabe">${icon('edit')}<span>Stunde</span></button>
+    <div class="cockpit-progress" aria-hidden="true"><span style="width:${Math.round(info.progress * 100)}%"></span></div>`;
+  return !wasShown;
+}
+let cockpitLesson = null;
+// Notiz zur Stunde = Stunde abschließen: das Stunden-Fenster (Inhalt, Notizen, HA, Test) dieser Stunde
+function openCockpitLesson() {
+  if (!cockpitLesson) return;
+  openLessonDetail(cockpitLesson.slotId, cockpitLesson.dateStr);
+}
+// Timer / nach Änderungen: Leiste aktualisieren; erscheint oder verschwindet sie, das Raster neu einpassen
+function refreshSeatingCockpit() {
+  if (!document.getElementById('view-seating')?.classList.contains('active') || seatingEditMode) return;
+  if (renderSeatingCockpit()) renderSeatingPlan();
+}
+setInterval(() => { if (!document.hidden) refreshSeatingCockpit(); }, 15000);
+
+// Bildschirm bleibt an, solange das Cockpit eine Stunde zeigt (Screen Wake Lock; iPad ab iOS 16.4).
+// Der Browser gibt die Sperre beim Verlassen der App selbst frei → beim Zurückkommen neu anfordern.
+let seatingWakeLock = null, seatingWakeWanted = false;
+function setSeatingWakeLock(on) {
+  seatingWakeWanted = on;
+  if (!on) {
+    // Noch angefordert ('pending'): gibt die Anfrage selbst wieder frei, sobald sie ankommt
+    if (seatingWakeLock && seatingWakeLock !== 'pending') seatingWakeLock.release().catch(() => {});
+    seatingWakeLock = null;
+    return;
+  }
+  if (seatingWakeLock || document.hidden || !navigator.wakeLock || !navigator.wakeLock.request) return;
+  seatingWakeLock = 'pending';
+  navigator.wakeLock.request('screen').then(lock => {
+    if (!seatingWakeWanted || seatingWakeLock !== 'pending') { lock.release().catch(() => {}); if (seatingWakeLock === 'pending') seatingWakeLock = null; return; }
+    seatingWakeLock = lock;
+    lock.addEventListener('release', () => { if (seatingWakeLock === lock) seatingWakeLock = null; });
+  }).catch(() => { seatingWakeLock = null; }); // z. B. Energiesparmodus: dann eben nicht
+}
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden && seatingWakeWanted && !seatingWakeLock) setSeatingWakeLock(true);
+});
+
+// Mitarbeit-Verlauf: die letzten Smileys (ohne Titel, wie die Schnellbewertung, Regel 49) als Punkte, alt → neu
+const TREND_COUNT = 6;
+function participationTrendHTML(s) {
+  const list = (s.participation || []).filter(p => !p.label && ['positive', 'neutral', 'negative'].includes(p.value))
+    .sort((a, b) => (a.date || '').localeCompare(b.date || '')).slice(-TREND_COUNT);
+  if (!list.length) return '<div class="sc-trend sc-trend-empty">–</div>';
+  const word = { positive: 'gut', neutral: 'mittel', negative: 'schwach' };
+  return `<div class="sc-trend" title="Mitarbeit zuletzt: ${list.map(p => word[p.value]).join(', ')}">${list.map(p => `<i class="t-${p.value}"></i>`).join('')}</div>`;
+}
+
+// Hinweis im Schüler-Fenster (s.notes, AD2). Gesundheitsangaben u. Ä. → wie Noten erst nach „Anzeigen“,
+// außer die Noten sind im Sitzplan ohnehin eingeblendet (Lehrkraft hat „privat“ signalisiert).
+function renderSeatingStudentHint(show) {
+  const box = document.getElementById('seating-student-hint');
+  const ctx = window.currentSeatingStudent;
+  if (!box || !ctx) return;
+  const s = (db.students[ctx.groupId] || []).find(x => x.id === ctx.studentId);
+  if (!s) return;
+  const text = (s.notes || '').trim();
+  if (text && !show) {
+    box.innerHTML = `<div class="seating-hint-hidden"><span>Hinweis vorhanden – verborgen</span>
+      <button type="button" class="btn-secondary seating-reveal-btn" onclick="renderSeatingStudentHint(true)">Anzeigen</button></div>`;
+    return;
+  }
+  box.innerHTML = `<textarea id="seating-student-hint-input" class="form-input seating-hint-input" rows="2"
+    placeholder="z. B. hörgeschädigt – vorne sitzen, mag Fußball …" aria-label="Hinweis zu ${escHtml(studentName(s))}"></textarea>`;
+  const ta = box.querySelector('textarea');
+  ta.value = s.notes || '';
+  ta.addEventListener('change', commitSeatingStudentHint);
+}
+function commitSeatingStudentHint() {
+  const ta = document.getElementById('seating-student-hint-input');
+  const ctx = window.currentSeatingStudent;
+  if (!ta || !ctx) return;
+  const s = (db.students[ctx.groupId] || []).find(x => x.id === ctx.studentId);
+  const value = ta.value.trim();
+  if (!s) { if (value) showToast('Diesen Schüler gibt es nicht mehr (z. B. durch Sync) – Hinweis nicht gespeichert', 'error'); return; }
+  if (value === (s.notes || '').trim()) return;
+  s.notes = value;
+  saveDB();
+  refreshStudentViews(ctx.groupId);
+}
+
+// ─── Geburtstage (AD6) ──────────────────────────────────────────────────────
+function validBirthday(b) { return typeof b === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(b) && !isNaN(parseDate(b)); }
+const isLeapYear = y => (y % 4 === 0 && y % 100 !== 0) || y % 400 === 0;
+// Fällt der Geburtstag auf dateStr? 29.02. zählt in anderen Jahren am 28.02.
+function birthdayOn(b, dateStr) {
+  const md = b.slice(5), y = +dateStr.slice(0, 4);
+  return md === dateStr.slice(5) || (md === '02-29' && !isLeapYear(y) && dateStr.slice(5) === '02-28');
+}
+// { when: 'today' | 'past', date, age } – 'past': Geburtstag an einem freien Tag (Wochenende, Ferien) seit dem
+// letzten Schultag, damit er am nächsten Schultag nicht untergeht
+function birthdayInfo(s, dateStr) {
+  if (!s || !validBirthday(s.birthday) || !dateStr) return null;
+  const year = +dateStr.slice(0, 4), born = +s.birthday.slice(0, 4);
+  const age = born > 1900 && born < year ? year - born : null;
+  if (birthdayOn(s.birthday, dateStr)) return { when: 'today', date: dateStr, age };
+  let d = parseDate(dateStr);
+  for (let i = 1; i <= 21; i++) {   // höchstens 3 Wochen zurück (lange Ferien: danach nicht mehr erwähnen)
+    d = addDays(d, -1);
+    if (isSchoolDay(d)) break;
+    const ds = formatDate(d);
+    if (birthdayOn(s.birthday, ds)) return { when: 'past', date: ds, age: born > 1900 && born < +ds.slice(0, 4) ? +ds.slice(0, 4) - born : null };
+  }
+  return null;
+}
+function formatWeekdayShort(dateStr) {
+  return parseDate(dateStr).toLocaleDateString('de-DE', { weekday: 'short', day: '2-digit', month: '2-digit' });
 }
 
 let seatingEditMode = false;
@@ -5258,6 +5490,7 @@ function onToggleSeatingStagger(on) {
 function renderSeatingPlan() {
   const groupId = currentSeatingGroupId;
   const dateStr = currentSeatingDateStr;
+  renderSeatingCockpit(); // vor dem Messen: die Leiste nimmt dem Raster Höhe weg
   const canvas = document.getElementById('seating-canvas');
   const emptyState = document.getElementById('seating-empty');
 
@@ -5428,9 +5661,17 @@ function renderSeatingPlan() {
     const fullName = [s.firstName, s.lastName].filter(Boolean).join(' ');
     const shortName = !s.firstName ? (s.lastName || '')
       : firstCount[s.firstName] > 1 && s.lastName ? `${s.firstName} ${s.lastName[0]}.` : s.firstName;
+    // Symbole oben links (AD2/AD6): Hinweis vorhanden, Geburtstag – nie der Text selbst (Beamer)
+    const hasHint = !!(s.notes || '').trim();
+    const bday = birthdayInfo(s, dateStr);
+    const marks = (hasHint ? `<span class="sc-mark sc-hint" title="Hinweis vorhanden">${icon('info')}</span>` : '')
+      + (bday ? `<span class="sc-mark sc-bday" title="Geburtstag">${icon('cake')}</span>` : '');
+    if (hasHint || bday) card.setAttribute('aria-label', fullName + (bday ? ', Geburtstag' : '') + (hasHint ? ', Hinweis vorhanden' : ''));
     card.innerHTML = `
+      ${marks ? `<div class="sc-marks">${marks}</div>` : ''}
       <div class="sc-name" title="${escHtml(fullName)}">${escHtml(shortName)}</div>
       ${seatingShowGrades ? `<div class="sc-gpa" style="color:${gradeColor(rawAvg, scale)}">${avg}</div>` : ''}
+      ${seatingShowTrend ? participationTrendHTML(s) : ''}
       ${late ? '<div class="sc-late-note">Zu spät</div>' : ''}
       ${forgotHw ? '<div class="sc-hw-note">Keine HA</div>' : ''}
       ${partHtml}
@@ -6004,6 +6245,7 @@ function openSeatingStudentModal(studentId, groupId, dateStr) {
   `;
 
   renderSeatingStudentGrades(seatingShowGrades);
+  renderSeatingStudentHint(seatingShowGrades);
   markSeatingStudentState(s, dateStr);
 
   openModal('modal-seating-student');
@@ -6337,6 +6579,7 @@ function closeModal(id) {
   const m = document.getElementById(id);
   if (!m) return;
   const wasOpen = !m.classList.contains('hidden');
+  if (wasOpen && id === 'modal-seating-student') commitSeatingStudentHint(); // eingetippten Hinweis nie verwerfen (Regel 27)
   m.classList.add('hidden');
   const back = modalReturnFocus[id];
   delete modalReturnFocus[id];
@@ -6982,6 +7225,7 @@ function renderDashboardToday() {
     const range = hol.from === hol.until ? formatDateLong(hol.from) : `${formatDateLong(hol.from)} – ${formatDateLong(hol.until)}`;
     html += `<div class="dash-holiday">${escHtml(hol.label || 'Ferien')}: ${escHtml(range)}</div>`;
   }
+  html += dashboardBirthdaysHTML(dayStr);
 
   // Aufsichten zeitlich zwischen die Stunden sortiert (AA4)
   const sups = supervisionsOn(dayStr);
@@ -7050,6 +7294,19 @@ function renderDashboardToday() {
     </section>`;
   }
   return html;
+}
+
+// Geburtstage am gezeigten Schultag (AD6); dieselbe Person in zwei Fächern derselben Klasse nur einmal
+function dashboardBirthdaysHTML(dayStr) {
+  const seen = new Set(), items = [];
+  db.groups.forEach(g => (db.students[g.id] || []).forEach(s => {
+    const b = birthdayInfo(s, dayStr);
+    const key = studentName(s) + '|' + g.className;
+    if (!b || seen.has(key)) return;
+    seen.add(key);
+    items.push(`<span class="dash-bday-item">${escHtml(studentName(s))} <small>${escHtml(g.className)}${b.age ? ` · ${b.age}` : ''}${b.when === 'past' ? ` · ${escHtml(formatWeekdayShort(b.date))}` : ''}</small></span>`);
+  }));
+  return items.length ? `<div class="dash-birthdays">${icon('cake')}<span><b>Geburtstag:</b> ${items.join(', ')}</span></div>` : '';
 }
 
 // Eine Aufsicht in der Liste „Heute“ (AA4)
@@ -8020,6 +8277,7 @@ function flushPendingSync() {
 function onAppHidden() {
   hideAllPasswords();
   if (!document.getElementById('modal-lesson').classList.contains('hidden')) storeLessonForm();
+  if (!document.getElementById('modal-seating-student').classList.contains('hidden')) commitSeatingStudentHint();
   flushPendingSync();
 }
 document.addEventListener('visibilitychange', () => { if (document.hidden) onAppHidden(); });
