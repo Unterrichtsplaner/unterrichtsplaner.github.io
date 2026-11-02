@@ -573,6 +573,21 @@ Was nach „generiert“ aussieht, sortiert nach Sichtbarkeit. Noch nichts entsc
 - **Stufe 2 umgesetzt (v288), Richtung „Papier & Tinte“ (gewählt aus 3 Vorschauen):** warmes Dunkel + Tinten-Blau, heller Modus „Papier“ (auch als Farbfeld); Überschriften in Buchschrift (`--font-display`, Systemschriften); Akzent nur für Hauptaktion und „jetzt“ (Menü: ohne Farbe und ohne Kante – die blaue Kante links gefiel nicht, v290; Reiter: Tinte auf Papier, Namen/Wochentage/Plaketten neutral, „Sitzplan“ auf Klassenkarten nebenrangig); `--on-accent`; Knöpfe/Reiter mit `--radius-sm` statt Pille; Schriftgrößen auf 10/11/12/13/14/16/20/26 px; Rundungen nur über `--radius-*`; Etiketten ohne Großbuchstaben. Gespeichertes altes Indigo `#6366f1` gilt als „Standard“ (`savedThemeAccent`, wie BUGS S6), Farbfeld „Indigo“ `#6466f1` für alle, die es behalten wollen. Kontraste: leise Schrift ≥ 4,5:1 (dunkel und hell). Brief: `DESIGN.md`. Test: `tests/design-stufe2.test.js`; im Browser dunkel/hell bei 1024×768 und 375×812 geprüft.
 - Gut und eigen (bleibt): Sitzplan, Stundenplan, Cockpit sind fachlich gedacht; eigene Linien-Icons durchgängig; ruhige deutsche Texte ohne Werbesprache.
 
+
+## AF. Gesamtprüfung vor dem nächsten Live-Gang (02.11.2026)
+
+Geprüft: alles seit dem letzten Live-Stand (`196d3d9`, v278) bis v301 – Cockpit, Geburtstage/Hinweise, Design Stufe 1+2, App-Symbol, Listen, Sitzplan-Automatik, Standard hell. Schwerpunkt Datenverlust, ältere App-Versionen anderer Lehrkräfte, Sync, Start der App.
+
+- [x] **AF1** 🟠 **Kontrast im neuen Standard Eisblau zu schwach:** leise Schrift 3,9:1, Notenfarben 3,5–4,2:1 auf der Eisblau-Fläche (Regel 4,5:1). → Helle Töne abgedunkelt (`--text-muted #5a5347`, `--text-secondary #544c41`, `--text-accent #2647b0`, Noten 1–5 und `--danger` dunkler); jetzt ≥ 4,6:1 auf allen hellen Farbfeldern. Test prüft jede Kombination (`tests/design-stufe2.test.js`).
+- [x] **AF2** 🟢 **Hinweis im Schüler-Fenster:** „Neue Note“ versteckte das Fenster ohne `closeModal` → eingetippter Hinweis erst beim späteren Schließen gesichert (ging verloren, wenn das iPad dazwischen einschlief). → `openGradeForm` sichert ihn vorher. Test in `tests/sitzplan-cockpit.test.js`.
+- **Ohne Befund:**
+  - *Ältere App-Versionen:* lesen alle neuen Daten. `birthday` bleibt beim Bearbeiten erhalten (`Object.assign`); fehlendes `themeAccent`/`themeBg` → altes Indigo bzw. heller Modus, gut lesbar; Schalter `seatingStartInLesson`/`seatingAutoSwitch` werden ignoriert. Was alte Versionen schreiben (Indigo, `theme`), deutet die neue als Standard. Cloud-Format unverändert.
+  - *Sync:* Hinweis-Speichern im offenen Fenster blockiert keinen Pull falsch (`inputModalOpen`), Fenster „Heute“ hat keine Eingaben und ist ausgenommen.
+  - *Start:* `DEFAULT_THEME` wird vor der ersten Verwendung angelegt; `updateAppliedThemeFromDB` in `replaceDB` läuft erst zur Laufzeit.
+  - *Stundenplan ohne Scrollen* (Regel 61) nach den Schriftgrößen-Änderungen nachgemessen: 8 Einzelstunden + Pausen passen auf iPhone SE (375×667) und 13″ (1366×768).
+  - *XSS:* Cockpit, Fenster „Heute“, Hinweise, Klassen-Zeilen in `tests/xss.test.js`.
+- Bekannt, bewusst so: Wer früher ausdrücklich „Standard (dunkel)“ gewählt hatte, sieht jetzt hell (nicht von „nie gewählt“ unterscheidbar), Hinweis im „Das ist neu“-Fenster. Bei gewähltem Dunkel blitzt beim Start kurz hell auf (bis app.js läuft).
+
 ---
 
 ## Erledigt

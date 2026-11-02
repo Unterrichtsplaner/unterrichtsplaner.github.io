@@ -86,3 +86,16 @@ describe('Farbwahl in den Einstellungen', () => {
     expect(HTML).toMatch(/data-color="#f5f1e9" data-mode="light" data-card="#fffdf8" title="Papier \(hell\)"/);
   });
 });
+
+describe('Kontrast im hellen Standard (Eisblau) und auf allen hellen Farbfeldern', () => {
+  const lum = h => { const c = [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16) / 255).map(v => v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4); return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2]; };
+  const ratio = (a, b) => { const [x, y] = [lum(a), lum(b)].sort((p, q) => q - p); return (x + 0.05) / (y + 0.05); };
+  it('leise Schrift, Notenfarben und Statusfarben ≥ 4,5:1', () => {
+    const light = CSS.match(/:root\[data-theme="light"\]\s*\{([^}]*)\}/)[1];
+    const v = name => light.match(new RegExp(`${name}:\\s*(#[0-9a-f]{6})`, 'i'))[1];
+    const fgs = ['--text-secondary', '--text-muted', '--text-accent', '--grade-1', '--grade-2', '--grade-3', '--grade-4', '--grade-5', '--success', '--warning', '--danger'].map(v);
+    const bgs = [...HTML.matchAll(/settings-swatch-bg[^>]*style="background:(#[0-9a-f]{6});[^>]*data-mode="light"/gi)].map(m => m[1]);
+    expect(bgs).toContain('#bfdbfe');
+    for (const bg of bgs) for (const fg of fgs) expect(ratio(fg, bg), `${fg} auf ${bg}`).toBeGreaterThanOrEqual(4.5);
+  });
+});

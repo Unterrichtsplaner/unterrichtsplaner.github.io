@@ -504,8 +504,8 @@ describe('Block J', () => {
     const light = css.match(/:root\[data-theme="light"\]\s*\{([^}]*)\}/)[1];
     expect(light).toMatch(/--success:\s*#166534/);
     expect(light).toMatch(/--warning:\s*#92400e/);
-    expect(light).toMatch(/--danger:\s*#b91c1c/);
-    expect(light).toMatch(/--text-muted:\s*#716859/);   // Papier-Modus (AE4), 5,4:1 auf Karten
+    expect(light).toMatch(/--danger:\s*#991b1b/);
+    expect(light).toMatch(/--text-muted:\s*#5a5347/);   // ≥ 4,5:1 auch auf der Eisblau-Fläche (Standard seit 02.11.)
   });
 
   it('J2: keine fest eingetragenen Status-Farben mehr, alles über Variablen', () => {

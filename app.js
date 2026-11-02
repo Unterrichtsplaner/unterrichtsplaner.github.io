@@ -6407,6 +6407,7 @@ function openGradeForm(studentId, groupId, gradeIdx, defaultDateStr = '', defaul
   // Hide the quick student modal if it's open, so they don't overlap awkwardly
   const seatingModal = document.getElementById('modal-seating-student');
   if (!seatingModal.classList.contains('hidden')) {
+    commitSeatingStudentHint(); // eingetippten Hinweis sichern, bevor das Fenster (ohne closeModal) verschwindet
     seatingModal.classList.add('hidden');
     currentGradeFormCtx.wasSeatingModalOpen = true;
   }

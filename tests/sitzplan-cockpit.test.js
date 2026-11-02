@@ -304,6 +304,15 @@ describe('Hinweis im Schüler-Fenster', () => {
     expect(app('db.students.g1[1].notes')).toBe('Brille');
   });
 
+  it('„Neue Note“ aus dem Schüler-Fenster sichert den eingetippten Hinweis vorher', () => {
+    openSeating();
+    app(`openSeatingStudentModal("b", "g1", "${MON}")`);
+    document.getElementById('seating-student-hint-input').value = 'sitzt am Fenster';
+    app('openGradeFormForCurrentStudent()');
+    expect(app('db.students.g1[1].notes')).toBe('sitzt am Fenster');
+    app('cancelGradeForm()');
+  });
+
   it('unverändert: kein Speichern (lastModified bleibt)', () => {
     openSeating();
     const before = app('db.settings.lastModified');
