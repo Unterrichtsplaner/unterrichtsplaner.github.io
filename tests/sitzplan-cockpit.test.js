@@ -390,3 +390,64 @@ describe('Darstellung', () => {
     expect(CSS).toMatch(/\.cockpit-topic-text\{[^}]*white-space:nowrap[^}]*text-overflow:ellipsis/); // Thema nie mehrzeilig
   });
 });
+
+describe('Wichtiger Hinweis (AD17): eigenes Feld, rotes Symbol', () => {
+  const hintBox = () => document.getElementById('seating-student-hint');
+  const imp = () => document.getElementById('seating-student-important-input');
+  beforeEach(() => app('db.students.g1[1].importantNote = "Diabetes: darf jederzeit essen"'));
+
+  it('Karte: rotes Ausrufezeichen statt ⓘ, auch wenn es daneben einen normalen Hinweis gibt; nie der Text', () => {
+    app('db.students.g1[1].notes = "mag Fußball"');
+    openSeating();
+    expect(card('b').querySelector('.sc-important')).toBeTruthy();
+    expect(card('b').querySelector('.sc-hint')).toBeNull();
+    expect(card('b').textContent).not.toMatch(/Diabetes|Fußball/);
+    expect(card('b').getAttribute('aria-label')).toMatch(/wichtiger Hinweis/);
+    expect(card('a').querySelector('.sc-important')).toBeNull();   // nur normaler Hinweis: grau wie bisher
+    expect(card('a').querySelector('.sc-hint')).toBeTruthy();
+    expect(CSS).toMatch(/\.seating-card \.sc-important\{color:var\(--danger\);\}/);
+  });
+
+  it('Schüler-Fenster: verborgen bis „Anzeigen“, dann zwei Felder; Ändern + Schließen speichert beide', () => {
+    openSeating();
+    app(`openSeatingStudentModal("b", "g1", "${MON}")`);
+    expect(hintBox().textContent).toMatch(/Wichtiger Hinweis vorhanden \(verborgen\)/);
+    expect(hintBox().textContent).not.toContain('Diabetes');
+    app('renderSeatingStudentHint(true)');
+    expect(imp().value).toBe('Diabetes: darf jederzeit essen');
+    expect(document.getElementById('seating-student-hint-input').value).toBe('');
+    imp().value = 'Diabetes: darf jederzeit essen, Traubenzucker im Ranzen';
+    document.getElementById('seating-student-hint-input').value = 'mag Fußball';
+    app('closeModalLikeButton("modal-seating-student")');
+    expect(app('db.students.g1[1].importantNote')).toBe('Diabetes: darf jederzeit essen, Traubenzucker im Ranzen');
+    expect(app('db.students.g1[1].notes')).toBe('mag Fußball');
+  });
+
+  it('Wichtig leeren: Feld verschwindet aus den Daten, Karte wieder ohne rotes Symbol', () => {
+    openSeating();
+    app(`openSeatingStudentModal("b", "g1", "${MON}"); renderSeatingStudentHint(true)`);
+    imp().value = '  ';
+    app('closeModalLikeButton("modal-seating-student")');
+    expect(app('"importantNote" in db.students.g1[1]')).toBe(false);
+    expect(card('b').querySelector('.sc-important')).toBeNull();
+  });
+
+  it('Schüler-Formular: Feld „Wichtig“ wird gefüllt und gespeichert, leer kommt nicht in die Daten', () => {
+    app('openGroupStudents("g1"); openStudentDetail("b"); openEditStudent()');
+    expect(document.getElementById('new-student-important').value).toBe('Diabetes: darf jederzeit essen');
+    document.getElementById('new-student-important').value = 'Allergie: Nüsse';
+    app('saveStudent()');
+    expect(app('db.students.g1[1].importantNote')).toBe('Allergie: Nüsse');
+    app('openAddStudent()');
+    expect(document.getElementById('new-student-important').value).toBe('');
+    document.getElementById('new-student-first').value = 'Emil';
+    app('saveStudent()');
+    expect(app('"importantNote" in db.students.g1.find(s => s.firstName === "Emil")')).toBe(false);
+  });
+
+  it('Schülerliste: „Wichtig“ rot statt nur „Hinweis“', () => {
+    app('openGroupStudents("g1")');
+    const row = [...document.querySelectorAll('.student-card, .student-row, [data-student-id]')].find(r => /Ben/.test(r.textContent));
+    expect(row.querySelector('.sq-important').textContent).toBe('Wichtig');
+  });
+});

@@ -3587,7 +3587,7 @@ function renderStudents() {
       <div class="student-info">
         <div class="student-name">${escHtml(studentListName(s))}</div>
         <div class="student-quick-notes">${[grades.length + ' Note' + (grades.length !== 1 ? 'n' : ''),
-          (s.notes || '').trim() ? 'Hinweis' : '', birthdayInfo(s, todayStr) ? 'Geburtstag' : ''].filter(Boolean).join(' · ')}</div>
+          (s.importantNote || '').trim() ? '<span class="sq-important">Wichtig</span>' : '', (s.notes || '').trim() ? 'Hinweis' : '', birthdayInfo(s, todayStr) ? 'Geburtstag' : ''].filter(Boolean).join(' · ')}</div>
       </div>
       <div class="student-counters">
         <div class="student-counter" data-kind="participation" role="button" tabindex="0" title="${hintText('participation')}" aria-label="${hintText('participation')}">
@@ -3768,7 +3768,7 @@ function importStudentsFromGroup() {
       if (exists) return;
     }
     db.students[currentGroupId].push({
-      id: uid(), firstName: s.firstName, lastName: s.lastName, notes: s.notes, ...(s.birthday ? { birthday: s.birthday } : {}), grades: [], studentNotes: [], attendance: []
+      id: uid(), firstName: s.firstName, lastName: s.lastName, notes: s.notes, ...(s.importantNote ? { importantNote: s.importantNote } : {}), ...(s.birthday ? { birthday: s.birthday } : {}), grades: [], studentNotes: [], attendance: []
     });
     count++;
   });
@@ -3832,7 +3832,7 @@ function importStudentsFromText() {
 function openAddStudent() {
   editingStudentId = null;
   document.getElementById('student-modal-title').textContent = 'Schüler hinzufügen';
-  ['new-student-first','new-student-last','new-student-notes','new-student-birthday'].forEach(id => document.getElementById(id).value = '');
+  ['new-student-first','new-student-last','new-student-important','new-student-notes','new-student-birthday'].forEach(id => document.getElementById(id).value = '');
   openModal('modal-add-student');
 }
 
@@ -3840,6 +3840,7 @@ function saveStudent() {
   const firstName = document.getElementById('new-student-first').value.trim();
   const lastName  = document.getElementById('new-student-last').value.trim();
   const notes     = document.getElementById('new-student-notes').value.trim();
+  const important = document.getElementById('new-student-important').value.trim(); // AD17
   const birthday  = document.getElementById('new-student-birthday').value; // AD6, YYYY-MM-DD oder leer
   // Ein Name genügt: der Import erlaubt Schüler mit nur einem Namen, die müssen bearbeitbar bleiben (BUGS L8)
   if (!firstName && !lastName) { showToast('Bitte einen Namen eingeben', 'error'); return; }
@@ -3849,11 +3850,12 @@ function saveStudent() {
     if (s) {
       const oldStudent = { firstName: s.firstName, lastName: s.lastName };
       Object.assign(s, { firstName, lastName, notes });
+      setImportantNote(s, important);
       if (birthday) s.birthday = birthday; else delete s.birthday; // kein leeres Feld an alle Schüler hängen
       renameAbsenceNotes(currentGroupId, oldStudent, s);
     }
   } else {
-    db.students[currentGroupId].push({ id:uid(), firstName, lastName, notes, ...(birthday ? { birthday } : {}), grades:[], studentNotes:[], attendance:[] });
+    db.students[currentGroupId].push({ id:uid(), firstName, lastName, notes, ...(important ? { importantNote: important } : {}), ...(birthday ? { birthday } : {}), grades:[], studentNotes:[], attendance:[] });
   }
   saveDB();
   closeModal('modal-add-student');
@@ -4183,6 +4185,7 @@ function openEditStudent() {
   document.getElementById('new-student-first').value = s.firstName;
   document.getElementById('new-student-last').value  = s.lastName;
   document.getElementById('new-student-notes').value = s.notes||'';
+  document.getElementById('new-student-important').value = s.importantNote||'';
   document.getElementById('new-student-birthday').value = validBirthday(s.birthday) ? s.birthday : '';
   closeModal('modal-student-detail');
   openModal('modal-add-student');
@@ -4201,6 +4204,9 @@ function exportCurrentStudent() {
   txt += `Exportiert am: ${new Date().toLocaleDateString('de-DE')}\n`;
   txt += `=================================================\n\n`;
   
+  if (s.importantNote) {
+    txt += `=== WICHTIG ===\n${s.importantNote}\n\n`;
+  }
   if (s.notes) {
     txt += `=== ALLGEMEINE NOTIZEN ===\n${s.notes}\n\n`;
   }
@@ -5448,26 +5454,38 @@ function renderSeatingStudentHint(show) {
   const s = (db.students[ctx.groupId] || []).find(x => x.id === ctx.studentId);
   if (!s) return;
   const text = (s.notes || '').trim();
-  if (text && !show) {
-    box.innerHTML = `<div class="seating-hint-hidden"><span>Hinweis vorhanden (verborgen)</span>
+  const important = (s.importantNote || '').trim();   // AD17
+  if ((text || important) && !show) {
+    box.innerHTML = `<div class="seating-hint-hidden${important ? ' is-important' : ''}"><span>${important ? 'Wichtiger Hinweis vorhanden (verborgen)' : 'Hinweis vorhanden (verborgen)'}</span>
       <button type="button" class="btn-secondary seating-reveal-btn" onclick="renderSeatingStudentHint(true)">Anzeigen</button></div>`;
     return;
   }
-  box.innerHTML = `<textarea id="seating-student-hint-input" class="form-input seating-hint-input" rows="2"
-    placeholder="z. B. hörgeschädigt: vorne sitzen, mag Fußball …" aria-label="Hinweis zu ${escHtml(studentName(s))}"></textarea>`;
-  const ta = box.querySelector('textarea');
-  ta.value = s.notes || '';
-  ta.addEventListener('change', commitSeatingStudentHint);
+  box.innerHTML = `<label class="seating-hint-label is-important" for="seating-student-important-input">${icon('alert')}Wichtig</label>
+    <textarea id="seating-student-important-input" class="form-input seating-hint-input" rows="1"
+      placeholder="z. B. Diabetes, Allergie, Nachteilsausgleich …"></textarea>
+    <label class="seating-hint-label" for="seating-student-hint-input">Sonstiges</label>
+    <textarea id="seating-student-hint-input" class="form-input seating-hint-input" rows="2"
+      placeholder="z. B. mag Fußball, sitzt gern am Fenster …"></textarea>`;
+  box.querySelector('#seating-student-important-input').value = s.importantNote || '';
+  box.querySelector('#seating-student-hint-input').value = s.notes || '';
+  box.querySelectorAll('textarea').forEach(ta => ta.addEventListener('change', commitSeatingStudentHint));
+}
+// Wichtiger Hinweis (AD17): leer = Feld weg, damit nicht jeder Schüler ein leeres Feld trägt
+function setImportantNote(s, value) {
+  if (value) s.importantNote = value; else delete s.importantNote;
 }
 function commitSeatingStudentHint() {
   const ta = document.getElementById('seating-student-hint-input');
+  const taImp = document.getElementById('seating-student-important-input');
   const ctx = window.currentSeatingStudent;
   if (!ta || !ctx) return;
   const s = (db.students[ctx.groupId] || []).find(x => x.id === ctx.studentId);
   const value = ta.value.trim();
-  if (!s) { if (value) showToast('Diesen Schüler gibt es nicht mehr (z. B. durch Sync). Hinweis nicht gespeichert', 'error'); return; }
-  if (value === (s.notes || '').trim()) return;
+  const impValue = taImp ? taImp.value.trim() : (s ? (s.importantNote || '').trim() : '');
+  if (!s) { if (value || impValue) showToast('Diesen Schüler gibt es nicht mehr (z. B. durch Sync). Hinweis nicht gespeichert', 'error'); return; }
+  if (value === (s.notes || '').trim() && impValue === (s.importantNote || '').trim()) return;
   s.notes = value;
+  setImportantNote(s, impValue);
   saveDB();
   refreshStudentViews(ctx.groupId);
 }
@@ -5789,13 +5807,15 @@ function renderSeatingPlan() {
       : firstCount[s.firstName] > 1 && s.lastName ? `${s.firstName} ${s.lastName[0]}.` : s.firstName;
     // Symbole oben links (AD2/AD6): Hinweis vorhanden, Geburtstag – nie der Text selbst (Beamer)
     const hasHint = !!(s.notes || '').trim();
+    const important = !!(s.importantNote || '').trim();   // AD17: rot, ersetzt das graue ⓘ
     const bday = birthdayInfo(s, dateStr);
     const missedLast = !!(cockpitToday && cockpitToday.t.missed.includes(s)); // nur während der Stunde (Cockpit)
-    const marks = (hasHint ? `<span class="sc-mark sc-hint" title="Hinweis vorhanden">${icon('info')}</span>` : '')
+    const marks = (important ? `<span class="sc-mark sc-important" title="Wichtiger Hinweis">${icon('alert')}</span>`
+        : hasHint ? `<span class="sc-mark sc-hint" title="Hinweis vorhanden">${icon('info')}</span>` : '')
       + (bday ? `<span class="sc-mark sc-bday" title="Geburtstag">${icon('cake')}</span>` : '')
       + (missedLast ? `<span class="sc-mark sc-missed" title="Letzte Stunde gefehlt, Stoff nachholen">${icon('calendar-x')}</span>` : '');
-    if (hasHint || bday || missedLast) card.setAttribute('aria-label', fullName + (bday ? ', Geburtstag' : '')
-      + (missedLast ? ', letzte Stunde gefehlt' : '') + (hasHint ? ', Hinweis vorhanden' : ''));
+    if (hasHint || important || bday || missedLast) card.setAttribute('aria-label', fullName + (bday ? ', Geburtstag' : '')
+      + (missedLast ? ', letzte Stunde gefehlt' : '') + (important ? ', wichtiger Hinweis vorhanden' : hasHint ? ', Hinweis vorhanden' : ''));
     card.innerHTML = `
       ${marks ? `<div class="sc-marks">${marks}</div>` : ''}
       <div class="sc-name" title="${escHtml(fullName)}">${escHtml(shortName)}</div>

@@ -42,7 +42,7 @@
       }
     } catch(e) {}
   </script>
-  <link rel="stylesheet" href="style.css?v=326" />
+  <link rel="stylesheet" href="style.css?v=328" />
   <script>
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
@@ -693,7 +693,8 @@
         <div class="form-group"><label for="new-student-last">Nachname</label><input type="text" id="new-student-last" placeholder="Nachname" class="form-input" /></div>
       </div>
       <div class="form-group"><label for="new-student-birthday">Geburtstag (optional)</label><input type="date" id="new-student-birthday" class="form-input" /></div>
-      <div class="form-group"><label for="new-student-notes">Hinweise</label><textarea id="new-student-notes" placeholder="z. B. hörgeschädigt: vorne sitzen, mag Fußball …" class="form-input" rows="3"></textarea><p class="field-hint-muted">Erscheint im Sitzplan als Symbol auf der Karte, der Text erst beim Antippen.</p></div>
+      <div class="form-group"><label for="new-student-important" class="label-important"><i data-icon="alert"></i>Wichtig (optional)</label><textarea id="new-student-important" placeholder="z. B. Diabetes, Allergie, Nachteilsausgleich …" class="form-input" rows="2"></textarea></div>
+      <div class="form-group"><label for="new-student-notes">Sonstige Hinweise</label><textarea id="new-student-notes" placeholder="z. B. mag Fußball, sitzt gern am Fenster …" class="form-input" rows="2"></textarea><p class="field-hint-muted">Im Sitzplan nur als Symbol auf der Karte, Wichtiges als rotes Ausrufezeichen. Den Text siehst du erst beim Antippen.</p></div>
     </div>
     <div class="modal-footer">
       <button class="btn-secondary" onclick="closeModal('modal-add-student')">Abbrechen</button>
@@ -1393,7 +1394,7 @@
           </div>
         </div>
         <div class="seating-hint-block">
-          <h3 class="seating-hint-title"><i data-icon="info"></i>Hinweis</h3>
+          <h3 class="seating-hint-title"><i data-icon="info"></i>Hinweise</h3>
           <div id="seating-student-hint"></div>
         </div>
         <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--border); padding-bottom:6px; margin-bottom:10px;">
@@ -1576,12 +1577,12 @@
   </div>
 
   <script src="lib/crypto-js.min.js"></script>
-  <script src="crypto-helper.js?v=326"></script>
+  <script src="crypto-helper.js?v=328"></script>
   <script src="lib/firebase-app-compat.js"></script>
   <script src="lib/firebase-auth-compat.js"></script>
   <script src="lib/firebase-firestore-compat.js"></script>
-  <script src="firebase-config.js?v=326"></script>
-  <script src="sync-manager.js?v=326"></script>
-  <script src="app.js?v=326"></script>
+  <script src="firebase-config.js?v=328"></script>
+  <script src="sync-manager.js?v=328"></script>
+  <script src="app.js?v=328"></script>
 </body>
 </html>

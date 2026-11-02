@@ -26,7 +26,7 @@ function newDB() {
     groups: [{ id: 'g1', subject: 'Mathe', className: '7a', color: '#3d63dd', schularbeitWeight: 50,
       plan: [{ id: 't1', title: 'Brüche', lessons: 2, doneLessons: ['mo_2026-11-09'] }],
       classNotes: [{ id: 'n1', text: 'schon unterrichtet', date: '2026-11-02' }, { id: 'n2', text: 'Klassenfahrt', date: '2026-11-02', until: '2026-11-13' }] }],
-    students: { g1: [st('a', 'Anna', { notes: 'hörgeschädigt: vorne sitzen', birthday: '2013-11-02' }), st('b', 'Ben')] },
+    students: { g1: [st('a', 'Anna', { notes: 'hörgeschädigt: vorne sitzen', importantNote: 'Diabetes', birthday: '2013-11-02' }), st('b', 'Ben')] },
     supervisions: [],
     syncSettings: { lastSyncedCloudTimestamp: 1000, syncedLocalModified: 1000 },
   };
@@ -39,6 +39,7 @@ function expectNewFieldsKept(d) {
   const anna = d.students.g1.find(s => s.id === 'a');
   expect(anna.birthday).toBe('2013-11-02');
   expect(anna.notes).toBe('hörgeschädigt: vorne sitzen');
+  expect(anna.importantNote).toBe('Diabetes');   // AD17
   expect(d.settings).toMatchObject({ halfYearEnd: '2027-01-29', schoolYearEnd: '2027-07-23', seatingStartInLesson: false, seatingAutoSwitch: false });
 }
 

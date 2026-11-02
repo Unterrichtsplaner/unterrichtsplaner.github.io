@@ -65,7 +65,7 @@ db = {
              classNotes /*[{ id, text, date, until? }] Klassennotizen (AD15)*/, gradeScale /*'1-6' (Standard, fehlt bei Altdaten) | '0-15'*/,
              seatingRows, seatingCols, teacherDeskX, teacherDeskY, seatingPlan: [{ studentId, … }],
              gradeEvents, attendanceEvents, participationEvents, homeworkEvents }],
-  students: { '<groupId>': [{ id, firstName, lastName, notes /*Hinweis, im Sitzplan als Symbol (AD2)*/, birthday? /*YYYY-MM-DD (AD6)*/,
+  students: { '<groupId>': [{ id, firstName, lastName, notes /*Hinweis, im Sitzplan als Symbol (AD2)*/, importantNote? /*wichtiger Hinweis, rotes Symbol (AD17)*/, birthday? /*YYYY-MM-DD (AD6)*/,
              grades: [{ type, value /*String! '2.0', '2-' (Tendenz), '+' (zählt nicht)*/, date, note }],
              attendance: [{ id?, date, type, note }],
              participation: [{ id?, date, value, label? }],
@@ -183,7 +183,7 @@ Datumswerte sind Strings `YYYY-MM-DD` in **lokaler** Zeit (`formatDate()`). Nie 
 
 
 66. **Sitzplan-Cockpit nur über `seatingCockpitInfo`/`renderSeatingCockpit`** (AD2). Welche Klasse „dran“ ist, nur über `getSuggestedSeatingGroupId(now)` (Vorlauf nur mit Pause, ohne Pause gilt die laufende Stunde bis zum Ende); automatisches Umschalten nur über `maybeAutoSwitchSeatingClass` (nie während einer laufenden Stunde, nie gegen eine Wahl von Hand). Es erscheint von selbst während einer Stunde der Klasse (kein Modus-Knopf) und hält dann den Bildschirm an (`setSeatingWakeLock`, beim Verlassen wieder frei). Ändert sich seine Sichtbarkeit, muss das Raster neu eingepasst werden (`refreshSeatingCockpit`), nie mitten im Bearbeiten-Modus.
-67. **Leistungs- und Gesundheitsangaben im Sitzplan nur auf Knopfdruck:** Noten, Mitarbeit-Verlauf und der Text von Hinweisen (`s.notes`). Auf Karten höchstens ein Symbol. Der Zustand „eingeblendet“ wird nie gespeichert und fällt beim Öffnen und beim Klassenwechsel weg (`hideSeatingGrades`).
+67. **Leistungs- und Gesundheitsangaben im Sitzplan nur auf Knopfdruck:** Noten, Mitarbeit-Verlauf und der Text von Hinweisen (`s.notes`, `s.importantNote`). Auf Karten höchstens ein Symbol (wichtig: rotes Warnzeichen statt ⓘ). Leeres `importantNote` nie speichern (`setImportantNote`). Der Zustand „eingeblendet“ wird nie gespeichert und fällt beim Öffnen und beim Klassenwechsel weg (`hideSeatingGrades`).
 
 68. **Aussehen nach `DESIGN.md` („Papier & Tinte“).** Farben, Schriftgrößen und Rundungen nur über die Grundwerte in `style.css` (`--accent` nur für Hauptaktion und „jetzt“, Schrift auf Akzent über `--on-accent`, Größen aus der Reihe 10–26 px, Rundungen `--radius-*`). Keine Verläufe, kein Leuchten, keine Ausrufezeichen in Meldungen. `tests/design-stufe1.test.js` und `tests/design-stufe2.test.js` prüfen das. Standardfarben werden nie gespeichert (`savedThemeAccent`/`savedThemeBg`).
 
