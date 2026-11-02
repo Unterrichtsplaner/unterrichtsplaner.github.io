@@ -72,6 +72,7 @@ const ICONS = {
   info:         '<circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/>',
   cake:         '<path d="M20 21v-8a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8"/><path d="M4 16s.5-1 2-1 2.5 2 4 2 2.5-2 4-2 2.5 2 4 2 2-1 2-1"/><path d="M2 21h20"/><path d="M7 8v3"/><path d="M12 8v3"/><path d="M17 8v3"/><path d="M7 4h.01"/><path d="M12 4h.01"/><path d="M17 4h.01"/>',
   activity:     '<polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>',
+  'calendar-x': '<rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><line x1="10" y1="14" x2="14" y2="18"/><line x1="14" y1="14" x2="10" y2="18"/>',
 };
 function icon(name) {
   if (!ICONS[name]) throw new Error('Unbekanntes Icon: ' + name);
@@ -5262,7 +5263,7 @@ function renderSeatingCockpit(now = new Date()) {
   if (t.due.hw.length) counts.push(cockpitCount('hw', 'homework', t.due.hw.length > 1 ? t.due.hw.length : null, 'HA', `${t.due.hw.length} ${plural(t.due.hw.length, 'Hausaufgabe', 'Hausaufgaben')} fällig`));
   if (t.due.tests.length) counts.push(cockpitCount('test', 'test', t.due.tests.length > 1 ? t.due.tests.length : null, 'Test', `${t.due.tests.length} ${plural(t.due.tests.length, 'Test', 'Tests')} angekündigt`));
   if (t.absent.length) counts.push(cockpitCount('absent', 'absences', t.absent.length, plural(t.absent.length, 'fehlt', 'fehlen'), `${t.absent.length} ${plural(t.absent.length, 'fehlt', 'fehlen')} heute`));
-  if (t.missed.length) counts.push(cockpitCount('missed', 'refresh', t.missed.length, 'nachholen', `${t.missed.length} ${plural(t.missed.length, 'hat', 'haben')} letzte Stunde gefehlt`));
+  if (t.missed.length) counts.push(cockpitCount('missed', 'calendar-x', t.missed.length, 'nachholen', `${t.missed.length} ${plural(t.missed.length, 'hat', 'haben')} letzte Stunde gefehlt`));
   if (t.birthdays.length) counts.push(cockpitCount('bday', 'cake', t.birthdays.length, 'Geb.', `${t.birthdays.length} ${plural(t.birthdays.length, 'Geburtstag', 'Geburtstage')}`));
   el.innerHTML = `
     <button type="button" class="cockpit-time" onclick="openSeatingToday()" aria-label="Alles zu heute">${timeHTML}</button>
@@ -5301,7 +5302,7 @@ function renderSeatingToday() {
   if (t.due.tests.length) html += section('Test', 'test', list(t.due.tests.map(i => `<li>${escHtml(i.text)}</li>`)), 'test');
   if (t.absent.length) html += section(`Fehlt heute (${t.absent.length})`, 'absences', list(t.absent.map(s =>
     `<li>${escHtml(studentName(s))} <small>${absenceType(s, info.lesson.dateStr)?.type === 'entschuldigt' ? 'entschuldigt' : 'unentschuldigt'}</small></li>`)), 'absent');
-  if (t.missed.length) html += section(`Letzte Stunde gefehlt (${t.missed.length}) · Stoff nachholen`, 'refresh', list(t.missed.map(s => `<li>${escHtml(studentName(s))}</li>`)), 'missed');
+  if (t.missed.length) html += section(`Letzte Stunde gefehlt (${t.missed.length}) · Stoff nachholen`, 'calendar-x', list(t.missed.map(s => `<li>${escHtml(studentName(s))}</li>`)), 'missed');
   if (t.birthdays.length) html += section(`Geburtstag (${t.birthdays.length})`, 'cake', list(t.birthdays.map(({ s, b }) =>
     `<li>${escHtml(studentName(s))}${b.age ? ` <small>wird ${b.age}</small>` : ''}${b.when === 'past' ? ` <small>· hatte am ${escHtml(formatWeekdayShort(b.date))}</small>` : ''}</li>`)), 'bday');
   if (!data.done && !prevData.done && !t.due.hw.length && !t.due.tests.length && !t.absent.length && !t.missed.length && !t.birthdays.length) {
@@ -5710,7 +5711,7 @@ function renderSeatingPlan() {
     const missedLast = !!(cockpitToday && cockpitToday.t.missed.includes(s)); // nur während der Stunde (Cockpit)
     const marks = (hasHint ? `<span class="sc-mark sc-hint" title="Hinweis vorhanden">${icon('info')}</span>` : '')
       + (bday ? `<span class="sc-mark sc-bday" title="Geburtstag">${icon('cake')}</span>` : '')
-      + (missedLast ? `<span class="sc-mark sc-missed" title="Letzte Stunde gefehlt – Stoff nachholen">${icon('refresh')}</span>` : '');
+      + (missedLast ? `<span class="sc-mark sc-missed" title="Letzte Stunde gefehlt – Stoff nachholen">${icon('calendar-x')}</span>` : '');
     if (hasHint || bday || missedLast) card.setAttribute('aria-label', fullName + (bday ? ', Geburtstag' : '')
       + (missedLast ? ', letzte Stunde gefehlt' : '') + (hasHint ? ', Hinweis vorhanden' : ''));
     card.innerHTML = `
