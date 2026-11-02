@@ -204,11 +204,11 @@ describe('C7: Zähler in der Schülerliste', () => {
 
   it('aktualisiert sich nach Löschen von Anwesenheit und Mitarbeit', () => {
     openAnna();
-    expect(counters()).toContain('Mitarbeit1:0:1');
+    expect(counters()).toContain('Mitarbeit1/0/1');
     expect(counters()).toContain('Fehlt1/1');
     clickDelete('attendance-list', 0);      // abwesend
     clickDelete('participation-list', 0);   // negative
-    expect(counters()).toContain('Mitarbeit1:0:0');
+    expect(counters()).toContain('Mitarbeit1/0/0');
     expect(counters()).toContain('Fehlt0/1');
   });
 });

@@ -43,9 +43,11 @@ beforeEach(() => {
 });
 
 describe('H11: Zähler in der Schülerliste erklären sich', () => {
-  it('Farben und Zahlen bleiben', () => {
-    expect(counter('participation').textContent.replace(/\s+/g, ' ')).toContain('1 : 0 : 2');
-    expect(counter('attendance').textContent.replace(/\s+/g, ' ')).toContain('3 / 1');
+  it('Zahlen bleiben; Auffälliges (negativ, unentschuldigt) rot (AE8: sonst neutral)', () => {
+    expect(counter('participation').textContent.replace(/\s+/g, '')).toContain('1/0/2');
+    expect(counter('attendance').textContent.replace(/\s+/g, '')).toContain('3/1');
+    expect([...counter('participation').querySelectorAll('.n-bad')].map(e => e.textContent)).toEqual(['2']);
+    expect([...counter('attendance').querySelectorAll('.n-bad')].map(e => e.textContent)).toEqual(['3']);
   });
 
   it('Darüberfahren/Vorlesen: Erklärung mit den echten Zahlen', () => {

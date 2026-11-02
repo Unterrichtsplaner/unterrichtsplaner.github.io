@@ -291,9 +291,9 @@ describe('L10/L11: Exporte', () => {
 });
 
 describe('L12: Avatare lesbar', () => {
-  it('neutral aus style.css (AE7: keine Zufallsfarben), keine festen Farben im Markup', () => {
+  it('Initialen-Kreise gibt es nicht mehr (AE8: schlichte Liste), also auch keine festen Farben', () => {
     app('openGroupStudents("g1")');
-    const av = document.querySelector('#view-students .student-avatar');
-    expect(av.getAttribute('style')).toBeNull();
+    expect(document.querySelector('#view-students .student-avatar')).toBeNull();
+    expect(document.querySelector('#view-students .student-row')).not.toBeNull();
   });
 });

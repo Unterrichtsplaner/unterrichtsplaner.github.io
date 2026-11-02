@@ -23,7 +23,6 @@ const APP_COLORS = [
   '#bbf7d0','#4ade80','#6ee7b7','#a5f3fc','#67e8f9','#38bdf8','#a5b4fc',
   '#818cf8','#c084fc','#f0abfc','#f472b6','#fda4af','#fecdd3','#a8a29e'
 ];
-// Grundfarbe je Avatar; helle/dunkle Töne mit genug Kontrast mischt style.css (.student-avatar, BUGS L12)
 
 // ─── Icons ───────────────────────────────────────────────────────────────
 // Linien-Icons wie im Menü, keine Emojis in Knöpfen/Reitern (Ausnahme: 😊😐☹️ bei der Mitarbeit).
@@ -3545,12 +3544,14 @@ function renderStudents() {
     </div>`;
     return;
   }
-  container.innerHTML = '';
+  // Schlichte Liste mit Kopfzeile statt einer Karte je Schüler (BUGS AE8)
+  container.innerHTML = `<div class="students-head" aria-hidden="true">${isStudentEditMode ? '<span class="students-head-cb"></span>' : ''}
+    <span class="students-head-main">Name</span><span class="students-head-part">Mitarbeit + / = / −</span>
+    <span class="students-head-att">Fehlt U / E</span><span class="students-head-avg">Ø</span></div>`;
   const scale = gradeScale(currentGroupId);
+  const todayStr = formatDate(new Date());
   sortStudents(students).forEach(s => {
     const avg = calculateStudentAverage(s, currentGroupId);
-    const first = s.firstName || '', last = s.lastName || '';
-    const initials = (first[0]||'') + (last[0]||'');
     const attUnexcused = (s.attendance||[]).filter(a => a.type==='abwesend').length;
     const attExcused = (s.attendance||[]).filter(a => a.type==='entschuldigt').length;
     const partPos = (s.participation||[]).filter(p => p.value==='positive').length;
@@ -3567,30 +3568,24 @@ function renderStudents() {
     row.className = 'student-row';
     row.innerHTML = `
       ${isStudentEditMode ? `<input type="checkbox" class="student-select-cb" data-id="${escHtml(s.id)}" onclick="event.stopPropagation(); updateMassDeleteBar()" style="margin-right: 12px; width: 18px; height: 18px; cursor: pointer;">` : ''}
-      <div class="student-avatar">${escHtml(initials.toUpperCase())}</div>
       <div class="student-info">
         <div class="student-name">${escHtml(studentListName(s))}</div>
-        <div class="student-quick-notes">${s.notes ? escHtml(s.notes) : grades.length+' Note'+(grades.length!==1?'n':'')}</div>
+        <div class="student-quick-notes">${[grades.length + ' Note' + (grades.length !== 1 ? 'n' : ''),
+          (s.notes || '').trim() ? 'Hinweis' : '', birthdayInfo(s, todayStr) ? 'Geburtstag' : ''].filter(Boolean).join(' · ')}</div>
       </div>
       <div class="student-counters">
         <div class="student-counter" data-kind="participation" role="button" tabindex="0" title="${hintText('participation')}" aria-label="${hintText('participation')}">
           <span class="student-counter-label">Mitarbeit</span>
-          <span style="color:var(--success); font-weight:700;">${partPos}</span>
-          <span style="opacity:0.5">:</span>
-          <span style="color:var(--warning); font-weight:700;">${partNeutral}</span>
-          <span style="opacity:0.5">:</span>
-          <span style="color:var(--danger); font-weight:700;">${partNeg}</span>
+          <span>${partPos}</span><span class="sep">/</span><span>${partNeutral}</span><span class="sep">/</span><span${partNeg ? ' class="n-bad"' : ''}>${partNeg}</span>
         </div>
         <div class="student-counter" data-kind="attendance" role="button" tabindex="0" title="${hintText('attendance')}" aria-label="${hintText('attendance')}">
           <span class="student-counter-label">Fehlt</span>
-          <span style="color:var(--danger); font-weight:700;">${attUnexcused}</span>
-          <span style="opacity:0.5">/</span>
-          <span style="color:var(--success); font-weight:700;">${attExcused}</span>
+          <span${attUnexcused ? ' class="n-bad"' : ''}>${attUnexcused}</span><span class="sep">/</span><span>${attExcused}</span>
         </div>
       </div>
       ${avg!==null
         ? `<div class="student-grade-badge" style="color:${gradeColor(avg, scale)}">${formatGradeAverage(avg)}</div>`
-        : `<div class="student-grade-badge" style="background:var(--bg-elevated);color:var(--text-muted)">–</div>`}
+        : `<div class="student-grade-badge student-grade-none">–</div>`}
     `;
     row.addEventListener('click', () => openStudentDetail(s.id));
     row.querySelectorAll('.student-counter').forEach(el => {

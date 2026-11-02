@@ -497,7 +497,7 @@ describe('Block J', () => {
     const badges = [...document.querySelectorAll('#students-container .student-grade-badge')];
     expect(badges.length).toBeGreaterThan(0);
     badges.forEach(b => expect(b.getAttribute('style') || '').not.toMatch(/NaN/));
-    expect(rulesFor('.student-grade-badge')).toMatch(/background:\s*color-mix\(in srgb,\s*currentColor 15%,\s*transparent\)/);
+    badges.filter(b => b.textContent !== '–').forEach(b => expect(b.getAttribute('style')).toMatch(/color:\s*var\(--grade-\d\)/)); // Notenfarbe, ohne Tönung (AE8)
   });
 
   it('J1: hexToRgba nimmt nur Hex-Farben – Aufrufe mit gradeColor gibt es nicht mehr', () => {

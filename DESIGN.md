@@ -10,6 +10,10 @@
 
 **Überschriften in einer Buchschrift** (`--font-display`: Iowan Old Style auf iPad/Mac, sonst Palatino/Georgia). Nur Ansichtstitel, Fenstertitel, Logo, Abschnittsüberschriften im Dashboard, leere Zustände. Alles andere bleibt Inter. Keine zweite Besonderheit daneben.
 
+## App-Symbol
+
+Kalender mit Haken in Tinten-Blau `#2f55c9` auf Papier `#f5f1e9` (`icon.svg`, daraus `icon-180/192/512.png`). Nicht randlos abrunden – das machen iOS/Android selbst.
+
 ## Grundwerte (style.css `:root`)
 
 | | Dunkel (Standard) | Hell („Papier“) |
@@ -35,6 +39,5 @@
 
 ## Noch offen
 
-- Klassenübersicht und Schülerliste sind „Karten für alles“ (BUGS AE8).
+- Klassenübersicht ist noch „Karten für alles“ (BUGS AE8); die Schülerliste ist eine schlichte Liste mit Kopfzeile – so auch künftige Listen bauen.
 - Über 200 Inline-Stile in `index.html` (BUGS AE10) – bei Umbauten dieser Stellen in `style.css` verlegen.
-- App-Symbol (Startbildschirm) ist noch das iOS-Blau.
