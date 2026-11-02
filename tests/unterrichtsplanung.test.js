@@ -218,7 +218,9 @@ describe('Stundenplan: Woche · Tag · Klasse', () => {
   it('Klasse ohne Thema: „+ Thema“ öffnet das Themen-Fenster', () => {
     app('db.groups[0].plan = []');
     app('switchView("timetable"); setTimetableMode("class")');
-    document.querySelector('.ttc-row [data-act="add"]').click();
+    const add = document.querySelector('.ttc-row [data-act="add"]');
+    expect(add.classList.contains('btn-secondary')).toBe(true);   // Kasten, kein Link (Rückmeldung 02.11.)
+    add.click();
     expect(document.getElementById('modal-plan-topic').classList.contains('hidden')).toBe(false);
     app('closeModal("modal-plan-topic"); setTimetableMode("week")');
   });

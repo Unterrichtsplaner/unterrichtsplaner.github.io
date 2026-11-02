@@ -7529,7 +7529,7 @@ function renderTimetableClass(grid) {
     else if (doneT) topic = `<span class="ttc-done">✓ ${escHtml(doneT.title)}</span>`;
     else if (isPast) topic = data.done ? escHtml(firstLine(data.done)) : '<span class="ttc-muted">–</span>';
     else if (a) topic = `${escHtml(a.topic.title)}${a.of > 1 ? ` <small>(${a.unit}/${a.of})</small>` : ''}`;
-    else topic = '<button type="button" class="link-btn" data-act="add">+ Thema</button>';
+    else topic = '<button type="button" class="btn-secondary ttc-add-btn" data-act="add">+ Thema</button>'; // Kasten statt Link: gut zu treffen
     const due = !isPast ? dueItemsFor(l.slot.id, l.dateStr) : { hw: [], tests: [] };
     const badges = (due.hw.length ? `<span class="dash-badge hw">HA</span>` : '') + (due.tests.length ? `<span class="dash-badge test">Test</span>` : '');
     return `<div class="ttc-row${isPast ? ' is-past' : ''}${l.dateStr === todayStr ? ' is-today' : ''}${l.ausfall ? ' is-off' : ''}" role="button" tabindex="0"

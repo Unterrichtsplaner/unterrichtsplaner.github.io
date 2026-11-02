@@ -566,6 +566,8 @@ Hier kommen neue Wünsche hin, bevor sie gebaut werden. Erst klären (offene Fra
 
 - [x] **AD13** 🟠 **Sitzplan ohne „Heute“** (Rückmeldung 02.11.): Wer über Datums-Chips oder Kalender weggeblättert war, kam kaum zurück. „Heute“ in der Sitzplan-Leiste (`seatingGoToday`, nächster Schultag am Wochenende), markiert, solange heute gewählt ist. Titel „Sitzplan“ weicht der breiteren Leiste schon ab 900 px. Test: `tests/sitzplan-heute.test.js`.
 
+- [x] **AD14** 🟢 **„+ Thema“ zu schwer zu treffen** (Rückmeldung 02.11.): in der Klassen-Ansicht jetzt ein Knopf mit Rahmen (`.ttc-add-btn`, 32 px, auf dem iPad 44 px) statt Link.
+
 ## AE. Anti-Slop-Prüfung (02.11.2026, deslop-Skill, nur Befunde)
 
 Was nach „generiert“ aussieht, sortiert nach Sichtbarkeit. Noch nichts entschieden.
