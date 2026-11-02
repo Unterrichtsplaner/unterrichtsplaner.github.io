@@ -37,7 +37,11 @@ Kalender mit Haken in Tinten-Blau `#2f55c9` auf Papier `#f5f1e9` (`icon.svg`, da
 6. **Texte ruhig und konkret:** keine Ausrufezeichen, kein „erfolgreich“, keine Geviertstriche (—). Meldungen sagen, was passiert ist („Sicherung gespeichert ✓“).
 7. **Neue Farbe/Größe/Rundung nötig?** Grundwert ergänzen (hier und in `style.css`), nie eine Einzelzahl in eine Regel oder einen Inline-Stil schreiben.
 
+## Listen statt Karten
+
+Klassenübersicht und Schülerliste sind Zeilen mit Trennlinien (gleiche Angaben in festen Spalten untereinander), keine Kartenraster. Neue Listen genauso bauen; Karten nur, wo jedes Element eigenen, bildhaften Inhalt hat (Sitzplan, Stunden-Kacheln).
+
 ## Noch offen
 
-- Klassenübersicht ist noch „Karten für alles“ (BUGS AE8); die Schülerliste ist eine schlichte Liste mit Kopfzeile – so auch künftige Listen bauen.
+
 - Über 200 Inline-Stile in `index.html` (BUGS AE10) – bei Umbauten dieser Stellen in `style.css` verlegen.

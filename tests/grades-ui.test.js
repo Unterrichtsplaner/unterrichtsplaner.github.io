@@ -142,8 +142,8 @@ describe('B2: Noteneingabe', () => {
 describe('B3: überall derselbe (gewichtete) Durchschnitt', () => {
   it('Klassenkarte', () => {
     app('switchView("classes")');
-    const card = document.querySelector('.subject-group-card');
-    expect(card.querySelector('.sgc-stat-value[style]').textContent).toBe('2,0');
+    const row = document.querySelector('.class-row');
+    expect(row.querySelector('.cr-avg').textContent).toBe('2,0');
   });
 
   it('Schülerdetail', () => {

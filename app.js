@@ -2500,77 +2500,55 @@ function renderSubjectGroups() {
   // Sort subjects alphabetically
   const subjects = Object.keys(groupsBySubject).sort((a, b) => a.localeCompare(b));
 
+  // Klassen als Zeilen je Fach statt Karten (BUGS AE8): gleiche Angaben stehen untereinander, viele Klassen passen
+  // auf einen Blick (Musiklehrkraft mit 26 Klassen). Ganze Zeile öffnet die Klasse.
+  const todayStr = formatDate(new Date());
   subjects.forEach(subj => {
-    // Create Section Container
-    const section = document.createElement('div');
+    const section = document.createElement('section');
     section.className = 'subject-section';
-    section.style.display = 'flex';
-    section.style.flexDirection = 'column';
-    section.style.gap = '12px';
-
-    // Add Subject Header
-    const header = document.createElement('div');
-    header.style.paddingBottom = '8px';
-    header.style.borderBottom = '2px solid var(--border)';
-    header.style.fontSize = '18px';
-    header.style.fontWeight = '700';
-    header.style.color = 'var(--text-primary)';
-    header.style.marginTop = '16px';
-    header.textContent = subj;
-    section.appendChild(header);
-
-    // Create Grid for cards
-    const grid = document.createElement('div');
-    grid.className = 'subject-groups-grid';
-
-    // Sort groups within subject chronologically by grade
     const sortedGroups = groupsBySubject[subj].sort((a, b) => {
       const numA = parseInt(a.className) || 999;
       const numB = parseInt(b.className) || 999;
       if (numA !== numB) return numA - numB;
       return (a.className || '').localeCompare(b.className || '');
     });
+    section.innerHTML = `<h2 class="subject-heading">${escHtml(subj)}<span>${sortedGroups.length} ${sortedGroups.length === 1 ? 'Klasse' : 'Klassen'}</span></h2>`;
+    const list = document.createElement('div');
+    list.className = 'class-list';
 
     sortedGroups.forEach(g => {
       const students = db.students[g.id] || [];
       const gradeCount = students.flatMap(s => s.grades||[]).filter(gr => !isNaN(gradeNumber(gr.value))).length;
       const groupAvg = calculateGroupAverage(g.id);
-      const avg = formatGradeAverage(groupAvg);
       const scale = gradeScale(g);
-
-      // Linked timetable slots → show which days this class meets
-      const todayStr = formatDate(new Date());
-      // Vertretungen (L9) und beendete Stunden (M7) nicht
+      // Wochentage aus dem Stundenplan; Vertretungen (L9) und beendete Stunden (M7) nicht
       const linkedSlots = db.lessonSlots.filter(s => s.groupId === g.id && !isOneOffSlot(s) && (!s.validUntil || s.validUntil >= todayStr));
       const scheduledDays = [...new Set(linkedSlots.map(s => s.day))].sort();
-      const dayBadges = scheduledDays.map(d =>
-        `<span class="sgc-day-badge">${DAY_SHORT[d]}</span>`
-      ).join('');
+      const days = scheduledDays.map(d => DAY_SHORT[d]).join(', ');
+      const meta = [days || '<span class="cr-no-schedule">Kein Stundenplan verknüpft</span>', gradeCount + ' Noten'].join(' · ');
 
-      const card = document.createElement('div');
-      card.className = 'subject-group-card';
-      card.style.setProperty('--card-color', g.color || 'var(--accent)');
-      card.innerHTML = `
-        <button class="sgc-permanent-edit-btn" title="Bearbeiten" onclick="event.stopPropagation();openEditGroup(${jsArg(g.id)})">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display:block; margin:auto;"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-        </button>
-        <div class="sgc-class">${escHtml(g.className)}</div>
-        <div class="sgc-subject">${escHtml(g.subject)}</div>
-        ${g.year ? `<div class="sgc-year">${escHtml(g.year)}</div>` : ''}
-        <div class="sgc-days">${dayBadges || '<span class="sgc-no-schedule">Kein Stundenplan verknüpft</span>'}</div>
-        <div class="sgc-stats">
-          <div class="sgc-stat"><div class="sgc-stat-value">${students.length}</div><div class="sgc-stat-label">Schüler</div></div>
-          <div class="sgc-stat"><div class="sgc-stat-value" style="color:${gradeColor(groupAvg, scale)}">${avg}</div><div class="sgc-stat-label">${scale.higherIsBetter ? 'Ø Punkte' : 'Ø Note'}</div></div>
-          <div class="sgc-stat"><div class="sgc-stat-value">${gradeCount}</div><div class="sgc-stat-label">Noten</div></div>
+      const row = document.createElement('div');
+      row.className = 'class-row';
+      row.setAttribute('role', 'button');
+      row.tabIndex = 0;
+      row.setAttribute('aria-label', `Klasse ${g.className} ${g.subject || ''} öffnen`.replace(/\s+/g, ' '));
+      row.style.setProperty('--card-color', g.color || 'var(--accent)');
+      row.innerHTML = `
+        <div class="cr-name">${escHtml(g.className)}</div>
+        <div class="cr-meta"><b>${escHtml([g.subject, g.year].filter(Boolean).join(' · '))}</b><small>${meta}</small></div>
+        <div class="cr-nums">
+          <span><em>${students.length}</em> Schüler</span>
+          <span><em class="cr-avg" style="color:${gradeColor(groupAvg, scale)}">${formatGradeAverage(groupAvg)}</em> ${scale.higherIsBetter ? 'Pkt.' : 'Ø'}</span>
         </div>
-        <div style="margin-top:12px; display:flex; gap:8px;">
-          <button class="btn-secondary" style="flex:1; justify-content:center;" onclick="event.stopPropagation();openSeatingForGroup(${jsArg(g.id)})">${icon('seating')}Sitzplan</button>
+        <div class="cr-btns">
+          <button class="btn-icon" title="Sitzplan" aria-label="Sitzplan ${escHtml(g.className)}" onclick="event.stopPropagation();openSeatingForGroup(${jsArg(g.id)})">${icon('seating')}</button>
+          <button class="btn-icon" title="Bearbeiten" aria-label="${escHtml(g.className)} bearbeiten" onclick="event.stopPropagation();openEditGroup(${jsArg(g.id)})">${icon('edit')}</button>
         </div>`;
-      card.addEventListener('click', () => openGroupStudents(g.id));
-      grid.appendChild(card);
+      row.addEventListener('click', () => openGroupStudents(g.id));
+      list.appendChild(row);
     });
 
-    section.appendChild(grid);
+    section.appendChild(list);
     container.appendChild(section);
   });
 }

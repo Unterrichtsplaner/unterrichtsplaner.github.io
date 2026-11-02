@@ -52,31 +52,26 @@ describe('I1: Dashboard lässt sich scrollen', () => {
   });
 });
 
-describe('I2: Klassenkarten schneiden nichts ab', () => {
-  it('Karten wachsen mit dem Inhalt statt fest quadratisch mit overflow:hidden', () => {
-    const r = rulesFor('.subject-group-card');
+describe('I2: Klassenübersicht schneidet nichts ab (seit AE8 Zeilen statt Karten)', () => {
+  it('Zeilen wachsen mit dem Inhalt, nichts fest hoch oder abgeschnitten', () => {
+    const r = rulesFor('.class-row');
     expect(r).not.toMatch(/aspect-ratio/);
     expect(r).not.toMatch(/overflow:\s*hidden/);
   });
 
-  it('lange Klassennamen brechen um statt über den Rand zu laufen', () => {
-    expect(rulesFor('.sgc-class')).toMatch(/overflow-wrap:\s*anywhere/);
+  it('lange Klassennamen und Fächer brechen um statt über den Rand zu laufen', () => {
+    expect(rulesFor('.cr-name')).toMatch(/overflow-wrap:\s*anywhere/);
+    expect(rulesFor('.cr-meta')).toMatch(/min-width:\s*0/);
   });
 
-  it('Zahlenreihe bleibt in der Karte (iPad: „NOTEN“ lief rechts hinaus, seit overflow:hidden weg ist)', () => {
-    // drei gleich breite Spalten, die schrumpfen dürfen; lange Beschriftungen brechen um
-    const r = rulesFor('.sgc-stats');
-    expect(r).toMatch(/display:\s*grid/);
-    expect(r).toMatch(/grid-template-columns:\s*repeat\(3,\s*minmax\(0,\s*1fr\)\)/);
-    expect(rulesFor('.sgc-stat')).toMatch(/min-width:\s*0/);
-    expect(rulesFor('.sgc-stat-label')).toMatch(/overflow-wrap:\s*anywhere/);
-  });
-
-  it('Karte zeigt weiterhin alle Teile inkl. Sitzplan-Knopf', () => {
+  it('Zeile zeigt alle Teile inkl. Sitzplan- und Bearbeiten-Knopf; ganze Zeile ist ein Knopf', () => {
     app('switchView("classes")');
-    const card = document.querySelector('.subject-group-card');
-    expect(card.textContent).toContain('Q1 Leistungskurs');
-    expect(card.textContent).toContain('Sitzplan');
+    const row = document.querySelector('.class-row');
+    expect(row.textContent).toContain('Q1 Leistungskurs');
+    expect(row.querySelector('button[title="Sitzplan"]')).not.toBeNull();
+    expect(row.querySelector('button[title="Bearbeiten"]')).not.toBeNull();
+    expect(row.getAttribute('role')).toBe('button');
+    expect(row.getAttribute('aria-label')).toMatch(/^Klasse /);
   });
 });
 
@@ -237,7 +232,7 @@ describe('I4: heller Modus hat genug Kontrast', () => {
 
   it('Klassenfarbe als Text wird im hellen Modus abgedunkelt (Kachel, Klassenkarte)', () => {
     expect(lightRules('.tt-lesson')).toMatch(/color:\s*color-mix\(in srgb,\s*var\(--lesson-color\)\s*50%,\s*#000\)/);
-    expect(lightRules('.sgc-class')).toMatch(/color:\s*color-mix\(in srgb,\s*var\(--card-color[^)]*\)\)\s*50%,\s*#000\)/);
+    expect(lightRules('.cr-name')).toMatch(/color:\s*color-mix\(in srgb,\s*var\(--card-color[^)]*\)\)\s*50%,\s*#000\)/);
     expect(lightRules('.tt-lesson-subject')).toMatch(/opacity:\s*1/);   // Transparenz kostete weiteren Kontrast
   });
 
