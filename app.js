@@ -4287,6 +4287,8 @@ function fillSettingsForm() {
   document.getElementById('settings-teacher-name').value = db.settings.teacherName||'';
   document.getElementById('settings-school').value       = db.settings.school||'';
   document.getElementById('settings-seating-buffer').value = db.settings.seatingBufferMins !== undefined ? db.settings.seatingBufferMins : 5;
+  document.getElementById('settings-seating-start').checked = db.settings.seatingStartInLesson !== false;
+  document.getElementById('settings-seating-autoswitch').checked = db.settings.seatingAutoSwitch !== false;
   document.getElementById('settings-warn-absences').value = db.settings.warnAbsences !== undefined ? db.settings.warnAbsences : 3;
   document.getElementById('settings-warn-homework').value = db.settings.warnHomework !== undefined ? db.settings.warnHomework : 3;
   document.getElementById('settings-warn-grade').value = db.settings.warnGrade !== undefined ? db.settings.warnGrade : 4.5;
@@ -4686,6 +4688,9 @@ function saveSettings() {
   // Leer/ungültig → Standard 5 min (vorher still 0, BUGS O5)
   const buffer = parseInt(document.getElementById('settings-seating-buffer').value, 10);
   db.settings.seatingBufferMins = Number.isFinite(buffer) && buffer >= 0 ? buffer : 5;
+  // Standard „an“ wird nicht gespeichert (fehlt = an), nur das Ausschalten
+  if (document.getElementById('settings-seating-start').checked) delete db.settings.seatingStartInLesson; else db.settings.seatingStartInLesson = false;
+  if (document.getElementById('settings-seating-autoswitch').checked) delete db.settings.seatingAutoSwitch; else db.settings.seatingAutoSwitch = false;
   db.settings.warnAbsences = parseWarnThreshold('settings-warn-absences', 3);
   db.settings.warnHomework = parseWarnThreshold('settings-warn-homework', 3);
   db.settings.warnGrade    = parseWarnThreshold('settings-warn-grade', 4.5);
@@ -4922,16 +4927,16 @@ document.addEventListener('visibilitychange', refreshSeatingDateIfStale);
 
 // Klasse der laufenden (bzw. gleich beginnenden) Stunde. Über lessonsOnDate, damit halbe Blöcke ihre eigene Zeit
 // haben und ausfallende Stunden nicht vorgeschlagen werden (BUGS S3).
-function getSuggestedSeatingGroupId() {
-  const now = new Date();
+function getSuggestedSeatingGroupId(now = new Date()) {
   const nowMins = now.getHours() * 60 + now.getMinutes();
   const buffer = db.settings.seatingBufferMins !== undefined ? db.settings.seatingBufferMins : 5;
   const candidates = lessonsOnDate(formatDate(now)).filter(l => l.slot.groupId && !l.ausfall && l.range
     && nowMins >= l.range.start - buffer && nowMins <= l.range.end);
   const running = candidates.find(l => l.range.start <= nowMins && nowMins < l.range.end);
-  // Läuft gerade eine und beginnt gleich die nächste (Vorlauf), gewinnt die nächste – wie bisher bei Blöcken
+  // Läuft gerade eine und beginnt gleich die nächste (Vorlauf), gewinnt die nächste – aber nur mit Pause dazwischen.
+  // Folgt sie ohne Pause (7:45–8:30, 8:30–9:15), bleibt die laufende Klasse bis zum Stundenende: Man steht ja noch drin.
   const upcoming = candidates.find(l => l.range.start > nowMins);
-  const hit = upcoming || running;
+  const hit = upcoming && (!running || upcoming.range.start > running.range.end) ? upcoming : (running || upcoming);
   return hit ? hit.slot.groupId : null;
 }
 
@@ -4949,6 +4954,7 @@ function initSeatingPlan() {
   if (suggestedGroupId) {
     currentSeatingGroupId = suggestedGroupId;
   }
+  seatingAutoLast = getSuggestedSeatingGroupId(); // ab hier nur bei einem Wechsel der Stunde automatisch umschalten
   
   renderSeatingGroupSelect();
   renderSeatingDateStrip();
@@ -5027,6 +5033,7 @@ function renderSeatingGroupSelect() {
         // Andere Klasse: deren Noten nicht gleich auf dem Beamer zeigen (Regel 16, BUGS S1)
         if (g.id !== currentSeatingGroupId) hideSeatingGrades();
         currentSeatingGroupId = g.id;
+        seatingAutoLast = getSuggestedSeatingGroupId(); // von Hand gewählt: erst bei der nächsten Stunde wieder wechseln
         menu.classList.add('hidden');
         renderSeatingGroupSelect();
         renderSeatingDateStrip(); // Unterrichtstage gehören zur Klasse
@@ -5289,8 +5296,53 @@ function openCockpitLesson() {
 // Timer / nach Änderungen: Leiste aktualisieren; erscheint oder verschwindet sie, das Raster neu einpassen
 function refreshSeatingCockpit() {
   if (!document.getElementById('view-seating')?.classList.contains('active') || seatingEditMode) return;
+  if (maybeAutoSwitchSeatingClass()) return; // hat schon alles neu gezeichnet
   if (renderSeatingCockpit()) renderSeatingPlan();
 }
+
+// Offener Sitzplan wechselt zur nächsten Klasse (Einstellung, Standard an). Nur beim Wechsel der Stunde – nicht
+// gegen eine Klasse, die man gerade von Hand gewählt hat –, nie mitten in einer laufenden Stunde der angezeigten
+// Klasse, nie bei offenem Fenster, im Bearbeiten-Modus oder wenn ein anderer Tag gewählt ist.
+let seatingAutoLast = null;
+function maybeAutoSwitchSeatingClass(now = new Date()) {
+  if (db.settings.seatingAutoSwitch === false || seatingEditMode) return false;
+  if (!document.getElementById('view-seating')?.classList.contains('active')) return false;
+  if (document.querySelector('.modal-overlay:not(.hidden)')) return false;
+  if (currentSeatingDateStr !== formatDate(now)) return false;
+  const sug = getSuggestedSeatingGroupId(now);
+  if (!sug || sug === currentSeatingGroupId) { seatingAutoLast = sug; return false; }
+  if (sug === seatingAutoLast) return false;   // diese Stunde hat man bewusst eine andere Klasse gewählt
+  const nowMins = now.getHours() * 60 + now.getMinutes();
+  const stillRunning = lessonsOnDate(formatDate(now)).some(l => l.slot.groupId === currentSeatingGroupId && !l.ausfall
+    && l.range && l.range.start <= nowMins && nowMins < l.range.end);
+  if (stillRunning) return false;              // später noch einmal versuchen (nicht merken)
+  const g = db.groups.find(x => x.id === sug);
+  if (!g) return false;
+  hideSeatingGrades();
+  currentSeatingGroupId = sug;
+  seatingAutoLast = sug;
+  renderSeatingGroupSelect();
+  renderSeatingDateStrip();
+  renderSeatingPlan();
+  showToast(`Sitzplan: ${g.className}${g.subject ? ' ' + g.subject : ''} (nächste Stunde)`);
+  return true;
+}
+
+// Während des Unterrichts direkt im Sitzplan starten (Einstellung, Standard an): beim Öffnen der App und
+// beim Zurückkommen nach längerer Zeit – nie mitten in einer Eingabe.
+const SEATING_RESUME_MINS = 15;
+function shouldStartInSeating(now = new Date()) {
+  return db.settings.seatingStartInLesson !== false && !!getSuggestedSeatingGroupId(now);
+}
+let appHiddenAt = null;
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) { appHiddenAt = Date.now(); return; }
+  const away = appHiddenAt !== null && Date.now() - appHiddenAt >= SEATING_RESUME_MINS * 60000;
+  appHiddenAt = null;
+  if (!away || document.querySelector('.modal-overlay:not(.hidden)') || timetableEditMode || seatingEditMode) return;
+  if (document.getElementById('view-seating')?.classList.contains('active')) { refreshSeatingCockpit(); return; }
+  if (shouldStartInSeating()) switchView('seating');
+});
 setInterval(() => { if (!document.hidden) refreshSeatingCockpit(); }, 15000);
 
 // Bildschirm bleibt an, solange das Cockpit eine Stunde zeigt (Screen Wake Lock; iPad ab iOS 16.4).
@@ -7001,12 +7053,12 @@ function initAllCustomDropdowns() {
 // Für das nächste große Update: `id` ändern und die Punkte ersetzen. Gemerkt wird nur auf diesem Gerät
 // (nicht in `db`, nicht synchronisiert). Neue Nutzer ohne Daten sehen es nie.
 const WHATS_NEW = {
-  id: '2026-10b',
+  id: '2026-11',
   items: [
-    { icon: 'edit',     title: 'Stundenplan bearbeiten', text: 'Stift oben rechts im Stundenplan antippen, dann Stunden einfach an einen anderen Platz ziehen. Auf eine belegte Stunde ziehen tauscht beide. Du wählst jedes Mal: nur an diesem Tag oder für immer.' },
-    { icon: 'undo',     title: 'Rückgängig', text: 'Beim Verschieben steht „Rückgängig“ in der Leiste oben. Eine Verlegung „nur an diesem Tag“ hebst du im Fenster der Stunde wieder auf.' },
-    { icon: 'printer',  title: 'Stundenplan drucken / als PDF', text: 'Drucker-Knopf neben dem Stift: dein Plan auf einer A4-Seite, farbig oder schwarz-weiß, mit A/B-Wochen und Pausenaufsicht.' },
-    { icon: 'calendar', title: 'Seit Kurzem außerdem', text: 'Ferien laden (Einstellungen → „Ferien & freie Tage“), Pausenaufsicht („+ Aufsicht“), Vertretung im Fenster einer Stunde und mehrere Klassen auf einmal anlegen („7a-d“).' },
+    { icon: 'seating',  title: 'Sitzplan im Unterricht', text: 'Läuft eine Stunde, zeigt der Sitzplan oben Restzeit, Thema, fällige HA, wer fehlt und Geburtstage. Der Bildschirm bleibt dann an. Tippen auf die Leiste zeigt alles im Detail.' },
+    { icon: 'refresh',  title: 'Sitzplan von selbst', text: 'Im Unterricht startet die App gleich im Sitzplan der laufenden Klasse und wechselt zur nächsten Stunde von selbst. Abschalten: Einstellungen → Sitzplan.' },
+    { icon: 'info',     title: 'Hinweise und Geburtstage', text: 'Im Schüler-Fenster Hinweise eintragen (z. B. „hörgeschädigt – vorne sitzen“), auf der Karte steht nur ein Symbol. Geburtstag im Schüler-Formular.' },
+    { icon: 'edit',     title: 'Neues Aussehen', text: 'Ruhigere Farben, Klassen und Schüler als übersichtliche Listen. Heller Modus: Einstellungen → Darstellung → „Papier (hell)“.' },
   ],
 };
 const WHATS_NEW_SEEN_KEY = 'whats_new_seen';
@@ -7039,6 +7091,7 @@ if (typeof process === 'undefined' || process.env.NODE_ENV !== 'test') {
   renderTimetable();
   renderSubjectGroups();
   initAllCustomDropdowns();
+  if (shouldStartInSeating()) switchView('seating'); // im Unterricht gleich der Sitzplan der laufenden Klasse
   setTimeout(() => showWhatsNewIfDue(), 800); // nach dem ersten Zeichnen, damit die App dahinter schon steht
 }
 

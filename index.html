@@ -41,7 +41,7 @@
       }
     } catch(e) {}
   </script>
-  <link rel="stylesheet" href="style.css?v=296" />
+  <link rel="stylesheet" href="style.css?v=298" />
   <script>
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
@@ -896,7 +896,10 @@
             <input type="number" id="settings-seating-buffer" class="form-input" style="width:80px;" min="0" max="60" value="5" />
             <span style="font-size:13px; color:var(--text-secondary);">Minuten vor Stundenbeginn</span>
           </div>
+          <p class="field-hint-muted">Folgt die nächste Stunde ohne Pause, bleibt die laufende Klasse bis zum Stundenende.</p>
         </div>
+        <label class="print-check" for="settings-seating-start"><input type="checkbox" id="settings-seating-start" /> Während des Unterrichts direkt im Sitzplan starten</label>
+        <label class="print-check" for="settings-seating-autoswitch" style="margin-top:8px;"><input type="checkbox" id="settings-seating-autoswitch" /> Offener Sitzplan wechselt von selbst zur nächsten Klasse</label>
       </div>
       <div class="settings-section">
         <h3 style="margin-bottom:12px;font-size:14px;">Darstellung</h3>
@@ -1465,12 +1468,12 @@
   </div>
 
   <script src="lib/crypto-js.min.js"></script>
-  <script src="crypto-helper.js?v=296"></script>
+  <script src="crypto-helper.js?v=298"></script>
   <script src="lib/firebase-app-compat.js"></script>
   <script src="lib/firebase-auth-compat.js"></script>
   <script src="lib/firebase-firestore-compat.js"></script>
-  <script src="firebase-config.js?v=296"></script>
-  <script src="sync-manager.js?v=296"></script>
-  <script src="app.js?v=296"></script>
+  <script src="firebase-config.js?v=298"></script>
+  <script src="sync-manager.js?v=298"></script>
+  <script src="app.js?v=298"></script>
 </body>
 </html>

@@ -137,7 +137,8 @@ describe('Cockpit-Leiste', () => {
     expect(card('b').querySelector('.sc-missed')).toBeTruthy();
     expect(card('b').getAttribute('aria-label')).toMatch(/letzte Stunde gefehlt/);
     expect(card('a').querySelector('.sc-missed')).toBeNull();
-    at(10, 0); app('refreshSeatingCockpit()');                   // keine Stunde mehr
+    app('db.settings.seatingAutoSwitch = false');                // sonst wechselt der Sitzplan (richtig) zur 9c
+    at(10, 0); app('refreshSeatingCockpit()');                   // keine Stunde der 7a mehr
     expect(card('b').querySelector('.sc-missed')).toBeNull();
   });
 

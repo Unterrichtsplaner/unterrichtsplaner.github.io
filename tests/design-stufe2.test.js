@@ -43,6 +43,7 @@ describe('Ordnung', () => {
   });
   it('Etiketten nicht in Großbuchstaben', () => {
     expect(rule('.form-group label')).not.toMatch(/uppercase/);
+    expect(rule('.form-group .group-label')).not.toMatch(/uppercase/);
   });
 });
 
