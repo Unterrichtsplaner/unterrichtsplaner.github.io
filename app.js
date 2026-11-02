@@ -608,10 +608,12 @@ const DAY_VIEW_MAX_WIDTH = 700;
 let timetableDay = null;
 // Stift-Modus (AC2): Stunden per Ziehen verschieben. Nur Ansichtszustand, nie gespeichert (Regel 19).
 let timetableEditMode = false;
+// Ansicht Woche · Tag · Klasse (AD4): nur auf diesem Gerät gemerkt (Bequemlichkeit, kein db)
+let timetableMode = (() => { try { const m = localStorage.getItem('tt_mode'); return ['week', 'day', 'class'].includes(m) ? m : 'week'; } catch (e) { return 'week'; } })();
 // Tag, an dem Woche/Tag gewählt wurden. Am nächsten Tag zeigt der Stundenplan wieder „heute“: Der Wochen-Versatz
 // gilt relativ zu jetzt und sprang sonst über Nacht (Fr „nächste Woche“ → Sa übernächste; BUGS R6, Regel 24).
 let timetableChosenOn = '';
-function isTimetableDayView() { return window.innerWidth < DAY_VIEW_MAX_WIDTH; }
+function isTimetableDayView() { return timetableMode === 'day' || window.innerWidth < DAY_VIEW_MAX_WIDTH; }
 function todaySchoolDay() { return nextSchoolDay(parseDate(formatDate(new Date()))); }
 function timetableDayDate() {
   if (timetableDay) return parseDate(timetableDay);
@@ -646,13 +648,16 @@ function renderTimetable() {
     currentWeekOffset = 0; timetableDay = null; timetableChosenOn = '';
   }
   const grid  = document.getElementById('timetable-grid');
+  updateTimetableModeUI();
+  if (timetableMode === 'class') { renderTimetableClass(grid); return; }
+  grid.className = 'timetable-grid';
   const dayView = isTimetableDayView();
   grid.classList.toggle('day-view', dayView);
   const prevBtn = document.querySelector('button[onclick="navigateWeek(-1)"]');
   const nextBtn = document.querySelector('button[onclick="navigateWeek(1)"]');
   if (prevBtn) prevBtn.title = dayView ? 'Vorheriger Tag' : 'Vorherige Woche';
   if (nextBtn) nextBtn.title = dayView ? 'Nächster Tag' : 'Nächste Woche';
-  if (dayView) renderTimetableDay(grid);
+  if (dayView) { renderTimetableDay(grid); addTopicsToDayTiles(grid); }
   else renderTimetableWeek(grid);
   grid.classList.toggle('tt-edit', timetableEditMode);
   setupTimetableDrag(grid);
@@ -2076,6 +2081,7 @@ function openLessonDetail(slotId, dateStr) {
   document.getElementById('test-date-chips').innerHTML = '';
 
   renderLessonAbsent(slot, dateStr);
+  renderLessonPlanBox(slot, dateStr);   // AD3
 
   // ── Find upcoming lesson dates (all slots with same subject) ──
   _upcomingDates = findUpcomingLessonDates(slotId, dateStr);
@@ -2806,6 +2812,19 @@ function switchClassDashboardTab(tabName) {
   const addColBtn = document.getElementById('btn-add-overview-col');
   const actionBtn = document.getElementById('btn-student-actions');
   
+  if (tabName === 'plan') {   // Unterrichtsplanung (AD3)
+    studentsContainer.classList.add('hidden');
+    overviewContent.classList.remove('hidden');
+    if (addColBtn) addColBtn.classList.add('hidden');
+    if (actionBtn) actionBtn.classList.add('hidden');
+    if (isStudentEditMode) toggleStudentEditMode();
+    const bar = document.getElementById('mass-delete-bar');
+    if (bar) bar.classList.add('hidden');
+    currentOverviewTab = 'plan';
+    currentOverviewGroupId = currentGroupId;
+    renderPlanTab();
+    return;
+  }
   if (tabName === 'students') {
     studentsContainer.classList.remove('hidden');
     overviewContent.classList.add('hidden');
@@ -2835,6 +2854,7 @@ function switchOverviewTab(tabName) {
 }
 function renderOverviewTable() {
   if (!currentOverviewGroupId) return;
+  if (currentOverviewTab === 'plan') { renderPlanTab(); return; } // Planung ist keine Tabelle
   const content = document.getElementById('overview-content');
   // Hat ein Feld der alten Tabelle noch den Fokus, entfernte das Ersetzen es, und der Browser feuerte dabei sein
   // change mitten im Ersetzen (NotFoundError). Deshalb vorher den Fokus nehmen: Eine laufende Eingabe wird dabei
@@ -4291,6 +4311,8 @@ function fillSettingsForm() {
   document.getElementById('settings-school').value       = db.settings.school||'';
   document.getElementById('settings-seating-buffer').value = db.settings.seatingBufferMins !== undefined ? db.settings.seatingBufferMins : 5;
   document.getElementById('settings-seating-start').checked = db.settings.seatingStartInLesson !== false;
+  document.getElementById('settings-half-year').value = isDateStr(db.settings.halfYearEnd) ? db.settings.halfYearEnd : '';
+  document.getElementById('settings-year-end').value = isDateStr(db.settings.schoolYearEnd) ? db.settings.schoolYearEnd : '';
   document.getElementById('settings-seating-autoswitch').checked = db.settings.seatingAutoSwitch !== false;
   document.getElementById('settings-warn-absences').value = db.settings.warnAbsences !== undefined ? db.settings.warnAbsences : 3;
   document.getElementById('settings-warn-homework').value = db.settings.warnHomework !== undefined ? db.settings.warnHomework : 3;
@@ -4695,6 +4717,9 @@ function saveSettings() {
   db.settings.seatingBufferMins = Number.isFinite(buffer) && buffer >= 0 ? buffer : 5;
   // Standard „an“ wird nicht gespeichert (fehlt = an), nur das Ausschalten
   if (document.getElementById('settings-seating-start').checked) delete db.settings.seatingStartInLesson; else db.settings.seatingStartInLesson = false;
+  const hy = document.getElementById('settings-half-year').value, ye = document.getElementById('settings-year-end').value;
+  if (isDateStr(hy)) db.settings.halfYearEnd = hy; else delete db.settings.halfYearEnd;
+  if (isDateStr(ye)) db.settings.schoolYearEnd = ye; else delete db.settings.schoolYearEnd;
   if (document.getElementById('settings-seating-autoswitch').checked) delete db.settings.seatingAutoSwitch; else db.settings.seatingAutoSwitch = false;
   db.settings.warnAbsences = parseWarnThreshold('settings-warn-absences', 3);
   db.settings.warnHomework = parseWarnThreshold('settings-warn-homework', 3);
@@ -6884,6 +6909,7 @@ const MODAL_CLOSE_ACTIONS = {
   'modal-settings': () => cancelSettings(),          // Farbvorschau nicht stehen lassen (BUGS O2)
   'modal-supervision': () => cancelSupervision(),    // bei Änderungen fragen (AA4)
   'modal-whats-new': () => closeWhatsNew(),          // Wegdrücken zählt als gelesen
+  'modal-plan-topic': () => cancelPlanTopic(),       // bei Änderungen fragen (Regel 55)
 };
 function closeModalLikeButton(id) {
   const action = id in MODAL_CLOSE_ACTIONS ? MODAL_CLOSE_ACTIONS[id] : () => closeModal(id);
@@ -7064,6 +7090,7 @@ const WHATS_NEW = {
     { icon: 'seating',  title: 'Sitzplan im Unterricht', text: 'Läuft eine Stunde, zeigt der Sitzplan oben Restzeit, Thema, fällige HA, wer fehlt und Geburtstage. Der Bildschirm bleibt dann an. Tippen auf die Leiste zeigt alles im Detail.' },
     { icon: 'refresh',  title: 'Sitzplan von selbst', text: 'Im Unterricht startet die App gleich im Sitzplan der laufenden Klasse und wechselt zur nächsten Stunde von selbst. Abschalten: Einstellungen → Sitzplan.' },
     { icon: 'info',     title: 'Hinweise und Geburtstage', text: 'Im Schüler-Fenster Hinweise eintragen (z. B. „hörgeschädigt – vorne sitzen“), auf der Karte steht nur ein Symbol. Geburtstag im Schüler-Formular.' },
+    { icon: 'list',     title: 'Unterrichtsplanung', text: 'Klasse öffnen → Reiter „Planung“: Themen der Reihe nach eintragen, die App verteilt sie auf die nächsten Stunden. Im Stundenplan oben „Klasse“: alle Stunden mit Thema, „noch … bis zum Halbjahr“.' },
     { icon: 'edit',     title: 'Neues Aussehen', text: 'Hell und ruhiger, Klassen und Schüler als übersichtliche Listen. Lieber dunkel? Einstellungen → Darstellung → Hintergrundfarbe „Dunkel“.' },
   ],
 };
@@ -7089,6 +7116,403 @@ function showWhatsNewIfDue(attempt = 0) {
 function closeWhatsNew() {
   markWhatsNewSeen();
   closeModal('modal-whats-new');
+}
+
+// ─── Unterrichtsplanung (AD3) und Klassen-Ansicht im Stundenplan (AD4) ─────
+// Pro Klasse eine Themenliste (group.plan). Themen hängen nicht an Daten, sondern verteilen sich auf die
+// kommenden Stunden, die wirklich stattfinden – fällt eine aus oder sind Ferien, rutscht alles weiter.
+// Erledigt wird pro Stunde (doneLessons = lessonData-Schlüssel); ein Thema kann mehrere Stunden lang sein.
+// Datenmodell: { id, title, lessons?: n, pinned?: 'YYYY-MM-DD', note?, doneLessons?: [key], done?: 'YYYY-MM-DD' }
+const isDateStr = v => typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v);
+function groupPlan(g) { return g && Array.isArray(g.plan) ? g.plan.filter(t => t && typeof t === 'object') : []; }
+function ensurePlan(g) { if (!Array.isArray(g.plan)) g.plan = []; return g.plan; }
+const topicLength = t => Math.max(1, Math.min(40, parseInt(t.lessons) || 1));
+const topicDoneCount = t => Array.isArray(t.doneLessons) ? t.doneLessons.length : 0;
+const lessonKeyOf = l => l.slot.id + '_' + l.dateStr;
+
+// Halbjahr (Einstellung) und Schuljahresende (Einstellung, sonst Tag vor den nächsten Sommerferien)
+function schoolYearMarks(todayStr = formatDate(new Date())) {
+  const hy = isDateStr(db.settings.halfYearEnd) && db.settings.halfYearEnd >= todayStr ? db.settings.halfYearEnd : null;
+  let ye = isDateStr(db.settings.schoolYearEnd) && db.settings.schoolYearEnd >= todayStr ? db.settings.schoolYearEnd : null;
+  if (!ye) {
+    const summer = (Array.isArray(db.settings.holidays) ? db.settings.holidays : [])
+      .filter(h => h && isDateStr(h.from) && /sommer/i.test(h.label || '') && h.from > todayStr)
+      .sort((a, b) => a.from.localeCompare(b.from))[0];
+    if (summer) ye = formatDate(addDays(parseDate(summer.from), -1));
+  }
+  return { halfYearEnd: hy, yearEnd: ye };
+}
+// Stunden der Klasse von … bis (inkl.), zeitlich sortiert, Ausfall markiert
+function groupLessons(groupId, fromStr, untilStr) {
+  const out = [];
+  let d = parseDate(fromStr);
+  for (let i = 0; i < 400 && formatDate(d) <= untilStr; i++, d = addDays(d, 1)) {
+    if (!isSchoolDay(d)) continue;
+    lessonsOnDate(formatDate(d)).forEach(l => { if (l.slot.groupId === groupId) out.push(l); });
+  }
+  return out;
+}
+// Verteilung ab heute: feste Termine zuerst, dann die Reihe nach. Stunden, in denen etwas erledigt wurde, sind belegt.
+function planAssignments(g, todayStr = formatDate(new Date())) {
+  const plan = groupPlan(g);
+  const { yearEnd } = schoolYearMarks(todayStr);
+  const until = yearEnd || formatDate(addDays(parseDate(todayStr), 365));
+  const consumed = new Set(plan.flatMap(t => Array.isArray(t.doneLessons) ? t.doneLessons : []));
+  const lessons = groupLessons(g.id, todayStr, until).filter(l => !l.ausfall && !consumed.has(lessonKeyOf(l)));
+  const byKey = new Map(), firstDate = new Map();
+  const take = (t, list) => {
+    let n = topicLength(t) - topicDoneCount(t), unit = topicDoneCount(t);
+    for (const l of list) {
+      if (n <= 0) break;
+      const key = lessonKeyOf(l);
+      if (byKey.has(key)) continue;
+      byKey.set(key, { topic: t, unit: ++unit, of: topicLength(t) });
+      if (!firstDate.has(t)) firstDate.set(t, l);
+      n--;
+    }
+    return n <= 0;
+  };
+  const open = plan.filter(t => !t.done);
+  const overflow = [];
+  open.filter(t => isDateStr(t.pinned)).forEach(t => { if (!take(t, lessons.filter(l => l.dateStr >= t.pinned))) overflow.push(t); });
+  open.filter(t => !isDateStr(t.pinned)).forEach(t => { if (!take(t, lessons)) overflow.push(t); });
+  return { byKey, firstDate, overflow, until };
+}
+// Thema, das in dieser Stunde erledigt wurde (für vergangene Stunden und den Haken)
+function topicDoneIn(g, key) { return groupPlan(g).find(t => Array.isArray(t.doneLessons) && t.doneLessons.includes(key)) || null; }
+function countLessons(groupId, fromStr, untilStr) {
+  return untilStr ? groupLessons(groupId, fromStr, untilStr).filter(l => !l.ausfall).length : null;
+}
+
+// ── Tab „Planung“ in der Klassenansicht ──
+let planShowDone = false; // Ansichtszustand (Regel 19)
+function renderPlanTab() {
+  const content = document.getElementById('overview-content');
+  const g = db.groups.find(x => x.id === currentOverviewGroupId);
+  if (!content || !g) return;
+  const todayStr = formatDate(new Date());
+  const plan = groupPlan(g);
+  const { byKey, firstDate, overflow } = planAssignments(g, todayStr);
+  const { halfYearEnd, yearEnd } = schoolYearMarks(todayStr);
+  const open = plan.filter(t => !t.done), done = plan.filter(t => t.done);
+  const planned = open.reduce((n, t) => n + topicLength(t) - topicDoneCount(t), 0);
+  const left = [];
+  if (halfYearEnd) left.push(`<b>${countLessons(g.id, todayStr, halfYearEnd)}</b> Stunden bis zum Halbjahr <small>(${escHtml(formatDateDE(parseDate(halfYearEnd)))})</small>`);
+  if (yearEnd) left.push(`<b>${countLessons(g.id, todayStr, yearEnd)}</b> bis Schuljahresende <small>(${escHtml(formatDateDE(parseDate(yearEnd)))})</small>`);
+  const summary = (left.length ? `Noch ${left.join(' · ')}` : 'Halbjahr und Schuljahresende in den Einstellungen eintragen, dann zählt die App die Stunden.')
+    + ` · Geplant: <b>${planned}</b> ${planned === 1 ? 'Stunde' : 'Stunden'}`;
+  const when = t => {
+    const l = firstDate.get(t);
+    if (!l) return '<span class="plan-when plan-over">passt nicht mehr bis Schuljahresende</span>';
+    return `<span class="plan-when">${escHtml(formatWeekdayShort(l.dateStr))} · ${escHtml(l.block.label)}${isDateStr(t.pinned) ? ' · fest' : ''}</span>`;
+  };
+  let html = `<div class="plan-view"><p class="plan-summary">${summary}</p>`;
+  if (overflow.length) html += `<p class="plan-warn">${overflow.length} ${overflow.length === 1 ? 'Thema passt' : 'Themen passen'} nicht mehr bis zum Schuljahresende.</p>`;
+  if (!open.length) html += `<div class="plan-empty">Noch keine Themen. Trage die Reihenfolge ein – die App verteilt sie auf die kommenden Stunden.</div>`;
+  html += '<div class="plan-list">' + open.map((t, i) => `
+    <div class="plan-row" data-id="${escHtml(t.id)}">
+      <span class="plan-num">${i + 1}</span>
+      <button type="button" class="plan-main" data-act="edit"><b>${escHtml(t.title)}</b>${t.note ? `<small>${escHtml(firstLine(t.note))}</small>` : ''}</button>
+      <span class="plan-len">${topicDoneCount(t) ? `${topicDoneCount(t)}/${topicLength(t)} Std.` : `${topicLength(t)} Std.`}</span>
+      ${when(t)}
+      <span class="plan-move">
+        <button type="button" class="btn-icon" data-act="up" aria-label="Nach oben"${i === 0 ? ' disabled' : ''}>↑</button>
+        <button type="button" class="btn-icon" data-act="down" aria-label="Nach unten"${i === open.length - 1 ? ' disabled' : ''}>↓</button>
+      </span>
+    </div>`).join('') + '</div>';
+  html += `<div class="plan-actions"><button type="button" class="btn-primary" data-act="add">+ Themen</button></div>`;
+  if (done.length) {
+    html += `<details class="plan-done"${planShowDone ? ' open' : ''}><summary>Erledigt (${done.length})</summary><div class="plan-list">`
+      + done.slice().sort((a, b) => (a.done || '').localeCompare(b.done || '')).map(t => `
+        <div class="plan-row is-done" data-id="${escHtml(t.id)}"><span class="plan-num">✓</span>
+          <button type="button" class="plan-main" data-act="edit"><b>${escHtml(t.title)}</b></button>
+          <span class="plan-when">${escHtml(formatWeekdayShort(t.done))}</span></div>`).join('') + '</div></details>';
+  }
+  content.innerHTML = html + '</div>';
+  const det = content.querySelector('details.plan-done');
+  if (det) det.addEventListener('toggle', () => { planShowDone = det.open; });
+  content.querySelector('[data-act="add"]').addEventListener('click', () => openPlanTopicForm(g.id, null));
+  content.querySelectorAll('.plan-row').forEach(row => {
+    const t = plan.find(x => x.id === row.dataset.id);
+    row.querySelector('[data-act="edit"]').addEventListener('click', () => openPlanTopicForm(g.id, t));
+    row.querySelectorAll('[data-act="up"],[data-act="down"]').forEach(b => b.addEventListener('click', () => movePlanTopic(g.id, t, b.dataset.act === 'up' ? -1 : 1)));
+  });
+}
+// Verschieben in der Reihe der offenen Themen (per Objekt, Regel 4/9)
+function movePlanTopic(groupId, t, dir) {
+  const g = db.groups.find(x => x.id === groupId);
+  if (!g) return;
+  const plan = ensurePlan(g);
+  const open = plan.filter(x => !x.done);
+  const i = open.indexOf(t), j = i + dir;
+  if (i < 0 || j < 0 || j >= open.length) return;
+  const a = plan.indexOf(open[i]), b = plan.indexOf(open[j]);
+  [plan[a], plan[b]] = [plan[b], plan[a]];
+  saveDB();
+  refreshPlanViews(groupId);
+}
+function refreshPlanViews(groupId) {
+  const active = id => document.getElementById(id)?.classList.contains('active');
+  if (active('view-students') && currentOverviewGroupId === groupId && currentOverviewTab === 'plan'
+      && !document.getElementById('overview-content').classList.contains('hidden')) renderPlanTab();
+  if (active('view-timetable')) renderTimetable();
+  refreshSeatingCockpit();
+}
+
+// ── Fenster „Thema“ ──
+let planTopicCtx = null;   // { groupId, topic } – Thema per Referenz (Regel 8)
+let planTopicSnapshot = null;
+function planTopicFormState() {
+  return ['plan-topic-title', 'plan-topic-lessons', 'plan-topic-pinned', 'plan-topic-note'].map(id => document.getElementById(id).value).join('\u0001');
+}
+function openPlanTopicForm(groupId, topic) {
+  planTopicCtx = { groupId, topic };
+  const isNew = !topic;
+  document.getElementById('plan-topic-title-h').textContent = isNew ? 'Themen hinzufügen' : 'Thema bearbeiten';
+  document.getElementById('plan-topic-title').value = topic ? topic.title : '';
+  document.getElementById('plan-topic-title').rows = isNew ? 4 : 2;
+  document.getElementById('plan-topic-hint').classList.toggle('hidden', !isNew);
+  document.getElementById('plan-topic-lessons').value = topic ? topicLength(topic) : 1;
+  document.getElementById('plan-topic-pinned').value = topic && isDateStr(topic.pinned) ? topic.pinned : '';
+  document.getElementById('plan-topic-note').value = topic ? (topic.note || '') : '';
+  document.getElementById('btn-plan-topic-delete').classList.toggle('hidden', isNew);
+  const doneBtn = document.getElementById('btn-plan-topic-done');
+  doneBtn.classList.toggle('hidden', isNew);
+  if (topic) doneBtn.textContent = topic.done ? 'Wieder offen' : 'Als erledigt markieren';
+  planTopicSnapshot = planTopicFormState();
+  openModal('modal-plan-topic');
+}
+function cancelPlanTopic() {
+  if (planTopicSnapshot !== null && planTopicFormState() !== planTopicSnapshot
+      && !confirm('Deine Änderungen am Thema sind noch nicht gespeichert.\n\nVerwerfen?')) return;
+  planTopicSnapshot = null;
+  closeModal('modal-plan-topic');
+}
+function savePlanTopic() {
+  const ctx = planTopicCtx;
+  const g = ctx && db.groups.find(x => x.id === ctx.groupId);
+  if (!g) { showToast('Diese Klasse gibt es nicht mehr (z. B. durch Sync)', 'error'); return; }
+  const plan = ensurePlan(g);
+  const titleRaw = document.getElementById('plan-topic-title').value;
+  const lessons = Math.max(1, Math.min(40, parseInt(document.getElementById('plan-topic-lessons').value) || 1));
+  const pinned = document.getElementById('plan-topic-pinned').value;
+  const note = document.getElementById('plan-topic-note').value.trim();
+  const apply = t => {
+    if (lessons > 1) t.lessons = lessons; else delete t.lessons;
+    if (isDateStr(pinned)) t.pinned = pinned; else delete t.pinned;
+    if (note) t.note = note; else delete t.note;
+    return t;
+  };
+  if (ctx.topic) {
+    if (!plan.includes(ctx.topic)) { showToast('Dieses Thema gibt es nicht mehr (z. B. durch Sync)', 'error'); return; }
+    const title = titleRaw.trim();
+    if (!title) { showToast('Bitte ein Thema eingeben', 'error'); return; }
+    ctx.topic.title = title;
+    apply(ctx.topic);
+    if (ctx.topic.done && topicDoneCount(ctx.topic) < topicLength(ctx.topic) && topicDoneCount(ctx.topic) > 0) delete ctx.topic.done; // länger geworden
+  } else {
+    // Mehrere Zeilen = mehrere Themen (z. B. aus dem Stoffverteilungsplan eingefügt)
+    const titles = titleRaw.split('\n').map(x => x.replace(/^\s*(\d+[.)]|[-•*])\s*/, '').trim()).filter(Boolean);
+    if (!titles.length) { showToast('Bitte mindestens ein Thema eingeben', 'error'); return; }
+    titles.forEach(title => plan.push(apply({ id: uid(), title })));
+  }
+  saveDB();
+  planTopicSnapshot = null;
+  closeModal('modal-plan-topic');
+  refreshPlanViews(g.id);
+}
+function deletePlanTopicFromForm() {
+  const ctx = planTopicCtx;
+  const g = ctx && db.groups.find(x => x.id === ctx.groupId);
+  const plan = g ? ensurePlan(g) : [];
+  const i = ctx && ctx.topic ? plan.indexOf(ctx.topic) : -1;
+  if (i < 0) { closeModal('modal-plan-topic'); return; }
+  const [removed] = plan.splice(i, 1);
+  saveDB();
+  planTopicSnapshot = null;
+  closeModal('modal-plan-topic');
+  refreshPlanViews(g.id);
+  showUndoToast('Thema gelöscht', () => {
+    const gg = db.groups.find(x => x.id === g.id);
+    if (!gg) return;
+    const pl = ensurePlan(gg);
+    pl.splice(Math.min(i, pl.length), 0, removed);
+    saveDB();
+    refreshPlanViews(gg.id);
+  });
+}
+// Von Hand erledigt/wieder offen (ohne Stunde, z. B. Thema übersprungen oder nachgeholt)
+function togglePlanTopicDoneFromForm() {
+  const ctx = planTopicCtx;
+  const g = ctx && db.groups.find(x => x.id === ctx.groupId);
+  if (!g || !ctx.topic || !ensurePlan(g).includes(ctx.topic)) { closeModal('modal-plan-topic'); return; }
+  if (ctx.topic.done) { delete ctx.topic.done; ctx.topic.doneLessons = (ctx.topic.doneLessons || []).slice(0, Math.max(0, topicLength(ctx.topic) - 1)); }
+  else ctx.topic.done = formatDate(new Date());
+  saveDB();
+  planTopicSnapshot = null;
+  closeModal('modal-plan-topic');
+  refreshPlanViews(g.id);
+}
+function openPlanForGroup(groupId) {
+  leaveLessonModal();
+  switchView('classes');
+  openGroupStudents(groupId);
+  switchClassDashboardTab('plan');
+}
+
+// ── Im Stunden-Fenster: „Geplant: …“ mit Haken ──
+function renderLessonPlanBox(slot, dateStr) {
+  const box = document.getElementById('lesson-plan-box');
+  if (!box) return;
+  const g = slot.groupId && db.groups.find(x => x.id === slot.groupId);
+  const todayStr = formatDate(new Date());
+  if (!g || (dateStr < todayStr && !topicDoneIn(g, slot.id + '_' + dateStr))) { box.classList.add('hidden'); box.innerHTML = ''; return; }
+  const key = slot.id + '_' + dateStr;
+  const doneT = topicDoneIn(g, key);
+  const a = !doneT && dateStr >= todayStr ? planAssignments(g, todayStr).byKey.get(key) : null;
+  const t = doneT || (a && a.topic);
+  box.classList.remove('hidden');
+  if (!t) {
+    box.innerHTML = `<div class="lesson-plan-empty">Kein Thema geplant · <button type="button" class="link-btn" data-act="plan">Planung öffnen</button></div>`;
+  } else {
+    const unit = doneT ? doneT.doneLessons.indexOf(key) + 1 : a.unit;
+    box.innerHTML = `<div class="lesson-plan-row${doneT ? ' is-done' : ''}">
+      <div class="lesson-plan-text"><small>${doneT ? 'Erledigt' : 'Geplant'}${topicLength(t) > 1 ? ` · Stunde ${unit} von ${topicLength(t)}` : ''}</small><b>${escHtml(t.title)}</b>${t.note ? `<span>${escHtml(t.note)}</span>` : ''}</div>
+      <button type="button" class="${doneT ? 'btn-secondary' : 'btn-primary'} lesson-plan-btn" data-act="toggle">${doneT ? '✓ Erledigt' : 'Erledigt'}</button></div>`;
+  }
+  const planBtn = box.querySelector('[data-act="plan"]');
+  if (planBtn) planBtn.addEventListener('click', () => openPlanForGroup(g.id));
+  const tBtn = box.querySelector('[data-act="toggle"]');
+  if (tBtn) tBtn.addEventListener('click', () => toggleLessonTopicDone(slot, dateStr, t));
+}
+// Haken in der Stunde: Thema (bzw. eine seiner Stunden) erledigt. Schreibt den Titel ins Feld „Unterrichtsinhalt“
+// des offenen Fensters (wird mit ihm gespeichert) – nie direkt in lessonData, sonst überschriebe das Fenster es.
+function toggleLessonTopicDone(slot, dateStr, t) {
+  const g = db.groups.find(x => x.id === slot.groupId);
+  if (!g || !groupPlan(g).includes(t)) { showToast('Dieses Thema gibt es nicht mehr (z. B. durch Sync)', 'error'); return; }
+  const key = slot.id + '_' + dateStr;
+  t.doneLessons = Array.isArray(t.doneLessons) ? t.doneLessons : [];
+  const ta = document.getElementById('lesson-done-text');
+  const i = t.doneLessons.indexOf(key);
+  if (i >= 0) {
+    t.doneLessons.splice(i, 1);
+    if (!t.doneLessons.length) delete t.doneLessons;
+    delete t.done;
+    if (ta && ta.value.trim() === t.title) ta.value = '';
+  } else {
+    t.doneLessons.push(key);
+    if (t.doneLessons.length >= topicLength(t)) t.done = dateStr;
+    if (ta && !ta.value.trim()) ta.value = t.title;
+  }
+  saveDB();
+  renderLessonPlanBox(slot, dateStr);
+  refreshPlanViews(g.id);
+}
+
+// ── Stundenplan: Woche · Tag · Klasse ──
+let timetableClassGroupId = null;
+let ttClassShowPast = false;
+function setTimetableMode(mode) {
+  timetableMode = ['week', 'day', 'class'].includes(mode) ? mode : 'week';
+  try { localStorage.setItem('tt_mode', timetableMode); } catch (e) { /* privat: nur für diese Sitzung */ }
+  if (timetableMode === 'class' && timetableEditMode) setTimetableEditUI(false);
+  renderTimetable();
+}
+function updateTimetableModeUI() {
+  document.querySelectorAll('#tt-mode button').forEach(b => {
+    const on = b.dataset.mode === (timetableMode === 'week' && window.innerWidth < DAY_VIEW_MAX_WIDTH ? 'day' : timetableMode);
+    b.classList.toggle('active', on);
+    b.setAttribute('aria-pressed', on ? 'true' : 'false');
+  });
+  const cls = timetableMode === 'class';
+  document.getElementById('view-timetable').classList.toggle('tt-class-mode', cls);
+  const compact = document.getElementById('btn-tt-classmode'); // Handy: ein Knopf statt Woche · Tag · Klasse
+  if (compact) { compact.classList.toggle('active', cls); compact.setAttribute('aria-pressed', cls ? 'true' : 'false'); }
+}
+function renderTimetableClass(grid) {
+  const groups = db.groups.slice().sort((a, b) => (a.subject || '').localeCompare(b.subject || '') || (a.className || '').localeCompare(b.className || '', undefined, { numeric: true }));
+  grid.innerHTML = '';
+  grid.removeAttribute('style');
+  grid.className = 'timetable-grid tt-class-list';
+  const wrap = grid.parentElement;
+  wrap.classList.remove('tt-compact-wrap');
+  wrap.style.overflow = 'auto';
+  if (!groups.length) { grid.innerHTML = '<div class="empty-state"><div class="empty-state-title">Noch keine Klassen</div></div>'; return; }
+  if (!groups.some(g => g.id === timetableClassGroupId)) timetableClassGroupId = getSuggestedSeatingGroupId() || groups[0].id;
+  const g = groups.find(x => x.id === timetableClassGroupId);
+  const todayStr = formatDate(new Date());
+  const { halfYearEnd, yearEnd } = schoolYearMarks(todayStr);
+  const { byKey, until } = planAssignments(g, todayStr);
+  const past = groupLessons(g.id, formatDate(addDays(parseDate(todayStr), -120)), formatDate(addDays(parseDate(todayStr), -1)));
+  const future = groupLessons(g.id, todayStr, until);
+  const counts = [];
+  if (halfYearEnd) counts.push(`<b>${countLessons(g.id, todayStr, halfYearEnd)}</b> Stunden bis zum Halbjahr`);
+  if (yearEnd) counts.push(`<b>${countLessons(g.id, todayStr, yearEnd)}</b> bis Schuljahresende`);
+  const head = `<div class="ttc-head">
+      <select id="ttc-group" class="form-input ttc-select" aria-label="Klasse">${groups.map(x => `<option value="${escHtml(x.id)}"${x.id === g.id ? ' selected' : ''}>${escHtml(x.className)} ${escHtml(x.subject || '')}</option>`).join('')}</select>
+      <span class="ttc-counts">${counts.length ? 'Noch ' + counts.join(' · ') : 'Halbjahr/Schuljahresende in den Einstellungen eintragen'}</span>
+      <button type="button" class="btn-secondary ttc-plan-btn" data-act="plan">${icon('list')}<span>Planung</span></button>
+    </div>`;
+  const row = (l, isPast) => {
+    const key = lessonKeyOf(l);
+    const data = db.lessonData[key] || {};
+    const doneT = topicDoneIn(g, key);
+    const a = byKey.get(key);
+    let topic;
+    if (l.ausfall) topic = '<span class="ttc-muted">fällt aus</span>';
+    else if (doneT) topic = `<span class="ttc-done">✓ ${escHtml(doneT.title)}</span>`;
+    else if (isPast) topic = data.done ? escHtml(firstLine(data.done)) : '<span class="ttc-muted">–</span>';
+    else if (a) topic = `${escHtml(a.topic.title)}${a.of > 1 ? ` <small>(${a.unit}/${a.of})</small>` : ''}`;
+    else topic = '<button type="button" class="link-btn" data-act="add">+ Thema</button>';
+    const due = !isPast ? dueItemsFor(l.slot.id, l.dateStr) : { hw: [], tests: [] };
+    const badges = (due.hw.length ? `<span class="dash-badge hw">HA</span>` : '') + (due.tests.length ? `<span class="dash-badge test">Test</span>` : '');
+    return `<div class="ttc-row${isPast ? ' is-past' : ''}${l.dateStr === todayStr ? ' is-today' : ''}${l.ausfall ? ' is-off' : ''}" role="button" tabindex="0"
+        data-slot="${escHtml(l.slot.id)}" data-date="${escHtml(l.dateStr)}" aria-label="${escHtml(formatWeekdayShort(l.dateStr) + ', ' + l.block.label)}">
+        <span class="ttc-date">${escHtml(formatWeekdayShort(l.dateStr))}</span><span class="ttc-block">${escHtml(l.block.label)}</span>
+        <span class="ttc-topic">${topic}</span><span class="ttc-badges">${badges}</span></div>`;
+  };
+  let html = head;
+  if (past.length) {
+    html += `<button type="button" class="link-btn ttc-past-toggle" data-act="past">${ttClassShowPast ? 'Frühere Stunden ausblenden' : `Frühere Stunden anzeigen (${past.length})`}</button>`;
+    if (ttClassShowPast) html += past.map(l => row(l, true)).join('');
+  }
+  let marked = false;
+  future.forEach(l => {
+    if (!marked && halfYearEnd && l.dateStr > halfYearEnd) { html += `<div class="ttc-mark">Halbjahr · ${escHtml(formatDateDE(parseDate(halfYearEnd)))}</div>`; marked = true; }
+    html += row(l, false);
+  });
+  if (!future.length) html += '<div class="plan-empty">Keine kommenden Stunden im Stundenplan.</div>';
+  grid.innerHTML = html;
+  grid.querySelector('#ttc-group').addEventListener('change', e => { timetableClassGroupId = e.target.value; renderTimetable(); });
+  grid.querySelector('[data-act="plan"]').addEventListener('click', () => openPlanForGroup(g.id));
+  const pastBtn = grid.querySelector('[data-act="past"]');
+  if (pastBtn) pastBtn.addEventListener('click', () => { ttClassShowPast = !ttClassShowPast; renderTimetable(); });
+  grid.querySelectorAll('.ttc-row').forEach(r => r.addEventListener('click', e => {
+    if (e.target.closest('[data-act="add"]')) { e.stopPropagation(); openPlanTopicForm(g.id, null); return; }
+    openLessonDetail(r.dataset.slot, r.dataset.date);
+  }));
+}
+// Tagesansicht: geplantes bzw. behandeltes Thema in der Kachel (rechts, wo Platz ist)
+function addTopicsToDayTiles(grid) {
+  const todayStr = formatDate(new Date());
+  const cache = new Map();
+  grid.querySelectorAll('.tt-lesson[data-slot][data-date]').forEach(tile => {
+    const slot = db.lessonSlots.find(s => s.id === tile.dataset.slot);
+    const g = slot && slot.groupId && db.groups.find(x => x.id === slot.groupId);
+    const key = tile.dataset.slot + '_' + tile.dataset.date;
+    let text = '';
+    if (g) {
+      const doneT = topicDoneIn(g, key);
+      if (doneT) text = '✓ ' + doneT.title;
+      else if (tile.dataset.date >= todayStr) {
+        if (!cache.has(g.id)) cache.set(g.id, planAssignments(g, todayStr).byKey);
+        const a = cache.get(g.id).get(key);
+        if (a) text = a.topic.title;
+      }
+    }
+    if (!text) text = firstLine((db.lessonData[key] || {}).done);
+    if (text) tile.insertAdjacentHTML('beforeend', `<div class="tt-lesson-topic">${escHtml(text)}</div>`);
+  });
 }
 
 // ─── Init ─────────────────────────────────────────────────────────────────

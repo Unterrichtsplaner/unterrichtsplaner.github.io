@@ -16,6 +16,7 @@ function evilDB() {
     lessonData: { [`${slot}_2026-09-21`]: { notes: X, done: X, hwEnabled: true, hwText: X, testEnabled: true, testText: X, hwItems: [{ id: 'h1', text: X, targetDate: '2026-09-21' }], testItems: [{ id: 't1', text: X, targetDate: '2026-09-21' }] } },
     groups: [{
       id: g, subject: X, className: X, year: X, color: `red"><img data-xss src=x>`, schularbeitWeight: 50,
+      plan: [{ id: ID('t'), title: X, note: X, lessons: 2 }],
       seatingRows: 2, seatingCols: 2, seatingPlan: [{ studentId: s, x: 0, y: 0, row: 0, col: 0 }],
       gradeEvents: [{ date: '2026-09-01', label: X, type: 'test' }],
       participationEvents: [{ date: '2026-09-02', label: X }],
@@ -93,6 +94,21 @@ describe('Ansichten mit präparierten Daten', () => {
       expect(document.getElementById('seating-cockpit').classList.contains('hidden')).toBe(false); // Cockpit wirklich gezeichnet
       app('seatingShowTrend = false');
     },
+    'planung (klassenansicht)': () => app(`openGroupStudents(${G}); switchClassDashboardTab("plan")`),
+    'planung thema-fenster': () => app(`openPlanTopicForm(${G}, db.groups[0].plan[0])`),
+    'stundenplan klasse': () => {
+      app(`switchView("timetable"); timetableClassGroupId = ${G}; setTimetableMode("class")`);
+      expect(document.querySelectorAll('.ttc-row').length).toBeGreaterThan(0);   // Klassenliste wirklich gezeichnet
+      expect(injected()).toBe(0); expect(brokenHandlers()).toEqual([]);
+      app('setTimetableMode("week")');
+    },
+    'stundenplan tag (thema in kachel)': () => {
+      app(`switchView("timetable"); setTimetableMode("day"); setTimetableDay(parseDate("2026-09-21")); renderTimetable()`);
+      expect(document.querySelector('.tt-lesson-topic')).not.toBeNull();
+      expect(injected()).toBe(0); expect(brokenHandlers()).toEqual([]);
+      app('setTimetableMode("week")');
+    },
+    'stunde mit geplantem thema': () => app(`openLessonDetail(${JSON.stringify(ID('slot'))}, "2026-09-21"); renderLessonPlanBox(db.lessonSlots[0], "2026-09-21")`),
     'sitzplan heute-fenster': () => app(`switchView("seating"); currentSeatingGroupId = ${G}; currentSeatingDateStr = "2026-09-21"; renderSeatingPlan(); openSeatingToday()`),
     einstellungen: () => app('openSettings()'),
   };

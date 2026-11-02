@@ -1259,3 +1259,79 @@ button.date-chip{font-family:inherit;padding:0;}
 .tt-supervision .tt-sup-time{white-space:nowrap;flex-shrink:0;}
 .tt-edit-bar #btn-tt-undo{flex-shrink:0;padding:6px 12px;font-size:12px;}
 .tt-edit-bar #btn-tt-undo:disabled{opacity:.45;cursor:default;}
+
+/* ─── Unterrichtsplanung (AD3) und Klassen-Ansicht im Stundenplan (AD4) ─── */
+.form-row-2{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+.link-btn{font:inherit;color:var(--text-accent);background:none;border:none;padding:0;cursor:pointer;text-decoration:underline;text-underline-offset:2px;}
+.plan-view{max-width:900px;}
+.plan-summary{font-size:13px;color:var(--text-secondary);margin:0 0 10px;line-height:1.5;}
+.plan-summary b{color:var(--text-primary);}
+.plan-summary small{color:var(--text-muted);}
+.plan-warn{font-size:13px;color:var(--warning);margin:0 0 10px;}
+.plan-empty{font-size:14px;color:var(--text-muted);padding:16px 4px;}
+.plan-list{display:flex;flex-direction:column;border-top:1px solid var(--border);}
+.plan-row{display:grid;grid-template-columns:28px minmax(0,1fr) auto auto auto;align-items:center;gap:12px;padding:8px 4px;border-bottom:1px solid var(--border);}
+.plan-num{font-size:12px;color:var(--text-muted);text-align:right;font-variant-numeric:tabular-nums;}
+.plan-main{display:flex;flex-direction:column;gap:2px;min-width:0;text-align:left;font:inherit;color:var(--text-primary);background:none;border:none;padding:6px 0;cursor:pointer;}
+.plan-main b{font-size:14px;font-weight:500;overflow-wrap:anywhere;}
+.plan-main small{font-size:12px;color:var(--text-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.plan-len{font-size:12px;color:var(--text-secondary);white-space:nowrap;font-variant-numeric:tabular-nums;}
+.plan-when{font-size:12px;color:var(--text-secondary);white-space:nowrap;}
+.plan-when.plan-over{color:var(--warning);}
+.plan-move{display:flex;gap:4px;}
+.plan-move .btn-icon:disabled{opacity:.35;cursor:default;}
+.plan-row.is-done .plan-main b{color:var(--text-secondary);}
+.plan-actions{margin:14px 0;}
+.plan-done summary{cursor:pointer;font-size:13px;font-weight:600;color:var(--text-secondary);padding:8px 0;}
+@container (max-width: 560px){
+  .plan-row{grid-template-columns:22px minmax(0,1fr) auto;grid-template-areas:"num main move" "num when move";row-gap:0;}
+  .plan-num{grid-area:num;} .plan-main{grid-area:main;} .plan-move{grid-area:move;} .plan-when{grid-area:when;} .plan-len{display:none;}
+}
+
+/* Stunden-Fenster */
+.lesson-plan-row{display:flex;align-items:center;gap:12px;}
+.lesson-plan-text{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px;}
+.lesson-plan-text small{font-size:11px;color:var(--text-muted);}
+.lesson-plan-text b{font-size:14px;font-weight:600;color:var(--text-primary);}
+.lesson-plan-text span{font-size:12px;color:var(--text-secondary);white-space:pre-wrap;}
+.lesson-plan-row.is-done b{color:var(--text-secondary);}
+.lesson-plan-btn{flex-shrink:0;}
+.lesson-plan-empty{font-size:13px;color:var(--text-muted);}
+/* Stundenplan: Ansicht Woche · Tag · Klasse */
+.tt-mode{display:flex;border:1px solid var(--border);border-radius:var(--radius-sm);overflow:hidden;margin-right:4px;}
+.tt-mode button{font:inherit;font-size:13px;font-weight:500;padding:7px 12px;background:var(--bg-elevated);color:var(--text-secondary);border:none;cursor:pointer;}
+.tt-mode button + button{border-left:1px solid var(--border);}
+.tt-mode button.active{background:var(--text-primary);color:var(--bg-primary);font-weight:600;}
+/* Handy: kein Platz für drei Knöpfe (Woche gibt es dort ohnehin nicht) → ein Knopf Tag ↔ Klasse */
+.tt-mode-compact{display:none;}
+@media (max-width: 699px){.tt-print-btn{display:none;}  /* Drucken vom iPad/PC – auf dem Handy braucht das Datum den Platz */
+  .tt-mode{display:none;}.tt-mode-compact{display:flex;}.tt-mode-compact.active{background:var(--text-primary);color:var(--bg-primary);}}
+@media (pointer: coarse){.tt-mode button{min-height:44px;}}
+#view-timetable.tt-class-mode .header-actions:not(.tt-header-tools),#view-timetable.tt-class-mode #btn-tt-edit{display:none;}
+.tt-class-list{display:flex !important;flex-direction:column;max-width:900px;width:100%;padding:4px 0 20px;}
+.ttc-head{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:6px 4px 12px;}
+.ttc-select{width:auto;min-width:160px;}
+.ttc-counts{flex:1;font-size:13px;color:var(--text-secondary);min-width:180px;}
+.ttc-counts b{color:var(--text-primary);}
+.ttc-plan-btn{display:inline-flex;align-items:center;gap:6px;}
+.ttc-row{display:grid;grid-template-columns:110px 92px minmax(0,1fr) auto;align-items:center;gap:12px;padding:10px 6px;border-bottom:1px solid var(--border);cursor:pointer;font-size:14px;}
+@media (hover: hover){.ttc-row:hover{background:var(--bg-card);}}
+.ttc-row.is-past{color:var(--text-secondary);}
+.ttc-row.is-today{box-shadow:inset 3px 0 0 var(--accent);}
+.ttc-row.is-off .ttc-topic{text-decoration:line-through;}
+.ttc-date{font-weight:600;white-space:nowrap;font-variant-numeric:tabular-nums;}
+.ttc-block{font-size:12px;color:var(--text-muted);white-space:nowrap;}
+.ttc-topic{min-width:0;overflow-wrap:anywhere;}
+.ttc-topic small{color:var(--text-muted);}
+.ttc-done{color:var(--text-secondary);}
+.ttc-muted{color:var(--text-muted);}
+.ttc-badges{display:flex;gap:4px;}
+.ttc-mark{font-size:12px;font-weight:600;color:var(--text-secondary);padding:14px 6px 6px;border-bottom:2px solid var(--text-muted);}
+.ttc-past-toggle{align-self:flex-start;margin:4px 6px 8px;font-size:13px;}
+@media (max-width: 600px){.ttc-row{grid-template-columns:86px minmax(0,1fr) auto;}.ttc-block{display:none;}}
+/* Tagesansicht: Thema in der Kachel, rechts */
+.timetable-grid.day-view .tt-lesson{position:relative;}
+.tt-lesson-topic{display:none;}
+@media (min-width: 700px){   /* Tagesansicht auf iPad/PC: Platz rechts in der Kachel */
+  .timetable-grid.day-view .tt-lesson-topic{display:block;position:absolute;right:12px;top:50%;transform:translateY(-50%);max-width:55%;font-size:13px;font-weight:500;color:var(--text-primary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:right;}
+}

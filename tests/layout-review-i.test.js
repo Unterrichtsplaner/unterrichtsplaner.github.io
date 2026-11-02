@@ -142,7 +142,7 @@ describe('I7: Klassenansicht auf iPad hochkant und Handy', () => {
 
   it('Reiter brechen um, statt „Anwesenheit“/„Hausaufgaben“ rechts abzuschneiden', () => {
     const tabs = document.querySelector('#view-students .class-tabs');
-    expect(tabs.querySelectorAll('.tab-btn')).toHaveLength(5);
+    expect(tabs.querySelectorAll('.tab-btn')).toHaveLength(6);   // + Planung (AD3)
     expect(tabs.getAttribute('style')).toBeNull();
     expect(rulesFor('.class-tabs')).toMatch(/flex-wrap:\s*wrap/);
   });

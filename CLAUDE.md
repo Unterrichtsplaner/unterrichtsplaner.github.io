@@ -49,7 +49,7 @@ Eine einzige globale Variable `db`, gespeichert als JSON in `localStorage['lehre
 
 ```js
 db = {
-  settings: { teacherName, school, blocks, lastModified, theme*, warnAbsences, warnGrade, warnPoints, warnHomework,
+  settings: { teacherName, school, blocks, lastModified, halfYearEnd?, schoolYearEnd? /*YYYY-MM-DD, AD4*/, theme*, warnAbsences, warnGrade, warnPoints, warnHomework,
               studentSortOrder, seatingBufferMins, lastBackupTimestamp,
               holidays: [{ id, label, from, until /*YYYY-MM-DD inkl.*/, source? /*'DE-BY': geladen, fehlt = selbst eingetragen*/ }] /*Ferien, Y8*/, federalState /*'DE-BY' … für „Ferien laden“*/, … },
   lessonSlots: [{ id, day /*0=Mo…4=Fr*/, block /*=blocks[].num, feste Kennung*/, part /*'first'|'second'|'full'*/,
@@ -60,7 +60,8 @@ db = {
                   movedFrom /*{ slotId, date }: „nur an diesem Tag“ verlegt/geändert, Regel 65*/,
                   validFrom, validUntil /*optional, YYYY-MM-DD inkl.: Stundenplanwechsel „ab dieser Woche“*/ }],
   lessonData: { '<slotId>_<YYYY-MM-DD>': { done, notes, ausfall, movedTo /*{ slotId, date }*/, hwEnabled, testEnabled, … } },
-  groups: [{ id, subject, className, year, color, schularbeitWeight /*0–100*/, gradeScale /*'1-6' (Standard, fehlt bei Altdaten) | '0-15'*/,
+  groups: [{ id, subject, className, year, color, schularbeitWeight /*0–100*/,
+             plan /*[{ id, title, lessons?, pinned?, note?, doneLessons?: [lessonData-Schlüssel], done? }] Unterrichtsplanung (AD3)*/, gradeScale /*'1-6' (Standard, fehlt bei Altdaten) | '0-15'*/,
              seatingRows, seatingCols, teacherDeskX, teacherDeskY, seatingPlan: [{ studentId, … }],
              gradeEvents, attendanceEvents, participationEvents, homeworkEvents }],
   students: { '<groupId>': [{ id, firstName, lastName, notes /*Hinweis, im Sitzplan als Symbol (AD2)*/, birthday? /*YYYY-MM-DD (AD6)*/,
@@ -184,6 +185,8 @@ Datumswerte sind Strings `YYYY-MM-DD` in **lokaler** Zeit (`formatDate()`). Nie 
 67. **Leistungs- und Gesundheitsangaben im Sitzplan nur auf Knopfdruck:** Noten, Mitarbeit-Verlauf und der Text von Hinweisen (`s.notes`). Auf Karten höchstens ein Symbol. Der Zustand „eingeblendet“ wird nie gespeichert und fällt beim Öffnen und beim Klassenwechsel weg (`hideSeatingGrades`).
 
 68. **Aussehen nach `DESIGN.md` („Papier & Tinte“).** Farben, Schriftgrößen und Rundungen nur über die Grundwerte in `style.css` (`--accent` nur für Hauptaktion und „jetzt“, Schrift auf Akzent über `--on-accent`, Größen aus der Reihe 10–26 px, Rundungen `--radius-*`). Keine Verläufe, kein Leuchten, keine Ausrufezeichen in Meldungen. `tests/design-stufe1.test.js` und `tests/design-stufe2.test.js` prüfen das. Standardfarben werden nie gespeichert (`savedThemeAccent`/`savedThemeBg`).
+
+69. **Unterrichtsplanung nur über `planAssignments(g)`** (Themen hängen an der Reihenfolge, nicht an Daten; Ausfall/Ferien verschieben von selbst). Erledigt wird pro Stunde (`doneLessons`); im offenen Stunden-Fenster nie direkt `lessonData` schreiben, sondern das Formularfeld füllen (`toggleLessonTopicDone`). Restzahlen bis Halbjahr/Schuljahresende über `schoolYearMarks`/`countLessons`. Stundenplan-Ansicht über `setTimetableMode` (Woche · Tag · Klasse), nicht über `timetableMode` direkt.
 
 ## Arbeitsablauf
 

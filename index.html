@@ -41,7 +41,7 @@
       }
     } catch(e) {}
   </script>
-  <link rel="stylesheet" href="style.css?v=301" />
+  <link rel="stylesheet" href="style.css?v=307" />
   <script>
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
@@ -148,8 +148,14 @@
           </div>
         </div>
         <div class="header-actions tt-header-tools">
+          <div id="tt-mode" class="tt-mode" role="group" aria-label="Ansicht">
+            <button type="button" data-mode="week" class="tt-mode-week" onclick="setTimetableMode('week')" aria-pressed="true">Woche</button>
+            <button type="button" data-mode="day" onclick="setTimetableMode('day')" aria-pressed="false">Tag</button>
+            <button type="button" data-mode="class" onclick="setTimetableMode('class')" aria-pressed="false">Klasse</button>
+          </div>
+          <button class="btn-icon tt-mode-compact" id="btn-tt-classmode" onclick="setTimetableMode(timetableMode === 'class' ? 'week' : 'class')" title="Klassen-Ansicht" aria-label="Klassen-Ansicht" aria-pressed="false"><i data-icon="list"></i></button>
           <button class="btn-icon" id="btn-tt-edit" onclick="toggleTimetableEditMode()" title="Stundenplan bearbeiten (Stunden verschieben)" aria-label="Stundenplan bearbeiten" aria-pressed="false"><i data-icon="edit"></i></button>
-          <button class="btn-icon" onclick="openPrintTimetable()" title="Stundenplan drucken / als PDF" aria-label="Stundenplan drucken oder als PDF sichern"><i data-icon="printer"></i></button>
+          <button class="btn-icon tt-print-btn" onclick="openPrintTimetable()" title="Stundenplan drucken / als PDF" aria-label="Stundenplan drucken oder als PDF sichern"><i data-icon="printer"></i></button>
         </div>
       </div>
       <div id="tt-edit-bar" class="tt-edit-bar hidden" role="status">
@@ -200,6 +206,7 @@
           <button class="tab-btn" id="overview-tab-participation" onclick="switchClassDashboardTab('participation')"><i data-icon="participation"></i><span class="tab-long">Mitarbeit</span><span class="tab-short">Mitarbeit</span></button>
           <button class="tab-btn" id="overview-tab-attendance" onclick="switchClassDashboardTab('attendance')"><i data-icon="attendance"></i><span class="tab-long">Anwesenheit</span><span class="tab-short">Fehlzeiten</span></button>
           <button class="tab-btn" id="overview-tab-homework" onclick="switchClassDashboardTab('homework')"><i data-icon="homework"></i><span class="tab-long">Hausaufgaben</span><span class="tab-short">HA</span></button>
+          <button class="tab-btn" id="overview-tab-plan" onclick="switchClassDashboardTab('plan')"><i data-icon="list"></i><span class="tab-long">Planung</span><span class="tab-short">Plan</span></button>
         </div>
       </div>
       <div id="mass-delete-bar" class="hidden" style="background:var(--danger-soft); padding: 8px 30px; display:flex; justify-content:space-between; align-items:center;">
@@ -390,6 +397,9 @@
         </div>
         <ul id="lesson-absent-list" class="lesson-absent-list"></ul>
       </div>
+
+      <!-- Geplantes Thema (AD3) -->
+      <div id="lesson-plan-box" class="notes-section lesson-plan-box hidden"></div>
 
       <!-- Unterrichtsinhalt -->
       <div class="notes-section">
@@ -1100,6 +1110,11 @@
         </div>
         <p class="holiday-load-hint">Holt Schulferien und Feiertage für dieses und nächstes Schuljahr (OpenHolidays API). Bewegliche Ferientage deiner Schule bitte selbst ergänzen.</p>
         <div id="holidays-editor"></div>
+        <div class="form-row-2" style="margin-top:14px;">
+          <div class="form-group"><label for="settings-half-year">Halbjahr endet am</label><input type="date" id="settings-half-year" class="form-input" /></div>
+          <div class="form-group"><label for="settings-year-end">Letzter Schultag</label><input type="date" id="settings-year-end" class="form-input" /></div>
+        </div>
+        <p class="field-hint-muted">Für „noch … Stunden bis zum Halbjahr / Schuljahresende“ in der Planung. Ohne letzten Schultag nimmt die App den Tag vor den Sommerferien.</p>
       </div>
 
       <div class="settings-section">
@@ -1395,6 +1410,37 @@
     </div>
   </div>
 
+  <!-- Unterrichtsplanung: Thema (AD3) -->
+  <div id="modal-plan-topic" class="modal-overlay hidden" onclick="closeModalOnOverlay(event,'modal-plan-topic')">
+    <div class="modal modal-small" onclick="event.stopPropagation()">
+      <div class="modal-header">
+        <h2 id="plan-topic-title-h">Thema</h2>
+        <button class="modal-close" aria-label="Schließen" onclick="closeModalLikeButton('modal-plan-topic')">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label for="plan-topic-title">Thema</label>
+          <textarea id="plan-topic-title" class="form-input" rows="4" placeholder="z. B. Bruchrechnen: Erweitern und Kürzen"></textarea>
+          <p id="plan-topic-hint" class="field-hint-muted">Mehrere Zeilen = mehrere Themen in dieser Reihenfolge (z. B. aus dem Stoffverteilungsplan einfügen).</p>
+        </div>
+        <div class="form-row-2">
+          <div class="form-group"><label for="plan-topic-lessons">Dauer (Stunden)</label><input type="number" id="plan-topic-lessons" class="form-input" min="1" max="40" value="1" /></div>
+          <div class="form-group"><label for="plan-topic-pinned">Fester Termin (optional)</label><input type="date" id="plan-topic-pinned" class="form-input" /></div>
+        </div>
+        <div class="form-group">
+          <label for="plan-topic-note">Notiz, Material, Link (optional)</label>
+          <textarea id="plan-topic-note" class="form-input" rows="2" placeholder="z. B. Buch S. 34, Arbeitsblatt 3"></textarea>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-danger-outline hidden" id="btn-plan-topic-delete" onclick="deletePlanTopicFromForm()">Löschen</button>
+        <button class="btn-secondary hidden" id="btn-plan-topic-done" onclick="togglePlanTopicDoneFromForm()">Als erledigt markieren</button>
+        <button class="btn-secondary" onclick="closeModalLikeButton('modal-plan-topic')">Abbrechen</button>
+        <button class="btn-primary" onclick="savePlanTopic()">Speichern</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Sync Conflict Modal -->
   <div id="modal-sync-conflict" class="modal-overlay hidden" onclick="event.stopPropagation()">
     <div class="modal modal-medium" onclick="event.stopPropagation()" style="max-width: 480px;">
@@ -1466,12 +1512,12 @@
   </div>
 
   <script src="lib/crypto-js.min.js"></script>
-  <script src="crypto-helper.js?v=301"></script>
+  <script src="crypto-helper.js?v=307"></script>
   <script src="lib/firebase-app-compat.js"></script>
   <script src="lib/firebase-auth-compat.js"></script>
   <script src="lib/firebase-firestore-compat.js"></script>
-  <script src="firebase-config.js?v=301"></script>
-  <script src="sync-manager.js?v=301"></script>
-  <script src="app.js?v=301"></script>
+  <script src="firebase-config.js?v=307"></script>
+  <script src="sync-manager.js?v=307"></script>
+  <script src="app.js?v=307"></script>
 </body>
 </html>
