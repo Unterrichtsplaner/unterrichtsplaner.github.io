@@ -1281,7 +1281,7 @@ button.date-chip{font-family:inherit;padding:0;}
 .plan-move{display:flex;gap:4px;}
 .plan-move .btn-icon:disabled{opacity:.35;cursor:default;}
 .plan-row.is-done .plan-main b{color:var(--text-secondary);}
-.plan-actions{margin:14px 0;}
+.plan-actions{margin:14px 0;display:flex;gap:8px;flex-wrap:wrap;}
 .plan-done summary{cursor:pointer;font-size:13px;font-weight:600;color:var(--text-secondary);padding:8px 0;}
 @container (max-width: 560px){
   .plan-row{grid-template-columns:22px minmax(0,1fr) auto;grid-template-areas:"num main move" "num when move";row-gap:0;}

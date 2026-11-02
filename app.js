@@ -7213,7 +7213,7 @@ function renderPlanTab() {
   };
   let html = `<div class="plan-view"><p class="plan-summary">${summary}</p>`;
   if (overflow.length) html += `<p class="plan-warn">${overflow.length} ${overflow.length === 1 ? 'Thema passt' : 'Themen passen'} nicht mehr bis zum Schuljahresende.</p>`;
-  if (!open.length) html += `<div class="plan-empty">Noch keine Themen. Trage die Reihenfolge ein – die App verteilt sie auf die kommenden Stunden.</div>`;
+  if (!open.length) html += `<div class="plan-empty">Noch keine Themen. Trage die Reihenfolge ein – die App verteilt sie auf die kommenden Stunden. Für Parallelklassen: „Von Klasse übernehmen“.</div>`;
   html += '<div class="plan-list">' + open.map((t, i) => `
     <div class="plan-row" data-id="${escHtml(t.id)}">
       <span class="plan-num">${i + 1}</span>
@@ -7225,7 +7225,8 @@ function renderPlanTab() {
         <button type="button" class="btn-icon" data-act="down" aria-label="Nach unten"${i === open.length - 1 ? ' disabled' : ''}>↓</button>
       </span>
     </div>`).join('') + '</div>';
-  html += `<div class="plan-actions"><button type="button" class="btn-primary" data-act="add">+ Themen</button></div>`;
+  html += `<div class="plan-actions"><button type="button" class="btn-primary" data-act="add">+ Themen</button>`
+    + `<button type="button" class="btn-secondary" data-act="copy">Von Klasse übernehmen …</button></div>`;
   if (done.length) {
     html += `<details class="plan-done"${planShowDone ? ' open' : ''}><summary>Erledigt (${done.length})</summary><div class="plan-list">`
       + done.slice().sort((a, b) => (a.done || '').localeCompare(b.done || '')).map(t => `
@@ -7237,6 +7238,7 @@ function renderPlanTab() {
   const det = content.querySelector('details.plan-done');
   if (det) det.addEventListener('toggle', () => { planShowDone = det.open; });
   content.querySelector('[data-act="add"]').addEventListener('click', () => openPlanTopicForm(g.id, null));
+  content.querySelector('[data-act="copy"]').addEventListener('click', () => choosePlanSource(g.id));
   content.querySelectorAll('.plan-row').forEach(row => {
     const t = plan.find(x => x.id === row.dataset.id);
     row.querySelector('[data-act="edit"]').addEventListener('click', () => openPlanTopicForm(g.id, t));
@@ -7244,6 +7246,42 @@ function renderPlanTab() {
   });
 }
 // Verschieben in der Reihe der offenen Themen (per Objekt, Regel 4/9)
+// Vorlage (Parallelklasse): Themenliste einer anderen Klasse übernehmen – angehängt, als saubere Liste
+// (ohne feste Termine und Erledigt-Stände, die gehören zur anderen Klasse). Gleiches Fach zuerst.
+async function choosePlanSource(targetId) {
+  const target = db.groups.find(x => x.id === targetId);
+  if (!target) return;
+  const sources = db.groups.filter(x => x.id !== targetId && groupPlan(x).length)
+    .sort((a, b) => (b.subject === target.subject) - (a.subject === target.subject)
+      || (a.className || '').localeCompare(b.className || '', undefined, { numeric: true }));
+  if (!sources.length) { showToast('Noch keine andere Klasse hat Themen – erst dort planen, dann hier übernehmen', 'error'); return; }
+  const n = g => groupPlan(g).length;
+  const choice = await askChoice('Themen übernehmen',
+    `Die Themen werden in derselben Reihenfolge hinten an die Liste der ${target.className} angehängt – ohne feste Termine und ohne „erledigt“.`,
+    sources.map((x, i) => ({ label: `${x.className} ${x.subject || ''} · ${n(x)} ${n(x) === 1 ? 'Thema' : 'Themen'}`, value: x.id, primary: i === 0 })));
+  if (choice) copyPlanFrom(targetId, choice);
+}
+function copyPlanFrom(targetId, sourceId) {
+  const target = db.groups.find(x => x.id === targetId), source = db.groups.find(x => x.id === sourceId);
+  if (!target || !source) { showToast('Diese Klasse gibt es nicht mehr (z. B. durch Sync)', 'error'); return; }
+  const added = groupPlan(source).map(t => {
+    const c = { id: uid(), title: t.title };
+    if (topicLength(t) > 1) c.lessons = topicLength(t);
+    if (t.note) c.note = t.note;
+    return c;
+  });
+  if (!added.length) return;
+  ensurePlan(target).push(...added);
+  saveDB();
+  refreshPlanViews(targetId);
+  showUndoToast(`${added.length} ${added.length === 1 ? 'Thema' : 'Themen'} von ${source.className} übernommen`, () => {
+    const g = db.groups.find(x => x.id === targetId);
+    if (!g) return;
+    g.plan = groupPlan(g).filter(t => !added.includes(t));   // genau die übernommenen, per Objekt (Regel 4)
+    saveDB();
+    refreshPlanViews(targetId);
+  });
+}
 function movePlanTopic(groupId, t, dir) {
   const g = db.groups.find(x => x.id === groupId);
   if (!g) return;

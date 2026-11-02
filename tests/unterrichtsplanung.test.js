@@ -255,3 +255,50 @@ describe('Einstellungen: Halbjahr und letzter Schultag', () => {
     expect('schoolYearEnd' in app('db.settings')).toBe(false);
   });
 });
+
+describe('Vorlage: Themen von einer Parallelklasse übernehmen', () => {
+  const flushP = () => new Promise(r => setTimeout(r, 0));
+  const addClass = (id, cls, subject, plan) => app(`db.groups.push(${JSON.stringify({ id, subject, className: cls, color: '#22c55e', schularbeitWeight: 50, ...(plan ? { plan } : {}) })}); db.students[${JSON.stringify(id)}] = []`);
+  it('Auswahl: nur Klassen mit Themen, gleiches Fach zuerst, nicht die eigene', async () => {
+    addClass('g2', '7b', 'Mathe');
+    addClass('g3', '9c', 'Physik', [{ id: 'x', title: 'Optik' }]);
+    addClass('g4', '7c', 'Mathe', [{ id: 'y', title: 'Prozente' }]);
+    const p = app('choosePlanSource("g2")');
+    await flushP();
+    const labels = [...document.querySelectorAll('#modal-choice-buttons button')].map(b => b.textContent);
+    expect(labels.slice(0, 3)).toEqual(['7a Mathe · 4 Themen', '7c Mathe · 1 Thema', '9c Physik · 1 Thema']);
+    app('answerChoice(null)');
+    await p;
+  });
+
+  it('übernimmt in Reihenfolge, ohne feste Termine/Erledigt; Dauer und Notiz kommen mit; Rückgängig', async () => {
+    app('db.groups[0].plan[0].done = "2026-11-05"; db.groups[0].plan[0].doneLessons = ["mo_2026-11-02"]; db.groups[0].plan[1].note = "Buch S. 12"');
+    addClass('g2', '7b', 'Mathe', [{ id: 'own', title: 'Eigenes Thema' }]);
+    const p = app('choosePlanSource("g2")');
+    await flushP();
+    app('answerChoice("g1")');
+    await p;
+    const plan = app('db.groups.find(g => g.id === "g2").plan');
+    expect(plan.map(t => t.title)).toEqual(['Eigenes Thema', 'Brüche erweitern', 'Brüche kürzen', 'Klassenarbeit', 'Dezimalzahlen']);
+    expect(plan[1]).toEqual({ id: plan[1].id, title: 'Brüche erweitern' });        // ohne done/doneLessons
+    expect(plan[2]).toMatchObject({ title: 'Brüche kürzen', lessons: 2, note: 'Buch S. 12' });
+    expect(plan[3].pinned).toBeUndefined();                                         // Termin gehört zur 7a
+    expect(new Set(plan.map(t => t.id)).size).toBe(5);                               // neue Kennungen
+    expect(document.getElementById('toast-container').textContent).toContain('4 Themen von 7a übernommen');
+    document.querySelector('.toast-undo button').click();
+    expect(app('db.groups.find(g => g.id === "g2").plan').map(t => t.title)).toEqual(['Eigenes Thema']);
+  });
+
+  it('keine andere Klasse mit Themen: Hinweis statt leerer Auswahl', () => {
+    app('db.groups[0].plan = []');
+    addClass('g2', '7b', 'Mathe');
+    app('choosePlanSource("g2")');
+    expect(document.getElementById('modal-choice').classList.contains('hidden')).toBe(true);
+    expect(document.getElementById('toast-container').textContent).toContain('Noch keine andere Klasse hat Themen');
+  });
+
+  it('Knopf im Reiter „Planung“', () => {
+    app('switchView("classes"); openGroupStudents("g1"); switchClassDashboardTab("plan")');
+    expect(document.querySelector('#overview-content [data-act="copy"]').textContent).toBe('Von Klasse übernehmen …');
+  });
+});

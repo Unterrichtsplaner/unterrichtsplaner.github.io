@@ -555,6 +555,8 @@ Hier kommen neue Wünsche hin, bevor sie gebaut werden. Erst klären (offene Fra
 
 - [x] **AD8** 🟢 **Standard hell** (Wunsch 02.11.): **Umgesetzt (v299):** Standard-Design = hell, Hintergrund Eisblau, Akzent Tinte (`DEFAULT_THEME`, `savedThemeMode`; Farbfeld „Eisblau (Standard)“, nicht gespeichert). „Standard (dunkel)“ entfernt, „Dämmerung“ heißt „Dunkel“, Akzent „Periwinkle“ entfernt. Wer nie selbst einen Hintergrund gewählt hat (auch früher automatisch gespeichertes `#0f1117`, BUGS S6), sieht ab jetzt hell – auch wer bewusst „Standard (dunkel)“ gewählt hatte (nicht unterscheidbar); dunkel geht über „Dunkel“. `<html data-theme="light">` gegen dunkles Aufblitzen beim Start, Manifest-Farben Eisblau. Test: `tests/block-s.test.js` (S6), `tests/design-stufe2.test.js`.
 
+- [x] **AD9** 🟢 **Vorlagen für die Planung** (Parallelklassen, 02.11.): **Umgesetzt (v309):** Reiter „Planung“ → „Von Klasse übernehmen …“ (`choosePlanSource`, `copyPlanFrom`): Auswahl nur Klassen mit Themen, gleiches Fach zuerst; Themen in derselben Reihenfolge **angehängt** (nichts überschrieben), mit Dauer und Notiz, ohne feste Termine und Erledigt-Stände, neue Kennungen; Rückgängig entfernt genau die übernommenen. Test: `tests/unterrichtsplanung.test.js`.
+
 ## AE. Anti-Slop-Prüfung (02.11.2026, deslop-Skill, nur Befunde)
 
 Was nach „generiert“ aussieht, sortiert nach Sichtbarkeit. Noch nichts entschieden.
