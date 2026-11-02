@@ -58,7 +58,7 @@ describe('H13: Sitzplan passt auf schmale Bildschirme', () => {
 
   it('obere Leiste überdeckt den Titel nicht: rückt in den Fluss, Titel ausgeblendet', () => {
     expect(document.querySelector('#view-seating .seating-toolbar')).not.toBeNull();
-    const narrow = containerBlock(820);
+    const narrow = containerBlock(900);   // seit „Heute“ in der Leiste (AD13) schon ab 900 px
     expect(narrow).toMatch(/\.seating-header h1\s*\{[^}]*display:\s*none/);
     expect(narrow).toMatch(/\.seating-toolbar\s*\{[^}]*position:\s*static/);
   });

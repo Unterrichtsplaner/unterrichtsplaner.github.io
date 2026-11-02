@@ -946,8 +946,9 @@ select option{background:var(--bg-secondary);}
   .seating-live-btn { height: 44px; padding: 0 18px; }
 }
 
-/* iPad hochkant: obere Leiste würde den Titel überdecken → Titel weg, Leiste in den Fluss */
-@container seating (max-width: 820px) {
+/* Leiste würde den Titel überdecken (iPad quer mit Seitenleiste, iPad hochkant) → Titel weg, Leiste in den Fluss.
+   Seit „Heute“ (02.11.) ist die Leiste breiter, deshalb schon ab 900 px. */
+@container seating (max-width: 900px) {
   .seating-header h1 { display: none; }
   .seating-toolbar { position: static; transform: none; max-width: 100%; margin: 0 auto; }
 }
@@ -1307,9 +1308,8 @@ button.date-chip{font-family:inherit;padding:0;}
 @media (max-width: 699px){.tt-print-btn{display:none;}  /* Drucken vom iPad/PC – auf dem Handy braucht das Datum den Platz */
   .tt-mode{display:none;}.tt-mode-compact{display:flex;}.tt-mode-compact.active{background:var(--text-primary);color:var(--bg-primary);}}
 @media (pointer: coarse){.tt-mode button{min-height:44px;}}
-/* Klassen-Ansicht: Pfeile und Datum ergeben keinen Sinn, „Heute“ schon (zurück an den Anfang der Liste) */
-#view-timetable.tt-class-mode .header-actions:not(.tt-header-tools) > :not(.btn-heute),#view-timetable.tt-class-mode #btn-tt-edit{display:none !important;} /* Pfeile/Datum haben Inline-display */
-#view-timetable.tt-class-mode .btn-heute{background:var(--accent);color:var(--on-accent);border-color:var(--accent);}
+/* Klassen-Ansicht: „Heute“, Pfeile und Datum ergeben in der Liste keinen Sinn (Rückmeldung 02.11.) */
+#view-timetable.tt-class-mode .header-actions:not(.tt-header-tools),#view-timetable.tt-class-mode #btn-tt-edit{display:none !important;}
 .tt-class-list{display:flex !important;flex-direction:column;max-width:900px;width:100%;padding:4px 0 20px;}
 .ttc-head{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:6px 4px 12px;}
 .ttc-select{width:auto;min-width:160px;}
@@ -1384,3 +1384,7 @@ h1,h2,h3,.dash-heading,.subject-heading{text-wrap:balance;}
 #print-area .rp-avg{font-weight:700;}
 #print-area .rp-sum td{background:#f4f4f4;font-weight:600;}
 #print-area .rp-empty{color:#666;}
+
+/* Sitzplan: „Heute“ in der Werkzeugleiste (Rückmeldung 02.11.) */
+.seating-today-btn{height:34px;padding:0 12px;flex-shrink:0;}
+@media (pointer: coarse){.seating-today-btn{height:44px;}}

@@ -4963,6 +4963,12 @@ function refreshSeatingDate(now = new Date()) {
   setSeatingDate(formatDate(nextSchoolDay(now)), now);
   return true;
 }
+// „Heute“ im Sitzplan: zurück zum heutigen (bzw. nächsten) Schultag
+function seatingGoToday() {
+  setSeatingDate(formatDate(nextSchoolDay(new Date())));
+  renderSeatingDateStrip();
+  renderSeatingPlan();
+}
 function refreshSeatingDateIfStale() {
   const view = document.getElementById('view-seating');
   if (!view || !view.classList.contains('active') || document.hidden) return;
@@ -5116,6 +5122,8 @@ function renderSeatingDateStrip() {
   const picker = document.getElementById('seating-date-hidden');
   if (picker) picker.value = formatDate(baseDate); // wie beim Stundenplan (BUGS M14)
   
+  const todayBtn = document.getElementById('btn-seating-today');
+  if (todayBtn) todayBtn.classList.toggle('active', currentSeatingDateStr === formatDate(nextSchoolDay(new Date())));
   const days = ['So','Mo','Di','Mi','Do','Fr','Sa'];
   for(let i = -2; i <= 2; i++) {
     const d = addSchoolDays(baseDate, i);

@@ -304,9 +304,9 @@ describe('Vorlage: Themen von einer Parallelklasse übernehmen', () => {
 });
 
 describe('Klassen-Ansicht: „Heute“ und Monate', () => {
-  it('„Heute“ bleibt sichtbar und springt zurück (frühere Stunden zu, Liste oben)', () => {
+  it('„Heute“ ist in der Klassen-Ansicht ausgeblendet (Rückmeldung 02.11.); Rücksprung-Logik bleibt harmlos', () => {
     const css = require('fs').readFileSync(require('path').join(__dirname, '..', 'style.css'), 'utf8');
-    expect(css).toMatch(/#view-timetable\.tt-class-mode \.header-actions:not\(\.tt-header-tools\) > :not\(\.btn-heute\)/);
+    expect(css).toMatch(/#view-timetable\.tt-class-mode \.header-actions:not\(\.tt-header-tools\),#view-timetable\.tt-class-mode #btn-tt-edit\{display:none !important;\}/);
     app('switchView("timetable"); setTimetableMode("class"); ttClassShowPast = true; renderTimetable()');
     expect(document.querySelector('.ttc-row.is-past')).not.toBeNull();
     const wrap = document.getElementById('timetable-grid').parentElement;

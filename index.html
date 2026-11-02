@@ -42,7 +42,7 @@
       }
     } catch(e) {}
   </script>
-  <link rel="stylesheet" href="style.css?v=315" />
+  <link rel="stylesheet" href="style.css?v=317" />
   <script>
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
@@ -234,6 +234,8 @@
           </div>
           <!-- Trennstrich -->
           <div class="seating-toolbar-sep"></div>
+          <!-- Zurück zu heute (weggeblättert, z. B. über den Kalender in einen anderen Monat) -->
+          <button type="button" id="btn-seating-today" class="btn-heute seating-today-btn" onclick="seatingGoToday()">Heute</button>
           <!-- Datum-Chips -->
           <div id="seating-date-strip" class="scroll-chips-container"></div>
           <!-- Kalender-Picker -->
@@ -1537,12 +1539,12 @@
   </div>
 
   <script src="lib/crypto-js.min.js"></script>
-  <script src="crypto-helper.js?v=315"></script>
+  <script src="crypto-helper.js?v=317"></script>
   <script src="lib/firebase-app-compat.js"></script>
   <script src="lib/firebase-auth-compat.js"></script>
   <script src="lib/firebase-firestore-compat.js"></script>
-  <script src="firebase-config.js?v=315"></script>
-  <script src="sync-manager.js?v=315"></script>
-  <script src="app.js?v=315"></script>
+  <script src="firebase-config.js?v=317"></script>
+  <script src="sync-manager.js?v=317"></script>
+  <script src="app.js?v=317"></script>
 </body>
 </html>
