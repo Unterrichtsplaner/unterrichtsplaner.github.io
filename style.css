@@ -1352,3 +1352,27 @@ h1,h2,h3,.dash-heading,.subject-heading{text-wrap:balance;}
   .cockpit-count:hover,.tt-mode button:not(.active):hover{background:var(--bg-card-hover);}
   .plan-main:hover b,.cockpit-topic:hover .cockpit-topic-text{text-decoration:underline;text-underline-offset:3px;}
 }
+
+/* ─── Klassen-Bericht (AD1) ─── */
+.class-report-list{display:flex;flex-direction:column;gap:8px;margin:10px 0 14px;max-height:40vh;overflow-y:auto;}
+.class-report-list small{color:var(--text-muted);}
+.class-report-warn{font-size:12px;color:var(--text-secondary);background:var(--warning-soft);border-radius:var(--radius-sm);padding:8px 10px;margin:0;}
+/* Druck: eine Seite je Klasse, A4 quer (@page oben) */
+#print-area .rp{font-size:8.5pt;color:#111;}
+#print-area .rp-page{break-after:page;page-break-after:always;}
+#print-area .rp-page:last-child{break-after:auto;page-break-after:auto;}
+#print-area .rp-head{display:flex;justify-content:space-between;align-items:flex-end;gap:16px;border-bottom:.6mm solid #111;padding-bottom:2mm;margin-bottom:3mm;}
+#print-area .rp-title{font-family:var(--font-display);font-size:18pt;font-weight:600;line-height:1.1;}
+#print-area .rp-title span{font-size:12pt;color:#444;}
+#print-area .rp-sub{font-size:8.5pt;color:#555;margin-top:1mm;}
+#print-area .rp-meta{font-size:8.5pt;text-align:right;color:#444;line-height:1.4;}
+#print-area .rp-h{font-size:9.5pt;font-weight:700;margin:3mm 0 1.5mm;}
+#print-area .rp-table{width:100%;border-collapse:collapse;margin-bottom:3mm;break-inside:auto;}
+#print-area .rp-table th,#print-area .rp-table td{border:.25mm solid #bbb;padding:1mm 1.5mm;text-align:center;font-variant-numeric:tabular-nums;}
+#print-area .rp-table th{background:#eee;font-weight:600;font-size:7.5pt;}
+#print-area .rp-table tr{break-inside:avoid;}
+#print-area .rp-table thead{display:table-header-group;}
+#print-area .rp-name{text-align:left !important;white-space:nowrap;width:42mm;}
+#print-area .rp-avg{font-weight:700;}
+#print-area .rp-sum td{background:#f4f4f4;font-weight:600;}
+#print-area .rp-empty{color:#666;}

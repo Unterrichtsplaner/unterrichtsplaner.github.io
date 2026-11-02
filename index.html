@@ -42,7 +42,7 @@
       }
     } catch(e) {}
   </script>
-  <link rel="stylesheet" href="style.css?v=309" />
+  <link rel="stylesheet" href="style.css?v=310" />
   <script>
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
@@ -742,6 +742,9 @@
       <button class="btn-secondary" style="width:100%; text-align:left; justify-content:flex-start;" onclick="closeModal('modal-student-actions'); openImportStudentsModal()">
         <i data-icon="list"></i>Mehrere Schüler hinzufügen
       </button>
+      <button class="btn-secondary" style="width:100%; text-align:left; justify-content:flex-start;" onclick="closeModal('modal-student-actions'); openClassReport(currentGroupId)">
+        <i data-icon="printer"></i>Klassen-Bericht (PDF/Excel)
+      </button>
       <button class="btn-secondary" style="width:100%; text-align:left; justify-content:flex-start;" onclick="closeModal('modal-student-actions'); exportGradesCSV()">
         <i data-icon="download"></i>Notenexport als CSV-Datei
       </button>
@@ -966,6 +969,7 @@
         <p style="font-size:12px;color:var(--text-muted);margin:6px 0 0">Regelmäßig exportieren: Die Datei ist deine Sicherung.</p>
         <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:8px;">
           <button class="btn-secondary" onclick="exportData()"><i data-icon="download"></i>Exportieren</button>
+          <button class="btn-secondary" onclick="openClassReport()"><i data-icon="printer"></i>Klassen-Bericht (PDF/Excel)</button>
           <button class="btn-secondary" onclick="importDataClick()"><i data-icon="upload"></i>Importieren</button>
           <button class="btn-danger-outline" onclick="clearAllData()"><i data-icon="trash"></i>Alles löschen</button>
           <button class="btn-danger-outline hidden" id="btn-clear-everywhere" onclick="clearAllDataEverywhere()"><i data-icon="trash"></i>Alles löschen – auch in der Cloud</button>
@@ -1175,7 +1179,7 @@
       <ul>
         <li>Die Daten liegen unverschlüsselt im Browser-Speicher (<code>localStorage</code>). Wer das Gerät entsperrt benutzen kann, kann sie sehen. Sperre das Gerät deshalb mit Code, Fingerabdruck oder Gesicht und nutze die App nicht in einem geteilten Benutzerkonto.</li>
         <li>Wenn du den Cloud-Sync nutzt, ist auch dein Master-Passwort auf diesem Gerät gespeichert, damit der Abgleich ohne erneute Eingabe läuft. Beim Abmelden wird es gelöscht.</li>
-        <li>Exportierte Sicherungsdateien sind <strong>nicht</strong> verschlüsselt. Bewahre sie so sicher auf wie die Notenliste auf Papier.</li>
+        <li>Exportierte Dateien – Sicherung, Klassen-Bericht (PDF/Excel), Notenexport (CSV) – sind <strong>nicht</strong> verschlüsselt. Bewahre sie so sicher auf wie die Notenliste auf Papier und verschicke sie nicht über private Mail-Konten.</li>
         <li>Löschen: Einstellungen → Datenverwaltung → „Alles löschen“. Beim Abmelden fragt die App außerdem, ob die Daten auf dem Gerät bleiben sollen.</li>
       </ul>
 
@@ -1442,6 +1446,26 @@
     </div>
   </div>
 
+  <!-- Klassen-Bericht (AD1) -->
+  <div id="modal-class-report" class="modal-overlay hidden" onclick="closeModalOnOverlay(event,'modal-class-report')">
+    <div class="modal modal-small" onclick="event.stopPropagation()">
+      <div class="modal-header">
+        <h2>Klassen-Bericht</h2>
+        <button class="modal-close" aria-label="Schließen" onclick="closeModal('modal-class-report')">✕</button>
+      </div>
+      <div class="modal-body">
+        <p class="field-hint-muted" style="margin:0 0 12px">Je Klasse alle Noten mit Schnitten, Fehlzeiten, Mitarbeit und fehlende Hausaufgaben – als PDF zum Ausdrucken oder als Excel-Datei zum Weiterbearbeiten.</p>
+        <button type="button" class="link-btn" id="class-report-all" onclick="toggleClassReportAll()">Alle / keine</button>
+        <div id="class-report-list" class="class-report-list"></div>
+        <p class="class-report-warn">Die Datei enthält Schülerdaten <strong>unverschlüsselt</strong>. Sicher aufbewahren, nicht über private Mail verschicken.</p>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-secondary" onclick="downloadClassReportXLSX()"><i data-icon="download"></i>Excel herunterladen</button>
+        <button class="btn-primary" onclick="printClassReport()"><i data-icon="printer"></i>Drucken / PDF</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Sync Conflict Modal -->
   <div id="modal-sync-conflict" class="modal-overlay hidden" onclick="event.stopPropagation()">
     <div class="modal modal-medium" onclick="event.stopPropagation()" style="max-width: 480px;">
@@ -1513,12 +1537,12 @@
   </div>
 
   <script src="lib/crypto-js.min.js"></script>
-  <script src="crypto-helper.js?v=309"></script>
+  <script src="crypto-helper.js?v=310"></script>
   <script src="lib/firebase-app-compat.js"></script>
   <script src="lib/firebase-auth-compat.js"></script>
   <script src="lib/firebase-firestore-compat.js"></script>
-  <script src="firebase-config.js?v=309"></script>
-  <script src="sync-manager.js?v=309"></script>
-  <script src="app.js?v=309"></script>
+  <script src="firebase-config.js?v=310"></script>
+  <script src="sync-manager.js?v=310"></script>
+  <script src="app.js?v=310"></script>
 </body>
 </html>
