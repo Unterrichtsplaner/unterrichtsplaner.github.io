@@ -41,7 +41,7 @@
       }
     } catch(e) {}
   </script>
-  <link rel="stylesheet" href="style.css?v=281" />
+  <link rel="stylesheet" href="style.css?v=284" />
   <script>
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
@@ -1377,6 +1377,21 @@
     </div>
   </div>
 
+  <!-- Cockpit: alles zur laufenden Stunde (AD2), öffnet sich über die Leiste im Sitzplan -->
+  <div id="modal-seating-today" class="modal-overlay hidden" onclick="closeModalOnOverlay(event,'modal-seating-today')">
+    <div class="modal modal-small" onclick="event.stopPropagation()">
+      <div class="modal-header">
+        <h2 id="seating-today-title">Heute</h2>
+        <button class="modal-close" aria-label="Schließen" onclick="closeModal('modal-seating-today')">✕</button>
+      </div>
+      <div class="modal-body" id="seating-today-body"></div>
+      <div class="modal-footer">
+        <button class="btn-secondary" onclick="closeModal('modal-seating-today')">Schließen</button>
+        <button class="btn-primary" onclick="openCockpitLesson()"><i data-icon="edit"></i>Stunde eintragen</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Sync Conflict Modal -->
   <div id="modal-sync-conflict" class="modal-overlay hidden" onclick="event.stopPropagation()">
     <div class="modal modal-medium" onclick="event.stopPropagation()" style="max-width: 480px;">
@@ -1448,12 +1463,12 @@
   </div>
 
   <script src="lib/crypto-js.min.js"></script>
-  <script src="crypto-helper.js?v=281"></script>
+  <script src="crypto-helper.js?v=284"></script>
   <script src="lib/firebase-app-compat.js"></script>
   <script src="lib/firebase-auth-compat.js"></script>
   <script src="lib/firebase-firestore-compat.js"></script>
-  <script src="firebase-config.js?v=281"></script>
-  <script src="sync-manager.js?v=281"></script>
-  <script src="app.js?v=281"></script>
+  <script src="firebase-config.js?v=284"></script>
+  <script src="sync-manager.js?v=284"></script>
+  <script src="app.js?v=284"></script>
 </body>
 </html>

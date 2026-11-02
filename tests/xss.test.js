@@ -93,6 +93,7 @@ describe('Ansichten mit präparierten Daten', () => {
       expect(document.getElementById('seating-cockpit').classList.contains('hidden')).toBe(false); // Cockpit wirklich gezeichnet
       app('seatingShowTrend = false');
     },
+    'sitzplan heute-fenster': () => app(`switchView("seating"); currentSeatingGroupId = ${G}; currentSeatingDateStr = "2026-09-21"; renderSeatingPlan(); openSeatingToday()`),
     einstellungen: () => app('openSettings()'),
   };
 

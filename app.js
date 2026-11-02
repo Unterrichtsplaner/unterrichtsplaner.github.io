@@ -5225,10 +5225,13 @@ function seatingTodayInfo(groupId, info) {
     birthdays: students.map(s => ({ s, b: birthdayInfo(s, dateStr) })).filter(x => x.b),
   };
 }
-function cockpitChip(cls, label, text, title = text) {
-  return `<span class="cockpit-chip ${cls}" title="${escHtml(title)}">${label ? `<b>${label}</b> ` : ''}${escHtml(text)}</span>`;
+// Leiste mit fester Höhe (eine Zeile): Zeit, Thema, Zähler. Was zu einzelnen Schülern gehört (fehlt,
+// Geburtstag, letzte Stunde gefehlt), steht auf den Karten; die Namen im Fenster „Heute“ (Zähler antippen).
+function cockpitCount(cls, iconName, count, label, title) {
+  return `<button type="button" class="cockpit-count ${cls}" onclick="openSeatingToday()" title="${escHtml(title)}" aria-label="${escHtml(title)}">`
+    + `${icon(iconName)}${count !== null ? `<b>${count}</b>` : ''}<span class="cockpit-count-label">${label}</span></button>`;
 }
-const namesList = list => list.map(s => s.firstName || s.lastName).join(', ');
+const plural = (n, one, many) => n === 1 ? one : many;
 // Zeichnet die Leiste; liefert true, wenn sie erschienen oder verschwunden ist (dann ändert sich die Rasterhöhe)
 function renderSeatingCockpit(now = new Date()) {
   const el = document.getElementById('seating-cockpit');
@@ -5238,39 +5241,73 @@ function renderSeatingCockpit(now = new Date()) {
   const wasShown = !el.classList.contains('hidden');
   el.classList.toggle('hidden', !info);
   setSeatingWakeLock(!!info);
-  if (!info) { el.innerHTML = ''; cockpitLesson = null; return wasShown; }
-  cockpitLesson = { slotId: info.lesson.slot.id, dateStr: info.lesson.dateStr };
+  if (!info) { el.innerHTML = ''; cockpitLesson = null; cockpitToday = null; return wasShown; }
   const t = seatingTodayInfo(currentSeatingGroupId, info);
+  cockpitLesson = { slotId: info.lesson.slot.id, dateStr: info.lesson.dateStr };
+  cockpitToday = { info, t };
   const { range, block } = info.lesson;
+  const nextText = info.next ? `danach ${[lessonTitle(info.next.slot).main, minsToTime(info.next.range.start)].join(' · ')}` : '';
   const timeHTML = info.running
-    ? `<div class="cockpit-mins"><b>${info.minsLeft}</b> Min</div><div class="cockpit-sub">noch · bis ${minsToTime(range.end)}</div>`
+    ? `<div class="cockpit-mins"><b>${info.minsLeft}</b> Min</div><div class="cockpit-sub">bis ${minsToTime(range.end)}${nextText ? ` · ${escHtml(nextText)}` : ''}</div>`
     : `<div class="cockpit-mins cockpit-soon">in <b>${info.startsIn}</b> Min</div><div class="cockpit-sub">${escHtml(block.label)} · ab ${minsToTime(range.start)}</div>`;
-  const chips = [];
-  if (t.topic) chips.push(cockpitChip('topic', 'Thema', t.topic));
-  else if (t.prevTopic) chips.push(cockpitChip('topic muted', 'Letzte Stunde', t.prevTopic));
-  if (t.due.hw.length) chips.push(cockpitChip('hw', 'HA', t.due.hw.map(i => i.text).join(' · ')));
-  if (t.due.tests.length) chips.push(cockpitChip('test', 'Test', t.due.tests.map(i => i.text).join(' · ')));
-  if (t.absent.length) chips.push(cockpitChip('absent', 'Fehlt', namesList(t.absent), t.absent.map(studentName).join(', ')));
-  if (t.missed.length) chips.push(cockpitChip('missed', 'Letzte Std. gefehlt', namesList(t.missed), t.missed.map(studentName).join(', ')));
-  t.birthdays.forEach(({ s, b }) => {
-    const text = (s.firstName || s.lastName) + (b.age ? ` (${b.age})` : '') + (b.when === 'past' ? ` · ${formatWeekdayShort(b.date)}` : '');
-    chips.push(`<span class="cockpit-chip bday" title="${escHtml(studentName(s))} hat ${b.when === 'past' ? 'am ' + formatWeekdayShort(b.date) + ' ' : ''}Geburtstag">${icon('cake')}${escHtml(text)}</span>`);
-  });
-  if (info.next) {
-    const nt = lessonTitle(info.next.slot);
-    chips.push(cockpitChip('next muted', 'Danach', [nt.main, info.next.slot.room].filter(Boolean).join(' · ') + ` · ${minsToTime(info.next.range.start)}`));
-  }
+  const topicHTML = t.topic ? `<b>Thema</b> ${escHtml(t.topic)}`
+    : t.prevTopic ? `<b>Letzte Stunde</b> ${escHtml(t.prevTopic)}`
+    : '<span class="cockpit-empty">Noch kein Thema eingetragen</span>';
+  const counts = [];
+  if (t.due.hw.length) counts.push(cockpitCount('hw', 'homework', t.due.hw.length > 1 ? t.due.hw.length : null, 'HA', `${t.due.hw.length} ${plural(t.due.hw.length, 'Hausaufgabe', 'Hausaufgaben')} fällig`));
+  if (t.due.tests.length) counts.push(cockpitCount('test', 'test', t.due.tests.length > 1 ? t.due.tests.length : null, 'Test', `${t.due.tests.length} ${plural(t.due.tests.length, 'Test', 'Tests')} angekündigt`));
+  if (t.absent.length) counts.push(cockpitCount('absent', 'absences', t.absent.length, plural(t.absent.length, 'fehlt', 'fehlen'), `${t.absent.length} ${plural(t.absent.length, 'fehlt', 'fehlen')} heute`));
+  if (t.missed.length) counts.push(cockpitCount('missed', 'refresh', t.missed.length, 'nachholen', `${t.missed.length} ${plural(t.missed.length, 'hat', 'haben')} letzte Stunde gefehlt`));
+  if (t.birthdays.length) counts.push(cockpitCount('bday', 'cake', t.birthdays.length, 'Geb.', `${t.birthdays.length} ${plural(t.birthdays.length, 'Geburtstag', 'Geburtstage')}`));
   el.innerHTML = `
-    <div class="cockpit-time">${timeHTML}</div>
-    <div class="cockpit-chips">${chips.join('') || '<span class="cockpit-empty">Nichts fällig, alle da.</span>'}</div>
+    <button type="button" class="cockpit-time" onclick="openSeatingToday()" aria-label="Alles zu heute">${timeHTML}</button>
+    <button type="button" class="cockpit-topic" onclick="openSeatingToday()" title="Alles zu heute">${topicHTML}</button>
+    ${counts.length ? `<div class="cockpit-counts">${counts.join('')}</div>` : ''}
     <button type="button" class="btn-secondary cockpit-lesson-btn" onclick="openCockpitLesson()" aria-label="Diese Stunde: Inhalt, Notiz, Hausaufgabe">${icon('edit')}<span>Stunde</span></button>
     <div class="cockpit-progress" aria-hidden="true"><span style="width:${Math.round(info.progress * 100)}%"></span></div>`;
   return !wasShown;
+}
+let cockpitToday = null;
+// Fenster „Heute“: alles zur laufenden Stunde im Detail (Listen dürfen hier beliebig lang sein)
+function openSeatingToday() {
+  if (!cockpitToday) return;
+  renderSeatingToday();
+  openModal('modal-seating-today');
+}
+function renderSeatingToday() {
+  const box = document.getElementById('seating-today-body');
+  if (!box || !cockpitToday) return;
+  const { info, t } = cockpitToday;
+  const { slot, range, block } = info.lesson;
+  const title = lessonTitle(slot);
+  document.getElementById('seating-today-title').textContent = `Heute · ${title.main}${title.sub ? ' ' + title.sub : ''}`;
+  const section = (label, iconName, body, cls = '') => `<section class="today-section ${cls}"><h3>${icon(iconName)}${label}</h3>${body}</section>`;
+  const list = items => `<ul>${items.join('')}</ul>`;
+  const text = s => escHtml(s).replace(/\n/g, '<br>');
+  const absenceType = (s, ds) => (s.attendance || []).find(a => a.date === ds && (a.type === 'abwesend' || a.type === 'entschuldigt'));
+  let html = `<p class="today-meta">${escHtml(block.label)} · ${minsToTime(range.start)}–${minsToTime(range.end)}${slot.room ? ` · ${escHtml(slot.room)}` : ''}${info.next
+    ? `<br>Danach: ${escHtml(lessonTitle(info.next.slot).main)}${info.next.slot.room ? ` · ${escHtml(info.next.slot.room)}` : ''} · ${minsToTime(info.next.range.start)}` : ''}</p>`;
+  const data = db.lessonData[slot.id + '_' + info.lesson.dateStr] || {};
+  const prevData = t.prev ? (db.lessonData[t.prev.slot.id + '_' + t.prev.dateStr] || {}) : {};
+  if (data.done) html += section('Thema heute', 'content', `<p>${text(data.done)}</p>`);
+  if (prevData.done) html += section(`Letzte Stunde · ${escHtml(formatWeekdayShort(t.prev.dateStr))}`, 'content', `<p>${text(prevData.done)}</p>`, data.done ? 'muted' : '');
+  if (t.due.hw.length) html += section('Hausaufgabe fällig', 'homework', list(t.due.hw.map(i => `<li>${escHtml(i.text)}</li>`)), 'hw');
+  if (t.due.tests.length) html += section('Test', 'test', list(t.due.tests.map(i => `<li>${escHtml(i.text)}</li>`)), 'test');
+  if (t.absent.length) html += section(`Fehlt heute (${t.absent.length})`, 'absences', list(t.absent.map(s =>
+    `<li>${escHtml(studentName(s))} <small>${absenceType(s, info.lesson.dateStr)?.type === 'entschuldigt' ? 'entschuldigt' : 'unentschuldigt'}</small></li>`)), 'absent');
+  if (t.missed.length) html += section(`Letzte Stunde gefehlt (${t.missed.length}) · Stoff nachholen`, 'refresh', list(t.missed.map(s => `<li>${escHtml(studentName(s))}</li>`)), 'missed');
+  if (t.birthdays.length) html += section(`Geburtstag (${t.birthdays.length})`, 'cake', list(t.birthdays.map(({ s, b }) =>
+    `<li>${escHtml(studentName(s))}${b.age ? ` <small>wird ${b.age}</small>` : ''}${b.when === 'past' ? ` <small>· hatte am ${escHtml(formatWeekdayShort(b.date))}</small>` : ''}</li>`)), 'bday');
+  if (!data.done && !prevData.done && !t.due.hw.length && !t.due.tests.length && !t.absent.length && !t.missed.length && !t.birthdays.length) {
+    html += '<p class="today-empty">Nichts fällig, alle da.</p>';
+  }
+  box.innerHTML = html;
 }
 let cockpitLesson = null;
 // Notiz zur Stunde = Stunde abschließen: das Stunden-Fenster (Inhalt, Notizen, HA, Test) dieser Stunde
 function openCockpitLesson() {
   if (!cockpitLesson) return;
+  closeModal('modal-seating-today');
   openLessonDetail(cockpitLesson.slotId, cockpitLesson.dateStr);
 }
 // Timer / nach Änderungen: Leiste aktualisieren; erscheint oder verschwindet sie, das Raster neu einpassen
@@ -5664,9 +5701,12 @@ function renderSeatingPlan() {
     // Symbole oben links (AD2/AD6): Hinweis vorhanden, Geburtstag – nie der Text selbst (Beamer)
     const hasHint = !!(s.notes || '').trim();
     const bday = birthdayInfo(s, dateStr);
+    const missedLast = !!(cockpitToday && cockpitToday.t.missed.includes(s)); // nur während der Stunde (Cockpit)
     const marks = (hasHint ? `<span class="sc-mark sc-hint" title="Hinweis vorhanden">${icon('info')}</span>` : '')
-      + (bday ? `<span class="sc-mark sc-bday" title="Geburtstag">${icon('cake')}</span>` : '');
-    if (hasHint || bday) card.setAttribute('aria-label', fullName + (bday ? ', Geburtstag' : '') + (hasHint ? ', Hinweis vorhanden' : ''));
+      + (bday ? `<span class="sc-mark sc-bday" title="Geburtstag">${icon('cake')}</span>` : '')
+      + (missedLast ? `<span class="sc-mark sc-missed" title="Letzte Stunde gefehlt – Stoff nachholen">${icon('refresh')}</span>` : '');
+    if (hasHint || bday || missedLast) card.setAttribute('aria-label', fullName + (bday ? ', Geburtstag' : '')
+      + (missedLast ? ', letzte Stunde gefehlt' : '') + (hasHint ? ', Hinweis vorhanden' : ''));
     card.innerHTML = `
       ${marks ? `<div class="sc-marks">${marks}</div>` : ''}
       <div class="sc-name" title="${escHtml(fullName)}">${escHtml(shortName)}</div>
@@ -8256,7 +8296,7 @@ function noticeSlowSync(promise) {
 // Einstellungen zählen nur mit, wenn dort etwas eingetippt ist: Sonst ersetzte der Pull die Eingaben still (BUGS T5).
 function inputModalOpen() {
   return [...document.querySelectorAll('.modal-overlay:not(.hidden)')]
-    .some(m => m.id === 'modal-settings' ? settingsDirty() : m.id !== 'modal-sync-conflict' && m.id !== 'modal-whats-new');
+    .some(m => m.id === 'modal-settings' ? settingsDirty() : m.id !== 'modal-sync-conflict' && m.id !== 'modal-whats-new' && m.id !== 'modal-seating-today');
 }
 function syncAfterModalsClosed() {
   if (!syncAfterModalClose || inputModalOpen()) return;

@@ -65,7 +65,7 @@ describe('Cockpit-Leiste', () => {
     expect(cockpit().textContent).toContain('bis 09:15');
     const w = parseFloat(cockpit().querySelector('.cockpit-progress span').style.width);
     expect(w).toBeGreaterThan(70); expect(w).toBeLessThan(80);
-    expect(cockpit().querySelector('.cockpit-chip.next').textContent).toMatch(/Danach.*9c.*R132.*09:/);
+    expect(cockpit().querySelector('.cockpit-sub').textContent).toMatch(/bis 09:15 · danach 9c · 09:/);
   });
 
   it('kurz vorher „in … Min“, außerhalb der Stunde und an anderen Tagen keine Leiste', () => {
@@ -87,23 +87,74 @@ describe('Cockpit-Leiste', () => {
     expect(shown()).toBe(false);
   });
 
-  it('Kacheln: letzte Stunde behandelt, fällige HA, wer fehlt, wer letzte Stunde gefehlt hat, Geburtstage', () => {
+  const topic = () => cockpit().querySelector('.cockpit-topic').textContent.replace(/\s+/g, ' ').trim();
+  const counts = () => [...cockpit().querySelectorAll('.cockpit-count')].map(c => c.className.replace('cockpit-count ', '') + ':' + c.textContent.replace(/\s+/g, ' ').trim());
+
+  it('eine Zeile: Thema (letzte Stunde, erste Zeile) und kurze Zähler statt Namen', () => {
     at(8, 0);
     openSeating();
-    const chips = [...cockpit().querySelectorAll('.cockpit-chip')].map(c => c.textContent.replace(/\s+/g, ' ').trim());
-    expect(chips).toContain('Letzte Stunde Brüche kürzen');          // nur die erste Zeile
-    expect(chips).toContain('HA S. 12 Nr. 3');
-    expect(chips).toContain('Fehlt Clara');
-    expect(chips).toContain('Letzte Std. gefehlt Ben');
-    expect(chips.some(c => /^Anna \(13\)$/.test(c))).toBe(true);
-    expect(chips.some(c => /^David \(14\) · Sa\.?,? 31\.10\.?$/.test(c))).toBe(true);
+    expect(topic()).toBe('Letzte Stunde Brüche kürzen');
+    expect(counts()).toEqual(['hw:HA', 'absent:1fehlt', 'missed:1nachholen', 'bday:2Geb.']);
+    expect(cockpit().textContent).not.toMatch(/Clara|Ben|Anna|David/); // Namen nur auf Karten und im Fenster „Heute“
+  });
+
+  it('viele Fehlende und Geburtstage: Leiste bleibt gleich lang (nur die Zahl ändert sich)', () => {
+    const many = Array.from({ length: 12 }, (_, i) => ({ id: 'z' + i, firstName: 'Kind' + i, lastName: 'X', birthday: i < 5 ? '2013-11-02' : undefined,
+      attendance: i >= 5 ? [{ id: 'za' + i, date: MON, type: 'abwesend' }] : [], grades: [], participation: [], homework: [], studentNotes: [] }));
+    app(`db.students.g1.push(...${JSON.stringify(many)}); db.groups[0].seatingCols = 8; db.groups[0].seatingRows = 4`);
+    at(8, 0);
+    openSeating();
+    expect(counts()).toEqual(['hw:HA', 'absent:8fehlen', 'missed:1nachholen', 'bday:7Geb.']);
+    expect(cockpit().querySelectorAll('.cockpit-count').length).toBe(4);
+  });
+
+  it('Zähler, Thema und Zeit öffnen das Fenster „Heute“ mit allen Namen und Texten', () => {
+    at(8, 0);
+    openSeating();
+    [...cockpit().querySelectorAll('.cockpit-count'), cockpit().querySelector('.cockpit-topic'), cockpit().querySelector('.cockpit-time')]
+      .forEach(b => expect(b.getAttribute('onclick')).toBe('openSeatingToday()'));
+    app('openSeatingToday()');
+    const m = document.getElementById('modal-seating-today');
+    expect(m.classList.contains('hidden')).toBe(false);
+    const t = m.textContent.replace(/\s+/g, ' ');
+    expect(t).toContain('Heute · 7a Mathe');
+    expect(t).toMatch(/Danach: 9c · R132/);
+    expect(m.innerHTML).toContain('Brüche kürzen<br>zweite Zeile');  // hier der ganze Text, mit Zeilen
+    expect(t).toContain('S. 12 Nr. 3');
+    expect(t).toMatch(/Fehlt heute \(1\)\s*Clara Muster entschuldigt/);
+    expect(t).toMatch(/Letzte Stunde gefehlt \(1\).*Ben Muster/);
+    expect(t).toMatch(/Anna Muster wird 13/);
+    expect(t).toMatch(/David Muster wird 14 · hatte am Sa/);
+    app('openCockpitLesson()');                                   // „Stunde eintragen“ schließt „Heute“
+    expect(m.classList.contains('hidden')).toBe(true);
+    expect(document.getElementById('modal-lesson').classList.contains('hidden')).toBe(false);
+  });
+
+  it('„Letzte Stunde gefehlt“ steht auf der Karte (nur während der Stunde)', () => {
+    at(8, 0);
+    openSeating();
+    expect(card('b').querySelector('.sc-missed')).toBeTruthy();
+    expect(card('b').getAttribute('aria-label')).toMatch(/letzte Stunde gefehlt/);
+    expect(card('a').querySelector('.sc-missed')).toBeNull();
+    at(10, 0); app('refreshSeatingCockpit()');                   // keine Stunde mehr
+    expect(card('b').querySelector('.sc-missed')).toBeNull();
+  });
+
+  it('nichts los: „Noch kein Thema“, keine Zähler', () => {
+    app('db.lessonData = {}; db.students.g1.forEach(s => { s.attendance = []; delete s.birthday; })');
+    at(8, 0);
+    openSeating();
+    expect(topic()).toBe('Noch kein Thema eingetragen');
+    expect(cockpit().querySelector('.cockpit-counts')).toBeNull();
+    app('openSeatingToday()');
+    expect(document.getElementById('seating-today-body').textContent).toContain('Nichts fällig, alle da.');
   });
 
   it('Thema der laufenden Stunde hat Vorrang vor der letzten', () => {
     app(`db.lessonData["m1_${MON}"] = { done: 'Brüche addieren' }`);
     at(8, 0);
     openSeating();
-    expect(cockpit().querySelector('.cockpit-chip.topic').textContent.replace(/\s+/g, ' ').trim()).toBe('Thema Brüche addieren');
+    expect(topic()).toBe('Thema Brüche addieren');
   });
 
   it('zweite Stunde am selben Tag: „letzte Stunde“ ist die frühere von heute', () => {
@@ -111,8 +162,8 @@ describe('Cockpit-Leiste', () => {
     at(11, 30);
     openSeating();
     expect(shown()).toBe(true);
-    expect(cockpit().querySelector('.cockpit-chip.topic').textContent).toContain('Brüche addieren');
-    expect(cockpit().querySelector('.cockpit-chip.missed')).toBeNull(); // heute früher war niemand weg
+    expect(topic()).toContain('Brüche addieren');
+    expect(cockpit().querySelector('.cockpit-count.missed')).toBeNull(); // heute früher war niemand weg
   });
 
   it('„Stunde“ öffnet das Stunden-Fenster dieser Stunde (Notiz = Stunde abschließen)', () => {
@@ -325,5 +376,6 @@ describe('Darstellung', () => {
     expect(CSS).toMatch(/\.seating-cockpit\{/);
     expect(CSS).toMatch(/\.cockpit-progress span\{/);
     expect(CSS).not.toMatch(/\.cockpit[^{]*:hover/);
+    expect(CSS).toMatch(/\.cockpit-topic\{[^}]*white-space:nowrap[^}]*text-overflow:ellipsis/); // Thema nie mehrzeilig
   });
 });

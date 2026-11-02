@@ -939,40 +939,65 @@ select option{background:var(--bg-secondary);}
 }
 
 /* ─── Unterrichts-Cockpit im Sitzplan (AD2) ─── */
-.seating-cockpit{position:relative;display:flex;align-items:center;gap:14px;margin:10px 20px 0;padding:8px 10px 12px 14px;background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-md);overflow:hidden;flex-shrink:0;}
-.cockpit-time{flex-shrink:0;min-width:92px;line-height:1.1;}
+/* Feste Höhe, eine Zeile: Zeit · Thema · Zähler · Stunde. Details im Fenster „Heute“. */
+.seating-cockpit{position:relative;display:flex;align-items:center;gap:12px;margin:10px 20px 0;padding:8px 10px 12px 14px;min-height:64px;box-sizing:border-box;background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-md);overflow:hidden;flex-shrink:0;}
+.cockpit-time{flex-shrink:0;line-height:1.1;max-width:34%;font:inherit;text-align:left;color:inherit;background:none;border:none;padding:0;cursor:pointer;}
 .cockpit-mins{font-size:14px;font-weight:600;color:var(--text-secondary);white-space:nowrap;}
 .cockpit-mins b{font-size:26px;font-weight:800;color:var(--text-primary);font-variant-numeric:tabular-nums;}
 .cockpit-soon b{font-size:22px;}
-.cockpit-sub{font-size:11px;color:var(--text-muted);white-space:nowrap;margin-top:2px;}
-.cockpit-chips{flex:1;min-width:0;display:flex;flex-wrap:wrap;gap:6px 8px;align-items:center;}
-.cockpit-chip{flex-shrink:1;min-width:0;max-width:100%;display:inline-flex;align-items:center;gap:5px;padding:6px 11px;border-radius:99px;font-size:13px;line-height:1.2;background:var(--bg-elevated);border:1px solid var(--border);color:var(--text-primary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-.cockpit-chip b{font-weight:700;color:var(--text-secondary);}
-.cockpit-chip.muted{color:var(--text-secondary);}
-.cockpit-chip.hw{border-color:var(--warning);}
-.cockpit-chip.test{border-color:var(--danger);}
-.cockpit-chip.absent{border-color:var(--danger);}
-.cockpit-chip.bday{border-color:var(--accent);background:var(--accent-soft);}
-.cockpit-chip .ico{width:14px;height:14px;flex-shrink:0;}
-.cockpit-empty{font-size:13px;color:var(--text-muted);}
+.cockpit-sub{font-size:11px;color:var(--text-muted);white-space:nowrap;margin-top:2px;overflow:hidden;text-overflow:ellipsis;}
+.cockpit-topic{flex:1;min-width:0;text-align:left;font:inherit;font-size:14px;color:var(--text-primary);background:none;border:none;padding:8px 4px;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.cockpit-topic b{font-weight:700;color:var(--text-secondary);margin-right:4px;}
+.cockpit-empty{color:var(--text-muted);}
+.cockpit-counts{display:flex;gap:6px;flex-shrink:0;}
+.cockpit-count{display:inline-flex;align-items:center;gap:5px;min-height:36px;padding:0 10px;border-radius:99px;font:inherit;font-size:13px;color:var(--text-primary);background:var(--bg-elevated);border:1px solid var(--border);cursor:pointer;white-space:nowrap;}
+.cockpit-count .ico{width:15px;height:15px;margin:0;flex-shrink:0;}
+.cockpit-count b{font-weight:800;font-variant-numeric:tabular-nums;}
+.cockpit-count.hw{border-color:var(--warning);}
+.cockpit-count.test,.cockpit-count.absent{border-color:var(--danger);}
+.cockpit-count.bday{border-color:var(--accent);background:var(--accent-soft);}
 .cockpit-lesson-btn{flex-shrink:0;display:flex;align-items:center;gap:6px;min-height:40px;}
 .cockpit-progress{position:absolute;left:0;right:0;bottom:0;height:4px;background:var(--bg-elevated);}
 .cockpit-progress span{display:block;height:100%;background:var(--accent);border-radius:0 2px 2px 0;transition:width .5s;}
+/* iPad quer und schmaler: Zähler nur mit Symbol + Zahl, damit das Thema Platz hat (Namen/Texte im Fenster „Heute“) */
+@container seating (max-width: 1100px) {
+  .cockpit-count-label{display:none;}
+  .cockpit-count{padding:0 9px;}
+}
+/* iPad hochkant, Handy: Thema in eigener (einzeiliger) Zeile unter Zeit und Zählern */
+@container seating (max-width: 820px) {
+  .seating-cockpit{flex-wrap:wrap;row-gap:2px;}
+  .cockpit-topic{order:10;flex-basis:100%;padding:2px 0 0;}
+  .cockpit-counts{margin-left:auto;}
+}
 @container seating (max-width: 520px) {
-  /* Handy: Höhe ist knapp → Kacheln in einer Zeile zum Wischen statt umbrechen */
-  .seating-cockpit{margin:8px 10px 0;gap:10px;padding:6px 8px 10px 10px;}
-  .cockpit-time{min-width:0;}
+  .seating-cockpit{margin:8px 10px 0;gap:8px;padding:6px 8px 10px 10px;}
   .cockpit-mins b{font-size:22px;}
-  .cockpit-chips{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;}
-  .cockpit-chips::-webkit-scrollbar{display:none;}
-  .cockpit-chip{flex-shrink:0;max-width:220px;}
-  .cockpit-lesson-btn{min-height:40px;padding:0 10px;}
+  .cockpit-sub{display:none;}
+  .cockpit-topic{font-size:13px;}
+  .cockpit-counts{flex:1;min-width:0;overflow-x:auto;scrollbar-width:none;}
+  .cockpit-counts::-webkit-scrollbar{display:none;}
+  .cockpit-lesson-btn{padding:0 10px;}
   .cockpit-lesson-btn span{display:none;}
 }
+/* Fenster „Heute“ */
+#seating-today-body{display:flex;flex-direction:column;gap:14px;}
+.today-meta{font-size:13px;color:var(--text-secondary);margin:0;line-height:1.5;}
+.today-section h3{display:flex;align-items:center;gap:6px;font-size:13px;font-weight:700;color:var(--text-secondary);margin:0 0 6px;}
+.today-section h3 .ico{width:15px;height:15px;}
+.today-section p{margin:0;font-size:14px;line-height:1.45;}
+.today-section ul{margin:0;padding-left:18px;font-size:14px;line-height:1.6;}
+.today-section small{color:var(--text-muted);}
+.today-section.muted p{color:var(--text-secondary);}
+.today-section.hw h3 .ico{color:var(--warning);}
+.today-section.test h3 .ico,.today-section.absent h3 .ico{color:var(--danger);}
+.today-section.bday h3 .ico{color:var(--text-accent);}
+.today-empty{color:var(--text-muted);font-size:14px;margin:0;}
 /* Karten: Symbole oben links, Mitarbeit-Verlauf als Punkte */
 .seating-card .sc-marks{position:absolute;top:5px;left:6px;display:flex;gap:3px;color:var(--text-muted);}
 .seating-card .sc-mark .ico{width:13px;height:13px;margin:0;}
 .seating-card .sc-bday{color:var(--text-accent);}
+.seating-card .sc-missed{color:var(--warning);}
 .seating-card .sc-trend{display:flex;gap:3px;justify-content:center;margin-top:3px;}
 .seating-card .sc-trend i{width:8px;height:8px;border-radius:50%;display:block;}
 .seating-card .sc-trend .t-positive{background:var(--success);}
