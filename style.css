@@ -1339,9 +1339,19 @@ button.date-chip{font-family:inherit;padding:0;}
 @media (max-width: 600px){.ttc-row{grid-template-columns:86px minmax(0,1fr) auto;}.ttc-block{display:none;}}
 /* Tagesansicht: Thema in der Kachel, rechts */
 .timetable-grid.day-view .tt-lesson{position:relative;}
-.tt-lesson-topic{display:none;}
-@media (min-width: 700px){   /* Tagesansicht auf iPad/PC: Platz rechts in der Kachel */
-  .timetable-grid.day-view .tt-lesson-topic{display:block;position:absolute;right:12px;top:50%;transform:translateY(-50%);max-width:55%;font-size:13px;font-weight:500;color:var(--text-primary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:right;}
+.tt-lesson-side{display:none;}
+@media (min-width: 700px){   /* Tagesansicht auf iPad/PC: Platz rechts in der Kachel, Thema und darunter die Notizen (AD16) */
+  .timetable-grid.day-view .tt-lesson-side{display:flex;flex-direction:column;align-items:flex-end;gap:2px;position:absolute;right:12px;top:8px;max-width:70%;min-width:0;}  /* oben, frei von den Symbolen unten */
+  /* Einzelstunde (eine Zeile): in der Zeile statt darüber, Reihenfolge Klasse | Thema/Notizen | Symbole */
+  .timetable-grid.day-view .tt-cell.tt-short .tt-lesson-side{position:static;flex:0 1 auto;}
+  .timetable-grid.day-view .tt-cell.tt-short .tt-lesson-foot{order:2;}
+  .timetable-grid.day-view .tt-lesson-topic{max-width:100%;font-size:13px;font-weight:500;color:var(--text-primary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:right;}
+  .timetable-grid.day-view .tt-lesson-notes{display:flex;justify-content:flex-end;gap:12px;max-width:100%;min-width:0;font-size:12px;color:var(--text-secondary);}
+  .timetable-grid.day-view .tt-note-part{display:inline-flex;align-items:center;gap:4px;min-width:0;flex:0 1 auto;}
+  .timetable-grid.day-view .tt-note-part .ico{width:12px;height:12px;flex-shrink:0;}
+  .timetable-grid.day-view .tt-note-part > span{min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  /* ausgeschrieben: dieselben Symbole unten nicht doppelt */
+  .timetable-grid.day-view .tt-lesson.has-side-notes .tt-status-notiz,.timetable-grid.day-view .tt-lesson.has-side-notes .tt-status-klasse{display:none;}
 }
 
 /* ─── Bedienbarkeit (Prüfung nach Web-Richtlinien, 02.11.2026) ─── */

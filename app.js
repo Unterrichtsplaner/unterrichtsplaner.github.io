@@ -7752,6 +7752,7 @@ function renderTimetableClass(grid) {
   }));
 }
 // Tagesansicht: geplantes bzw. behandeltes Thema in der Kachel (rechts, wo Platz ist)
+// Tagesansicht: Thema und Notizen rechts in der Kachel (AD3, AD16)
 function addTopicsToDayTiles(grid) {
   const todayStr = formatDate(new Date());
   const cache = new Map();
@@ -7770,7 +7771,16 @@ function addTopicsToDayTiles(grid) {
       }
     }
     if (!text) text = firstLine((db.lessonData[key] || {}).done);
-    if (text) tile.insertAdjacentHTML('beforeend', `<div class="tt-lesson-topic">${escHtml(text)}</div>`);
+    // Darunter die Notizen ausgeschrieben (AD16): Klassennotizen (ab heute) und erste Zeile der Stunden-Notiz
+    const notes = [];
+    const cNotes = g && tile.dataset.date >= todayStr ? activeClassNotes(g, tile.dataset.date) : [];
+    if (cNotes.length) notes.push([icon('pin'), cNotes.map(n => n.text.trim()).join(' · ')]);
+    const lessonNote = firstLine((db.lessonData[key] || {}).notes);
+    if (lessonNote) notes.push([icon('notes'), lessonNote]);
+    if (!text && !notes.length) return;
+    tile.insertAdjacentHTML('beforeend', `<div class="tt-lesson-side">${text ? `<div class="tt-lesson-topic">${escHtml(text)}</div>` : ''}${notes.length
+      ? `<div class="tt-lesson-notes">${notes.map(([ico, t]) => `<span class="tt-note-part">${ico}<span>${escHtml(t)}</span></span>`).join('')}</div>` : ''}</div>`);
+    if (notes.length) tile.classList.add('has-side-notes');
   });
 }
 

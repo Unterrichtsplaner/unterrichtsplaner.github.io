@@ -217,6 +217,45 @@ describe('Dashboard, Stundenplan, Stunden-Fenster', () => {
     expect(marks()).toEqual([['2026-11-02', false]]);          // vergangene Stunde: kein Hinweis
   });
 
+  it('Tagesansicht (iPad/Laptop): Notizen ausgeschrieben unter dem Thema, Symbole dafür entfallen (AD16)', () => {
+    app('db.lessonData["mo_2026-11-09"] = { notes: "Ben Arbeitsblatt nachreichen\\nzweite Zeile" }');
+    app('switchView("timetable"); setTimetableMode("day"); setTimetableDay(parseDate("2026-11-09")); renderTimetable()');
+    const tile = document.querySelector('.tt-lesson[data-slot="mo"]');
+    const parts = [...tile.querySelectorAll('.tt-lesson-notes .tt-note-part')].map(p => p.textContent);
+    expect(parts).toEqual(['Stühle nicht hochgestellt · Klassenfahrt', 'Ben Arbeitsblatt nachreichen']);   // nur erste Zeile
+    expect(tile.querySelector('.tt-note-part .ico')).not.toBeNull();
+    expect(tile.classList.contains('has-side-notes')).toBe(true);
+    app('setTimetableMode("week")');
+  });
+
+  it('Tagesansicht, vergangener Tag: nur die Stunden-Notiz (Klassennotizen gelten ab heute)', () => {
+    app('db.lessonData["mo_2026-11-02"] = { notes: "Stühle!" }');
+    app('switchView("timetable"); setTimetableMode("day"); setTimetableDay(parseDate("2026-11-02")); renderTimetable()');
+    const tile = document.querySelector('.tt-lesson[data-slot="mo"]');
+    expect([...tile.querySelectorAll('.tt-note-part')].map(p => p.textContent)).toEqual(['Stühle!']);
+    app('setTimetableMode("week")');
+  });
+
+  it('Tagesansicht ohne Notizen: keine Notizzeile; Woche: nie ausgeschrieben', () => {
+    app('db.groups[0].classNotes = []');
+    app('switchView("timetable"); setTimetableMode("day"); setTimetableDay(parseDate("2026-11-09")); renderTimetable()');
+    expect(document.querySelector('.tt-lesson[data-slot="mo"] .tt-lesson-notes')).toBeNull();
+    app('setTimetableMode("week")');
+    app('db.groups[0].classNotes = [{ id: "x", text: "Stühle" }]; renderTimetable()');
+    expect(document.querySelector('.tt-lesson-notes')).toBeNull();
+  });
+
+  it('CSS: Notizzeile nur ab 700 px, abgekürzt mit „…“, Symbole nur dann ausgeblendet', () => {
+    const CSS = require('fs').readFileSync(require('path').join(__dirname, '..', 'style.css'), 'utf8');
+    expect(CSS).toMatch(/\.tt-lesson-side\{display:none;\}/);
+    const wide = CSS.match(/@media \(min-width: 700px\)\{   \/\* Tagesansicht auf iPad\/PC[\s\S]*?\n\}/)[0];
+    expect(wide).toMatch(/\.tt-note-part > span\{[^}]*text-overflow:ellipsis/);
+    expect(wide).toMatch(/\.has-side-notes \.tt-status-notiz/);
+    // Einzelstunden: in der Zeile, Symbole danach (sonst lag das Inhalts-Symbol über dem Thema)
+    expect(wide).toMatch(/\.tt-cell\.tt-short \.tt-lesson-side\{position:static;/);
+    expect(wide).toMatch(/\.tt-cell\.tt-short \.tt-lesson-foot\{order:2;\}/);
+  });
+
   it('Stunden-Fenster: Notizen oben, „Ändern“ öffnet das Notizen-Fenster darüber', () => {
     app('openLessonDetail("mo", "2026-11-09")');
     const box = document.getElementById('lesson-class-notes');

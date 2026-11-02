@@ -191,7 +191,7 @@ Datumswerte sind Strings `YYYY-MM-DD` in **lokaler** Zeit (`formatDate()`). Nie 
 
 70. **Dateien mit Schülerdaten (Sicherung, Klassen-Bericht, CSV) sind unverschlüsselt:** Beim Anbieten darauf hinweisen und in den Datenschutzhinweisen nennen. Inhalte des Klassen-Berichts nur über `classReportData` (keine Hinweise/Gesundheitsangaben). Excel-Dateien entstehen ohne Bibliothek (`zipStore`, `classReportSheetXML`) – wer daran ändert, prüft die Datei mit openpyxl oder LibreOffice.
 
-71. **Klassennotizen nur über `activeClassNotes(g, dateStr)`** (gilt bis einschließlich `until`), anlegen/ändern/löschen nur im Fenster `openClassNotes` (Notiz per Referenz, Löschen mit „Rückgängig“, Schließen übernimmt Eingetipptes). Nach Änderungen `refreshClassNoteViews()`. **Nie im Sitzplan anzeigen** (Beamer); auf Stundenplan-Kacheln nur das Symbol.
+71. **Klassennotizen nur über `activeClassNotes(g, dateStr)`** (gilt bis einschließlich `until`), anlegen/ändern/löschen nur im Fenster `openClassNotes` (Notiz per Referenz, Löschen mit „Rückgängig“, Schließen übernimmt Eingetipptes). Nach Änderungen `refreshClassNoteViews()`. **Nie im Sitzplan anzeigen** (Beamer); auf Stundenplan-Kacheln nur das Symbol, ausgeschrieben nur in der Tagesansicht ab 700 px (`addTopicsToDayTiles`, AD16).
 
 ## Arbeitsablauf
 

@@ -568,6 +568,7 @@ Hier kommen neue Wünsche hin, bevor sie gebaut werden. Erst klären (offene Fra
 
 - [x] **AD14** 🟢 **„+ Thema“ zu schwer zu treffen** (Rückmeldung 02.11.): in der Klassen-Ansicht jetzt ein Knopf mit Rahmen (`.ttc-add-btn`, 32 px, auf dem iPad 44 px) statt Link.
 - [x] **AD15** 🟠 **Klassennotizen** (Wunsch 02.11.): kurze Freitext-Notizen pro Klasse, z. B. „schon unterrichtet“ (18 Klassen, krummer Stundenplan vor den Ferien), „auf Klassenfahrt“, „Stühle nicht hochgestellt“. Wahlweise „gilt bis“, danach verschwindet sie von selbst (im Fenster unter „Abgelaufen“). Anlegen über das Stecknadel-Symbol in der Klassenliste; Texte aus anderen Klassen zum Antippen. Sichtbar in Klassenliste, Dashboard (heutige Stunden und „Nächste Stunde“), Stunden-Fenster und als Symbol auf der Stundenplan-Kachel (ab heute), **nie im Sitzplan**. Keine Automatik. `tests/klassennotizen.test.js`.
+- [x] **AD16** 🟢 **Notizen in der Tagesansicht ausgeschrieben** (Wunsch 02.11.): Klassennotiz und Stunden-Notiz (erste Zeile) als zweite Zeile unter dem Thema, abgekürzt mit „…“; nur iPad/Laptop (Handy und Woche: Symbole). Vergangene Tage: nur Stunden-Notiz. Höhe 46 px bleibt (Regel 61). Dabei behoben: In Einzelstunden lag das Inhalts-Symbol über dem Thema; jetzt steht beides in der Zeile (Klasse | Thema/Notizen | Symbole), in langen Blöcken oben. Gemessen bei 1024×768, 1366×768, 768×1024, 375×812 mit 8 Einzelstunden.
 
 ## AE. Anti-Slop-Prüfung (02.11.2026, deslop-Skill, nur Befunde)
 
