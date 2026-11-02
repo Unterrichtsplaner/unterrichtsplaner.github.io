@@ -65,7 +65,8 @@ describe('Cockpit-Leiste', () => {
     expect(cockpit().textContent).toContain('bis 09:15');
     const w = parseFloat(cockpit().querySelector('.cockpit-progress span').style.width);
     expect(w).toBeGreaterThan(70); expect(w).toBeLessThan(80);
-    expect(cockpit().querySelector('.cockpit-sub').textContent).toMatch(/bis 09:15 · danach 9c · 09:/);
+    expect(cockpit().querySelector('.cockpit-sub').textContent).toBe('bis 09:15');
+    expect(cockpit().querySelector('.cockpit-next').textContent).toMatch(/^danach 9c · 09:/);
   });
 
   it('kurz vorher „in … Min“, außerhalb der Stunde und an anderen Tagen keine Leiste', () => {
@@ -87,13 +88,13 @@ describe('Cockpit-Leiste', () => {
     expect(shown()).toBe(false);
   });
 
-  const topic = () => cockpit().querySelector('.cockpit-topic').textContent.replace(/\s+/g, ' ').trim();
+  const topic = () => cockpit().querySelector('.cockpit-topic-label').textContent + ' | ' + cockpit().querySelector('.cockpit-topic-text').textContent.trim();
   const counts = () => [...cockpit().querySelectorAll('.cockpit-count')].map(c => c.className.replace('cockpit-count ', '') + ':' + c.textContent.replace(/\s+/g, ' ').trim());
 
   it('eine Zeile: Thema (letzte Stunde, erste Zeile) und kurze Zähler statt Namen', () => {
     at(8, 0);
     openSeating();
-    expect(topic()).toBe('Letzte Stunde Brüche kürzen');
+    expect(topic()).toMatch(/^Letzte Stunde · Fr\.?,? 30\.10\.? \| Brüche kürzen$/);   // erste Zeile, mit Tag
     expect(counts()).toEqual(['hw:HA', 'absent:1fehlt', 'missed:1nachholen', 'bday:2Geb.']);
     expect(cockpit().textContent).not.toMatch(/Clara|Ben|Anna|David/); // Namen nur auf Karten und im Fenster „Heute“
   });
@@ -144,7 +145,7 @@ describe('Cockpit-Leiste', () => {
     app('db.lessonData = {}; db.students.g1.forEach(s => { s.attendance = []; delete s.birthday; })');
     at(8, 0);
     openSeating();
-    expect(topic()).toBe('Noch kein Thema eingetragen');
+    expect(topic()).toBe('Thema | Noch kein Thema eingetragen');
     expect(cockpit().querySelector('.cockpit-counts')).toBeNull();
     app('openSeatingToday()');
     expect(document.getElementById('seating-today-body').textContent).toContain('Nichts fällig, alle da.');
@@ -154,7 +155,7 @@ describe('Cockpit-Leiste', () => {
     app(`db.lessonData["m1_${MON}"] = { done: 'Brüche addieren' }`);
     at(8, 0);
     openSeating();
-    expect(topic()).toBe('Thema Brüche addieren');
+    expect(topic()).toBe('Thema heute | Brüche addieren');
   });
 
   it('zweite Stunde am selben Tag: „letzte Stunde“ ist die frühere von heute', () => {
@@ -376,6 +377,6 @@ describe('Darstellung', () => {
     expect(CSS).toMatch(/\.seating-cockpit\{/);
     expect(CSS).toMatch(/\.cockpit-progress span\{/);
     expect(CSS).not.toMatch(/\.cockpit[^{]*:hover/);
-    expect(CSS).toMatch(/\.cockpit-topic\{[^}]*white-space:nowrap[^}]*text-overflow:ellipsis/); // Thema nie mehrzeilig
+    expect(CSS).toMatch(/\.cockpit-topic-text\{[^}]*white-space:nowrap[^}]*text-overflow:ellipsis/); // Thema nie mehrzeilig
   });
 });

@@ -5247,12 +5247,17 @@ function renderSeatingCockpit(now = new Date()) {
   cockpitToday = { info, t };
   const { range, block } = info.lesson;
   const nextText = info.next ? `danach ${[lessonTitle(info.next.slot).main, minsToTime(info.next.range.start)].join(' · ')}` : '';
-  const timeHTML = info.running
-    ? `<div class="cockpit-mins"><b>${info.minsLeft}</b> Min</div><div class="cockpit-sub">bis ${minsToTime(range.end)}${nextText ? ` · ${escHtml(nextText)}` : ''}</div>`
-    : `<div class="cockpit-mins cockpit-soon">in <b>${info.startsIn}</b> Min</div><div class="cockpit-sub">${escHtml(block.label)} · ab ${minsToTime(range.start)}</div>`;
-  const topicHTML = t.topic ? `<b>Thema</b> ${escHtml(t.topic)}`
-    : t.prevTopic ? `<b>Letzte Stunde</b> ${escHtml(t.prevTopic)}`
-    : '<span class="cockpit-empty">Noch kein Thema eingetragen</span>';
+  // Links groß die Zeit mit Balken (das, worauf man im Unterricht am häufigsten schaut)
+  const timeHTML = (info.running
+    ? `<div class="cockpit-mins"><b>${info.minsLeft}</b> Min</div>`
+    : `<div class="cockpit-mins cockpit-soon">in <b>${info.startsIn}</b> Min</div>`)
+    + `<div class="cockpit-progress" aria-hidden="true"><span style="width:${Math.round(info.progress * 100)}%"></span></div>`
+    + `<div class="cockpit-sub">${info.running ? `bis ${minsToTime(range.end)}` : `${escHtml(block.label)} · ab ${minsToTime(range.start)}`}</div>`
+    + (nextText ? `<div class="cockpit-sub cockpit-next">${escHtml(nextText)}</div>` : '');
+  // Mitte: Überschrift, Thema in voller Breite, darunter die Zähler
+  const topicLabel = t.topic ? 'Thema heute' : t.prevTopic ? `Letzte Stunde · ${formatWeekdayShort(t.prev.dateStr)}` : 'Thema';
+  const topicHTML = `<span class="cockpit-topic-label">${escHtml(topicLabel)}</span>`
+    + `<span class="cockpit-topic-text">${t.topic || t.prevTopic ? escHtml(t.topic || t.prevTopic) : '<span class="cockpit-empty">Noch kein Thema eingetragen</span>'}</span>`;
   const counts = [];
   if (t.due.hw.length) counts.push(cockpitCount('hw', 'homework', t.due.hw.length > 1 ? t.due.hw.length : null, 'HA', `${t.due.hw.length} ${plural(t.due.hw.length, 'Hausaufgabe', 'Hausaufgaben')} fällig`));
   if (t.due.tests.length) counts.push(cockpitCount('test', 'test', t.due.tests.length > 1 ? t.due.tests.length : null, 'Test', `${t.due.tests.length} ${plural(t.due.tests.length, 'Test', 'Tests')} angekündigt`));
@@ -5261,10 +5266,11 @@ function renderSeatingCockpit(now = new Date()) {
   if (t.birthdays.length) counts.push(cockpitCount('bday', 'cake', t.birthdays.length, 'Geb.', `${t.birthdays.length} ${plural(t.birthdays.length, 'Geburtstag', 'Geburtstage')}`));
   el.innerHTML = `
     <button type="button" class="cockpit-time" onclick="openSeatingToday()" aria-label="Alles zu heute">${timeHTML}</button>
-    <button type="button" class="cockpit-topic" onclick="openSeatingToday()" title="Alles zu heute">${topicHTML}</button>
-    ${counts.length ? `<div class="cockpit-counts">${counts.join('')}</div>` : ''}
-    <button type="button" class="btn-secondary cockpit-lesson-btn" onclick="openCockpitLesson()" aria-label="Diese Stunde: Inhalt, Notiz, Hausaufgabe">${icon('edit')}<span>Stunde</span></button>
-    <div class="cockpit-progress" aria-hidden="true"><span style="width:${Math.round(info.progress * 100)}%"></span></div>`;
+    <div class="cockpit-main">
+      <button type="button" class="cockpit-topic" onclick="openSeatingToday()" title="Alles zu heute">${topicHTML}</button>
+      ${counts.length ? `<div class="cockpit-counts">${counts.join('')}</div>` : ''}
+    </div>
+    <button type="button" class="btn-secondary cockpit-lesson-btn" onclick="openCockpitLesson()" aria-label="Diese Stunde: Inhalt, Notiz, Hausaufgabe">${icon('edit')}<span>Stunde</span></button>`;
   return !wasShown;
 }
 let cockpitToday = null;
