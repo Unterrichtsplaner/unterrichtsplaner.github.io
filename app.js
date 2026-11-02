@@ -2541,7 +2541,7 @@ function renderSubjectGroups() {
           <span><em class="cr-avg" style="color:${gradeColor(groupAvg, scale)}">${formatGradeAverage(groupAvg)}</em> ${scale.higherIsBetter ? 'Pkt.' : 'Ø'}</span>
         </div>
         <div class="cr-btns">
-          <button class="btn-icon" title="Sitzplan" aria-label="Sitzplan ${escHtml(g.className)}" onclick="event.stopPropagation();openSeatingForGroup(${jsArg(g.id)})">${icon('seating')}</button>
+          <button class="btn-secondary cr-seating-btn" title="Sitzplan" aria-label="Sitzplan ${escHtml(g.className)}" onclick="event.stopPropagation();openSeatingForGroup(${jsArg(g.id)})">${icon('seating')}<span>Sitzplan</span></button>
           <button class="btn-icon" title="Bearbeiten" aria-label="${escHtml(g.className)} bearbeiten" onclick="event.stopPropagation();openEditGroup(${jsArg(g.id)})">${icon('edit')}</button>
         </div>`;
       row.addEventListener('click', () => openGroupStudents(g.id));

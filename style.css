@@ -277,10 +277,15 @@ input[type="date"] { min-height: 1.2em; } /* Fix iOS Safari date input collapse 
 .cr-nums em{font-style:normal;font-weight:600;color:var(--text-primary);margin-right:2px;}
 .cr-nums span{min-width:84px;text-align:right;}
 .cr-nums span + span{min-width:62px;}  /* feste Spalten: Zahlen stehen untereinander */
-.cr-btns{grid-area:btns;display:flex;gap:6px;}
+.cr-btns{grid-area:btns;display:flex;align-items:center;gap:8px;}
+/* Sitzplan ist der häufigste Weg aus der Übersicht: beschrifteter Knopf, gut zu treffen (nicht Akzent – Regel DESIGN.md 1) */
+.cr-seating-btn{display:inline-flex;align-items:center;gap:7px;min-height:40px;padding:0 14px;font-weight:600;color:var(--text-primary);}
+.cr-seating-btn .ico{width:16px;height:16px;}
+@media (pointer: coarse){.cr-seating-btn{min-height:44px;}}
 /* schmal: Zahlen in eine zweite Zeile */
 @container (max-width: 560px){
-  .class-row{grid-template-columns:minmax(48px,auto) minmax(0,1fr) auto;grid-template-areas:"name meta btns" "name nums btns";row-gap:4px;}
+  .class-row{grid-template-columns:minmax(48px,auto) minmax(0,1fr);grid-template-areas:"name meta" "name nums" "name btns";row-gap:6px;align-items:start;}
+  .cr-name{align-self:center;}
   .cr-nums{gap:14px;font-size:12px;}
   .cr-nums span,.cr-nums span + span{min-width:0;text-align:left;}
 }

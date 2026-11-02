@@ -52,8 +52,9 @@ describe('Akzent sparsam', () => {
     expect(rule('.tab-btn.active')).not.toMatch(/accent/);
     expect(rule('.overview-table td.ov-name')).toMatch(/color:var\(--text-primary\)/);
   });
-  it('„Sitzplan“ in der Klassenübersicht ist kein Hauptknopf (nur Symbol-Knopf am Zeilenrand)', () => {
-    expect(JS).toMatch(/<button class="btn-icon" title="Sitzplan"[^>]*openSeatingForGroup\(\$\{jsArg\(g\.id\)\}\)">\$\{icon\('seating'\)\}<\/button>/);
+  it('„Sitzplan“ in der Klassenübersicht: beschrifteter, gut treffbarer Knopf – aber kein Akzent', () => {
+    expect(JS).toMatch(/<button class="btn-secondary cr-seating-btn" title="Sitzplan"[^>]*openSeatingForGroup\(\$\{jsArg\(g\.id\)\}\)">\$\{icon\('seating'\)\}<span>Sitzplan<\/span><\/button>/);
+    expect(rule('.cr-seating-btn')).toMatch(/min-height:40px/);
   });
 });
 
