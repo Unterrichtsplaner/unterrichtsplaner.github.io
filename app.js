@@ -24,7 +24,6 @@ const APP_COLORS = [
   '#818cf8','#c084fc','#f0abfc','#f472b6','#fda4af','#fecdd3','#a8a29e'
 ];
 // Grundfarbe je Avatar; helle/dunkle Töne mit genug Kontrast mischt style.css (.student-avatar, BUGS L12)
-const AVATAR_COLORS = ['#6366f1', '#ec4899', '#f59e0b', '#22c55e', '#06b6d4', '#3b82f6', '#f97316'];
 
 // ─── Icons ───────────────────────────────────────────────────────────────
 // Linien-Icons wie im Menü, keine Emojis in Knöpfen/Reitern (Ausnahme: 😊😐☹️ bei der Mitarbeit).
@@ -1445,7 +1444,7 @@ function fillBlockSelector() {
 // ─── Fill group selector in lesson modal ──────────────────────────────────
 function fillGroupSelector(selectedGroupId = '') {
   const sel = document.getElementById('new-lesson-group');
-  sel.innerHTML = '<option value="">— Freie Eingabe (keine Verknüpfung) —</option>';
+  sel.innerHTML = '<option value="">Ohne Klasse (freie Eingabe)</option>';
   db.groups.forEach(g => {
     const opt = document.createElement('option');
     opt.value = g.id;
@@ -3552,9 +3551,6 @@ function renderStudents() {
     const avg = calculateStudentAverage(s, currentGroupId);
     const first = s.firstName || '', last = s.lastName || '';
     const initials = (first[0]||'') + (last[0]||'');
-    // Schüler können nur einen Namen haben (Import „Max“) → leere Teile zählen als 0
-    const avatarIdx = ((first.charCodeAt(0)||0) + (last.charCodeAt(0)||0)) % AVATAR_COLORS.length;
-    const avatarColor = AVATAR_COLORS[avatarIdx];
     const attUnexcused = (s.attendance||[]).filter(a => a.type==='abwesend').length;
     const attExcused = (s.attendance||[]).filter(a => a.type==='entschuldigt').length;
     const partPos = (s.participation||[]).filter(p => p.value==='positive').length;
@@ -3571,7 +3567,7 @@ function renderStudents() {
     row.className = 'student-row';
     row.innerHTML = `
       ${isStudentEditMode ? `<input type="checkbox" class="student-select-cb" data-id="${escHtml(s.id)}" onclick="event.stopPropagation(); updateMassDeleteBar()" style="margin-right: 12px; width: 18px; height: 18px; cursor: pointer;">` : ''}
-      <div class="student-avatar" style="--avatar:${avatarColor}">${escHtml(initials.toUpperCase())}</div>
+      <div class="student-avatar">${escHtml(initials.toUpperCase())}</div>
       <div class="student-info">
         <div class="student-name">${escHtml(studentListName(s))}</div>
         <div class="student-quick-notes">${s.notes ? escHtml(s.notes) : grades.length+' Note'+(grades.length!==1?'n':'')}</div>
@@ -4793,7 +4789,7 @@ function exportData() {
   db.settings.lastBackupTimestamp = Date.now();
   persistDB(); // keine Datenänderung: sonst Upload und evtl. Konflikt auf anderen Geräten (BUGS K13)
   
-  showToast('Daten erfolgreich gesichert! ✓');
+  showToast('Sicherung gespeichert ✓');
 }
 function importDataClick() { document.getElementById('import-file-input').click(); }
 function importData(event) {
@@ -5805,7 +5801,7 @@ function startSeatingRandomizer() {
   });
 
   if (presentStudents.length === 0) {
-    showToast('Keine anwesenden Schüler in dieser Klasse!', 'error');
+    showToast('Keine anwesenden Schüler in dieser Klasse', 'error');
     return;
   }
 
@@ -5903,7 +5899,7 @@ function generateSeatingGroups() {
   });
 
   if (presentStudents.length === 0) {
-    showToast('Keine anwesenden Schüler zum Einteilen!', 'error');
+    showToast('Keine anwesenden Schüler zum Einteilen', 'error');
     return;
   }
 
@@ -5957,7 +5953,7 @@ function generateSeatingGroups() {
 
   renderSeatingPlan();
   closeModal('modal-seating-groups');
-  showToast(`${groups.length} Gruppen gebildet!`);
+  showToast(`${groups.length} Gruppen gebildet`);
 }
 
 function clearSeatingGroups(showMsg = true) {
@@ -7610,7 +7606,7 @@ function timerTick() {
     // Bleibt markiert, bis zurückgesetzt wird; kurzer Ton, falls der Browser ihn zulässt (BUGS N12)
     document.getElementById('timer-display').classList.add('timer-done');
     playTimerSound();
-    showToast('Timer abgelaufen!');
+    showToast('Timer abgelaufen');
   }
 }
 
@@ -7872,7 +7868,7 @@ function registerEmail() {
 
   SyncManager.registerWithEmail(email, password)
     .then(() => {
-      showToast('Registrierung erfolgreich! Angemeldet ✓');
+      showToast('Konto angelegt, du bist angemeldet ✓');
       document.getElementById('sync-email').value = '';
       document.getElementById('sync-password').value = '';
     })
@@ -8434,13 +8430,13 @@ async function triggerSyncInternal({ manual = false } = {}) {
         syncQueued = true;
       } else {
         applyCloudData(result.data, result.cloudTimestamp);
-        showToast('Daten erfolgreich aus der Cloud synchronisiert! ✓');
+        showToast('Stand aus der Cloud übernommen ✓');
       }
     } else if (result.status === 'uploaded') {
       // Nur den hochgeladenen Stand als synchron markieren; Eingaben während des Uploads
       // bleiben „geändert“ und gehen mit dem nächsten Sync hoch.
       markSynced(result.cloudTimestamp, localModified);
-      if (manual) showToast('Daten erfolgreich in die Cloud geladen! ✓');
+      if (manual) showToast('In die Cloud hochgeladen ✓');
       warnIfCloudNearlyFull();
       updateSyncUI();
     } else if (result.status === 'no_change') {
@@ -8546,7 +8542,7 @@ async function resolveConflict(decision) {
       }
       SyncManager.updateStatus('synced');
       if (syncQueued) { syncQueued = false; triggerSyncInternal(); }
-      showToast('Cloud-Version erfolgreich mit lokalem Stand überschrieben.');
+      showToast('Cloud mit dem Stand dieses Geräts überschrieben ✓');
       warnIfCloudNearlyFull();
       updateSyncUI();
 

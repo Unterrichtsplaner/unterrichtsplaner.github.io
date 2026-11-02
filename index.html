@@ -41,7 +41,7 @@
       }
     } catch(e) {}
   </script>
-  <link rel="stylesheet" href="style.css?v=286" />
+  <link rel="stylesheet" href="style.css?v=287" />
   <script>
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
@@ -495,7 +495,7 @@
       <div class="form-group">
         <label for="new-lesson-group">Klasse verknüpfen (optional)</label>
         <select id="new-lesson-group" class="form-input" onchange="onLessonGroupChange()">
-          <option value="">— Freie Eingabe (keine Verknüpfung) —</option>
+          <option value="">Ohne Klasse (freie Eingabe)</option>
         </select>
       </div>
       <!-- Group preview (shown when a group is linked) -->
@@ -1307,7 +1307,7 @@
 
   <!-- Seating Randomizer Overlay -->
   <div id="modal-seating-randomizer" class="modal-overlay hidden" onclick="closeModalOnOverlay(event,'modal-seating-randomizer')">
-    <div class="modal modal-small" onclick="event.stopPropagation()" style="background: var(--bg-card); border: 2px solid var(--accent); box-shadow: 0 0 30px var(--accent-glow); text-align: center; overflow: visible;">
+    <div class="modal modal-small" onclick="event.stopPropagation()" style="background: var(--bg-card); border: 1px solid var(--border); text-align: center; overflow: visible;">
       <div class="modal-header" style="border: none; justify-content: flex-end; padding: 12px 12px 0 0;">
         <button class="modal-close" aria-label="Schließen" onclick="closeModal('modal-seating-randomizer')" style="background: transparent; border: none; font-size: 20px;">✕</button>
       </div>
@@ -1463,12 +1463,12 @@
   </div>
 
   <script src="lib/crypto-js.min.js"></script>
-  <script src="crypto-helper.js?v=286"></script>
+  <script src="crypto-helper.js?v=287"></script>
   <script src="lib/firebase-app-compat.js"></script>
   <script src="lib/firebase-auth-compat.js"></script>
   <script src="lib/firebase-firestore-compat.js"></script>
-  <script src="firebase-config.js?v=286"></script>
-  <script src="sync-manager.js?v=286"></script>
-  <script src="app.js?v=286"></script>
+  <script src="firebase-config.js?v=287"></script>
+  <script src="sync-manager.js?v=287"></script>
+  <script src="app.js?v=287"></script>
 </body>
 </html>

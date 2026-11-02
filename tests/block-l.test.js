@@ -291,10 +291,9 @@ describe('L10/L11: Exporte', () => {
 });
 
 describe('L12: Avatare lesbar', () => {
-  it('Farbe per CSS-Variable, Kontrast über style.css statt fester Farben', () => {
+  it('neutral aus style.css (AE7: keine Zufallsfarben), keine festen Farben im Markup', () => {
     app('openGroupStudents("g1")');
     const av = document.querySelector('#view-students .student-avatar');
-    expect(av.getAttribute('style')).toMatch(/--avatar:\s*#[0-9a-f]{6}/i);
-    expect(av.getAttribute('style')).not.toMatch(/background:/);
+    expect(av.getAttribute('style')).toBeNull();
   });
 });

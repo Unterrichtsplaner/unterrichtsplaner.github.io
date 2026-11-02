@@ -37,7 +37,6 @@
   --shadow-sm: 0 2px 8px rgba(0,0,0,0.15);
   --shadow-md: 0 4px 20px rgba(0,0,0,0.45);
   --shadow-lg: 0 8px 40px rgba(0,0,0,0.55);
-  --shadow-accent: 0 4px 20px rgba(99,102,241,0.32);
   --transition: 0.17s ease;
   --grade-1:#22c55e;--grade-2:#84cc16;--grade-3:#f59e0b;--grade-4:#f97316;--grade-5:#ef4444;
 }
@@ -68,7 +67,7 @@ input[type="date"] { min-height: 1.2em; } /* Fix iOS Safari date input collapse 
 .sidebar-toggle-btn{width:36px;height:36px;border-radius:var(--radius-md);background:transparent;border:none;color:var(--text-secondary);cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all var(--transition);}
 @media (hover: hover){.sidebar-toggle-btn:hover{background:var(--bg-card-hover);color:var(--text-primary);}}
 .app-logo{display:flex;align-items:center;gap:10px;}
-.app-logo-block{font-family:inherit;font-weight:700;font-size:20px;background:linear-gradient(135deg, #6366f1, #a78bfa);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;display:flex;align-items:center;justify-content:center;height:40px;box-sizing:border-box;}
+.app-logo-block{font-family:inherit;font-weight:700;font-size:20px;letter-spacing:-.3px;color:var(--text-primary);display:flex;align-items:center;justify-content:center;height:40px;box-sizing:border-box;}
 .app-logo-block .logo-short{display:none;}
 .nav-items{display:flex;flex-direction:column;gap:4px;flex:1;padding:0 8px;}
 .nav-item{display:flex;align-items:center;gap:10px;padding:10px 10px;border-radius:99px;background:transparent;border:none;color:var(--text-secondary);cursor:pointer;font-family:inherit;font-size:14px;font-weight:500;transition:all var(--transition);width:100%;text-align:left;}
@@ -102,13 +101,13 @@ input[type="date"] { min-height: 1.2em; } /* Fix iOS Safari date input collapse 
 /* Aktuelle Woche dezent: gefüllt ist nur „Heute“ (BUGS I17) */
 .week-label.active{color:var(--text-accent);border-color:var(--border-active);background:var(--accent-soft);}
 .btn-heute{padding:8px 16px;background:var(--bg-elevated);color:var(--text-secondary);border:1px solid var(--border);border-radius:99px;font-family:inherit;font-size:13px;font-weight:600;cursor:pointer;transition:all var(--transition);white-space:nowrap;}
-.btn-heute.active{background:var(--accent);color:white;border-color:var(--accent);box-shadow:var(--shadow-accent);}
+.btn-heute.active{background:var(--accent);color:white;border-color:var(--accent);}
 .breadcrumb-info{flex:1;}.breadcrumb-info h1{font-size:18px;}
 .subtitle{font-size:12px;color:var(--text-secondary);}
 
 /* ─── Buttons ────────────────────────── */
 .btn-primary{padding:8px 16px;background:var(--accent);color:white;border:none;border-radius:99px;font-family:inherit;font-size:13px;font-weight:600;cursor:pointer;transition:all var(--transition);white-space:nowrap;}
-@media (hover: hover){.btn-primary:hover{background:var(--accent-hover);box-shadow:var(--shadow-accent);}}
+@media (hover: hover){.btn-primary:hover{background:var(--accent-hover);}}
 .btn-circle{width:34px;height:34px;padding:0;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
 .btn-secondary{padding:8px 13px;background:var(--bg-elevated);color:var(--text-primary);border:1px solid var(--border);border-radius:99px;font-family:inherit;font-size:13px;font-weight:500;cursor:pointer;transition:all var(--transition);white-space:nowrap;}
 @media (hover: hover){.btn-secondary:hover{background:var(--bg-card-hover);border-color:var(--border-active);}}
@@ -199,7 +198,7 @@ input[type="date"] { min-height: 1.2em; } /* Fix iOS Safari date input collapse 
 .tt-empty-cell{height:100%;display:flex;align-items:center;justify-content:center;border-radius:var(--radius-sm);border:1.5px dashed transparent;transition:all var(--transition);cursor:pointer;width:100%;}
 .tt-add-icon{font-size:20px;font-weight:200;color:transparent;transition:all var(--transition);}
 @media (hover: hover){.tt-empty-cell:hover{border-color:var(--accent);background:var(--accent-soft);}}
-@media (hover: hover){.tt-empty-cell:hover .tt-add-icon{color:var(--accent);transform:scale(1.15);}}
+@media (hover: hover){.tt-empty-cell:hover .tt-add-icon{color:var(--accent);}}
 .tt-empty-cell:active{transform:scale(.97);}
 
 /* Split Block Layout */
@@ -270,7 +269,7 @@ input[type="date"] { min-height: 1.2em; } /* Fix iOS Safari date input collapse 
 .sgc-stat-value{font-size:17px;font-weight:700;}
 .sgc-stat-label{font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.3px;overflow-wrap:anywhere;}
 .sgc-permanent-edit-btn{position:absolute;top:12px;right:12px;width:34px;height:34px;border-radius:99px;background:var(--bg-elevated);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;color:var(--text-secondary);cursor:pointer;transition:all var(--transition);font-size:14px;z-index:2;}
-@media (hover: hover){.sgc-permanent-edit-btn:hover{color:var(--text-primary);background:var(--bg-card-hover);border-color:var(--accent);transform:scale(1.05);}}
+@media (hover: hover){.sgc-permanent-edit-btn:hover{color:var(--text-primary);background:var(--bg-card-hover);border-color:var(--accent);}}
 
 /* ─── Students list ──────────────────── */
 .students-list{flex:1;overflow-y:auto;padding:14px 22px;display:flex;flex-direction:column;gap:5px;}
@@ -278,8 +277,7 @@ input[type="date"] { min-height: 1.2em; } /* Fix iOS Safari date input collapse 
 @media (hover: hover){.student-row:hover{background:var(--bg-card-hover);border-color:var(--border-active);transform:translateX(3px);}}
 .student-avatar{width:38px;height:38px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px;flex-shrink:0;}
 /* Initialen hell auf dunklem Ton (dunkel) bzw. dunkel auf hellem Ton (hell), je ≥ 6:1 (BUGS L12) */
-.student-avatar{background:color-mix(in srgb, var(--avatar) 32%, #000);color:color-mix(in srgb, var(--avatar) 35%, #fff);}
-:root[data-theme="light"] .student-avatar{background:color-mix(in srgb, var(--avatar) 16%, #fff);color:color-mix(in srgb, var(--avatar) 50%, #000);}
+.student-avatar{background:var(--bg-elevated);color:var(--text-secondary);border:1px solid var(--border);} /* neutral: Zufallsfarben trugen keine Information (AE7) */
 .student-info{flex:1;min-width:0;}
 .student-name{font-size:14px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .student-quick-notes{font-size:11px;color:var(--text-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:2px;}
@@ -292,8 +290,8 @@ input[type="date"] { min-height: 1.2em; } /* Fix iOS Safari date input collapse 
 .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.72);backdrop-filter:blur(7px);z-index:1000;display:flex;align-items:center;justify-content:center;animation:fadeIn .18s ease;}
 .modal-overlay.hidden{display:none;}
 @keyframes fadeIn{from{opacity:0}to{opacity:1}}
-.modal{background:var(--bg-secondary);border-radius:var(--radius-xl);border:1px solid var(--border);box-shadow:var(--shadow-lg);display:flex;flex-direction:column;animation:slideUp .21s ease;max-height:92vh;overflow:hidden;}
-@keyframes slideUp{from{opacity:0;transform:translateY(16px) scale(.97)}to{opacity:1;transform:translateY(0) scale(1)}}
+.modal{background:var(--bg-secondary);border-radius:var(--radius-xl);border:1px solid var(--border);box-shadow:var(--shadow-lg);display:flex;flex-direction:column;animation:slideUp .16s ease-out;max-height:92vh;overflow:hidden;}
+@keyframes slideUp{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
 .modal-small{width:min(470px,95vw);}
 #modal-add-column .modal {
   min-height: 400px;
@@ -428,7 +426,7 @@ input[type="date"] { min-height: 1.2em; } /* Fix iOS Safari date input collapse 
 .date-chips-container{display:flex;gap:6px;flex-wrap:wrap;}
 .next-lesson-chip{padding:4px 9px;background:var(--accent-soft);color:var(--text-accent);border:1px solid var(--border-active);border-radius:99px;font-size:11px;font-weight:600;cursor:pointer;transition:all var(--transition);white-space:nowrap;font-family:inherit;}
 @media (hover: hover){.next-lesson-chip:hover{background:var(--accent);color:white;}}
-.next-lesson-chip.chip-active{background:var(--accent);color:white;box-shadow:0 2px 8px var(--accent-glow);}
+.next-lesson-chip.chip-active{background:var(--accent);color:white;}
 .next-lesson-chip:empty{display:none;}
 
 /* ─── Incoming items list ────────────── */
@@ -597,8 +595,8 @@ input[name="new-lesson-part"]:checked + .duration-btn {
 #lesson-color-picker,#group-color-picker{display:grid;grid-template-columns:repeat(7,26px);gap:10px 12px;}
 .settings-footer-hint{font-size:12px;color:var(--text-muted);}
 .color-swatch{width:26px;height:26px;border-radius:50%;cursor:pointer;border:2.5px solid transparent;transition:all var(--transition);position:relative;}
-@media (hover: hover){.color-swatch:hover{transform:scale(1.15);}}
-.color-swatch.selected{border-color:white !important;box-shadow:0 0 0 2px var(--swatch-color),0 2px 8px rgba(0,0,0,.4);transform:scale(1.12);}
+@media (hover: hover){.color-swatch:hover{box-shadow:0 0 0 2px var(--border-active);}}
+.color-swatch.selected{border-color:white !important;box-shadow:0 0 0 2px var(--swatch-color);}
 .color-swatch.selected::after{content:'✓';position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:white;}
 /* Helle Farben (BUGS AA6): weißes Häkchen wäre unsichtbar */
 .color-swatch.swatch-light.selected::after{color:#1f2937;}
