@@ -605,6 +605,8 @@ Geprüft: alles seit dem letzten Live-Stand (`196d3d9`, v278) bis v301 – Cockp
 - Bekannt, bewusst so: Wer früher ausdrücklich „Standard (dunkel)“ gewählt hatte, sieht jetzt hell (nicht von „nie gewählt“ unterscheidbar), Hinweis im „Das ist neu“-Fenster. Bei gewähltem Dunkel blitzt beim Start kurz hell auf (bis app.js läuft).
 
 
+- [x] **AF-G** 🟢 **Generalprobe vor dem Push (02.11.2026):** (1) Update v278 → v322 im Browser mit Altdaten auf derselben Adresse wie live (Service Worker): neue Version schon beim ersten Öffnen, Daten vollständig, `lastModified` unverändert, „Das ist neu“ genau einmal, hell nur ohne eigene Farbwahl. (2) Zweites Gerät mit v278 bearbeitet Daten der neuen Version (Note, Schüler, Klasse, Stunde, Einstellungen): Klassennotizen, Planung, Hinweise, Geburtstage, Halbjahr bleiben erhalten (`tests/alte-version.test.js`, lädt v278 aus Git). Gefunden: Rand um die App auf großen Monitoren war fest Schwarz (hellblaue Karte auf Schwarz), jetzt aus der Hintergrundfarbe gemischt.
+
 ## AG. Bedienbarkeit nach Web-Richtlinien (02.11.2026, web-design-guidelines-Skill)
 
 Geprüft: Cockpit, Fenster „Heute“, Schüler-Hinweis, Schülerliste/Klassenübersicht als Zeilen, Planung, Woche · Tag · Klasse – bei billigen Punkten die ganze App.

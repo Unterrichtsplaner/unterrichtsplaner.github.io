@@ -116,4 +116,8 @@ describe('Bedienbarkeit (Web-Richtlinien, 02.11.2026)', () => {
   it('Schülerzeilen per Tastatur erreichbar', () => {
     expect(JS).toMatch(/row\.className = 'student-row';\s*row\.setAttribute\('role', 'button'\);\s*row\.tabIndex = 0;/);
   });
+  it('Rand um die App (große Monitore) passt zum gewählten Design statt fest Schwarz (Generalprobe 02.11.)', () => {
+    const rule = CSS.match(/html,body\{[^}]*\}/)[0];
+    expect(rule).toMatch(/background:color-mix\(in srgb, var\(--bg-primary\) \d+%, #000\)/);
+  });
 });
