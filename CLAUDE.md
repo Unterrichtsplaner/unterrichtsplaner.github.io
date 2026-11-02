@@ -1,7 +1,17 @@
 # Unterrichtsplaner – Projektwissen für KI-Assistenten
 
 > Diese Datei zuerst lesen. Sie ist das Gedächtnis des Projekts über alle Sitzungen hinweg.
-> Offene Fehler und Aufgaben stehen in **[BUGS.md](BUGS.md)**.
+> Offene Fehler, Aufgaben und Wünsche stehen in **[BUGS.md](BUGS.md)** – das ist die Liste. Neue Wünsche dort zuerst eintragen (Block AD …), dann bauen.
+
+## Zusammenarbeit (Grundregeln)
+
+- **Immer auf Deutsch antworten**, auch in Abschlussberichten. Einfache Sprache, keine Fachbegriffe ohne Erklärung.
+- **Vor jeder Aufgabe die Aufwand-Stufe nennen** (Normal, Hoch oder Ultracode). Bei Hoch/Ultracode **nicht anfangen**, sondern kurz sagen, was ansteht, und auf „los“ warten, damit die Stufe umgestellt werden kann. Normal = kleine Fehler, Aussehen, Texte, Fragen; Hoch = neues System, das viel Code berührt; Ultracode = große Prüfungen mit vielen Agenten.
+- **Neue Wünsche erst klären, dann bauen:** in `BUGS.md` eintragen, offene Fragen stellen, Vorschlag mit Empfehlung machen.
+- **Pushen nur, wenn der Nutzer selbst „push“ sagt.** Nie fragen, vorschlagen oder daran erinnern, ob etwas live gehen soll. Am Ende nur berichten, was gemacht ist.
+- **Nicht mehrere Agenten gleichzeitig mit Tests oder Browser** laufen lassen (Mac mit 16 GB).
+- **Selbst prüfen, bevor etwas gezeigt wird:** Tests, Browser (iPad-, Handy- und Laptop-Breite), bei Druck/PDF echte PDFs erzeugen und ansehen. Nie den Nutzer bitten, etwas nachzuprüfen, was sich selbst prüfen lässt.
+- **Zugangsdaten nie selbst eintippen** (GitHub, Firebase, Passwörter). Klappt ein Push nicht, den Befehl im Terminal-Tab des Nutzers starten; er gibt die Daten selbst ein.
 
 ## Worum es geht
 
@@ -23,7 +33,7 @@ lib/crypto-js.min.js → crypto-helper.js → lib/firebase-*-compat.js → fireb
 
 | Datei | Inhalt |
 |---|---|
-| `app.js` (~4300 Z.) | Fast die ganze App: State, Rendering (HTML-Strings per `innerHTML`), alle Event-Handler (inline `onclick` in index.html → globale Funktionen) |
+| `app.js` (~8300 Z.) | Fast die ganze App: State, Rendering (HTML-Strings per `innerHTML`), alle Event-Handler (inline `onclick` in index.html → globale Funktionen) |
 | `index.html` | Gesamtes Markup inkl. aller Modals (`modal-*`) und Views (`view-dashboard/timetable/classes/students/seating`) |
 | `sync-manager.js` | Firebase-Auth + Firestore, Sync-Entscheidung (`decideSync`), Passwort-Probe, Upload per Transaktion |
 | `crypto-helper.js` | E2EE: verschlüsselt die komplette DB mit dem Master-Passwort, bevor sie in die Cloud geht |
@@ -46,9 +56,10 @@ db = {
                   subject, room, color, groupId,
                   recurring /*'weekly'|'biweekly'|'none' (Altdaten: true/false)*/,
                   startDate /*biweekly: Datum in einer A-Woche*/, startWeek /*veraltet, nur für alte App-Versionen*/,
-                  specificDate /*einmalig, liegt immer auf `day`*/,
+                  specificDate /*einmalig, liegt immer auf `day`*/, substitute /*Vertretung (einmalig)*/,
+                  movedFrom /*{ slotId, date }: „nur an diesem Tag“ verlegt/geändert, Regel 65*/,
                   validFrom, validUntil /*optional, YYYY-MM-DD inkl.: Stundenplanwechsel „ab dieser Woche“*/ }],
-  lessonData: { '<slotId>_<YYYY-MM-DD>': { done, notes, ausfall, hwEnabled, testEnabled, … } },
+  lessonData: { '<slotId>_<YYYY-MM-DD>': { done, notes, ausfall, movedTo /*{ slotId, date }*/, hwEnabled, testEnabled, … } },
   groups: [{ id, subject, className, year, color, schularbeitWeight /*0–100*/, gradeScale /*'1-6' (Standard, fehlt bei Altdaten) | '0-15'*/,
              seatingRows, seatingCols, teacherDeskX, teacherDeskY, seatingPlan: [{ studentId, … }],
              gradeEvents, attendanceEvents, participationEvents, homeworkEvents }],
@@ -175,7 +186,7 @@ Datumswerte sind Strings `YYYY-MM-DD` in **lokaler** Zeit (`formatDate()`). Nie 
 3. `npm test` muss grün sein.
 4. `npm run bump`, sonst sehen installierte Apps die Änderung nie.
 5. In `BUGS.md` abhaken und neue Erkenntnisse hier in „Regeln“ ergänzen.
-6. Commit auf einem Branch. **Mergen/Pushen auf `main` = live für alle Geräte**, nur nach Rückfrage.
+6. Commit auf einem Branch. **Mergen/Pushen auf `main` = live für alle Geräte** – nur, wenn der Nutzer „push“ sagt (nicht danach fragen). Danach prüfen, dass `unterrichtsplaner.github.io` die neue `?v=N` ausliefert.
 
 **So kommt ein Update bei Nutzern an:** Seit v192 (BUGS G2) lädt die Seite online zuerst vom Server, das Update läuft also schon beim **ersten** Öffnen nach dem Deploy (offline oder bei hängendem WLAN nach 3 s die gecachte Version). Geräte, die noch eine ältere Version als v192 installiert haben, verhalten sich beim Sprung auf v192 noch wie früher (in der Generalprobe am 24.09.2026 beobachtet): erstes Öffnen = alte Version aus dem Cache, ab dem zweiten die neue. GitHub Pages lässt Browser Dateien bis zu 10 Minuten zwischenspeichern, direkt nach dem Deploy kann also noch kurz der alte Stand kommen. Neuer Code muss immer mit Daten klarkommen, die die alte Version gerade noch geschrieben hat.
 
