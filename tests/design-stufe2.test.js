@@ -48,7 +48,7 @@ describe('Ordnung', () => {
 
 describe('Akzent sparsam', () => {
   it('Menü und Reiter zeigen „gewählt“ ohne Akzentfläche, Namen in Tabellen in normaler Schrift', () => {
-    expect(rule('.nav-item.active')).not.toMatch(/accent-soft|text-accent/);
+    expect(rule('.nav-item.active')).not.toMatch(/accent/);                 // auch keine farbige Kante links
     expect(rule('.tab-btn.active')).not.toMatch(/accent/);
     expect(rule('.overview-table td.ov-name')).toMatch(/color:var\(--text-primary\)/);
   });

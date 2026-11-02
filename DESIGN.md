@@ -25,7 +25,7 @@
 
 ## Regeln
 
-1. **Akzent nur für die Hauptaktion und „jetzt“** (Hauptknopf, „Heute“, laufende/nächste Stunde, gewählter Tag, Schalter an). Nicht für Menü, Reiter, Namen, Plaketten, Wochentage. „Gewählt“ ohne Akzent: Tinte auf Papier (`.tab-btn.active`) oder eine schmale Akzentmarke (`.nav-item.active`).
+1. **Akzent nur für die Hauptaktion und „jetzt“** (Hauptknopf, „Heute“, laufende/nächste Stunde, gewählter Tag, Schalter an). Nicht für Menü, Reiter, Namen, Plaketten, Wochentage. „Gewählt“ ohne Akzent: Tinte auf Papier (`.tab-btn.active`) oder eine hellere Fläche ohne farbige Kante (`.nav-item.active`).
 2. **Schriftgrößen nur aus der Reihe** 10 · 11 · 12 · 13 · 14 · 16 · 20 · 26 px (+ 36 für die Restzeit im Cockpit, große Symbole). `tests/design-stufe2.test.js` prüft das.
 3. **Rundungen nur über Grundwerte:** `--radius-xs` (Plaketten), `--radius-sm` (Knöpfe, Eingaben, Reiter), `--radius-md` (Karten), `--radius-lg/xl` (Fenster). Die Pille (`99px`) nur für Chips und Zähler, runde Icon-Knöpfe als Kreis. Der Regler „Rundung“ in den Einstellungen verschiebt alle Grundwerte.
 4. **Etiketten in normaler Schreibung**, nicht in Großbuchstaben. Ausnahme: winzige Überschriften wie „LETZTE STUNDE“ im Cockpit.
