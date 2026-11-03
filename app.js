@@ -1309,7 +1309,7 @@ function buildTimetableCell(d, dayIdx, block, clock = timetableClock()) {
     const sub = (t.sub ? `<span>${escHtml(t.sub)}</span>` : '') +
                 (lesson.room ? `<span class="tt-lesson-room">${escHtml(lesson.room)}</span>` : '');
 
-    const range = lessonTimeRange(block, lesson.part);
+    const range = lessonTimeRange(block, lessonPartIn(block, lesson, lessons.length));
     const running = !isAusfall && dateStr === clock.todayStr && range &&
       range.start <= clock.nowMins && clock.nowMins < range.end;
     const isNext = !running && clock.next && clock.next.slot.id === lesson.id && clock.next.dateStr === dateStr;
@@ -8090,6 +8090,12 @@ function lessonTimeRange(block, part) {
   if (part === 'second') return { start: mid, end };
   return { start, end };
 }
+// Eine einzelne „Hälfte“ in einer Einzelstunde (aus der Zeit mit Doppelstunden) zählt wie eine ganze: So zeigt sie
+// der Stundenplan (AA2), und so müssen Restzeit und Cockpit rechnen – sonst „noch 22 min“ statt 45 (AH3b).
+// `count` = Stunden im selben Block an diesem Tag.
+function lessonPartIn(block, slot, count) {
+  return count === 1 && blockDuration(block) <= 50 ? 'full' : slot.part;
+}
 function minsToTime(m) { return `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`; }
 
 // Alle Stunden eines Tages in zeitlicher Reihenfolge: [{ slot, block, dateStr, range, ausfall }]
@@ -8097,11 +8103,11 @@ function lessonsOnDate(dateStr) {
   const partOrder = { first: 0, full: 0, second: 1 };
   const result = [];
   getBlocks().forEach(block => {
-    lessonsAt(dateStr, block.num)
-      .sort((a, b) => partOrder[a.part || 'full'] - partOrder[b.part || 'full'])
+    const slots = lessonsAt(dateStr, block.num);
+    slots.sort((a, b) => partOrder[a.part || 'full'] - partOrder[b.part || 'full'])
       .forEach(slot => result.push({
         slot, block, dateStr,
-        range: lessonTimeRange(block, slot.part),
+        range: lessonTimeRange(block, lessonPartIn(block, slot, slots.length)),
         ausfall: !!(db.lessonData[slot.id + '_' + dateStr] || {}).ausfall,
       }));
   });

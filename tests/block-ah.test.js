@@ -46,3 +46,35 @@ describe('AH1b: Home-Bildschirm-App auf dem iPad', () => {
     expect(block).toMatch(/html\.ios-gap #app\{position:fixed;/);
   });
 });
+
+// AH3b: „falsche Minuten“. Eine Stunde aus der Zeit mit Doppelstunden ist noch als „2. Hälfte“ gespeichert. In einer
+// Einzelstunde zeigt der Stundenplan sie als ganze Stunde (AA2), Restzeit und Cockpit rechneten aber mit der halben.
+describe('AH3b: einzelne Hälfte in einer Einzelstunde zählt wie eine ganze', () => {
+  beforeAll(() => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date(2026, 10, 10, 8, 10));   // Di 10.11.2026, 08:10
+    app(`db.settings.blocks = [{ num: 1, label: '1. Stunde', start: '08:00', end: '08:45' }, { num: 2, label: '2. Stunde', start: '08:50', end: '09:35' }];
+      db.groups = [{ id: 'g1', subject: 'Mathe', className: '7a', schularbeitWeight: 50 }]; db.students = { g1: [] };
+      db.lessonSlots = [{ id: 'h', day: 1, block: 1, part: 'second', subject: 'Mathe', groupId: 'g1', recurring: 'weekly' },
+                        { id: 'f', day: 1, block: 2, part: 'first', subject: 'Mathe', groupId: 'g1', recurring: 'weekly' }]`);
+  });
+  afterAll(() => vi.useRealTimers());
+  it('Zeiten über den ganzen Block', () => {
+    const l = app('lessonsOnDate("2026-11-10")');
+    expect(l.map(x => x.range)).toEqual([{ start: 480, end: 525 }, { start: 530, end: 575 }]);
+  });
+  it('Cockpit: läuft schon, noch 35 Min', () => {
+    const info = app('seatingCockpitInfo("g1", "2026-11-10")');
+    expect(info.running).toBe(true);
+    expect(info.minsLeft).toBe(35);
+  });
+  it('Stundenplan-Kachel: „noch 35 min“', () => {
+    app('switchView("timetable"); renderTimetable()');
+    expect(document.getElementById('view-timetable').textContent).toContain('noch 35 min');
+  });
+  it('echte Hälften in einem Doppelblock bleiben halbe Stunden', () => {
+    app(`db.settings.blocks = [{ num: 1, label: '1. Block', start: '08:00', end: '09:30' }];
+      db.lessonSlots = [{ id: 'a', day: 1, block: 1, part: 'first', subject: 'Mathe', groupId: 'g1', recurring: 'weekly' }]`);
+    expect(app('lessonsOnDate("2026-11-10")')[0].range).toEqual({ start: 480, end: 525 });
+  });
+});
