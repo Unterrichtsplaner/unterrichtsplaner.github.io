@@ -89,6 +89,11 @@ describe('AH12: Ansicht der Klassenübersicht wählbar', () => {
     expect(d).toMatch(/Auffällig.*1 Schüler/);
     expect(d).not.toContain('A B');                                    // keine Namen
   });
+  it('Groß: eine Kachel über die ganze Breite, Angaben nebeneinander (Wunsch 03.11.)', () => {
+    expect(rule('.class-list.is-large')).toMatch(/grid-template-columns:minmax\(0,1fr\)/);
+    expect(rule('.class-tile.is-large')).toMatch(/display:grid;grid-template-columns:minmax\(150px,220px\) minmax\(0,1fr\) auto;/);
+    expect(rule('.is-large .ct-details')).toMatch(/grid-template-columns:repeat\(2,minmax\(0,1fr\)\)/);
+  });
   it('Groß: Klasse ohne Stunden zeigt nur, was es gibt', () => {
     const d = tileOf('5a').querySelector('.ct-details');
     expect(d === null || !/Nächste Stunde|Geplant|Fällig/.test(d.textContent)).toBe(true);

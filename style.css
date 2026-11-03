@@ -312,17 +312,31 @@ input[type="date"] { min-height: 1.2em; } /* Fix iOS Safari date input collapse 
 .is-list .cr-btns{grid-area:btns;display:flex;align-items:center;gap:8px;}
 .is-list .class-row.has-notes{grid-template-areas:"name meta nums btns" "name notes notes notes";row-gap:8px;}
 .is-list .cr-notes{grid-area:notes;}
-/* Ansicht „Groß“ (AH12): breitere Kacheln mit nächster Stunde, Thema, Fälligem, Auffälligen */
-.class-list.is-large{grid-template-columns:repeat(auto-fill,minmax(300px,1fr));}
+/* Ansicht „Groß“ (AH12): eine Kachel über die ganze Breite – links Klasse, Mitte nächste Stunde, Thema, Fälliges,
+   Auffällige in zwei Spalten, rechts Zahlen und Sitzplan. Schmal wieder untereinander. */
+.class-list.is-large{grid-template-columns:minmax(0,1fr);}
+.class-tile.is-large{display:grid;grid-template-columns:minmax(150px,220px) minmax(0,1fr) auto;grid-template-areas:"head details foot" "meta details foot" "notes details foot" ". details foot";grid-template-rows:auto auto auto 1fr;column-gap:20px;row-gap:4px;align-items:start;}
+.is-large .cr-head{grid-area:head;}
+.is-large .cr-meta{grid-area:meta;}
+.is-large .cr-notes{grid-area:notes;margin-top:4px;}
+.is-large .ct-details{grid-area:details;align-self:stretch;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));align-content:start;gap:8px 20px;padding:2px 0 2px 20px;border-top:none;border-left:1px solid color-mix(in srgb, var(--card-color) 30%, transparent);}
+.is-large .cr-foot{grid-area:foot;align-self:stretch;flex-direction:column;align-items:flex-end;justify-content:space-between;margin-top:0;}
+.is-large .ct-details .ct-line{grid-template-columns:minmax(0,1fr);gap:1px;}   /* Beschriftung klein über dem Wert */
 .ct-details{display:flex;flex-direction:column;gap:5px;padding:8px 0;border-top:1px solid color-mix(in srgb, var(--card-color) 30%, transparent);}
 .ct-line{display:grid;grid-template-columns:96px minmax(0,1fr);gap:8px;font-size:13px;line-height:1.35;}
 .ct-label{color:var(--text-muted);font-size:12px;}
 .ct-val{color:var(--text-primary);overflow-wrap:anywhere;}
 .ct-warn .ct-val{color:var(--danger);font-weight:600;}
 /* Handy: zwei Kacheln nebeneinander */
+/* Groß, schmal (Handy, iPad hoch mit Seitenleiste): Angaben untereinander wie in der Kachel */
+@container (max-width: 760px){
+  .class-tile.is-large{display:flex;}
+  .is-large .ct-details{display:flex;padding:8px 0;border-left:none;border-top:1px solid color-mix(in srgb, var(--card-color) 30%, transparent);}
+  .is-large .cr-foot{flex-direction:row;align-items:center;margin-top:auto;}
+  .is-large .ct-details .ct-line{grid-template-columns:96px minmax(0,1fr);gap:8px;}
+}
 @container (max-width: 480px){
   .class-list:not(.is-list):not(.is-large){grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;}
-  .class-list.is-large{grid-template-columns:minmax(0,1fr);}
   .is-list .class-row{grid-template-columns:minmax(48px,auto) minmax(0,1fr);grid-template-areas:"name meta" "name nums" "name btns";row-gap:6px;align-items:start;}
   .is-list .class-row.has-notes{grid-template-areas:"name meta" "name notes" "name nums" "name btns";}
   .is-list .cr-name{align-self:center;}

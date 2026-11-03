@@ -41,7 +41,7 @@ Kalender mit Haken in Tinten-Blau `#2f55c9` auf Papier `#f5f1e9` (`icon.svg`, da
 
 ## Listen statt Karten
 
-Die Schülerliste besteht aus Zeilen mit Trennlinien (gleiche Angaben in festen Spalten untereinander), kein Kartenraster. Neue Listen genauso bauen; Karten nur, wo jedes Element eigenen, bildhaften Inhalt hat (Sitzplan, Stunden-Kacheln). **Ausnahme Klassenübersicht (AH8, Wunsch 03.11.):** Kacheln in Klassenfarbe wie die Stunde im Stundenplan (Grund 15 % Klassenfarbe, Name 26 px in der Farbe) – Klassen findet man an Farbe und Namen wieder, nicht an Spalten. Wählbar sind daneben „Liste“ (Zeilen wie die Schülerliste) und „Groß“ (Kachel mit nächster Stunde, Thema, Fälligem, Auffälligen; AH12).
+Die Schülerliste besteht aus Zeilen mit Trennlinien (gleiche Angaben in festen Spalten untereinander), kein Kartenraster. Neue Listen genauso bauen; Karten nur, wo jedes Element eigenen, bildhaften Inhalt hat (Sitzplan, Stunden-Kacheln). **Ausnahme Klassenübersicht (AH8, Wunsch 03.11.):** Kacheln in Klassenfarbe wie die Stunde im Stundenplan (Grund 15 % Klassenfarbe, Name 26 px in der Farbe) – Klassen findet man an Farbe und Namen wieder, nicht an Spalten. Wählbar sind daneben „Liste“ (Zeilen wie die Schülerliste) und „Groß“ (eine Kachel über die ganze Breite mit nächster Stunde, Thema, Fälligem, Auffälligen; AH12).
 
 ## Noch offen
 
