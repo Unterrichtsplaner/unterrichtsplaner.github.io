@@ -65,6 +65,13 @@ input[type="date"] { min-height: 1.2em; } /* Fix iOS Safari date input collapse 
 @media (hover: hover) and (pointer: fine) and (min-width: 1440px) and (min-height: 960px) {
   #app{max-width:1180px;max-height:820px;border-radius:var(--radius-md);border:1px solid rgba(255,255,255,0.05);box-shadow:0 20px 60px rgba(0,0,0,0.6);}
 }
+/* Vom Home-Bildschirm gestartet (AH1): iOS rechnet 100dvh dort ohne die Statusleiste. #app war dann kürzer als der
+   Bildschirm und stand per margin:auto mittig: oben eine dunkle Kante in der Statusleiste, unten eine Lücke.
+   Hier füllt #app den ganzen Bildschirm, und was trotzdem frei bleibt, hat die Farbe der App. */
+@media (display-mode: standalone){
+  html,body{background:var(--bg-primary);}
+  #app{height:100%;}
+}
 
 /* ─── Sidebar ────────────────────────── */
 #sidebar{width:var(--sidebar-width);background:var(--sidebar-bg);border-right:1px solid var(--border);display:flex;flex-direction:column;padding:0;flex-shrink:0;z-index:100;position:sticky;left:0;transition:width var(--transition), padding var(--transition);overflow:hidden;}
@@ -86,6 +93,12 @@ input[type="date"] { min-height: 1.2em; } /* Fix iOS Safari date input collapse 
 .sidebar-footer{border-top:1px solid var(--border);height:80px;box-sizing:border-box;display:flex;align-items:center;padding:0 8px;}
 
 #sidebar.collapsed { width: 88px; padding: 0; }
+/* Mit Seitenleiste (iPad, Laptop): Die Ansichten reichen bis unten an den Rand, nur die Leiste hält Abstand zum
+   Home-Balken. Auf dem Handy (Leiste oben) bleibt der Abstand für die ganze App. */
+@media (min-width: 601px){
+  #app{padding-bottom:0;}
+  #sidebar,#sidebar.collapsed{padding-bottom:env(safe-area-inset-bottom);}
+}
 #sidebar.collapsed .nav-item span { display: none; }
 #sidebar.collapsed .app-logo-block { padding: 0; width: 36px; height: 36px; }
 #sidebar.collapsed .app-logo-block .logo-full { display: none; }

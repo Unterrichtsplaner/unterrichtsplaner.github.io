@@ -5285,7 +5285,7 @@ function renderSeatingCockpit(now = new Date()) {
   const wasShown = !el.classList.contains('hidden');
   el.classList.toggle('hidden', !info);
   setSeatingWakeLock(!!info);
-  if (!info) { el.innerHTML = ''; cockpitLesson = null; cockpitToday = null; return wasShown; }
+  if (!info) { el.innerHTML = ''; cockpitHTML = ''; cockpitLesson = null; cockpitToday = null; return wasShown; }
   const t = seatingTodayInfo(currentSeatingGroupId, info);
   cockpitLesson = { slotId: info.lesson.slot.id, dateStr: info.lesson.dateStr };
   cockpitToday = { info, t };
@@ -5308,16 +5308,18 @@ function renderSeatingCockpit(now = new Date()) {
   if (t.absent.length) counts.push(cockpitCount('absent', 'absences', t.absent.length, plural(t.absent.length, 'fehlt', 'fehlen'), `${t.absent.length} ${plural(t.absent.length, 'fehlt', 'fehlen')} heute`));
   if (t.missed.length) counts.push(cockpitCount('missed', 'calendar-x', t.missed.length, 'nachholen', `${t.missed.length} ${plural(t.missed.length, 'hat', 'haben')} letzte Stunde gefehlt`));
   if (t.birthdays.length) counts.push(cockpitCount('bday', 'cake', t.birthdays.length, 'Geb.', `${t.birthdays.length} ${plural(t.birthdays.length, 'Geburtstag', 'Geburtstage')}`));
-  el.innerHTML = `
+  const html = `
     <button type="button" class="cockpit-time" onclick="openSeatingToday()" aria-label="Alles zu heute">${timeHTML}</button>
     <div class="cockpit-main">
       <button type="button" class="cockpit-topic" onclick="openSeatingToday()" title="Alles zu heute">${topicHTML}</button>
       ${counts.length ? `<div class="cockpit-counts">${counts.join('')}</div>` : ''}
     </div>
     <button type="button" class="btn-secondary cockpit-lesson-btn" onclick="openCockpitLesson()" aria-label="Diese Stunde: Inhalt, Notiz, Hausaufgabe">${icon('edit')}<span>Stunde</span></button>`;
+  // Nur bei neuem Inhalt ersetzen: Sonst verschwände alle paar Sekunden der Knopf unter dem Finger, und das Tippen ginge verloren (AH3)
+  if (html !== cockpitHTML) { el.innerHTML = html; cockpitHTML = html; }
   return !wasShown;
 }
-let cockpitToday = null;
+let cockpitToday = null, cockpitHTML = '';
 // Fenster „Heute“: alles zur laufenden Stunde im Detail (Listen dürfen hier beliebig lang sein)
 function openSeatingToday() {
   if (!cockpitToday) return;
@@ -5406,11 +5408,12 @@ document.addEventListener('visibilitychange', () => {
   if (document.hidden) { appHiddenAt = Date.now(); return; }
   const away = appHiddenAt !== null && Date.now() - appHiddenAt >= SEATING_RESUME_MINS * 60000;
   appHiddenAt = null;
-  if (!away || document.querySelector('.modal-overlay:not(.hidden)') || timetableEditMode || seatingEditMode) return;
+  // Offener Sitzplan: nach dem Entsperren sofort die richtige Restzeit, nicht erst beim nächsten Takt (AH3)
   if (document.getElementById('view-seating')?.classList.contains('active')) { refreshSeatingCockpit(); return; }
+  if (!away || document.querySelector('.modal-overlay:not(.hidden)') || timetableEditMode || seatingEditMode) return;
   if (shouldStartInSeating()) switchView('seating');
 });
-setInterval(() => { if (!document.hidden) refreshSeatingCockpit(); }, 15000);
+setInterval(() => { if (!document.hidden) refreshSeatingCockpit(); }, 5000);
 
 // Bildschirm bleibt an, solange das Cockpit eine Stunde zeigt (Screen Wake Lock; iPad ab iOS 16.4).
 // Der Browser gibt die Sperre beim Verlassen der App selbst frei → beim Zurückkommen neu anfordern.

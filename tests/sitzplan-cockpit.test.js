@@ -451,3 +451,43 @@ describe('Wichtiger Hinweis (AD17): eigenes Feld, rotes Symbol', () => {
     expect(row.querySelector('.sq-important').textContent).toBe('Wichtig');
   });
 });
+
+describe('Restzeit nach dem Entsperren (AH3)', () => {
+  const mins = () => cockpit().querySelector('.cockpit-mins').textContent.replace(/\s+/g, ' ');
+  const comeBack = () => {
+    Object.defineProperty(document, 'hidden', { value: true, configurable: true });
+    document.dispatchEvent(new Event('visibilitychange'));
+    Object.defineProperty(document, 'hidden', { value: false, configurable: true });
+    document.dispatchEvent(new Event('visibilitychange'));
+  };
+  afterEach(() => { delete document.hidden; });
+
+  it('kurz gesperrt (unter 15 Min): Leiste zeigt sofort die neue Restzeit', () => {
+    at(8, 30);
+    openSeating();
+    expect(mins()).toBe('45 Min');
+    at(8, 33, 10);
+    comeBack();
+    expect(mins()).toBe('42 Min');
+  });
+
+  it('auch mit offenem Fenster (z. B. „Heute“)', () => {
+    at(8, 30);
+    openSeating();
+    app('openSeatingToday()');
+    at(8, 40, 5);
+    comeBack();
+    expect(mins()).toBe('35 Min');
+    app('closeModal("modal-seating-today")');
+  });
+
+  it('gleiche Minute: Knöpfe bleiben dieselben (Tippen geht nicht verloren)', () => {
+    at(8, 30, 0);
+    openSeating();
+    const btn = cockpit().querySelector('.cockpit-time');
+    at(8, 30, 5); app('refreshSeatingCockpit()');
+    expect(cockpit().querySelector('.cockpit-time')).toBe(btn);
+    at(8, 31, 5); app('refreshSeatingCockpit()');
+    expect(mins()).toBe('44 Min');
+  });
+});
