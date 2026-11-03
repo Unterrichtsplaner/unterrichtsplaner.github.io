@@ -5497,6 +5497,49 @@ function commitSeatingStudentHint() {
   refreshStudentViews(ctx.groupId);
 }
 
+// Notiz zum Schüler direkt im Sitzplan (AH10), landet bei den Anmerkungen im Profil (studentNotes). Vorhandene
+// Notizen nur auf Knopfdruck (Beamer, Regel 67); was man eben selbst getippt hat, bleibt sichtbar. Nie gespeichert.
+let seatingNotesShown = false, seatingNotesFresh = [];
+function commitSeatingStudentForm() { addSeatingStudentNote(); commitSeatingStudentHint(); }
+function renderSeatingStudentNotes() {
+  const box = document.getElementById('seating-student-notes');
+  const ctx = window.currentSeatingStudent;
+  if (!box || !ctx) return;
+  const s = (db.students[ctx.groupId] || []).find(x => x.id === ctx.studentId);
+  if (!s) { box.innerHTML = ''; return; }
+  const notes = [...(s.studentNotes || [])].sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+  const all = seatingNotesShown || seatingShowGrades;
+  const visible = all ? notes : notes.filter(n => seatingNotesFresh.includes(n));
+  const hidden = notes.length - visible.length;
+  box.innerHTML = (visible.length ? `<ul class="seating-notes">${visible.map(n =>
+      `<li><small>${n.date ? escHtml(formatDateShort(n.date)) : ''}</small>${escHtml(n.text)}</li>`).join('')}</ul>` : '')
+    + (hidden ? `<div class="seating-hint-hidden"><span>${hidden === 1 ? '1 Notiz' : hidden + ' Notizen'} (verborgen)</span>`
+      + `<button type="button" class="btn-secondary seating-reveal-btn">Anzeigen</button></div>` : '');
+  const btn = box.querySelector('.seating-reveal-btn');
+  if (btn) btn.addEventListener('click', () => { seatingNotesShown = true; renderSeatingStudentNotes(); });
+}
+function addSeatingStudentNote() {
+  const input = document.getElementById('seating-student-note-input');
+  const ctx = window.currentSeatingStudent;
+  const text = input ? input.value.trim() : '';
+  if (!text || !ctx) return false;
+  const s = (db.students[ctx.groupId] || []).find(x => x.id === ctx.studentId);
+  if (!s) { showToast('Diesen Schüler gibt es nicht mehr (z. B. durch Sync). Notiz nicht gespeichert', 'error'); return false; }
+  if (!Array.isArray(s.studentNotes)) s.studentNotes = [];
+  const note = { text, date: ctx.dateStr || formatDate(new Date()) };
+  s.studentNotes.push(note);
+  seatingNotesFresh.push(note);
+  input.value = '';
+  saveDB();
+  refreshStudentViews(ctx.groupId);
+  renderSeatingStudentNotes();
+  return true;
+}
+document.getElementById('seating-student-note-input')?.addEventListener('keydown', e => {
+  if (e.key === 'Enter') { e.preventDefault(); addSeatingStudentNote(); }
+});
+document.querySelector('#modal-seating-student .seating-note-add')?.addEventListener('click', () => addSeatingStudentNote());
+
 // ─── Geburtstage (AD6) ──────────────────────────────────────────────────────
 // Nur ein Datum, das als Geburtstag eines Kindes stimmen kann: Ein Datum aus diesem oder den letzten Jahren kam vom iPad,
 // das beim Antippen des leeren Feldes „heute“ einträgt (AH7). Gespeicherte Werte bleiben, sie zählen nur nicht.
@@ -6408,6 +6451,9 @@ function openSeatingStudentModal(studentId, groupId, dateStr) {
 
   renderSeatingStudentGrades(seatingShowGrades);
   renderSeatingStudentHint(seatingShowGrades);
+  seatingNotesShown = false; seatingNotesFresh = [];
+  document.getElementById('seating-student-note-input').value = '';
+  renderSeatingStudentNotes();
   markSeatingStudentState(s, dateStr);
 
   openModal('modal-seating-student');
@@ -6496,7 +6542,7 @@ function openGradeForm(studentId, groupId, gradeIdx, defaultDateStr = '', defaul
   // Hide the quick student modal if it's open, so they don't overlap awkwardly
   const seatingModal = document.getElementById('modal-seating-student');
   if (!seatingModal.classList.contains('hidden')) {
-    commitSeatingStudentHint(); // eingetippten Hinweis sichern, bevor das Fenster (ohne closeModal) verschwindet
+    commitSeatingStudentForm(); // eingetippten Hinweis/Notiz sichern, bevor das Fenster (ohne closeModal) verschwindet
     seatingModal.classList.add('hidden');
     currentGradeFormCtx.wasSeatingModalOpen = true;
   }
@@ -6742,7 +6788,7 @@ function closeModal(id) {
   const m = document.getElementById(id);
   if (!m) return;
   const wasOpen = !m.classList.contains('hidden');
-  if (wasOpen && id === 'modal-seating-student') commitSeatingStudentHint(); // eingetippten Hinweis nie verwerfen (Regel 27)
+  if (wasOpen && id === 'modal-seating-student') commitSeatingStudentForm(); // eingetippten Hinweis/Notiz nie verwerfen (Regel 27)
   m.classList.add('hidden');
   const back = modalReturnFocus[id];
   delete modalReturnFocus[id];
@@ -9304,7 +9350,7 @@ function flushPendingSync() {
 function onAppHidden() {
   hideAllPasswords();
   if (!document.getElementById('modal-lesson').classList.contains('hidden')) storeLessonForm();
-  if (!document.getElementById('modal-seating-student').classList.contains('hidden')) commitSeatingStudentHint();
+  if (!document.getElementById('modal-seating-student').classList.contains('hidden')) commitSeatingStudentForm();
   flushPendingSync();
 }
 document.addEventListener('visibilitychange', () => { if (document.hidden) onAppHidden(); });

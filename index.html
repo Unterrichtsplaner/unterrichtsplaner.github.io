@@ -40,7 +40,7 @@
       }
     })();
   </script>
-  <link rel="stylesheet" href="style.css?v=340" />
+  <link rel="stylesheet" href="style.css?v=341" />
   <script>
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
@@ -1393,6 +1393,15 @@
             </div>
           </div>
         </div>
+        <!-- Notiz zum Schüler (AH10): eintippen sofort, vorhandene nur auf Knopfdruck -->
+        <div class="seating-note-block">
+          <h3 class="seating-hint-title"><i data-icon="notes"></i>Notiz</h3>
+          <div class="lcn-add">
+            <input type="text" id="seating-student-note-input" class="entry-input" placeholder="z. B. Heft vergessen" aria-label="Neue Notiz zum Schüler" />
+            <button type="button" class="btn-secondary btn-circle seating-note-add" aria-label="Notiz hinzufügen"><i data-icon="plus"></i></button>
+          </div>
+          <div id="seating-student-notes"></div>
+        </div>
         <div class="seating-hint-block">
           <h3 class="seating-hint-title"><i data-icon="info"></i>Hinweise</h3>
           <div id="seating-student-hint"></div>
@@ -1577,12 +1586,12 @@
   </div>
 
   <script src="lib/crypto-js.min.js"></script>
-  <script src="crypto-helper.js?v=340"></script>
+  <script src="crypto-helper.js?v=341"></script>
   <script src="lib/firebase-app-compat.js"></script>
   <script src="lib/firebase-auth-compat.js"></script>
   <script src="lib/firebase-firestore-compat.js"></script>
-  <script src="firebase-config.js?v=340"></script>
-  <script src="sync-manager.js?v=340"></script>
-  <script src="app.js?v=340"></script>
+  <script src="firebase-config.js?v=341"></script>
+  <script src="sync-manager.js?v=341"></script>
+  <script src="app.js?v=341"></script>
 </body>
 </html>
