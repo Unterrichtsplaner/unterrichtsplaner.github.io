@@ -336,11 +336,12 @@ input[type="date"] { min-height: 1.2em; } /* Fix iOS Safari date input collapse 
 .is-large .ct-main{grid-area:details;align-self:stretch;padding:0 0 0 20px;border-left:1px solid color-mix(in srgb, var(--card-color) 30%, transparent);}
 .is-large .cr-foot{grid-area:foot;align-self:stretch;flex-direction:column;align-items:flex-end;justify-content:space-between;margin-top:0;}
 /* A+ (Design-Prüfung, AH14): fester Stapel wann → Thema → zuletzt → Plaketten, Rangfolge über Größe/Gewicht, nur Inter */
-.ct-main{display:flex;flex-direction:column;gap:3px;min-width:0;--when-ink:color-mix(in srgb, var(--card-color) 60%, #fff);}
+.ct-main{display:flex;flex-direction:column;gap:3px;min-width:0;--when-ink:color-mix(in srgb, var(--card-color) 55%, #fff);}   /* ≥ 4,6:1 auch in der Box auf Schiefer */
 :root[data-theme="light"] .ct-main{--when-ink:color-mix(in srgb, var(--card-color) 38%, #000);}   /* ≥ 4,6:1 für alle Klassenfarben */
-.ct-when{display:flex;align-items:center;flex-wrap:wrap;gap:4px 6px;font-size:14px;font-weight:600;color:var(--when-ink);}
+/* „Wann“ als eigene Box (Wunsch 03.11.): Kartenfläche mit Rand in Klassenfarbe, hebt sich vom Kachelgrund ab */
+.ct-when{display:inline-flex;align-self:flex-start;align-items:center;flex-wrap:wrap;gap:4px 6px;max-width:100%;margin-bottom:4px;padding:5px 10px;border-radius:var(--radius-sm);background:var(--bg-elevated);border:1px solid color-mix(in srgb, var(--card-color) 40%, transparent);font-size:14px;font-weight:600;color:var(--when-ink);}
 .ct-when .ico{width:15px;height:15px;flex-shrink:0;}
-.ct-when.is-none{color:var(--text-secondary);font-weight:500;}
+.ct-when.is-none{color:var(--text-secondary);font-weight:500;background:none;border-color:transparent;padding-left:0;}
 .ct-now{background:var(--accent);color:var(--on-accent);border-radius:var(--radius-xs);padding:1px 7px;font-size:13px;}   /* „jetzt“ = Akzent (DESIGN.md Regel 1) */
 .ct-topic{font-size:16px;font-weight:600;color:var(--text-primary);line-height:1.3;overflow-wrap:anywhere;}
 .ct-topic small{font-size:13px;font-weight:500;color:var(--text-secondary);margin-left:6px;white-space:nowrap;}

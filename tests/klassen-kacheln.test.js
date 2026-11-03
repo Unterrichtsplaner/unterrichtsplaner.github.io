@@ -270,3 +270,13 @@ describe('Kacheln: Plaketten in einer Reihe', () => {
     expect(rule('.ct-chips .cn-chip')).toMatch(/font-size:13px;padding:3px 9px;/);
   });
 });
+
+// Groß: „wann“ in einer eigenen Box (Wunsch 03.11.)
+describe('Groß: Zeit in einer Box', () => {
+  it('Kartenfläche mit Rand in Klassenfarbe, nur so breit wie der Text; „Keine Stunde geplant“ ohne Box', () => {
+    expect(rule('.ct-when')).toMatch(/display:inline-flex;align-self:flex-start;/);
+    expect(rule('.ct-when')).toMatch(/background:var\(--bg-elevated\);border:1px solid color-mix\(in srgb, var\(--card-color\) 40%, transparent\);/);
+    expect(rule('.ct-when')).toMatch(/border-radius:var\(--radius-sm\)/);
+    expect(rule('.ct-when.is-none')).toMatch(/background:none;/);
+  });
+});
