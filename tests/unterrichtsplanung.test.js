@@ -236,7 +236,7 @@ describe('Stundenplan: Woche · Tag · Klasse', () => {
   it('Handy: statt Woche · Tag · Klasse ein Knopf Tag ↔ Klasse (Platz im Kopf)', () => {
     const css = require('fs').readFileSync(require('path').join(__dirname, '..', 'style.css'), 'utf8');
     const phone = css.match(/@media \(max-width: 699px\)\{\.tt-print-btn[^@]*?\}\}/)[0];
-    expect(phone).toMatch(/\.tt-mode\{display:none;\}/);
+    expect(phone).toMatch(/#tt-mode\{display:none;\}/);   // nur der Stundenplan; die Klassenübersicht zeigt ihren Umschalter (AH12)
     expect(phone).toMatch(/\.tt-mode-compact\{display:flex;\}/);
     expect(phone).toMatch(/\.tt-print-btn\{display:none;\}/);   // Datum braucht den Platz
     expect(document.getElementById('btn-tt-classmode').getAttribute('onclick')).toBe("setTimetableMode(timetableMode === 'class' ? 'week' : 'class')");
