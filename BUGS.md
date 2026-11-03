@@ -84,7 +84,7 @@ Priorität: 🔴 Datenverlust / App kaputt · 🟠 falsche Anzeige / nervig · �
 - [x] **G1** 🟠 Versionsnummern an drei Stellen von Hand → jetzt `npm run bump` + Test `tests/pwa-cache.test.js`.
 - [x] **G2** 🟠 `index.html` wird cache-first ausgeliefert → Updates nur über neue SW-Version. Besser: Navigation network-first mit Cache-Fallback.
 - [x] **G3** 🟠 Undefinierte CSS-Variablen: `--border-color`, `--radius`, `--bg-hover`, `--accent-rgb`, `--success-soft`, `--warning-soft`.
-- [x] **G4** 🟠 Zoom gesperrt (`user-scalable=no`, `touch-action`) – Barrierefreiheit.
+- [x] **G4** 🟠 Zoom gesperrt (`user-scalable=no`, `touch-action`) – Barrierefreiheit. *Seit AH11 (Wunsch 03.11.) wieder gesperrt.*
 - [x] **G5** 🟠 iOS-Icon ist SVG (wird nicht unterstützt) → PNG 180×180. Manifest: PNG 192/512, Farben/Namen angleichen.
 - [x] **G6** 🟢 Timer zählt Ticks statt Uhrzeit → geht nach, wenn iPad gesperrt war (~Z. 3948).
 - [x] **G7** 🟢 Escape schließt nicht alle Modals; Icon-Buttons ohne `aria-label`.

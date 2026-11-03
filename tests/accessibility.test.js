@@ -44,12 +44,9 @@ beforeAll(() => {
 });
 afterAll(() => vi.useRealTimers());
 
-describe('G4: Zoomen ist erlaubt', () => {
-  it('viewport sperrt Zoom nicht', () => {
-    const viewport = html.match(/<meta name="viewport" content="([^"]+)"/)[1];
-    expect(viewport).not.toMatch(/user-scalable\s*=\s*(no|0)/);
-    expect(viewport).not.toMatch(/maximum-scale/);
-  });
+// G4 erlaubte Zoomen (Barrierefreiheit). Seit AH11 (Wunsch 03.11.) ist es gesperrt, s. tests/block-ah.test.js;
+// die Schrift ist dafür groß genug (Eingaben ab 16 px auf Touch-Geräten, unten).
+describe('G4: Zoomen (seit AH11 gesperrt)', () => {
 
   it('html/body verbieten Pinch-Zoom nicht per touch-action', () => {
     const rule = css.match(/html,body\{[^}]*\}/)[0];
