@@ -147,3 +147,22 @@ describe('AH7: Geburtstag nur, wenn er stimmen kann', () => {
     app('closeModal("modal-add-student")');
   });
 });
+
+// AH11: Mit zwei Fingern ließ sich die ganze App vergrößern (iPad, 03.11.). iOS beachtet „user-scalable=no“ allein
+// nicht mehr; das Zusammenziehen meldet es als „gesture…“-Ereignis, das die App abfängt. maximum-scale=1 verhindert
+// außerdem das automatische Hineinzoomen beim Tippen in kleine Eingabefelder (iPhone).
+describe('AH11: kein Zoomen mit zwei Fingern', () => {
+  it('Viewport ohne Zoom', () => {
+    const vp = HTML.match(/<meta name="viewport" content="([^"]*)"/)[1];
+    expect(vp).toMatch(/maximum-scale=1/);
+    expect(vp).toMatch(/user-scalable=no/);
+    expect(vp).toMatch(/viewport-fit=cover/);
+  });
+  it('Zwei-Finger-Geste wird abgefangen', () => {
+    for (const type of ['gesturestart', 'gesturechange']) {
+      const e = new Event(type, { cancelable: true, bubbles: true });
+      document.body.dispatchEvent(e);
+      expect(e.defaultPrevented).toBe(true);
+    }
+  });
+});

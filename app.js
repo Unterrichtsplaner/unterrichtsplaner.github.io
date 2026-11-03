@@ -6818,6 +6818,10 @@ function labelModals() {
 }
 labelModals();
 
+// Kein Zoomen mit zwei Fingern (AH11): Die App ist für die Bildschirmgröße gebaut, versehentliches Vergrößern
+// am Pult ließ sich kaum zurückholen. iOS ignoriert „user-scalable=no“ und meldet das Zusammenziehen als gesture…
+['gesturestart', 'gesturechange'].forEach(t => document.addEventListener(t, e => e.preventDefault(), { passive: false }));
+
 // „Passwort anzeigen“ (Auge) an den Master-Passwort-Feldern (`data-reveal`). Nie gespeichert: Schließen der
 // Einstellungen und Verlassen der App verbergen es wieder – am Pult soll es niemand sehen.
 function setPasswordVisible(input, show) {
