@@ -21,29 +21,21 @@ describe('AH1: App vom Home-Bildschirm füllt das iPad', () => {
   });
 });
 
-// Zweiter Anlauf (AH1b): iOS 26.1+ zieht über die Statusleiste einen Schleier (bei „black-translucent“), und die
-// Seitenhöhe ist um die Statusleiste zu kurz. Beides lässt sich nur auf dem Gerät sehen; geprüft wird die Erkennung.
+// Zweiter Anlauf (AH1b), im iPad-Simulator (iOS 26) gemessen: Mit „black-translucent“ liegt die Seite unter der
+// Statusleiste, ist aber um deren Höhe zu kurz (unten ein Streifen, den keine Seite erreicht), und iOS legt einen
+// Schleier über die Statusleiste. Ohne den Meta-Tag beginnt die Seite unter der Statusleiste und reicht bis unten.
+const HTML = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
 const { loadApp, app } = require('./helpers/load-app');
-describe('AH1b: Home-Bildschirm-App auf dem iPad', () => {
-  beforeAll(() => loadApp());
-  const fit = o => app(`standaloneFullHeight(${JSON.stringify(o)})`);
-  it('erkennt: Seite + Statusleiste = Bildschirm → volle Höhe (quer und hoch)', () => {
-    // iPad 11″ quer: Bildschirm 834 × 1194, Seite 1194 × 802, Statusleiste 32
-    expect(fit({ clientWidth: 1194, clientHeight: 802, screenWidth: 834, screenHeight: 1194, safeTop: 32 })).toBe(834);
-    expect(fit({ clientWidth: 834, clientHeight: 1162, screenWidth: 834, screenHeight: 1194, safeTop: 32 })).toBe(1194);
+describe('AH1b: Statusleiste über der Seite', () => {
+  it('kein „black-translucent“, Statusleisten-Farbe über theme-color', () => {
+    expect(HTML).not.toMatch(/apple-mobile-web-app-status-bar-style/);
+    expect(HTML).toMatch(/<meta name="theme-color"/);
+    expect(HTML).toMatch(/viewport-fit=cover/);   // Home-Balken unten weiter über safe-area
   });
-  it('ändert nichts, wenn die Höhe schon stimmt, im Fenster (Split View) oder ohne Statusleiste', () => {
-    expect(fit({ clientWidth: 1194, clientHeight: 834, screenWidth: 834, screenHeight: 1194, safeTop: 32 })).toBeNull();
-    expect(fit({ clientWidth: 700, clientHeight: 802, screenWidth: 834, screenHeight: 1194, safeTop: 32 })).toBeNull();
-    expect(fit({ clientWidth: 1194, clientHeight: 834, screenWidth: 834, screenHeight: 1194, safeTop: 0 })).toBeNull();
-    // Handy quer: zu niedrig für die feste Höhe, dort darf die Seite scrollen
-    expect(fit({ clientWidth: 852, clientHeight: 393 - 20, screenWidth: 393, screenHeight: 852, safeTop: 20 })).toBeNull();
-  });
-  it('eigene Kante oben in App-Farbe, damit iOS keinen Schleier über die Statusleiste legt', () => {
-    expect(document.getElementById('top-edge')).not.toBeNull();
+  it('feste Kante oben in App-Farbe, damit iOS keinen Schleier über den Rand legt', () => {
+    expect(HTML).toMatch(/<div id="top-edge" aria-hidden="true"><\/div>/);
     const block = CSS.match(/@media \(display-mode: standalone\)\{([\s\S]*?)\n\}/)[1];
-    expect(block).toMatch(/#top-edge\{display:block;position:fixed;top:0;/);
-    expect(block).toMatch(/html\.ios-gap #app\{position:fixed;/);
+    expect(block).toMatch(/#top-edge\{display:block;position:fixed;top:0;left:0;right:0;height:max\(env\(safe-area-inset-top\),6px\)/);
   });
 });
 
@@ -51,6 +43,7 @@ describe('AH1b: Home-Bildschirm-App auf dem iPad', () => {
 // Einzelstunde zeigt der Stundenplan sie als ganze Stunde (AA2), Restzeit und Cockpit rechneten aber mit der halben.
 describe('AH3b: einzelne Hälfte in einer Einzelstunde zählt wie eine ganze', () => {
   beforeAll(() => {
+    loadApp();
     vi.useFakeTimers({ toFake: ['Date'] });
     vi.setSystemTime(new Date(2026, 10, 10, 8, 10));   // Di 10.11.2026, 08:10
     app(`db.settings.blocks = [{ num: 1, label: '1. Stunde', start: '08:00', end: '08:45' }, { num: 2, label: '2. Stunde', start: '08:50', end: '09:35' }];

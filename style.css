@@ -65,21 +65,17 @@ input[type="date"] { min-height: 1.2em; } /* Fix iOS Safari date input collapse 
 @media (hover: hover) and (pointer: fine) and (min-width: 1440px) and (min-height: 960px) {
   #app{max-width:1180px;max-height:820px;border-radius:var(--radius-md);border:1px solid rgba(255,255,255,0.05);box-shadow:0 20px 60px rgba(0,0,0,0.6);}
 }
-/* Vom Home-Bildschirm gestartet (AH1): iOS rechnet 100dvh dort ohne die Statusleiste. #app war dann kürzer als der
-   Bildschirm und stand per margin:auto mittig: oben eine dunkle Kante in der Statusleiste, unten eine Lücke.
-   Hier füllt #app den ganzen Bildschirm, und was trotzdem frei bleibt, hat die Farbe der App. */
+/* Vom Home-Bildschirm gestartet (AH1): #app so hoch wie die Seite, was drumherum frei bleibt, in App-Farbe.
+   Die Statusleiste liegt über der Seite (kein „black-translucent“ mehr, AH1b) und hat die Farbe aus theme-color. */
 #top-edge{display:none;}
 @media (display-mode: standalone){
   html,body{background:var(--bg-primary);}
   #app{height:100%;}
-  /* iOS 26.1+ legt bei „black-translucent“ einen Schleier über die Statusleiste (oben „verschwommen“). Den lässt es weg,
-     wenn oben eine feste, deckende Fläche über die ganze Breite liegt (AH1b). Unter den Fenstern, damit die abdunkeln. */
-  @supports (-webkit-touch-callout: none){   /* nur iPhone/iPad */
+  /* iOS 26 legt einen Schleier über die Statusleiste, der den oberen Rand der Seite verwischt. Den lässt es weg, wenn
+     oben eine feste, deckende Fläche über die ganze Breite liegt (im iPad-Simulator geprüft, AH1b). */
+  @supports (-webkit-touch-callout: none){
     #top-edge{display:block;position:fixed;top:0;left:0;right:0;height:max(env(safe-area-inset-top),6px);background:var(--bg-primary);z-index:900;pointer-events:none;}
   }
-  /* Seitenhöhe um die Statusleiste zu kurz (iOS-Fehler, erkennt standaloneFullHeight): #app selbst bis zum Rand.
-     Fest positioniert, weil die Seite sonst um den Überstand scrollen würde. */
-  html.ios-gap #app{position:fixed;top:0;left:0;height:var(--app-full-h);min-height:0;}
 }
 
 /* ─── Sidebar ────────────────────────── */
