@@ -13,35 +13,34 @@
   <link rel="icon" type="image/svg+xml" href="icon.svg" />
   <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png" />
   <script>
-    try {
-      const raw = localStorage.getItem('lehrerapp_v3');
-      if (raw) {
-        const db = JSON.parse(raw);
-        if (db && db.settings) {
-          if (db.settings.theme) document.documentElement.setAttribute('data-theme', db.settings.theme);
-          if (db.settings.themeBg) document.documentElement.style.setProperty('--bg-primary', db.settings.themeBg);
-          if (db.settings.themeCard) {
-            document.documentElement.style.setProperty('--bg-card', db.settings.themeCard);
-            document.documentElement.style.setProperty('--bg-secondary', db.settings.themeCard);
-            document.documentElement.style.setProperty('--sidebar-bg', db.settings.themeCard);
-          }
-          if (db.settings.themeAccent) {
-            document.documentElement.style.setProperty('--accent', db.settings.themeAccent);
-            document.documentElement.style.setProperty('--text-accent', db.settings.themeAccent);
-          }
-          if (db.settings.themeRadius !== undefined) {
-            let rad = db.settings.themeRadius;
-            if (rad > 12) rad = 12;
-            document.documentElement.style.setProperty('--radius-sm', Math.max(0, rad - 2) + 'px');
-            document.documentElement.style.setProperty('--radius-md', rad + 'px');
-            document.documentElement.style.setProperty('--radius-lg', (rad + 4) + 'px');
-            document.documentElement.style.setProperty('--radius-xl', (rad + 10) + 'px');
-          }
-        }
+    // Farben vor dem ersten Zeichnen, wie applyThemePreview in app.js: iOS nimmt für die Statusleiste der
+    // Home-Bildschirm-App die Farbe beim Start, app.js käme dafür zu spät (Leiste beige statt Eisblau, AH1c)
+    (function () {
+      const root = document.documentElement;
+      let s = {};
+      try { const raw = localStorage.getItem('lehrerapp_v3'); s = (raw && JSON.parse(raw).settings) || {}; } catch (e) {}
+      const custom = s.themeBg && s.themeBg !== '#0f1117' && s.themeBg !== '#bfdbfe' ? s.themeBg : '';   // sonst Standard (Eisblau)
+      const bg = custom || '#bfdbfe';
+      const card = custom ? s.themeCard : '#dbeafe';
+      root.setAttribute('data-theme', custom ? (s.theme || 'dark') : 'light');
+      ['--bg-primary', '--sidebar-bg', '--bg-secondary'].forEach(v => root.style.setProperty(v, bg));
+      if (card) ['--bg-card', '--bg-elevated'].forEach(v => root.style.setProperty(v, card));
+      const meta = document.querySelector('meta[name="theme-color"]');
+      if (meta) meta.setAttribute('content', bg);
+      if (s.themeAccent) {
+        root.style.setProperty('--accent', s.themeAccent);
+        root.style.setProperty('--text-accent', s.themeAccent);
       }
-    } catch(e) {}
+      if (s.themeRadius !== undefined && s.themeRadius !== null) {
+        const rad = Math.min(12, s.themeRadius);
+        root.style.setProperty('--radius-sm', Math.max(0, rad - 2) + 'px');
+        root.style.setProperty('--radius-md', rad + 'px');
+        root.style.setProperty('--radius-lg', (rad + 4) + 'px');
+        root.style.setProperty('--radius-xl', (rad + 10) + 'px');
+      }
+    })();
   </script>
-  <link rel="stylesheet" href="style.css?v=333" />
+  <link rel="stylesheet" href="style.css?v=334" />
   <script>
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
@@ -1577,12 +1576,12 @@
   </div>
 
   <script src="lib/crypto-js.min.js"></script>
-  <script src="crypto-helper.js?v=333"></script>
+  <script src="crypto-helper.js?v=334"></script>
   <script src="lib/firebase-app-compat.js"></script>
   <script src="lib/firebase-auth-compat.js"></script>
   <script src="lib/firebase-firestore-compat.js"></script>
-  <script src="firebase-config.js?v=333"></script>
-  <script src="sync-manager.js?v=333"></script>
-  <script src="app.js?v=333"></script>
+  <script src="firebase-config.js?v=334"></script>
+  <script src="sync-manager.js?v=334"></script>
+  <script src="app.js?v=334"></script>
 </body>
 </html>

@@ -71,3 +71,31 @@ describe('AH3b: einzelne Hälfte in einer Einzelstunde zählt wie eine ganze', (
     expect(app('lessonsOnDate("2026-11-10")')[0].range).toEqual({ start: 480, end: 525 });
   });
 });
+
+// AH1c: Ohne black-translucent nimmt iOS für die Statusleiste die Farbe beim ersten Zeichnen. Online lief app.js dafür
+// zu spät: Leiste beige (Grundfarbe aus style.css) statt Eisblau. Das Skript im <head> setzt die Farben jetzt selbst.
+describe('AH1c: Farben schon vor dem ersten Zeichnen', () => {
+  const headScript = HTML.match(/<head>[\s\S]*?<script>([\s\S]*?)<\/script>/)[1];
+  const run = settings => {
+    const root = document.documentElement;
+    root.removeAttribute('style'); root.setAttribute('data-theme', 'light');
+    let meta = document.querySelector('meta[name="theme-color"]');
+    if (!meta) { meta = document.createElement('meta'); meta.name = 'theme-color'; document.head.appendChild(meta); }
+    meta.content = '#bfdbfe';
+    if (settings) localStorage.setItem('lehrerapp_v3', JSON.stringify({ settings })); else localStorage.removeItem('lehrerapp_v3');
+    new Function(headScript)();
+    return { bg: root.style.getPropertyValue('--bg-primary'), sidebar: root.style.getPropertyValue('--sidebar-bg'),
+      card: root.style.getPropertyValue('--bg-card'), mode: root.getAttribute('data-theme'), meta: meta.content };
+  };
+  afterAll(() => localStorage.removeItem('lehrerapp_v3'));
+  it('ohne Daten und mit Standardfarbe: Eisblau, hell', () => {
+    expect(run(null)).toEqual({ bg: '#bfdbfe', sidebar: '#bfdbfe', card: '#dbeafe', mode: 'light', meta: '#bfdbfe' });
+    expect(run({ theme: 'dark' })).toMatchObject({ bg: '#bfdbfe', mode: 'light' });          // Standard ist immer hell
+    expect(run({ themeBg: '#0f1117', theme: 'dark' })).toMatchObject({ bg: '#bfdbfe', mode: 'light' });   // altes Dunkel-Standard
+  });
+  it('eigene Farbe: wie app.js (applyThemePreview)', () => {
+    expect(run({ themeBg: '#1e293b', themeCard: '#334155', theme: 'dark' }))
+      .toEqual({ bg: '#1e293b', sidebar: '#1e293b', card: '#334155', mode: 'dark', meta: '#1e293b' });
+    expect(run({ themeBg: '#fde68a' })).toMatchObject({ bg: '#fde68a', mode: 'dark', card: '' });
+  });
+});
