@@ -2518,8 +2518,8 @@ function renderSubjectGroups() {
   // Sort subjects alphabetically
   const subjects = Object.keys(groupsBySubject).sort((a, b) => a.localeCompare(b));
 
-  // Klassen als Zeilen je Fach statt Karten (BUGS AE8): gleiche Angaben stehen untereinander, viele Klassen passen
-  // auf einen Blick (Musiklehrkraft mit 26 Klassen). Ganze Zeile öffnet die Klasse.
+  // Klassen als Kacheln in Klassenfarbe je Fach (AH8, vorher Zeilen AE8): Man findet eine Klasse an Farbe und großem
+  // Namen wieder wie im Stundenplan. Ganze Kachel öffnet die Klasse.
   const todayStr = formatDate(new Date());
   subjects.forEach(subj => {
     const section = document.createElement('section');
@@ -2547,23 +2547,25 @@ function renderSubjectGroups() {
 
       const row = document.createElement('div');
       const cNotes = activeClassNotes(g, todayStr);
-      row.className = 'class-row' + (cNotes.length ? ' has-notes' : '');
+      row.className = 'class-row class-tile' + (cNotes.length ? ' has-notes' : '');
       row.setAttribute('role', 'button');
       row.tabIndex = 0;
       row.setAttribute('aria-label', `Klasse ${g.className} ${g.subject || ''} öffnen`.replace(/\s+/g, ' '));
-      row.style.setProperty('--card-color', g.color || 'var(--accent)');
+      row.style.setProperty('--card-color', safeColor(g.color));
       row.innerHTML = `
-        <div class="cr-name">${escHtml(g.className)}</div>
-        <div class="cr-meta"><b>${escHtml([g.subject, g.year].filter(Boolean).join(' · '))}</b><small>${meta}</small></div>
-        <div class="cr-nums">
-          <span><em>${students.length}</em> Schüler</span>
-          <span><em class="cr-avg" style="color:${gradeColor(groupAvg, scale)}">${formatGradeAverage(groupAvg)}</em> ${scale.higherIsBetter ? 'Pkt.' : 'Ø'}</span>
-        </div>
-        ${cNotes.length ? classNotesInlineHTML(cNotes, 'cr-notes') : ''}
-        <div class="cr-btns">
+        <div class="cr-head">
+          <div class="cr-name">${escHtml(g.className)}</div>
           <button class="btn-icon cr-notes-btn" title="Notizen" aria-label="Notizen ${escHtml(g.className)}" onclick="event.stopPropagation();openClassNotes(${jsArg(g.id)})">${icon('pin')}</button>
-          <button class="btn-secondary cr-seating-btn" title="Sitzplan" aria-label="Sitzplan ${escHtml(g.className)}" onclick="event.stopPropagation();openSeatingForGroup(${jsArg(g.id)})">${icon('seating')}<span>Sitzplan</span></button>
           <button class="btn-icon" title="Bearbeiten" aria-label="${escHtml(g.className)} bearbeiten" onclick="event.stopPropagation();openEditGroup(${jsArg(g.id)})">${icon('edit')}</button>
+        </div>
+        <div class="cr-meta"><b>${escHtml([g.subject, g.year].filter(Boolean).join(' · '))}</b><small>${meta}</small></div>
+        ${cNotes.length ? classNotesInlineHTML(cNotes, 'cr-notes') : ''}
+        <div class="cr-foot">
+          <div class="cr-nums">
+            <span><em>${students.length}</em> Schüler</span>
+            <span><em class="cr-avg" style="color:${gradeColor(groupAvg, scale)}">${formatGradeAverage(groupAvg)}</em> ${scale.higherIsBetter ? 'Pkt.' : 'Ø'}</span>
+          </div>
+          <button class="btn-secondary cr-seating-btn" title="Sitzplan" aria-label="Sitzplan ${escHtml(g.className)}" onclick="event.stopPropagation();openSeatingForGroup(${jsArg(g.id)})">${icon('seating')}<span>Sitzplan</span></button>
         </div>`;
       row.addEventListener('click', () => openGroupStudents(g.id));
       list.appendChild(row);
