@@ -166,3 +166,23 @@ describe('AH11: kein Zoomen mit zwei Fingern', () => {
     }
   });
 });
+
+// AH17: Markieren wie in einer App: Bedienelemente nicht (kein Kopieren-Menü beim langen Drücken auf dem iPad),
+// Inhalte und Eingabefelder schon (Entscheidung 03.11.)
+describe('AH17: was sich markieren lässt', () => {
+  const block = () => CSS.slice(CSS.indexOf('/* Markieren (AH17)'), CSS.indexOf('/* Ende Markieren (AH17) */'));
+  it('Grundsatz nicht markierbar, ohne Kopieren-Menü', () => {
+    expect(block()).toMatch(/body\{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;\}/);
+  });
+  it('Inhalte wieder markierbar: Tabellen, Profil, Stunden-Fenster, Heute, Datenschutz, Neuigkeiten, Notizen', () => {
+    for (const sel of ['#overview-content', '#modal-student-detail .modal-body', '#modal-lesson .modal-body', '#seating-today-body',
+      '#modal-privacy .modal-body', '#modal-whats-new .modal-body', '.cn-chip', '.seating-notes'])
+      expect(block()).toContain(sel);
+    expect(block()).toMatch(/\{-webkit-user-select:text;user-select:text;-webkit-touch-callout:default;\}/);
+  });
+  it('Knöpfe auch darin nicht, Eingabefelder immer (danach, damit sie gewinnen)', () => {
+    const b = block();
+    expect(b.indexOf('button, [role="button"], .tab-btn{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;}')).toBeGreaterThan(b.indexOf('#overview-content'));
+    expect(b.indexOf('input, textarea, [contenteditable="true"]{-webkit-user-select:text;user-select:text;-webkit-touch-callout:default;}')).toBeGreaterThan(b.indexOf('button, [role="button"]'));
+  });
+});

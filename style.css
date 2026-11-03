@@ -1565,3 +1565,13 @@ h1,h2,h3,.dash-heading,.subject-heading{text-wrap:balance;}
 .cn-form-row{display:flex;align-items:flex-end;gap:8px;flex-wrap:wrap;}
 .cn-form-row .form-group{flex:1;min-width:150px;margin-bottom:0;}
 .cn-form-row .btn-primary,.cn-form-row .btn-secondary{min-height:40px;}
+
+/* Markieren (AH17): wie in einer App. Bedienelemente nicht markierbar und ohne Kopieren-Menü beim langen Drücken
+   (iPad: sonst Lupe und blaue Markierung statt Aktion); Inhalte, die man lesen oder weitergeben will, und alle
+   Eingabefelder schon. Reihenfolge zählt: Grundsatz → Inhalte → Knöpfe darin → Eingaben. */
+body{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;}
+#overview-content, #modal-student-detail .modal-body, #modal-lesson .modal-body, #seating-today-body,
+#modal-privacy .modal-body, #modal-whats-new .modal-body, .cn-chip, .seating-notes{-webkit-user-select:text;user-select:text;-webkit-touch-callout:default;}
+button, [role="button"], .tab-btn{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;}
+input, textarea, [contenteditable="true"]{-webkit-user-select:text;user-select:text;-webkit-touch-callout:default;}
+/* Ende Markieren (AH17) */
