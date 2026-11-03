@@ -30,9 +30,11 @@ describe('AH8: Klassen als Kacheln', () => {
     expect(rule('.class-tile .cr-name')).toMatch(/font-size:26px/);
     expect(rule('.class-tile')).not.toMatch(/overflow:\s*hidden|aspect-ratio|[^-]height:/);   // wächst mit dem Inhalt (Regel 31)
   });
-  it('ganze Kachel öffnet die Klasse; Sitzplan, Notizen und Bearbeiten bleiben als Knöpfe', () => {
+  it('ganze Kachel öffnet die Klasse; Klassenname ist der Knopf (VoiceOver, AH14); Sitzplan, Notizen, Bearbeiten bleiben', () => {
     const tile = [...document.querySelectorAll('.class-tile')].find(t => t.querySelector('.cr-name').textContent === '7b');
-    expect(tile.getAttribute('role')).toBe('button');
+    expect(tile.getAttribute('role')).toBeNull();                       // keine Knöpfe in einem Knopf
+    const name = tile.querySelector('button.cr-name');
+    expect(name.getAttribute('aria-label')).toBe('Klasse 7b Mathe öffnen');
     expect(tile.querySelector('.cr-seating-btn')).not.toBeNull();
     expect(tile.querySelector('.cr-notes-btn')).not.toBeNull();
     expect(tile.querySelector('button[title="Bearbeiten"]')).not.toBeNull();
@@ -92,29 +94,63 @@ describe('AH12: Ansicht der Klassenübersicht wählbar', () => {
     app('setClassesView("large")');
     const t = tileOf('7b');
     expect(t.classList.contains('is-large')).toBe(true);
-    const d = t.querySelector('.ct-details').textContent;
-    expect(d).toMatch(/Nächste Stunde.*Mi\.?, 04\.11\..*2\. Block.*R101/);
-    expect(d).toMatch(/Zuletzt.*Brüche kürzen/);
-    expect(d).not.toContain('Nr. 4');                                  // nur die erste Zeile
-    expect(d).toMatch(/Geplant.*Dezimalzahlen \(1\/3\)/);
-    expect(d).toMatch(/Fällig.*HA: S\. 12 Nr\. 3/);
-    expect(d).toMatch(/Auffällig.*1 Schüler/);
-    expect(d).not.toContain('A B');                                    // keine Namen
+    // A+ (AH14): fester Stapel wann → Thema → zuletzt → Plaketten, ohne Etiketten
+    const m = t.querySelector('.ct-main');
+    expect(m.querySelector('.ct-when').textContent).toMatch(/^Mi\.?, 04\.11\. · 2\. Block · R101$/);
+    expect(m.querySelector('.ct-topic').textContent).toBe('DezimalzahlenStunde 1 von 3');
+    expect(m.querySelector('.ct-prev').textContent).toBe('Zuletzt: Brüche kürzen');   // nur die erste Zeile
+    const chips = [...m.querySelectorAll('.ct-chip')].map(c => c.textContent);
+    expect(chips).toEqual(['1 Schüler auffällig', 'HA fällig: S. 12 Nr. 3']);
+    expect(m.querySelector('.ct-chip.is-warn')).not.toBeNull();
+    expect(m.textContent).not.toContain('A B');                        // keine Namen
+    expect([...m.children].map(c => c.className.split(' ')[0])).toEqual(['ct-when', 'ct-topic', 'ct-prev', 'ct-chips']);
+    // links nur Fach und Tage, rechts Schnitt groß
+    expect(t.querySelector('.cr-meta').textContent).toBe('Mathe · Mo, Mi');
+    expect(t.querySelector('.ct-score b')).not.toBeNull();
   });
-  it('Groß: eine Kachel über die ganze Breite, Angaben nebeneinander (Wunsch 03.11.)', () => {
+  it('Groß: relativ „Heute“/„Morgen“, laufende Stunde „jetzt“ im Akzent mit Restzeit', () => {
+    vi.setSystemTime(new Date(2026, 10, 3, 10, 0));   // Di: nächste Stunde Mi = morgen
+    app('renderSubjectGroups()');
+    expect(tileOf('7b').querySelector('.ct-when').textContent).toBe('Morgen · 2. Block · R101');
+    vi.setSystemTime(new Date(2026, 10, 4, 7, 0));    // Mi früh
+    app('renderSubjectGroups()');
+    expect(tileOf('7b').querySelector('.ct-when').textContent).toBe('Heute · 2. Block · 09:45 · R101');
+    vi.setSystemTime(new Date(2026, 10, 2, 10, 0));
+  });
+  it('Groß: Thema geplant, aber nicht für diese Stunde: „Kein Thema geplant“; ohne Planung keine Zeile', () => {
+    app('const keep = db.groups[0].plan; db.groups[0].plan = []; renderSubjectGroups()');
+    expect(tileOf('7b').querySelector('.ct-topic')).toBeNull();
+    app('db.groups[0].plan = [{ id: "x", title: "Alt", lessons: 1, done: true }]; renderSubjectGroups()');
+    expect(tileOf('7b').querySelector('.ct-topic').textContent).toBe('Kein Thema geplant');
+    app('db.groups[0].plan = [{ id: "t1", title: "Brüche kürzen", lessons: 1, doneLessons: ["l1_2026-11-02"] }, { id: "t2", title: "Dezimalzahlen", lessons: 3 }]; renderSubjectGroups()');
+  });
+  it('Groß: eine Kachel über die ganze Breite, Mitte als fester Stapel; Thema Inter, nie Buchschrift (DESIGN.md)', () => {
     expect(rule('.class-list.is-large')).toMatch(/grid-template-columns:minmax\(0,1fr\)/);
     expect(rule('.class-tile.is-large')).toMatch(/display:grid;grid-template-columns:minmax\(150px,220px\) minmax\(0,1fr\) auto;/);
-    expect(rule('.is-large .ct-details')).toMatch(/grid-template-columns:repeat\(2,minmax\(0,1fr\)\)/);
+    expect(rule('.ct-main')).toMatch(/display:flex;flex-direction:column;/);
+    expect(rule('.ct-topic')).toMatch(/font-size:16px;font-weight:600;/);
+    expect(rule('.ct-topic')).not.toMatch(/font-display/);
+    expect(rule('.ct-chip')).toMatch(/border-radius:var\(--radius-xs\)/);
   });
-  it('Groß: Klasse ohne Stunden zeigt nur, was es gibt', () => {
-    const d = tileOf('5a').querySelector('.ct-details');
-    expect(d === null || !/Nächste Stunde|Geplant|Fällig/.test(d.textContent)).toBe(true);
+  it('Groß: Klasse ohne Stunde: „Keine Stunde geplant“, keine leeren Zeilen', () => {
+    const m = tileOf('5a').querySelector('.ct-main');
+    expect(m.querySelector('.ct-when').textContent).toBe('Keine Stunde geplant');
+    expect(m.querySelector('.ct-topic, .ct-prev, .ct-chips')).toBeNull();
   });
-  it('laufende Stunde heißt „jetzt“', () => {
+  it('laufende Stunde: „jetzt“ (Akzent) und Restzeit', () => {
     vi.setSystemTime(new Date(2026, 10, 2, 8, 0));   // Mo 1. Block läuft (07:45–09:15)
     app('renderSubjectGroups()');
-    expect(tileOf('7b').querySelector('.ct-details').textContent).toMatch(/Nächste Stunde.*jetzt · bis 09:15/);
+    const w = tileOf('7b').querySelector('.ct-when');
+    expect(w.querySelector('.ct-now').textContent).toBe('jetzt');
+    expect(w.textContent).toBe('jetzt1. Block · R101 · noch 75 Min');
+    expect(rule('.ct-now')).toMatch(/background:var\(--accent\);color:var\(--on-accent\)/);
     vi.setSystemTime(new Date(2026, 10, 2, 10, 0));
+  });
+  it('Lesbarkeit auf Klassenfarbe: Grau und Notenfarben je Modus nachgemischt (≥ 4,5:1 für alle Klassenfarben)', () => {
+    expect(CSS).toMatch(/\.class-row\{--text-secondary:var\(--tint-text-2\);--text-muted:var\(--tint-text-3\);\}/);
+    expect(CSS).toMatch(/\.class-row \.cr-avg\{color:color-mix\(in srgb, var\(--grade\) 50%, #fff\);\}/);
+    expect(CSS).toMatch(/:root\[data-theme="light"\] \.class-row \.cr-avg\{color:color-mix\(in srgb, var\(--grade\) 75%, #000\);\}/);
+    expect(tileOf('7b').querySelector('.cr-avg').getAttribute('style')).toMatch(/^--grade:/);
   });
 });
 
@@ -166,10 +202,19 @@ describe('Sortierung der Klassenübersicht', () => {
     app('setClassesSort("class")');
     expect(names()).toEqual(['5a', '7b', '10a', 'Q1']);
   });
-  it('Auffällige zuerst: meiste Schüler über den Warnschwellen oben, Anzahl in der Kachel', () => {
+  it('Auffällige zuerst: meiste Schüler über den Warnschwellen oben, Anzahl als rote Plakette in der Kachel', () => {
     app('setClassesSort("warnings")');
     expect(names()).toEqual(['10a', '7b', '5a', 'Q1']);
-    expect(document.querySelector('.class-tile').textContent).toMatch(/2 auffällig/);
+    expect(document.querySelector('.class-tile .ct-chip.is-warn').textContent).toBe('2 auffällig');
+  });
+  it('normale Kacheln zeigen Auffällige immer als rote Plakette (auch nach Fach), Liste nicht', () => {
+    app('setClassesSort("subject")');
+    const t7b = [...document.querySelectorAll('.class-tile')].find(t => t.querySelector('.cr-name').textContent === '7b');
+    expect(t7b.querySelector('.ct-chip.is-warn').textContent).toBe('1 auffällig');
+    expect([...document.querySelectorAll('.class-tile')].find(t => t.querySelector('.cr-name').textContent === '5a').querySelector('.ct-chip')).toBeNull();
+    app('setClassesView("list")');
+    expect(document.querySelector('.class-row .ct-chip')).toBeNull();
+    app('setClassesView("tiles")');
   });
   it('Standard wird nicht gespeichert; Wert aus der Cloud wird übernommen', () => {
     app('setClassesSort("subject")');
@@ -177,5 +222,29 @@ describe('Sortierung der Klassenübersicht', () => {
     app('db.settings.classesSort = "class"; renderSubjectGroups()');
     expect(document.getElementById('classes-sort').value).toBe('class');
     expect(names()).toEqual(['5a', '7b', '10a', 'Q1']);
+  });
+});
+
+// Restzeit/„jetzt“ in der großen Kachel laufen mit der Uhr (Regel 21), gezeichnet wird nur bei neuem Inhalt (AH3)
+describe('AH14: große Kachel folgt der Uhr', () => {
+  beforeAll(() => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    app(`db.groups = [{ id: 'g1', subject: 'Mathe', className: '7b', color: '#3b82f6', schularbeitWeight: 50 }];
+      db.students = { g1: [] }; db.acknowledgedWarnings = {};
+      db.lessonSlots = [{ id: 'l1', day: 0, block: 1, part: 'full', subject: 'Mathe', groupId: 'g1', recurring: 'weekly' }]`);
+  });
+  afterAll(() => { app('setClassesView("tiles")'); vi.useRealTimers(); });
+  it('neue Minute → neue Restzeit; gleiche Minute → Kachel bleibt dieselbe', () => {
+    vi.setSystemTime(new Date(2026, 10, 2, 8, 0, 0));
+    app('setClassesView("large"); switchView("classes")');
+    const when = () => document.querySelector('.class-tile .ct-when').textContent;
+    expect(when()).toMatch(/noch 75 Min/);
+    const tile = document.querySelector('.class-tile');
+    vi.setSystemTime(new Date(2026, 10, 2, 8, 0, 30));
+    app('timetableClockMinute = ""; refreshTimetableClock()');
+    expect(document.querySelector('.class-tile')).toBe(tile);
+    vi.setSystemTime(new Date(2026, 10, 2, 8, 1, 0));
+    app('timetableClockMinute = ""; refreshTimetableClock()');
+    expect(when()).toMatch(/noch 74 Min/);
   });
 });

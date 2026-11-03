@@ -70,8 +70,8 @@ describe('I2: Klassenübersicht schneidet nichts ab (seit AE8 Zeilen statt Karte
     expect(row.textContent).toContain('Q1 Leistungskurs');
     expect(row.querySelector('button[title="Sitzplan"]')).not.toBeNull();
     expect(row.querySelector('button[title="Bearbeiten"]')).not.toBeNull();
-    expect(row.getAttribute('role')).toBe('button');
-    expect(row.getAttribute('aria-label')).toMatch(/^Klasse /);
+    // seit AH14: der Klassenname ist der Knopf (keine Knöpfe in einem Knopf), die ganze Fläche bleibt antippbar
+    expect(row.querySelector('button.cr-name').getAttribute('aria-label')).toMatch(/^Klasse /);
   });
 });
 

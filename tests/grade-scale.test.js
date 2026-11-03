@@ -116,8 +116,9 @@ describe('Anzeige', () => {
     app('renderSubjectGroups()');
     const html = document.getElementById('subject-groups-container').innerHTML;
     // Q1: (7,5 + 13,5 + 3,5) / 3 = 8,2 Punkte → grade-3; 7b: 5,0 → grade-5
-    expect(html).toMatch(/color:var\(--grade-3\)">8,2</);
-    expect(html).toMatch(/color:var\(--grade-5\)">5,0</);
+    // Farbe als Grundwert --grade, die Kachel mischt sie je Modus lesbar nach (AH14)
+    expect(html).toMatch(/--grade:var\(--grade-3\)">8,2</);
+    expect(html).toMatch(/--grade:var\(--grade-5\)">5,0</);
   });
 
   it('Notentabelle: Einzelwerte und Schnitt in Punkt-Farben', () => {

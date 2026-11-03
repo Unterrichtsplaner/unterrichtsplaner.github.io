@@ -1246,6 +1246,7 @@ let timetableClockMinute = null;
 function refreshTimetableClock() {
   if (document.hidden || ttDrag) return; // nicht unter dem Finger neu zeichnen (AC2)
   const active = id => document.getElementById(id)?.classList.contains('active');
+  if (active('view-classes') && classesClockSignature() !== classesClockSig) renderSubjectGroups();   // Restzeit, „jetzt“ (AH14)
   if (!active('view-timetable') && !active('view-dashboard')) return;
   const now = new Date();
   const minute = formatDate(now) + ' ' + now.getHours() + ':' + now.getMinutes();
@@ -2534,38 +2535,56 @@ function currentOrNextLessonOfGroup(groupId, now) {
   }
   return null;
 }
-// „jetzt · bis 09:15“ / „heute · 3. Stunde · 09:40“ / „Mi., 04.11. · 3. Stunde“
+// Kurzform für die Meta-Zeile („Als Nächstes“): „jetzt · bis 09:15“ / „Heute · 3. Stunde · 09:40“ / „Morgen · …“ / Datum
 function nextLessonLabelHTML(l, now) {
   const todayStr = formatDate(now), nowMins = now.getHours() * 60 + now.getMinutes();
   if (l.dateStr === todayStr && l.range && l.range.start <= nowMins) return `jetzt · bis ${minsToTime(l.range.end)}`;
-  return `${l.dateStr === todayStr ? 'heute' : escHtml(formatWeekdayShort(l.dateStr))} · ${escHtml(l.block.label)}${l.dateStr === todayStr && l.range ? ' · ' + minsToTime(l.range.start) : ''}`;
+  return lessonWhenParts({ ...l, slot: { ...l.slot, room: '' } }, now).html;
 }
-// Mehr Angaben für die große Kachel: nächste Stunde, Thema zuletzt/geplant, Fälliges, Auffällige (nur Anzahl)
+// Wann, relativ zu heute (AH14): laufend „jetzt“ mit Restzeit, sonst „Heute · 3. Stunde · 09:40“, „Morgen · …“ oder Datum
+function lessonWhenParts(l, now) {
+  const todayStr = formatDate(now), nowMins = now.getHours() * 60 + now.getMinutes();
+  const room = l.slot.room ? ' · ' + escHtml(l.slot.room) : '';
+  if (l.dateStr === todayStr && l.range && l.range.start <= nowMins) return { now: true, html: `${escHtml(l.block.label)}${room} · noch ${l.range.end - nowMins} Min` };
+  const day = l.dateStr === todayStr ? 'Heute' : l.dateStr === formatDate(addDays(parseDate(todayStr), 1)) ? 'Morgen' : escHtml(formatWeekdayShort(l.dateStr));
+  return { now: false, html: `${day} · ${escHtml(l.block.label)}${l.dateStr === todayStr && l.range ? ' · ' + minsToTime(l.range.start) : ''}${room}` };
+}
+// Plakette (AH14): eckig, rot nur für Auffällige; HA/Test neutral mit Symbol
+const classChip = (iconName, text, warn = false) => `<span class="ct-chip${warn ? ' is-warn' : ''}">${icon(iconName)}${text}</span>`;
+// Große Kachel, Mitte (A+ nach der Design-Prüfung, AH14): fester Stapel wann → Thema → zuletzt → Plaketten, ohne Etiketten
 function classTileDetailsHTML(g, now, warnCount) {
   const todayStr = formatDate(now), nowMins = now.getHours() * 60 + now.getMinutes();
   const next = currentOrNextLessonOfGroup(g.id, now);
-  const lines = [];
-  const line = (label, html, cls = '') => lines.push(`<div class="ct-line${cls}"><span class="ct-label">${label}</span><span class="ct-val">${html}</span></div>`);
-  if (next) line('Nächste Stunde', nextLessonLabelHTML(next, now) + (next.slot.room ? ' · ' + escHtml(next.slot.room) : ''));
+  if (!next) return `<div class="ct-main"><div class="ct-when is-none">Keine Stunde geplant</div></div>`;
+  const when = lessonWhenParts(next, now);
+  let html = `<div class="ct-when">${when.now ? '<span class="ct-now">jetzt</span>' : icon('late')}${when.html}</div>`;
+  // Thema nur, wenn die Klasse überhaupt plant; geplant, aber nicht für diese Stunde: leise sagen
+  if (groupPlan(g).length) {
+    const a = planAssignments(g, todayStr).byKey.get(lessonKeyOf(next));
+    html += a ? `<div class="ct-topic">${escHtml(a.topic.title)}${a.of > 1 ? `<small>Stunde ${a.unit} von ${a.of}</small>` : ''}</div>`
+      : '<div class="ct-topic is-none">Kein Thema geplant</div>';
+  }
   const prev = previousLessonOfGroup(g.id, todayStr, nowMins);
   const prevTopic = prev ? firstLine((db.lessonData[lessonKeyOf(prev)] || {}).done) : '';
-  if (prevTopic) line('Zuletzt', escHtml(prevTopic));
-  if (next && groupPlan(g).length) {
-    const a = planAssignments(g, todayStr).byKey.get(lessonKeyOf(next));
-    if (a) line('Geplant', escHtml(a.topic.title) + (a.of > 1 ? ` (${a.unit}/${a.of})` : ''));
-  }
-  if (next) {
-    const due = dueItemsFor(next.slot.id, next.dateStr);
-    const part = (label, items) => items.length ? `${label}: ${escHtml(items[0].text)}${items.length > 1 ? ` (+${items.length - 1})` : ''}` : '';
-    const txt = [part('HA', due.hw), part('Test', due.tests)].filter(Boolean).join(' · ');
-    if (txt) line('Fällig', txt);
-  }
-  if (warnCount) line('Auffällig', `${warnCount} Schüler`, ' ct-warn');
-  return lines.length ? `<div class="ct-details">${lines.join('')}</div>` : '';
+  if (prevTopic) html += `<div class="ct-prev">Zuletzt: ${escHtml(prevTopic)}</div>`;
+  const due = dueItemsFor(next.slot.id, next.dateStr);
+  const more = items => items.length > 1 ? ` (+${items.length - 1})` : '';
+  const chips = [warnCount ? classChip('alert', `${warnCount} Schüler auffällig`, true) : '',
+    due.hw.length ? classChip('homework', `HA fällig: ${escHtml(due.hw[0].text)}${more(due.hw)}`) : '',
+    due.tests.length ? classChip('test', `Test: ${escHtml(due.tests[0].text)}${more(due.tests)}`) : ''].join('');
+  if (chips) html += `<div class="ct-chips">${chips}</div>`;
+  return `<div class="ct-main">${html}</div>`;
+}
+// Auf die Minute genau (Restzeit, „jetzt“): Uhr-Takt zeichnet nur neu, wenn sich die Angaben ändern (AH3: nicht unter dem Finger)
+let classesClockSig = '';
+function classesClockSignature(now = new Date()) {
+  if (classesViewSetting() !== 'large' && classesSortSetting() !== 'next') return '';
+  return db.groups.map(g => { const l = currentOrNextLessonOfGroup(g.id, now); return l ? lessonWhenParts(l, now).html : '-'; }).join('|');
 }
 
 function renderSubjectGroups() {
   const classesView = classesViewSetting(), sort = classesSortSetting();
+  classesClockSig = classesClockSignature();
   const sortSel = document.getElementById('classes-sort');
   if (sortSel) sortSel.value = sort;
   document.querySelectorAll('#classes-mode button').forEach(b => {
@@ -2591,7 +2610,7 @@ function renderSubjectGroups() {
   const todayStr = formatDate(now);
   // Auffällige Schüler je Klasse (nicht quittierte Warnungen, wie im Dashboard) – für „Groß“ und „Auffällige zuerst“
   const warnByGroup = new Map();
-  if (classesView === 'large' || sort === 'warnings') collectWarnings().forEach(w => {
+  if (classesView !== 'list' || sort === 'warnings') collectWarnings().forEach(w => {
     if (!warnByGroup.has(w.group.id)) warnByGroup.set(w.group.id, new Set());
     warnByGroup.get(w.group.id).add(w.student.id);
   });
@@ -2633,34 +2652,43 @@ function renderSubjectGroups() {
       const nextL = sort === 'next' ? nextByGroup.get(g.id) : null;
       const when = sort === 'next' ? (nextL ? `<span class="cr-next">${nextLessonLabelHTML(nextL, now)}</span>` : '<span class="cr-no-schedule">keine Stunde geplant</span>')
         : (days || '<span class="cr-no-schedule">Kein Stundenplan verknüpft</span>');
-      const meta = [when, gradeCount + ' Noten', sort === 'warnings' && warnCount(g) ? `<span class="cr-warn">${warnCount(g)} auffällig</span>` : ''].filter(Boolean).join(' · ');
+      const meta = [when, gradeCount + ' Noten', sort === 'warnings' && classesView === 'list' && warnCount(g) ? `<span class="cr-warn">${warnCount(g)} auffällig</span>` : ''].filter(Boolean).join(' · ');
 
       const row = document.createElement('div');
       const cNotes = activeClassNotes(g, todayStr);
-      row.setAttribute('role', 'button');
-      row.tabIndex = 0;
-      row.setAttribute('aria-label', `Klasse ${g.className} ${g.subject || ''} öffnen`.replace(/\s+/g, ' '));
       row.style.setProperty('--card-color', safeColor(g.color));
+      // Der Klassenname ist der Knopf (Tastatur, VoiceOver); die ganze Fläche öffnet per Klick mit. Keine Knöpfe in einem
+      // Knopf: Die Kachel selbst hatte role="button", damit war ihr Inhalt für VoiceOver stumm (AH14)
+      const nameBtn = `<button type="button" class="cr-name" aria-label="${escHtml(`Klasse ${g.className} ${g.subject || ''} öffnen`.replace(/\s+/g, ' ').trim())}">${escHtml(g.className)}</button>`;
       const notesBtn = `<button class="btn-icon cr-notes-btn" title="Notizen" aria-label="Notizen ${escHtml(g.className)}" onclick="event.stopPropagation();openClassNotes(${jsArg(g.id)})">${icon('pin')}</button>`;
       const editBtn = `<button class="btn-icon" title="Bearbeiten" aria-label="${escHtml(g.className)} bearbeiten" onclick="event.stopPropagation();openEditGroup(${jsArg(g.id)})">${icon('edit')}</button>`;
       const seatingBtn = `<button class="btn-secondary cr-seating-btn" title="Sitzplan" aria-label="Sitzplan ${escHtml(g.className)}" onclick="event.stopPropagation();openSeatingForGroup(${jsArg(g.id)})">${icon('seating')}<span>Sitzplan</span></button>`;
       const metaHTML = `<div class="cr-meta"><b>${escHtml([g.subject, g.year].filter(Boolean).join(' · '))}</b><small>${meta}</small></div>`;
       const numsHTML = `<div class="cr-nums">
             <span><em>${students.length}</em> Schüler</span>
-            <span><em class="cr-avg" style="color:${gradeColor(groupAvg, scale)}">${formatGradeAverage(groupAvg)}</em> ${scale.higherIsBetter ? 'Pkt.' : 'Ø'}</span>
+            <span><em class="cr-avg" style="--grade:${gradeColor(groupAvg, scale)}">${formatGradeAverage(groupAvg)}</em> ${scale.higherIsBetter ? 'Pkt.' : 'Ø'}</span>
           </div>`;
       const notesHTML = cNotes.length ? classNotesInlineHTML(cNotes, 'cr-notes') : '';
+      const avgHTML = `<em class="cr-avg" style="--grade:${gradeColor(groupAvg, scale)}">${formatGradeAverage(groupAvg)}</em>`;
       if (classesView === 'list') {
         // Zeile wie vor AH8 (AE8): gleiche Angaben in festen Spalten untereinander
         row.className = 'class-row' + (cNotes.length ? ' has-notes' : '');
-        row.innerHTML = `<div class="cr-name">${escHtml(g.className)}</div>${metaHTML}${numsHTML}${notesHTML}
+        row.innerHTML = `${nameBtn}${metaHTML}${numsHTML}${notesHTML}
           <div class="cr-btns">${notesBtn}${seatingBtn}${editBtn}</div>`;
-      } else {
-        row.className = 'class-row class-tile' + (classesView === 'large' ? ' is-large' : '') + (cNotes.length ? ' has-notes' : '');
+      } else if (classesView === 'large') {
+        // A+ (AH14): links nur Fach und Tage, Mitte der Stapel, rechts Schülerzahl klein und Schnitt groß
+        row.className = 'class-row class-tile is-large' + (cNotes.length ? ' has-notes' : '');
         row.innerHTML = `
-        <div class="cr-head"><div class="cr-name">${escHtml(g.className)}</div>${notesBtn}${editBtn}</div>
-        ${metaHTML}${notesHTML}
-        ${classesView === 'large' ? classTileDetailsHTML(g, now, warnCount(g)) : ''}
+        <div class="cr-head">${nameBtn}${notesBtn}${editBtn}</div>
+        <div class="cr-meta"><small>${escHtml(g.subject || '')}${g.subject && days ? ' · ' : ''}${escHtml(days)}</small></div>${notesHTML}
+        ${classTileDetailsHTML(g, now, warnCount(g))}
+        <div class="cr-foot"><div class="ct-score"><span>${students.length} Schüler</span><span><b>${avgHTML}</b> ${scale.higherIsBetter ? 'Pkt.' : 'Ø'}</span></div>${seatingBtn}</div>`;
+      } else {
+        row.className = 'class-row class-tile' + (cNotes.length ? ' has-notes' : '');
+        const warnChip = warnCount(g) ? `<div class="ct-chips">${classChip('alert', `${warnCount(g)} auffällig`, true)}</div>` : '';
+        row.innerHTML = `
+        <div class="cr-head">${nameBtn}${notesBtn}${editBtn}</div>
+        ${metaHTML}${warnChip}${notesHTML}
         <div class="cr-foot">${numsHTML}${seatingBtn}</div>`;
       }
       row.addEventListener('click', () => openGroupStudents(g.id));
