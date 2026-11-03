@@ -6762,6 +6762,31 @@ function labelModals() {
 }
 labelModals();
 
+// Home-Bildschirm-App (AH1b): Mit der Statusleiste „black-translucent“ rechnet iOS die Seite um die Statusleiste zu
+// niedrig, zeichnet sie aber bis zum unteren Rand – unten blieb ein Streifen frei. Erkannt wird genau dieser Fall
+// (volle Breite, Seite + Statusleiste = Bildschirm); stimmt die Höhe, im Fenster oder auf dem Handy quer bleibt alles.
+function standaloneFullHeight({ clientWidth, clientHeight, screenWidth, screenHeight, safeTop }) {
+  const short = Math.min(screenWidth, screenHeight), long = Math.max(screenWidth, screenHeight);
+  const landscape = clientWidth > clientHeight;
+  const sw = landscape ? long : short, sh = landscape ? short : long;
+  if (!(safeTop >= 1) || Math.abs(clientWidth - sw) > 2) return null;
+  const full = clientHeight + safeTop;
+  return Math.abs(full - sh) <= 2 && full >= 650 ? sh : null;
+}
+function applyStandaloneHeight() {
+  const root = document.documentElement, appEl = document.getElementById('app');
+  const standalone = window.navigator.standalone === true || !!window.matchMedia?.('(display-mode: standalone)').matches;
+  const h = standalone && appEl ? standaloneFullHeight({
+    clientWidth: root.clientWidth, clientHeight: root.clientHeight, screenWidth: screen.width, screenHeight: screen.height,
+    safeTop: parseFloat(getComputedStyle(appEl).paddingTop) || 0,
+  }) : null;
+  root.classList.toggle('ios-gap', !!h);
+  if (h) root.style.setProperty('--app-full-h', h + 'px'); else root.style.removeProperty('--app-full-h');
+}
+applyStandaloneHeight();
+window.addEventListener('resize', applyStandaloneHeight);
+window.addEventListener('orientationchange', () => setTimeout(applyStandaloneHeight, 300));
+
 // „Passwort anzeigen“ (Auge) an den Master-Passwort-Feldern (`data-reveal`). Nie gespeichert: Schließen der
 // Einstellungen und Verlassen der App verbergen es wieder – am Pult soll es niemand sehen.
 function setPasswordVisible(input, show) {
