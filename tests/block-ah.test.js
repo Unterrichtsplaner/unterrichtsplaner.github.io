@@ -99,3 +99,51 @@ describe('AH1c: Farben schon vor dem ersten Zeichnen', () => {
     expect(run({ themeBg: '#fde68a' })).toMatchObject({ bg: '#fde68a', mode: 'dark', card: '' });
   });
 });
+
+// AH6: Sitzplan, untere Leiste (Timer) auf derselben Höhe wie die Linie über „Einstellungen“. Seit AH1 hält die
+// Seitenleiste Abstand zum Home-Balken; die Leiste im Sitzplan muss denselben Abstand bekommen.
+describe('AH6: Linie der Sitzplan-Leiste = Linie über „Einstellungen“', () => {
+  it('ab 601 px: Leiste um den Home-Balken höher, nach den übrigen Regeln', () => {
+    const rule = '.seating-tools-bar{min-height:calc(80px + env(safe-area-inset-bottom));padding-top:8px;padding-bottom:calc(8px + env(safe-area-inset-bottom));}';
+    const i = CSS.indexOf(rule);
+    expect(i).toBeGreaterThan(-1);
+    expect(CSS.slice(CSS.lastIndexOf('@media', i), i)).toMatch(/@media \(min-width: 601px\)\{\s*$/);
+    expect(i).toBeGreaterThan(CSS.lastIndexOf('.seating-tools-bar { padding: 8px 10px'));
+    expect(CSS).toMatch(/\.sidebar-footer\{border-top:1px solid var\(--border\);height:80px;/);
+  });
+});
+
+// AH7: Geburtstag, den niemand eingetragen hat. Das Datumsfeld stand direkt unter dem Namen: Auf dem iPad springt
+// „Weiter“ hinein, iOS öffnet die Datumsauswahl und trägt beim Schließen das heutige Datum ein.
+describe('AH7: Geburtstag nur, wenn er stimmen kann', () => {
+  beforeAll(() => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date(2026, 10, 3, 10, 0));
+    app(`db.groups = [{ id: 'g1', subject: 'Mathe', className: '7a', schularbeitWeight: 50 }];
+      db.students = { g1: [{ id: 's1', firstName: 'Anna', lastName: 'B', birthday: '2026-11-03', grades: [], attendance: [], participation: [], homework: [], studentNotes: [] },
+                           { id: 's2', firstName: 'Ben', lastName: 'C', birthday: '2013-05-04', grades: [], attendance: [], participation: [], homework: [], studentNotes: [] }] };
+      currentGroupId = 'g1'`);
+  });
+  afterAll(() => vi.useRealTimers());
+  it('Feld steht nicht mehr direkt hinter dem Namen, sondern am Ende', () => {
+    const body = HTML.slice(HTML.indexOf('id="modal-add-student"'), HTML.indexOf('saveStudent()'));
+    expect(body.indexOf('new-student-birthday')).toBeGreaterThan(body.indexOf('new-student-notes'));
+  });
+  it('unmögliches Datum (jünger als 3 Jahre) zählt nicht als Geburtstag', () => {
+    expect(app('birthdayInfo(db.students.g1[0], "2026-11-03")')).toBeNull();
+    expect(app('birthdayInfo(db.students.g1[1], "2026-05-04")')).not.toBeNull();
+  });
+  it('Speichern mit unmöglichem Datum: Hinweis, nichts gespeichert', () => {
+    app('currentStudentId = "s2"; openEditStudent()');
+    document.getElementById('new-student-birthday').value = '2026-11-03';
+    app('saveStudent()');
+    expect(app('db.students.g1[1].birthday')).toBe('2013-05-04');
+    expect(document.getElementById('modal-add-student').classList.contains('hidden')).toBe(false);
+    app('closeModal("modal-add-student")');
+  });
+  it('Bearbeiten zeigt einen unmöglichen Geburtstag nicht an', () => {
+    app('currentStudentId = "s1"; openEditStudent()');
+    expect(document.getElementById('new-student-birthday').value).toBe('');
+    app('closeModal("modal-add-student")');
+  });
+});

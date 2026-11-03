@@ -3844,6 +3844,7 @@ function saveStudent() {
   const birthday  = document.getElementById('new-student-birthday').value; // AD6, YYYY-MM-DD oder leer
   // Ein Name genügt: der Import erlaubt Schüler mit nur einem Namen, die müssen bearbeitbar bleiben (BUGS L8)
   if (!firstName && !lastName) { showToast('Bitte einen Namen eingeben', 'error'); return; }
+  if (birthday && !validBirthday(birthday)) { showToast('Der Geburtstag kann nicht stimmen. Bitte prüfen oder das Feld leeren', 'error'); return; }
   if (!db.students[currentGroupId]) db.students[currentGroupId] = [];
   if (editingStudentId) {
     const s = db.students[currentGroupId].find(x => x.id === editingStudentId);
@@ -5494,7 +5495,13 @@ function commitSeatingStudentHint() {
 }
 
 // ─── Geburtstage (AD6) ──────────────────────────────────────────────────────
-function validBirthday(b) { return typeof b === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(b) && !isNaN(parseDate(b)); }
+// Nur ein Datum, das als Geburtstag eines Kindes stimmen kann: Ein Datum aus diesem oder den letzten Jahren kam vom iPad,
+// das beim Antippen des leeren Feldes „heute“ einträgt (AH7). Gespeicherte Werte bleiben, sie zählen nur nicht.
+function validBirthday(b) {
+  if (typeof b !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(b) || isNaN(parseDate(b))) return false;
+  const y = +b.slice(0, 4);
+  return y >= 1900 && y <= new Date().getFullYear() - 3;
+}
 const isLeapYear = y => (y % 4 === 0 && y % 100 !== 0) || y % 400 === 0;
 // Fällt der Geburtstag auf dateStr? 29.02. zählt in anderen Jahren am 28.02.
 function birthdayOn(b, dateStr) {
