@@ -52,6 +52,8 @@ const ICONS = {
   'cloud-down': '<polyline points="8 17 12 21 16 17"/><line x1="12" y1="12" x2="12" y2="21"/><path d="M20.88 18.09A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.29"/>',
   'cloud-up':   '<polyline points="16 16 12 12 8 16"/><line x1="12" y1="12" x2="12" y2="21"/><path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3"/>',
   save:         '<path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/>',
+  check:        '<polyline points="20 6 9 17 4 12"/>',
+  todo:         '<path d="m3 17 2 2 4-4"/><path d="m3 7 2 2 4-4"/><path d="M13 6h8"/><path d="M13 12h8"/><path d="M13 18h8"/>',
   trash:        '<polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/>',
   refresh:      '<polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>',
   mail:         '<path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/>',
@@ -401,6 +403,7 @@ function switchView(name) {
   if (name === 'seating') initSeatingPlan();
   if (name === 'classes') renderSubjectGroups();
   if (name === 'timetable') renderTimetable();
+  if (name === 'todos') renderTodos();   // Merkzettel (AH18)
 }
 document.querySelectorAll('.nav-item[data-view]').forEach(btn => {
   btn.addEventListener('click', () => switchView(btn.dataset.view));
@@ -2095,6 +2098,7 @@ function openLessonDetail(slotId, dateStr) {
   renderLessonAbsent(slot, dateStr);
   renderLessonPlanBox(slot, dateStr);   // AD3
   renderLessonClassNotes(slot, dateStr); // AD15
+  renderLessonTodos(slot); // Merkzettel der Klasse (AH18)
 
   // ── Find upcoming lesson dates (all slots with same subject) ──
   _upcomingDates = findUpcomingLessonDates(slotId, dateStr);
@@ -2923,6 +2927,7 @@ function deleteGroup(id) {
   Object.keys(db.lessonData || {}).forEach(key => {
     if (slotIds.has(key.slice(0, key.lastIndexOf('_')))) delete db.lessonData[key];
   });
+  todosOf().forEach(t => { if (t.groupId === id) delete t.groupId; });   // Merkzettel bleibt, nur ohne Klasse (AH18)
   saveDB();
   if (currentSeatingGroupId === id) currentSeatingGroupId = '';
   if (currentGroupId === id || currentOverviewGroupId === id) {
@@ -5666,6 +5671,165 @@ document.getElementById('seating-student-note-input')?.addEventListener('keydown
 });
 document.querySelector('#modal-seating-student .seating-note-add')?.addEventListener('click', () => addSeatingStudentNote());
 
+// ─── Merkzettel (AH18) ──────────────────────────────────────────────────────
+// db.todos = [{ id, text, created, groupId?, due?, done?, doneAt? }]. Fehlt bei Altdaten; angelegt wird es erst beim
+// ersten Eintrag (keine Migration). Kaputte Einträge (Import, neuere App) werden übersprungen, nie gelöscht.
+// Nie im Sitzplan (Beamer). Bearbeitet wird per Objekt-Referenz (Regel 8), gelöscht per indexOf (Regel 9).
+let todoEdit = null;        // Punkt, der gerade im Feld bearbeitet wird
+let todoDoneOpen = false;   // „Erledigt“ aufgeklappt (Ansichtszustand, Regel 19)
+const todosOf = () => (Array.isArray(db.todos) ? db.todos : []).filter(t => t && typeof t === 'object' && typeof t.text === 'string' && t.text.trim());
+const todoGroup = t => t.groupId ? db.groups.find(g => g.id === t.groupId) : null;
+// Offen: Fristen zuerst nach Datum (überfällig oben), dann ohne Frist, neueste zuerst
+function sortOpenTodos(list) {
+  const all = Array.isArray(db.todos) ? db.todos : [];
+  return [...list].sort((a, b) => {
+    const da = isDateStr(a.due) ? a.due : '9999', dbb = isDateStr(b.due) ? b.due : '9999';
+    if (da !== dbb) return da.localeCompare(dbb);
+    return (b.created || '').localeCompare(a.created || '') || all.indexOf(b) - all.indexOf(a);
+  });
+}
+function todoDueHTML(t, todayStr) {
+  if (!isDateStr(t.due)) return '';
+  const tomorrow = formatDate(addDays(parseDate(todayStr), 1));
+  if (t.due < todayStr && !t.done) return `<span class="todo-due is-late">überfällig seit ${escHtml(formatWeekdayShort(t.due))}</span>`;
+  const txt = t.due === todayStr ? 'heute' : t.due === tomorrow ? 'morgen' : `bis ${escHtml(formatWeekdayShort(t.due))}`;
+  return `<span class="todo-due${t.due === todayStr && !t.done ? ' is-today' : ''}">${txt}</span>`;
+}
+// Eine Zeile; edit = Stift (nur im Merkzettel), Erledigtes bekommt den Papierkorb
+function todoRow(t, { edit = false } = {}) {
+  const todayStr = formatDate(new Date());
+  const g = todoGroup(t);
+  const row = document.createElement('div');
+  row.className = 'todo-row' + (t.done ? ' is-done' : '');
+  row.innerHTML = `<button type="button" class="todo-check" aria-pressed="${t.done ? 'true' : 'false'}" aria-label="${escHtml((t.done ? 'Wieder offen: ' : 'Erledigt: ') + t.text.trim())}">${icon('check')}</button>
+    <div class="todo-body"><span class="todo-text">${escHtml(t.text.trim())}</span>${g || isDateStr(t.due)
+      ? `<span class="todo-meta">${g ? `<span class="todo-class" style="--card-color:${escHtml(safeColor(g.color))}">${escHtml(g.className)}</span>` : ''}${todoDueHTML(t, todayStr)}</span>` : ''}</div>
+    ${edit && !t.done ? `<button type="button" class="btn-icon todo-edit" aria-label="${escHtml('Bearbeiten: ' + t.text.trim())}">${icon('edit')}</button>` : ''}
+    ${t.done ? `<button type="button" class="btn-icon todo-del" aria-label="${escHtml('Löschen: ' + t.text.trim())}">${icon('trash')}</button>` : ''}`;
+  row.querySelector('.todo-check').addEventListener('click', () => toggleTodo(t));
+  row.querySelector('.todo-edit')?.addEventListener('click', () => editTodo(t));
+  row.querySelector('.todo-del')?.addEventListener('click', () => deleteTodo(t));
+  return row;
+}
+function fillTodoGroupSelect(sel) {
+  const keep = sel.value;
+  sel.innerHTML = '<option value="">Ohne Klasse</option>' + [...db.groups].sort(compareClassNames)
+    .map(g => `<option value="${escHtml(g.id)}">${escHtml([g.className, g.subject].filter(Boolean).join(' '))}</option>`).join('');
+  sel.value = db.groups.some(g => g.id === keep) ? keep : '';
+}
+function renderTodos() {
+  const open = document.getElementById('todo-open'), done = document.getElementById('todo-done');
+  if (!open || !done) return;
+  fillTodoGroupSelect(document.getElementById('todo-group'));   // Eingetipptes bleibt stehen (Feld wird nicht ersetzt)
+  const all = todosOf();
+  const openList = sortOpenTodos(all.filter(t => !t.done));
+  const doneList = all.filter(t => t.done).sort((a, b) => (b.doneAt || '').localeCompare(a.doneAt || ''));
+  open.innerHTML = openList.length ? '' : '<p class="todo-empty">Nichts offen. Oben eintippen, was du nicht vergessen willst.</p>';
+  openList.forEach(t => open.appendChild(todoRow(t, { edit: true })));
+  const wrap = document.getElementById('todo-done-wrap');
+  wrap.classList.toggle('hidden', !doneList.length);
+  wrap.open = todoDoneOpen;
+  wrap.querySelector('summary').textContent = `Erledigt (${doneList.length})`;
+  done.innerHTML = '';
+  doneList.forEach(t => done.appendChild(todoRow(t)));
+  setTodoFormMode();
+}
+function setTodoFormMode() {
+  const btn = document.getElementById('btn-todo-add');
+  btn.textContent = todoEdit ? 'Speichern' : 'Merken';
+  btn.setAttribute('aria-label', todoEdit ? 'Speichern' : 'Merken');
+  document.getElementById('btn-todo-cancel').classList.toggle('hidden', !todoEdit);
+}
+function resetTodoForm() {
+  todoEdit = null;
+  ['todo-input', 'todo-group', 'todo-due'].forEach(id => document.getElementById(id).value = '');
+  setTodoFormMode();
+}
+function submitTodo() {
+  const text = document.getElementById('todo-input').value.trim();
+  if (!text) return;
+  const groupId = document.getElementById('todo-group').value;
+  const due = document.getElementById('todo-due').value;
+  let t = todoEdit;
+  if (t) {
+    if (!(db.todos || []).includes(t)) { showToast('Diesen Punkt gibt es nicht mehr (z. B. durch Sync)', 'error'); resetTodoForm(); renderTodos(); return; }
+  } else {
+    if (!Array.isArray(db.todos)) db.todos = [];
+    t = { id: uid(), text, created: formatDate(new Date()) };
+    db.todos.push(t);
+  }
+  t.text = text;
+  if (db.groups.some(g => g.id === groupId)) t.groupId = groupId; else delete t.groupId;
+  if (isDateStr(due)) t.due = due; else delete t.due;
+  saveDB();
+  resetTodoForm();
+  refreshTodoViews();
+  document.getElementById('todo-input').focus();
+}
+function editTodo(t) {
+  todoEdit = t;
+  document.getElementById('todo-input').value = t.text;
+  document.getElementById('todo-group').value = db.groups.some(g => g.id === t.groupId) ? t.groupId : '';
+  document.getElementById('todo-due').value = isDateStr(t.due) ? t.due : '';
+  setTodoFormMode();
+  document.getElementById('todo-input').focus();
+}
+function toggleTodo(t) {
+  if (!(db.todos || []).includes(t)) { refreshTodoViews(); return; }   // inzwischen weg (Sync)
+  if (t.done) { delete t.done; delete t.doneAt; saveDB(); refreshTodoViews(); return; }
+  t.done = true; t.doneAt = formatDate(new Date());
+  if (todoEdit === t) resetTodoForm();
+  saveDB();
+  refreshTodoViews();
+  showUndoToast('Erledigt', () => {
+    if (!(db.todos || []).includes(t) || !t.done) return;
+    delete t.done; delete t.doneAt; saveDB(); refreshTodoViews();
+  });
+}
+function deleteTodo(t) {
+  const idx = (db.todos || []).indexOf(t);
+  if (idx === -1) { refreshTodoViews(); return; }
+  db.todos.splice(idx, 1);
+  saveDB();
+  refreshTodoViews();
+  showUndoToast('Gelöscht', () => {
+    if (!Array.isArray(db.todos)) db.todos = [];
+    if (db.todos.includes(t)) return;
+    db.todos.splice(Math.min(idx, db.todos.length), 0, t); saveDB(); refreshTodoViews();
+  });
+}
+// Dashboard: offene Punkte (höchstens 5) über den Warnungen; ohne offene Punkte kein Abschnitt
+function fillDashboardTodos(slot) {
+  if (!slot) return;
+  const open = sortOpenTodos(todosOf().filter(t => !t.done));
+  if (!open.length) { slot.innerHTML = ''; return; }
+  slot.innerHTML = `<section class="dash-section dash-todos"><div class="dash-todos-head"><h2 class="dash-heading">Merkzettel <span class="dash-heading-sub">${open.length}</span></h2>
+    <button type="button" class="btn-secondary dash-todos-all">Alle ansehen</button></div><div class="todo-list"></div></section>`;
+  const list = slot.querySelector('.todo-list');
+  open.slice(0, 5).forEach(t => list.appendChild(todoRow(t)));
+  slot.querySelector('.dash-todos-all').addEventListener('click', () => switchView('todos'));
+}
+// Stunden-Fenster: offene Punkte dieser Klasse
+function renderLessonTodos(slot) {
+  const box = document.getElementById('lesson-todos');
+  if (!box) return;
+  const open = slot && slot.groupId ? sortOpenTodos(todosOf().filter(t => !t.done && t.groupId === slot.groupId)) : [];
+  box.classList.toggle('hidden', !open.length);
+  box.innerHTML = open.length ? `<div class="notes-section-header"><span class="notes-section-icon">${icon('todo')}</span><span class="notes-section-label">Merkzettel</span></div><div class="todo-list"></div>` : '';
+  open.forEach(t => box.querySelector('.todo-list').appendChild(todoRow(t)));
+}
+function refreshTodoViews() {
+  const active = id => document.getElementById(id)?.classList.contains('active');
+  if (active('view-todos')) renderTodos();
+  if (active('view-dashboard')) renderDashboard();
+  const slot = activeLessonId && db.lessonSlots.find(s => s.id === activeLessonId);
+  if (!document.getElementById('modal-lesson').classList.contains('hidden')) renderLessonTodos(slot);
+}
+document.getElementById('todo-input')?.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); submitTodo(); } });
+document.getElementById('btn-todo-add')?.addEventListener('click', () => submitTodo());
+document.getElementById('btn-todo-cancel')?.addEventListener('click', () => { resetTodoForm(); renderTodos(); });
+document.getElementById('todo-done-wrap')?.addEventListener('toggle', e => { todoDoneOpen = e.target.open; });
+
 // ─── Geburtstage (AD6) ──────────────────────────────────────────────────────
 // Nur ein Datum, das als Geburtstag eines Kindes stimmen kann: Ein Datum aus diesem oder den letzten Jahren kam vom iPad,
 // das beim Antippen des leeren Feldes „heute“ einträgt (AH7). Gespeicherte Werte bleiben, sie zählen nur nicht.
@@ -8395,7 +8559,8 @@ function collectWarnings() {
 function renderDashboard() {
   const container = document.getElementById('dashboard-content');
   if (!container) return;
-  container.innerHTML = renderDashboardToday() + renderDashboardWarnings();
+  container.innerHTML = renderDashboardToday() + '<div id="dash-todos-slot"></div>' + renderDashboardWarnings();
+  fillDashboardTodos(document.getElementById('dash-todos-slot'));   // Merkzettel (AH18)
   container.querySelectorAll('details.dash-warn-group').forEach(el => {
     el.addEventListener('toggle', () => {
       if (el.open) dashboardOpenGroups.add(el.dataset.group);
@@ -9344,7 +9509,8 @@ function isLocalDBEmpty() {
   const hasStudents = db.students && Object.values(db.students).some(list => list && list.length);
   // Aufsichten und Ferien sind auch Eingaben: Ein Gerät nur damit darf beim Anmelden nicht still überschrieben werden (R7)
   const hasOther = (Array.isArray(db.supervisions) && db.supervisions.length > 0)
-    || (db.settings && Array.isArray(db.settings.holidays) && db.settings.holidays.length > 0);
+    || (db.settings && Array.isArray(db.settings.holidays) && db.settings.holidays.length > 0)
+    || todosOf().length > 0;   // Merkzettel (AH18)
   return !(db.groups && db.groups.length) && !(db.lessonSlots && db.lessonSlots.length) && !hasStudents && !hasOther;
 }
 

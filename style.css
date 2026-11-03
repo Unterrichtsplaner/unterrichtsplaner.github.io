@@ -157,7 +157,8 @@ input[type="date"] { min-height: 1.2em; } /* Fix iOS Safari date input collapse 
    noch (Werkzeugleiste). Ohne :has (iOS < 15.4) bleibt es bei 800 px und seitlichem Scrollen wie bisher. */
 #main-content:has(#view-dashboard.active),
 #main-content:has(#view-classes.active),
-#main-content:has(#view-students.active){min-width:0;}
+#main-content:has(#view-students.active),
+#main-content:has(#view-todos.active){min-width:0;}
 /* Sitzplan passt sich ebenfalls an (BUGS H13), braucht dafür aber Container-Queries (iOS 16+).
    Ältere Geräte behalten die 800 px mit seitlichem Scrollen wie bisher. */
 @supports (container-type: inline-size) {
@@ -997,11 +998,15 @@ select option{background:var(--bg-secondary);}
 /* Handy-Navigation: gleich breite Felder mit kurzer Beschriftung unter dem Symbol (BUGS O7) */
 @media (max-width: 600px) {
   #sidebar { padding: 6px 8px; gap: 4px; }
-  .nav-items { flex: 4 1 0; gap: 4px; padding: 0; }
+  .nav-items { flex: 5 1 0; gap: 4px; padding: 0; }   /* 5 Menüpunkte + Einstellungen gleich breit (AH18) */
   .sidebar-footer { flex: 1 1 0; display: flex; }
-  .nav-item, #sidebar.collapsed .nav-item { flex: 1 1 0; min-width: 0; flex-direction: column; justify-content: center; gap: 2px; padding: 6px 2px; border-radius:var(--radius-md); }
+  .nav-item, #sidebar.collapsed .nav-item { flex: 1 1 0; min-width: 0; flex-direction: column; justify-content: center; gap: 2px; padding: 6px 0; border-radius:var(--radius-md); }
   .nav-item span, #sidebar.collapsed .nav-item span { display: block; font-size: 10px; font-weight: 600; line-height: 1.1; max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  /* Sechs Punkte: lange Namen als Kurzform, der volle Name steht im aria-label (Regel 47, AH18) */
+  .nav-item span.nav-long, #sidebar.collapsed .nav-item span.nav-long { display: none; }
 }
+.nav-item span.nav-short { display: none; }
+@media (max-width: 600px) { .nav-item span.nav-short, #sidebar.collapsed .nav-item span.nav-short { display: block; } }
 #students-container { container-type: inline-size; }
 /* Schmal: Zahlen unter den Namen, mit eigener Bezeichnung statt Kopfzeile */
 @container (max-width: 520px) {
@@ -1575,3 +1580,35 @@ body{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;}
 button, [role="button"], .tab-btn{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;}
 input, textarea, [contenteditable="true"]{-webkit-user-select:text;user-select:text;-webkit-touch-callout:default;}
 /* Ende Markieren (AH17) */
+
+/* ─── Merkzettel (AH18) ─── */
+.todo-view{max-width:800px;width:100%;margin:0 auto;padding:20px;}   /* wie das Dashboard */
+.todo-form{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:18px;}
+.todo-form .todo-input{flex:1 1 260px;min-width:0;}
+.todo-form .todo-group, .todo-form .custom-form-dropdown{flex:0 1 180px;width:auto;min-width:0;}   /* die App ersetzt das <select> durch ihre Aufklappliste */
+.todo-due-wrap{flex:0 1 180px;display:flex;align-items:center;gap:6px;font-size:13px;color:var(--text-secondary);min-width:0;}
+.todo-due-wrap .todo-due-input{flex:1;min-width:0;width:auto;align-self:stretch;}   /* leer schrumpft das Datumsfeld auf dem iPad sonst zum Streifen */
+.todo-list{display:flex;flex-direction:column;}
+.todo-row{display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid var(--border);}
+.todo-list .todo-row:last-child{border-bottom:none;}
+.todo-check{flex-shrink:0;width:44px;height:44px;margin:-4px 0;display:flex;align-items:center;justify-content:center;background:none;border:none;padding:0;cursor:pointer;color:transparent;}
+.todo-check::before{content:'';position:absolute;}
+.todo-check .ico{width:16px;height:16px;padding:4px;box-sizing:content-box;border:2px solid var(--text-secondary);border-radius:99px;}
+.todo-row.is-done .todo-check{color:var(--on-accent);}
+.todo-row.is-done .todo-check .ico{background:var(--success);border-color:var(--success);}
+@media (hover: hover){.todo-row:not(.is-done) .todo-check:hover{color:var(--text-secondary);}}
+.todo-body{flex:1;min-width:0;display:flex;flex-direction:column;gap:3px;}
+.todo-text{font-size:14px;color:var(--text-primary);overflow-wrap:anywhere;}
+.todo-row.is-done .todo-text{color:var(--text-secondary);text-decoration:line-through;}
+.todo-meta{display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:12px;color:var(--text-secondary);}
+.todo-class{font-weight:600;padding:1px 7px;border-radius:var(--radius-xs);color:var(--text-primary);background:color-mix(in srgb, var(--card-color) 22%, transparent);}
+.todo-due.is-today{color:var(--text-primary);font-weight:600;}
+.todo-due.is-late{color:var(--danger);font-weight:600;}
+.todo-row .btn-icon{flex-shrink:0;}
+@media (pointer: coarse){.todo-row .btn-icon{width:44px;height:44px;}}
+.todo-empty{font-size:14px;color:var(--text-secondary);padding:8px 0;}
+.todo-done-wrap{margin-top:20px;}
+.todo-done-wrap summary{font-size:14px;font-weight:600;color:var(--text-secondary);cursor:pointer;padding:8px 0;min-height:44px;display:flex;align-items:center;}
+.dash-todos-head{display:flex;align-items:baseline;justify-content:space-between;gap:12px;}
+.dash-todos .todo-list{background:var(--bg-elevated);border:1px solid var(--border);border-radius:var(--radius-md);padding:2px 12px 2px 4px;}
+.lesson-todos .todo-list{margin-top:4px;}

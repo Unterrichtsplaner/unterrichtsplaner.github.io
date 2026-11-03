@@ -28,6 +28,7 @@ function newDB() {
       classNotes: [{ id: 'n1', text: 'schon unterrichtet', date: '2026-11-02' }, { id: 'n2', text: 'Klassenfahrt', date: '2026-11-02', until: '2026-11-13' }] }],
     students: { g1: [st('a', 'Anna', { notes: 'hörgeschädigt: vorne sitzen', importantNote: 'Diabetes', birthday: '2013-11-02' }), st('b', 'Ben')] },
     supervisions: [],
+    todos: [{ id: 'm1', text: 'Kopien 7a', created: '2026-11-02', groupId: 'g1', due: '2026-11-10' }],   // AH18
     syncSettings: { lastSyncedCloudTimestamp: 1000, syncedLocalModified: 1000 },
   };
 }
@@ -40,6 +41,7 @@ function expectNewFieldsKept(d) {
   expect(anna.birthday).toBe('2013-11-02');
   expect(anna.notes).toBe('hörgeschädigt: vorne sitzen');
   expect(anna.importantNote).toBe('Diabetes');   // AD17
+  expect(d.todos).toEqual([{ id: 'm1', text: 'Kopien 7a', created: '2026-11-02', groupId: 'g1', due: '2026-11-10' }]);   // AH18
   expect(d.settings).toMatchObject({ halfYearEnd: '2027-01-29', schoolYearEnd: '2027-07-23', seatingStartInLesson: false, seatingAutoSwitch: false });
 }
 

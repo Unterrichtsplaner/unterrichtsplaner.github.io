@@ -35,6 +35,7 @@ function evilDB() {
       }],
     },
     acknowledgedWarnings: {},
+    todos: [{ id: ID('todo'), text: X, created: '2026-09-20', groupId: g, due: '2026-09-21' }, { id: ID('todo2'), text: X, done: true, due: X }], // AH18
   };
 }
 
@@ -79,6 +80,7 @@ describe('Ansichten mit präparierten Daten', () => {
     dashboard: () => app('switchView("dashboard")'),
     stundenplan: () => app('switchView("timetable")'),
     klassen: () => app('switchView("classes")'),
+    merkzettel: () => app('switchView("todos")'),   // AH18
     schuelerliste: () => app(`openGroupStudents(${G})`),
     'schülerliste bearbeiten': () => app(`openGroupStudents(${G}); isStudentEditMode = true; renderStudents(); isStudentEditMode = false`),
     'übersicht noten': () => app(`openGroupStudents(${G}); switchOverviewTab("grades")`),

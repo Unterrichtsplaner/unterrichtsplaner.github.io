@@ -72,6 +72,7 @@ db = {
              homework: [{ id, date, note }],
              studentNotes: [{ text, date }] }] },
   supervisions: [{ id, day, start, end /*HH:MM*/, place, recurring, startDate?, specificDate? }], // Pausenaufsicht (AA4), wie eine Stunde → slotOccursOn
+  todos?: [{ id, text, created, groupId?, due? /*YYYY-MM-DD*/, done?, doneAt? }], // Merkzettel (AH18), fehlt bei Altdaten
   syncSettings: { lastSyncedCloudTimestamp, syncedLocalModified },
   acknowledgedWarnings: { '<studentId>_absences': n, … },
 }
@@ -194,6 +195,8 @@ Datumswerte sind Strings `YYYY-MM-DD` in **lokaler** Zeit (`formatDate()`). Nie 
 71. **Klassennotizen nur über `activeClassNotes(g, dateStr)`** (gilt bis einschließlich `until`), anlegen im Fenster `openClassNotes` oder direkt im Stunden-Fenster (`addLessonClassNote`, läuft auch beim Schließen über `storeLessonForm`, AH9), ändern/löschen nur im Fenster `openClassNotes` (Notiz per Referenz, Löschen mit „Rückgängig“, Schließen übernimmt Eingetipptes). Nach Änderungen `refreshClassNoteViews()`. **Nie im Sitzplan anzeigen** (Beamer); auf Stundenplan-Kacheln nur das Symbol, ausgeschrieben nur in der Tagesansicht ab 700 px (`addTopicsToDayTiles`, AD16).
 
 72. **Markieren wie in einer App (AH17):** Grundsätzlich ist nichts markierbar (kein Kopieren-Menü beim langen Drücken auf dem iPad). Wer einen neuen Bereich mit Inhalten baut, die man lesen oder kopieren will (Notizen, Texte in Fenstern, Tabellen), nimmt ihn in den Block „Markieren (AH17)“ am Ende von `style.css` auf. Eingabefelder sind immer markierbar, Knöpfe nie.
+
+73. **Merkzettel nur über `todosOf()`** (überspringt kaputte Einträge, legt nichts an); ändern per Objekt-Referenz (`todoEdit`), abhaken/löschen über `toggleTodo`/`deleteTodo` (mit „Rückgängig“, `indexOf`), danach `refreshTodoViews()`. **Nie im Sitzplan anzeigen** (Beamer). Wer eine Klasse löscht, lässt ihre Punkte stehen und entfernt nur `groupId` (AH18).
 
 ## Arbeitsablauf
 
