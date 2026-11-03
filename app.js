@@ -2495,7 +2495,60 @@ function renderColorPicker(containerId, colors, onSelect) {
 }
 
 // ─── Subject Groups ───────────────────────────────────────────────────────
+// Ansicht der Klassenübersicht (AH12): Liste · Kacheln · Groß, pro Gerät gemerkt wie die Stundenplan-Ansicht
+let classesView = (() => { try { const m = localStorage.getItem('classes_view'); return ['list', 'tiles', 'large'].includes(m) ? m : 'tiles'; } catch (e) { return 'tiles'; } })();
+function setClassesView(mode) {
+  classesView = ['list', 'tiles', 'large'].includes(mode) ? mode : 'tiles';
+  try { localStorage.setItem('classes_view', classesView); } catch (e) { /* privat: nur für diese Sitzung */ }
+  renderSubjectGroups();
+}
+// Laufende oder nächste Stunde der Klasse ab jetzt (bis 10 Wochen, über die Ferien)
+function currentOrNextLessonOfGroup(groupId, now) {
+  const todayStr = formatDate(now), nowMins = now.getHours() * 60 + now.getMinutes();
+  let d = parseDate(todayStr);
+  for (let i = 0; i < 70; i++, d = addDays(d, 1)) {
+    if (!isSchoolDay(d)) continue;
+    const ds = formatDate(d);
+    const hit = lessonsOnDate(ds).find(l => l.slot.groupId === groupId && !l.ausfall && (ds !== todayStr || (l.range && l.range.end > nowMins)));
+    if (hit) return hit;
+  }
+  return null;
+}
+// Mehr Angaben für die große Kachel: nächste Stunde, Thema zuletzt/geplant, Fälliges, Auffällige (nur Anzahl)
+function classTileDetailsHTML(g, now, warnCount) {
+  const todayStr = formatDate(now), nowMins = now.getHours() * 60 + now.getMinutes();
+  const next = currentOrNextLessonOfGroup(g.id, now);
+  const lines = [];
+  const line = (label, html, cls = '') => lines.push(`<div class="ct-line${cls}"><span class="ct-label">${label}</span><span class="ct-val">${html}</span></div>`);
+  if (next) {
+    const running = next.dateStr === todayStr && next.range && next.range.start <= nowMins;
+    const when = running ? `jetzt · bis ${minsToTime(next.range.end)}`
+      : `${next.dateStr === todayStr ? 'heute' : escHtml(formatWeekdayShort(next.dateStr))} · ${escHtml(next.block.label)}${next.dateStr === todayStr && next.range ? ' · ' + minsToTime(next.range.start) : ''}`;
+    line('Nächste Stunde', when + (next.slot.room ? ' · ' + escHtml(next.slot.room) : ''));
+  }
+  const prev = previousLessonOfGroup(g.id, todayStr, nowMins);
+  const prevTopic = prev ? firstLine((db.lessonData[lessonKeyOf(prev)] || {}).done) : '';
+  if (prevTopic) line('Zuletzt', escHtml(prevTopic));
+  if (next && groupPlan(g).length) {
+    const a = planAssignments(g, todayStr).byKey.get(lessonKeyOf(next));
+    if (a) line('Geplant', escHtml(a.topic.title) + (a.of > 1 ? ` (${a.unit}/${a.of})` : ''));
+  }
+  if (next) {
+    const due = dueItemsFor(next.slot.id, next.dateStr);
+    const part = (label, items) => items.length ? `${label}: ${escHtml(items[0].text)}${items.length > 1 ? ` (+${items.length - 1})` : ''}` : '';
+    const txt = [part('HA', due.hw), part('Test', due.tests)].filter(Boolean).join(' · ');
+    if (txt) line('Fällig', txt);
+  }
+  if (warnCount) line('Auffällig', `${warnCount} Schüler`, ' ct-warn');
+  return lines.length ? `<div class="ct-details">${lines.join('')}</div>` : '';
+}
+
 function renderSubjectGroups() {
+  document.querySelectorAll('#classes-mode button').forEach(b => {
+    const on = b.dataset.mode === classesView;
+    b.classList.toggle('active', on);
+    b.setAttribute('aria-pressed', on ? 'true' : 'false');
+  });
   const container = document.getElementById('subject-groups-container');
   if (!db.groups.length) {
     container.innerHTML = `
@@ -2521,7 +2574,14 @@ function renderSubjectGroups() {
 
   // Klassen als Kacheln in Klassenfarbe je Fach (AH8, vorher Zeilen AE8): Man findet eine Klasse an Farbe und großem
   // Namen wieder wie im Stundenplan. Ganze Kachel öffnet die Klasse.
-  const todayStr = formatDate(new Date());
+  const now = new Date();
+  const todayStr = formatDate(now);
+  // Auffällige Schüler je Klasse (nicht quittierte Warnungen, wie im Dashboard) – nur für die große Ansicht
+  const warnByGroup = new Map();
+  if (classesView === 'large') collectWarnings().forEach(w => {
+    if (!warnByGroup.has(w.group.id)) warnByGroup.set(w.group.id, new Set());
+    warnByGroup.get(w.group.id).add(w.student.id);
+  });
   subjects.forEach(subj => {
     const section = document.createElement('section');
     section.className = 'subject-section';
@@ -2533,7 +2593,7 @@ function renderSubjectGroups() {
     });
     section.innerHTML = `<h2 class="subject-heading">${escHtml(subj)}<span>${sortedGroups.length} ${sortedGroups.length === 1 ? 'Klasse' : 'Klassen'}</span></h2>`;
     const list = document.createElement('div');
-    list.className = 'class-list';
+    list.className = 'class-list' + (classesView === 'list' ? ' is-list' : classesView === 'large' ? ' is-large' : '');
 
     sortedGroups.forEach(g => {
       const students = db.students[g.id] || [];
@@ -2548,26 +2608,32 @@ function renderSubjectGroups() {
 
       const row = document.createElement('div');
       const cNotes = activeClassNotes(g, todayStr);
-      row.className = 'class-row class-tile' + (cNotes.length ? ' has-notes' : '');
       row.setAttribute('role', 'button');
       row.tabIndex = 0;
       row.setAttribute('aria-label', `Klasse ${g.className} ${g.subject || ''} öffnen`.replace(/\s+/g, ' '));
       row.style.setProperty('--card-color', safeColor(g.color));
-      row.innerHTML = `
-        <div class="cr-head">
-          <div class="cr-name">${escHtml(g.className)}</div>
-          <button class="btn-icon cr-notes-btn" title="Notizen" aria-label="Notizen ${escHtml(g.className)}" onclick="event.stopPropagation();openClassNotes(${jsArg(g.id)})">${icon('pin')}</button>
-          <button class="btn-icon" title="Bearbeiten" aria-label="${escHtml(g.className)} bearbeiten" onclick="event.stopPropagation();openEditGroup(${jsArg(g.id)})">${icon('edit')}</button>
-        </div>
-        <div class="cr-meta"><b>${escHtml([g.subject, g.year].filter(Boolean).join(' · '))}</b><small>${meta}</small></div>
-        ${cNotes.length ? classNotesInlineHTML(cNotes, 'cr-notes') : ''}
-        <div class="cr-foot">
-          <div class="cr-nums">
+      const notesBtn = `<button class="btn-icon cr-notes-btn" title="Notizen" aria-label="Notizen ${escHtml(g.className)}" onclick="event.stopPropagation();openClassNotes(${jsArg(g.id)})">${icon('pin')}</button>`;
+      const editBtn = `<button class="btn-icon" title="Bearbeiten" aria-label="${escHtml(g.className)} bearbeiten" onclick="event.stopPropagation();openEditGroup(${jsArg(g.id)})">${icon('edit')}</button>`;
+      const seatingBtn = `<button class="btn-secondary cr-seating-btn" title="Sitzplan" aria-label="Sitzplan ${escHtml(g.className)}" onclick="event.stopPropagation();openSeatingForGroup(${jsArg(g.id)})">${icon('seating')}<span>Sitzplan</span></button>`;
+      const metaHTML = `<div class="cr-meta"><b>${escHtml([g.subject, g.year].filter(Boolean).join(' · '))}</b><small>${meta}</small></div>`;
+      const numsHTML = `<div class="cr-nums">
             <span><em>${students.length}</em> Schüler</span>
             <span><em class="cr-avg" style="color:${gradeColor(groupAvg, scale)}">${formatGradeAverage(groupAvg)}</em> ${scale.higherIsBetter ? 'Pkt.' : 'Ø'}</span>
-          </div>
-          <button class="btn-secondary cr-seating-btn" title="Sitzplan" aria-label="Sitzplan ${escHtml(g.className)}" onclick="event.stopPropagation();openSeatingForGroup(${jsArg(g.id)})">${icon('seating')}<span>Sitzplan</span></button>
-        </div>`;
+          </div>`;
+      const notesHTML = cNotes.length ? classNotesInlineHTML(cNotes, 'cr-notes') : '';
+      if (classesView === 'list') {
+        // Zeile wie vor AH8 (AE8): gleiche Angaben in festen Spalten untereinander
+        row.className = 'class-row' + (cNotes.length ? ' has-notes' : '');
+        row.innerHTML = `<div class="cr-name">${escHtml(g.className)}</div>${metaHTML}${numsHTML}${notesHTML}
+          <div class="cr-btns">${notesBtn}${seatingBtn}${editBtn}</div>`;
+      } else {
+        row.className = 'class-row class-tile' + (classesView === 'large' ? ' is-large' : '') + (cNotes.length ? ' has-notes' : '');
+        row.innerHTML = `
+        <div class="cr-head"><div class="cr-name">${escHtml(g.className)}</div>${notesBtn}${editBtn}</div>
+        ${metaHTML}${notesHTML}
+        ${classesView === 'large' ? classTileDetailsHTML(g, now, (warnByGroup.get(g.id) || new Set()).size) : ''}
+        <div class="cr-foot">${numsHTML}${seatingBtn}</div>`;
+      }
       row.addEventListener('click', () => openGroupStudents(g.id));
       list.appendChild(row);
     });

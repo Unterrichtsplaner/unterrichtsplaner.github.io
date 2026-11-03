@@ -295,9 +295,13 @@ describe('Dashboard, Stundenplan, Stunden-Fenster', () => {
 
 describe('Layout (jsdom misst nicht, im Browser bei 375/768/1024 px nachgemessen)', () => {
   const CSS = require('fs').readFileSync(require('path').join(__dirname, '..', 'style.css'), 'utf8');
-  it('Notizen stehen in der Klassenkachel untereinander (seit AH8 Kacheln statt Zeilen), nichts in festen Spalten', () => {
+  it('Kacheln: Notizen untereinander; Liste (AH12): schmale Regel mit Notizen steht hinter der breiten', () => {
     expect(CSS).toMatch(/\.cr-notes\{min-width:0;\}/);
-    expect(CSS).not.toMatch(/\.class-row\.has-notes\{grid-template-areas/);
+    expect(CSS).not.toMatch(/(^|\n)\.class-row\.has-notes\{grid-template-areas/);   // nur in der Liste
+    const wide = CSS.indexOf('.is-list .class-row.has-notes{grid-template-areas:"name meta nums btns"');
+    const narrow = CSS.indexOf('.is-list .class-row.has-notes{grid-template-areas:"name meta" "name notes"');
+    expect(wide).toBeGreaterThan(-1);
+    expect(narrow).toBeGreaterThan(wide);
   });
 });
 

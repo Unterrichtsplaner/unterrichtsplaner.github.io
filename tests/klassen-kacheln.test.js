@@ -42,3 +42,61 @@ describe('AH8: Klassen als Kacheln', () => {
     expect(app('currentGroupId')).toBe('g1');
   });
 });
+
+// AH12: Ansicht wählbar – Liste · Kacheln · Groß (mit nächster Stunde, Thema/Planung, Fälligem, Auffälligen)
+describe('AH12: Ansicht der Klassenübersicht wählbar', () => {
+  const tileOf = name => [...document.querySelectorAll('#subject-groups-container .class-row')].find(t => t.querySelector('.cr-name').textContent === name);
+  beforeAll(() => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date(2026, 10, 2, 10, 0));   // Mo 02.11.2026, 10:00
+    app(`db.settings.warnAbsences = 2;
+      db.lessonSlots = [{ id: 'l1', day: 0, block: 1, part: 'full', subject: 'Mathe', groupId: 'g1', recurring: 'weekly', room: 'R101' },
+                        { id: 'l2', day: 2, block: 2, part: 'full', subject: 'Mathe', groupId: 'g1', recurring: 'weekly', room: 'R101' }];
+      db.lessonData = { 'l1_2026-11-02': { done: 'Brüche kürzen\\nNr. 4', hwEnabled: true, hwItems: [{ id: 'h', text: 'S. 12 Nr. 3', targetDate: '2026-11-04' }] } };
+      db.groups[0].plan = [{ id: 't1', title: 'Brüche kürzen', lessons: 1, doneLessons: ['l1_2026-11-02'] }, { id: 't2', title: 'Dezimalzahlen', lessons: 3 }];
+      db.students.g1[0].attendance = [{ id: 'a1', date: '2026-10-20', type: 'abwesend' }, { id: 'a2', date: '2026-10-21', type: 'abwesend' }];
+      db.acknowledgedWarnings = {};`);
+  });
+  afterAll(() => { app('setClassesView("tiles")'); vi.useRealTimers(); });
+
+  it('Umschalter oben, Standard Kacheln; Wahl wird pro Gerät gemerkt', () => {
+    app('switchView("classes")');
+    const btns = [...document.querySelectorAll('#classes-mode button')];
+    expect(btns.map(b => b.textContent.trim())).toEqual(['Liste', 'Kacheln', 'Groß']);
+    expect(btns.find(b => b.dataset.mode === 'tiles').getAttribute('aria-pressed')).toBe('true');
+    app('setClassesView("list")');
+    expect(localStorage.getItem('classes_view')).toBe('list');
+    expect(document.querySelector('#classes-mode [data-mode="list"]').getAttribute('aria-pressed')).toBe('true');
+  });
+  it('Liste: Zeilen ohne Kachelfarbe, alle Knöpfe da', () => {
+    app('setClassesView("list")');
+    const row = tileOf('7b');
+    expect(row.classList.contains('class-tile')).toBe(false);
+    expect(row.closest('.class-list').classList.contains('is-list')).toBe(true);
+    expect(row.querySelector('.cr-seating-btn')).not.toBeNull();
+    expect(row.querySelector('.cr-notes-btn')).not.toBeNull();
+  });
+  it('Groß: nächste Stunde, letztes Thema, geplantes Thema, Fälliges, Auffällige (nur Zahl)', () => {
+    app('setClassesView("large")');
+    const t = tileOf('7b');
+    expect(t.classList.contains('is-large')).toBe(true);
+    const d = t.querySelector('.ct-details').textContent;
+    expect(d).toMatch(/Nächste Stunde.*Mi\.?, 04\.11\..*2\. Block.*R101/);
+    expect(d).toMatch(/Zuletzt.*Brüche kürzen/);
+    expect(d).not.toContain('Nr. 4');                                  // nur die erste Zeile
+    expect(d).toMatch(/Geplant.*Dezimalzahlen \(1\/3\)/);
+    expect(d).toMatch(/Fällig.*HA: S\. 12 Nr\. 3/);
+    expect(d).toMatch(/Auffällig.*1 Schüler/);
+    expect(d).not.toContain('A B');                                    // keine Namen
+  });
+  it('Groß: Klasse ohne Stunden zeigt nur, was es gibt', () => {
+    const d = tileOf('5a').querySelector('.ct-details');
+    expect(d === null || !/Nächste Stunde|Geplant|Fällig/.test(d.textContent)).toBe(true);
+  });
+  it('laufende Stunde heißt „jetzt“', () => {
+    vi.setSystemTime(new Date(2026, 10, 2, 8, 0));   // Mo 1. Block läuft (07:45–09:15)
+    app('renderSubjectGroups()');
+    expect(tileOf('7b').querySelector('.ct-details').textContent).toMatch(/Nächste Stunde.*jetzt · bis 09:15/);
+    vi.setSystemTime(new Date(2026, 10, 2, 10, 0));
+  });
+});
