@@ -2685,10 +2685,13 @@ function renderSubjectGroups() {
         <div class="cr-foot"><div class="ct-score"><span>${students.length} Schüler</span><span><b>${avgHTML}</b> ${scale.higherIsBetter ? 'Pkt.' : 'Ø'}</span></div>${seatingBtn}</div>`;
       } else {
         row.className = 'class-row class-tile' + (cNotes.length ? ' has-notes' : '');
-        const warnChip = warnCount(g) ? `<div class="ct-chips">${classChip('alert', `${warnCount(g)} auffällig`, true)}</div>` : '';
+        // „auffällig“ und Klassennotizen als eine Reihe gleicher Plaketten, jede mit Symbol darin (sonst unterschiedlich eingerückt)
+        const noteChips = cNotes.map(n => `<span class="ct-chip cn-chip">${icon('pin')}${escHtml(n.text.trim())}${isDateStr(n.until) ? ` <small>bis ${escHtml(formatDateDE(parseDate(n.until)))}</small>` : ''}</span>`).join('');
+        const chipRow = warnCount(g) || cNotes.length
+          ? `<div class="ct-chips${cNotes.length ? ' cr-notes' : ''}">${warnCount(g) ? classChip('alert', `${warnCount(g)} auffällig`, true) : ''}${noteChips}</div>` : '';
         row.innerHTML = `
         <div class="cr-head">${nameBtn}${notesBtn}${editBtn}</div>
-        ${metaHTML}${warnChip}${notesHTML}
+        ${metaHTML}${chipRow}
         <div class="cr-foot">${numsHTML}${seatingBtn}</div>`;
       }
       row.addEventListener('click', () => openGroupStudents(g.id));

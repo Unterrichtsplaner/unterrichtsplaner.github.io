@@ -248,3 +248,25 @@ describe('AH14: große Kachel folgt der Uhr', () => {
     expect(when()).toMatch(/noch 74 Min/);
   });
 });
+
+// Kacheln: „auffällig“ und Klassennotiz in einer Reihe gleicher Plaketten, jede mit Symbol darin (03.11.: vorher
+// unterschiedlich eingerückt untereinander)
+describe('Kacheln: Plaketten in einer Reihe', () => {
+  beforeAll(() => {
+    app(`db.groups = [{ id: 'g1', subject: 'Mathe', className: '7b', color: '#3b82f6', schularbeitWeight: 50,
+        classNotes: [{ id: 'n1', text: 'Buch vergessen', date: '2026-11-02' }] }];
+      db.students = { g1: [{ id: 's1', firstName: 'A', lastName: 'B', grades: [], participation: [], homework: [], studentNotes: [],
+        attendance: [{ id: 'a1', date: '2026-10-20', type: 'abwesend' }, { id: 'a2', date: '2026-10-21', type: 'abwesend' }] }] };
+      db.settings.warnAbsences = 2; db.acknowledgedWarnings = {}; db.lessonSlots = [];
+      setClassesView('tiles'); setClassesSort('subject'); switchView('classes')`);
+  });
+  it('eine Zeile, beide als .ct-chip mit Symbol, Notiz nach „auffällig“', () => {
+    const tile = document.querySelector('.class-tile');
+    const rows = tile.querySelectorAll('.ct-chips');
+    expect(rows.length).toBe(1);
+    const chips = [...rows[0].children];
+    expect(chips.map(c => c.textContent)).toEqual(['1 auffällig', 'Buch vergessen']);
+    expect(chips.every(c => c.classList.contains('ct-chip') && c.querySelector('svg'))).toBe(true);
+    expect(rule('.ct-chips .cn-chip')).toMatch(/font-size:13px;padding:3px 9px;/);
+  });
+});
