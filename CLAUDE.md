@@ -49,7 +49,7 @@ Eine einzige globale Variable `db`, gespeichert als JSON in `localStorage['lehre
 
 ```js
 db = {
-  settings: { teacherName, school, blocks, lastModified, halfYearEnd?, schoolYearEnd? /*YYYY-MM-DD, AD4*/, theme*, warnAbsences, warnGrade, warnPoints, warnHomework,
+  settings: { teacherName, school, blocks, lastModified, halfYearEnd?, schoolYearEnd? /*YYYY-MM-DD, AD4*/, classesView? /*'list'|'large', fehlt = Kacheln*/, classesSort? /*'next'|'class'|'warnings', fehlt = Fach (AH13)*/, theme*, warnAbsences, warnGrade, warnPoints, warnHomework,
               studentSortOrder, seatingBufferMins, lastBackupTimestamp,
               holidays: [{ id, label, from, until /*YYYY-MM-DD inkl.*/, source? /*'DE-BY': geladen, fehlt = selbst eingetragen*/ }] /*Ferien, Y8*/, federalState /*'DE-BY' … für „Ferien laden“*/, … },
   lessonSlots: [{ id, day /*0=Mo…4=Fr*/, block /*=blocks[].num, feste Kennung*/, part /*'first'|'second'|'full'*/,

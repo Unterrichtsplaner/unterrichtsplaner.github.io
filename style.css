@@ -300,6 +300,14 @@ input[type="date"] { min-height: 1.2em; } /* Fix iOS Safari date input collapse 
 .cr-seating-btn{display:inline-flex;align-items:center;gap:7px;min-height:40px;padding:0 14px;font-weight:600;color:var(--text-primary);}
 .cr-seating-btn .ico{width:16px;height:16px;}
 @media (pointer: coarse){.cr-seating-btn{min-height:44px;}}
+/* Sortierung (03.11.): Auswahl als Pille mit Symbol, öffnet die Liste des Systems */
+.classes-sort{display:inline-flex;align-items:center;gap:6px;height:36px;padding:0 10px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--bg-elevated);color:var(--text-secondary);cursor:pointer;}
+.classes-sort .ico{width:16px;height:16px;flex-shrink:0;}
+.classes-sort select{border:none;background:transparent;color:var(--text-primary);font:inherit;font-size:13px;font-weight:500;cursor:pointer;padding:0;}
+.classes-sort select:focus-visible{outline:2px solid var(--accent);outline-offset:2px;}
+@media (pointer: coarse){.classes-sort{height:44px;}}
+.cr-next{color:var(--text-primary);font-weight:600;}
+.cr-warn{color:var(--danger);font-weight:600;}
 /* Ansicht „Liste“ (AH12): Zeilen wie vor AH8 (AE8), gleiche Angaben in festen Spalten */
 .class-list.is-list{display:flex;flex-direction:column;gap:0;padding-top:0;}
 .is-list .class-row{display:grid;grid-template-columns:minmax(64px,auto) minmax(0,1fr) auto auto;grid-template-areas:"name meta nums btns";align-items:center;gap:16px;padding:12px 6px;border-bottom:1px solid var(--border);cursor:pointer;}
@@ -748,7 +756,8 @@ select option{background:var(--bg-secondary);}
   .nav-item.needs-attention::after{left:calc(50% + 4px);}
   /* Klassenübersicht: Titel weg (die Leiste oben zeigt „Klassen“), Umschalter und „+“ passen in eine Zeile (AH12) */
   #level-subjects .view-header h1{display:none;}
-  #level-subjects .header-actions{width:100%;justify-content:space-between;}
+  #level-subjects .view-header{height:auto;min-height:68px;padding-top:10px;padding-bottom:10px;}
+  #level-subjects .header-actions{width:100%;flex-wrap:wrap;justify-content:space-between;}
 }
 
 :root[data-theme="light"] {
@@ -1154,6 +1163,8 @@ button.date-chip{font-family:inherit;padding:0;}
   .seating-tool-slot, .seating-tool-btn, #seating-group-trigger{width:44px;height:44px;}
   #seating-group-trigger{width:auto;}
   .tool-play-btn, .tool-widget .btn-icon{width:44px;height:44px;}
+  .class-row .btn-icon, .lcn-add-btn, .seating-note-add{width:44px;height:44px;}   /* Klassenübersicht, Notiz-„+“ (03.11.) */
+  .class-row .btn-icon .ico{width:20px;height:20px;}
   .seating-grid-input{width:44px;height:40px;font-size:16px;}
   .seating-group-item{min-height:44px !important;}
   .modal-close{width:44px;height:44px;}

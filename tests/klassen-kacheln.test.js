@@ -57,16 +57,28 @@ describe('AH12: Ansicht der Klassenübersicht wählbar', () => {
       db.students.g1[0].attendance = [{ id: 'a1', date: '2026-10-20', type: 'abwesend' }, { id: 'a2', date: '2026-10-21', type: 'abwesend' }];
       db.acknowledgedWarnings = {};`);
   });
-  afterAll(() => { app('setClassesView("tiles")'); vi.useRealTimers(); });
+  afterAll(() => { app('setClassesView("tiles"); setClassesSort("subject")'); vi.useRealTimers(); });
 
-  it('Umschalter oben, Standard Kacheln; Wahl wird pro Gerät gemerkt', () => {
+  it('Umschalter oben, Standard Kacheln; Wahl geht mit den Daten in die Cloud (db.settings), Standard nie gespeichert', () => {
     app('switchView("classes")');
     const btns = [...document.querySelectorAll('#classes-mode button')];
     expect(btns.map(b => b.textContent.trim())).toEqual(['Liste', 'Kacheln', 'Groß']);
     expect(btns.find(b => b.dataset.mode === 'tiles').getAttribute('aria-pressed')).toBe('true');
+    const before = app('db.settings.lastModified');
     app('setClassesView("list")');
-    expect(localStorage.getItem('classes_view')).toBe('list');
+    expect(app('db.settings.classesView')).toBe('list');
+    expect(app('db.settings.lastModified')).not.toBe(before);     // zählt als Änderung → Sync
     expect(document.querySelector('#classes-mode [data-mode="list"]').getAttribute('aria-pressed')).toBe('true');
+    app('setClassesView("tiles")');
+    expect('classesView' in app('db.settings')).toBe(false);
+    app('setClassesView("list")');
+  });
+  it('Wahl aus der Cloud (anderes Gerät) wird übernommen; unbekannter Wert = Standard', () => {
+    app('db.settings.classesView = "large"; renderSubjectGroups()');
+    expect(document.querySelector('#classes-mode [data-mode="large"]').getAttribute('aria-pressed')).toBe('true');
+    app('db.settings.classesView = "riesig"; renderSubjectGroups()');
+    expect(document.querySelector('#classes-mode [data-mode="tiles"]').getAttribute('aria-pressed')).toBe('true');
+    app('setClassesView("list")');
   });
   it('Liste: Zeilen ohne Kachelfarbe, alle Knöpfe da', () => {
     app('setClassesView("list")');
@@ -103,5 +115,67 @@ describe('AH12: Ansicht der Klassenübersicht wählbar', () => {
     app('renderSubjectGroups()');
     expect(tileOf('7b').querySelector('.ct-details').textContent).toMatch(/Nächste Stunde.*jetzt · bis 09:15/);
     vi.setSystemTime(new Date(2026, 10, 2, 10, 0));
+  });
+});
+
+// Touch (iPad): Knöpfe in der Klassenübersicht und die neuen „+“ mindestens 44 px (Rückmeldung 03.11.)
+describe('Tippflächen auf dem iPad', () => {
+  it('Stecknadel/Stift in den Klassen und „+“ für Notizen: 44 px, Symbol 20 px', () => {
+    const touch = CSS.match(/@media \(pointer: coarse\)\{\n  \.date-chip[\s\S]*?\n\}/)[0];
+    expect(touch).toMatch(/\.class-row \.btn-icon, \.lcn-add-btn, \.seating-note-add\{width:44px;height:44px;\}/);
+    expect(touch).toMatch(/\.class-row \.btn-icon \.ico\{width:20px;height:20px;\}/);
+  });
+});
+
+// Sortierung (Wunsch 03.11.): nach Fach (Standard) · als Nächstes · nach Klasse · Auffällige zuerst; geht in die Cloud
+describe('Sortierung der Klassenübersicht', () => {
+  const names = () => [...document.querySelectorAll('#subject-groups-container .cr-name')].map(e => e.textContent);
+  const headings = () => [...document.querySelectorAll('#subject-groups-container .subject-heading')].map(h => h.firstChild.textContent);
+  beforeAll(() => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date(2026, 10, 2, 10, 0));   // Mo 02.11.2026, 10:00
+    app(`db.groups = [{ id: 'g1', subject: 'Mathe', className: '7b', color: '#3b82f6', schularbeitWeight: 50 },
+                      { id: 'g2', subject: 'Mathe', className: '5a', color: '#ef4444', schularbeitWeight: 50 },
+                      { id: 'g3', subject: 'Physik', className: '10a', color: '#22c55e', schularbeitWeight: 50 },
+                      { id: 'g4', subject: 'Bio', className: 'Q1', color: '#8b5cf6', schularbeitWeight: 50 }];
+      const st = (id, extra) => Object.assign({ id, firstName: id, lastName: 'X', grades: [], attendance: [], participation: [], homework: [], studentNotes: [] }, extra);
+      const abs = [{ id: 'a1', date: '2026-10-20', type: 'abwesend' }, { id: 'a2', date: '2026-10-21', type: 'abwesend' }];
+      db.students = { g1: [st('s1', { attendance: abs })], g2: [], g3: [st('s2', { attendance: abs }), st('s3', { attendance: abs })], g4: [] };
+      db.settings.warnAbsences = 2; db.acknowledgedWarnings = {};
+      db.lessonSlots = [{ id: 'a', day: 0, block: 2, part: 'full', subject: 'Physik', groupId: 'g3', recurring: 'weekly' },
+                        { id: 'b', day: 1, block: 1, part: 'full', subject: 'Mathe', groupId: 'g2', recurring: 'weekly' },
+                        { id: 'c', day: 2, block: 1, part: 'full', subject: 'Mathe', groupId: 'g1', recurring: 'weekly' }];
+      setClassesView('tiles'); switchView('classes')`);
+  });
+  afterAll(() => { app('setClassesSort("subject")'); vi.useRealTimers(); });
+
+  it('Auswahl neben der Ansicht, Standard „Nach Fach“', () => {
+    const sel = document.getElementById('classes-sort');
+    expect([...sel.options].map(o => o.textContent)).toEqual(['Nach Fach', 'Als Nächstes', 'Nach Klasse', 'Auffällige zuerst']);
+    expect(sel.value).toBe('subject');
+    expect(headings()).toEqual(['Bio', 'Mathe', 'Physik']);
+  });
+  it('Als Nächstes: laufende/nächste Stunde zuerst, ohne Stunde ans Ende; keine Fach-Überschriften, nächste Stunde in der Kachel', () => {
+    app('setClassesSort("next")');
+    expect(names()).toEqual(['10a', '5a', '7b', 'Q1']);    // 10a läuft (2. Block 09:45), 5a Di, 7b Mi, Q1 ohne Stunde
+    expect(headings()).toEqual(['Als Nächstes']);
+    expect(document.querySelector('.class-tile').textContent).toMatch(/jetzt/);
+    expect(app('db.settings.classesSort')).toBe('next');
+  });
+  it('Nach Klasse: Jahrgang, dann Buchstabe, egal welches Fach', () => {
+    app('setClassesSort("class")');
+    expect(names()).toEqual(['5a', '7b', '10a', 'Q1']);
+  });
+  it('Auffällige zuerst: meiste Schüler über den Warnschwellen oben, Anzahl in der Kachel', () => {
+    app('setClassesSort("warnings")');
+    expect(names()).toEqual(['10a', '7b', '5a', 'Q1']);
+    expect(document.querySelector('.class-tile').textContent).toMatch(/2 auffällig/);
+  });
+  it('Standard wird nicht gespeichert; Wert aus der Cloud wird übernommen', () => {
+    app('setClassesSort("subject")');
+    expect('classesSort' in app('db.settings')).toBe(false);
+    app('db.settings.classesSort = "class"; renderSubjectGroups()');
+    expect(document.getElementById('classes-sort').value).toBe('class');
+    expect(names()).toEqual(['5a', '7b', '10a', 'Q1']);
   });
 });

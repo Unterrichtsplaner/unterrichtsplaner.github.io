@@ -2495,12 +2495,32 @@ function renderColorPicker(containerId, colors, onSelect) {
 }
 
 // ─── Subject Groups ───────────────────────────────────────────────────────
-// Ansicht der Klassenübersicht (AH12): Liste · Kacheln · Groß, pro Gerät gemerkt wie die Stundenplan-Ansicht
-let classesView = (() => { try { const m = localStorage.getItem('classes_view'); return ['list', 'tiles', 'large'].includes(m) ? m : 'tiles'; } catch (e) { return 'tiles'; } })();
+// Ansicht (AH12: Liste · Kacheln · Groß) und Sortierung der Klassenübersicht. Gehen mit den Daten in die Cloud
+// (Wunsch 03.11.: auf allen Geräten gleich), Standard wird nie gespeichert. Unbekannte Werte (neuere App) = Standard.
+const CLASSES_VIEWS = ['list', 'tiles', 'large'], CLASSES_SORTS = ['subject', 'next', 'class', 'warnings'];
+const classesViewSetting = () => CLASSES_VIEWS.includes(db.settings.classesView) ? db.settings.classesView : 'tiles';
+const classesSortSetting = () => CLASSES_SORTS.includes(db.settings.classesSort) ? db.settings.classesSort : 'subject';
 function setClassesView(mode) {
-  classesView = ['list', 'tiles', 'large'].includes(mode) ? mode : 'tiles';
-  try { localStorage.setItem('classes_view', classesView); } catch (e) { /* privat: nur für diese Sitzung */ }
+  if (!CLASSES_VIEWS.includes(mode)) mode = 'tiles';
+  if (mode !== classesViewSetting()) {
+    if (mode === 'tiles') delete db.settings.classesView; else db.settings.classesView = mode;
+    saveDB();
+  }
   renderSubjectGroups();
+}
+function setClassesSort(mode) {
+  if (!CLASSES_SORTS.includes(mode)) mode = 'subject';
+  if (mode !== classesSortSetting()) {
+    if (mode === 'subject') delete db.settings.classesSort; else db.settings.classesSort = mode;
+    saveDB();
+  }
+  renderSubjectGroups();
+}
+// Klassen nach Jahrgang, dann Name (5a, 7b, 10a, Q1)
+function compareClassNames(a, b) {
+  const numA = parseInt(a.className) || 999, numB = parseInt(b.className) || 999;
+  if (numA !== numB) return numA - numB;
+  return (a.className || '').localeCompare(b.className || '') || (a.subject || '').localeCompare(b.subject || '');
 }
 // Laufende oder nächste Stunde der Klasse ab jetzt (bis 10 Wochen, über die Ferien)
 function currentOrNextLessonOfGroup(groupId, now) {
@@ -2514,18 +2534,19 @@ function currentOrNextLessonOfGroup(groupId, now) {
   }
   return null;
 }
+// „jetzt · bis 09:15“ / „heute · 3. Stunde · 09:40“ / „Mi., 04.11. · 3. Stunde“
+function nextLessonLabelHTML(l, now) {
+  const todayStr = formatDate(now), nowMins = now.getHours() * 60 + now.getMinutes();
+  if (l.dateStr === todayStr && l.range && l.range.start <= nowMins) return `jetzt · bis ${minsToTime(l.range.end)}`;
+  return `${l.dateStr === todayStr ? 'heute' : escHtml(formatWeekdayShort(l.dateStr))} · ${escHtml(l.block.label)}${l.dateStr === todayStr && l.range ? ' · ' + minsToTime(l.range.start) : ''}`;
+}
 // Mehr Angaben für die große Kachel: nächste Stunde, Thema zuletzt/geplant, Fälliges, Auffällige (nur Anzahl)
 function classTileDetailsHTML(g, now, warnCount) {
   const todayStr = formatDate(now), nowMins = now.getHours() * 60 + now.getMinutes();
   const next = currentOrNextLessonOfGroup(g.id, now);
   const lines = [];
   const line = (label, html, cls = '') => lines.push(`<div class="ct-line${cls}"><span class="ct-label">${label}</span><span class="ct-val">${html}</span></div>`);
-  if (next) {
-    const running = next.dateStr === todayStr && next.range && next.range.start <= nowMins;
-    const when = running ? `jetzt · bis ${minsToTime(next.range.end)}`
-      : `${next.dateStr === todayStr ? 'heute' : escHtml(formatWeekdayShort(next.dateStr))} · ${escHtml(next.block.label)}${next.dateStr === todayStr && next.range ? ' · ' + minsToTime(next.range.start) : ''}`;
-    line('Nächste Stunde', when + (next.slot.room ? ' · ' + escHtml(next.slot.room) : ''));
-  }
+  if (next) line('Nächste Stunde', nextLessonLabelHTML(next, now) + (next.slot.room ? ' · ' + escHtml(next.slot.room) : ''));
   const prev = previousLessonOfGroup(g.id, todayStr, nowMins);
   const prevTopic = prev ? firstLine((db.lessonData[lessonKeyOf(prev)] || {}).done) : '';
   if (prevTopic) line('Zuletzt', escHtml(prevTopic));
@@ -2544,6 +2565,9 @@ function classTileDetailsHTML(g, now, warnCount) {
 }
 
 function renderSubjectGroups() {
+  const classesView = classesViewSetting(), sort = classesSortSetting();
+  const sortSel = document.getElementById('classes-sort');
+  if (sortSel) sortSel.value = sort;
   document.querySelectorAll('#classes-mode button').forEach(b => {
     const on = b.dataset.mode === classesView;
     b.classList.toggle('active', on);
@@ -2561,37 +2585,38 @@ function renderSubjectGroups() {
   }
   container.innerHTML = '';
 
-  // Group by Subject
-  const groupsBySubject = {};
-  db.groups.forEach(g => {
-    const subj = g.subject || 'Ohne Fach';
-    if (!groupsBySubject[subj]) groupsBySubject[subj] = [];
-    groupsBySubject[subj].push(g);
-  });
-
-  // Sort subjects alphabetically
-  const subjects = Object.keys(groupsBySubject).sort((a, b) => a.localeCompare(b));
-
-  // Klassen als Kacheln in Klassenfarbe je Fach (AH8, vorher Zeilen AE8): Man findet eine Klasse an Farbe und großem
+  // Klassen als Kacheln in Klassenfarbe (AH8, vorher Zeilen AE8): Man findet eine Klasse an Farbe und großem
   // Namen wieder wie im Stundenplan. Ganze Kachel öffnet die Klasse.
   const now = new Date();
   const todayStr = formatDate(now);
-  // Auffällige Schüler je Klasse (nicht quittierte Warnungen, wie im Dashboard) – nur für die große Ansicht
+  // Auffällige Schüler je Klasse (nicht quittierte Warnungen, wie im Dashboard) – für „Groß“ und „Auffällige zuerst“
   const warnByGroup = new Map();
-  if (classesView === 'large') collectWarnings().forEach(w => {
+  if (classesView === 'large' || sort === 'warnings') collectWarnings().forEach(w => {
     if (!warnByGroup.has(w.group.id)) warnByGroup.set(w.group.id, new Set());
     warnByGroup.get(w.group.id).add(w.student.id);
   });
-  subjects.forEach(subj => {
+  const warnCount = g => (warnByGroup.get(g.id) || new Set()).size;
+  const nextByGroup = new Map();
+  if (sort === 'next') db.groups.forEach(g => nextByGroup.set(g.id, currentOrNextLessonOfGroup(g.id, now)));
+  const nextKey = g => { const l = nextByGroup.get(g.id); return l ? l.dateStr + String(l.range ? l.range.start : 0).padStart(4, '0') : '9'; };
+
+  // Sortierung: nach Fach in Abschnitten (Standard), sonst eine Liste mit einer Überschrift
+  let sections;
+  if (sort === 'subject') {
+    const bySubject = {};
+    db.groups.forEach(g => { const subj = g.subject || 'Ohne Fach'; (bySubject[subj] = bySubject[subj] || []).push(g); });
+    sections = Object.keys(bySubject).sort((a, b) => a.localeCompare(b)).map(subj => ({ title: subj, groups: bySubject[subj].sort(compareClassNames) }));
+  } else {
+    const cmp = sort === 'next' ? (a, b) => nextKey(a).localeCompare(nextKey(b)) || compareClassNames(a, b)
+      : sort === 'warnings' ? (a, b) => warnCount(b) - warnCount(a) || compareClassNames(a, b)
+      : compareClassNames;
+    sections = [{ title: { next: 'Als Nächstes', class: 'Nach Klasse', warnings: 'Auffällige zuerst' }[sort], groups: [...db.groups].sort(cmp) }];
+  }
+
+  sections.forEach(({ title, groups: sortedGroups }) => {
     const section = document.createElement('section');
     section.className = 'subject-section';
-    const sortedGroups = groupsBySubject[subj].sort((a, b) => {
-      const numA = parseInt(a.className) || 999;
-      const numB = parseInt(b.className) || 999;
-      if (numA !== numB) return numA - numB;
-      return (a.className || '').localeCompare(b.className || '');
-    });
-    section.innerHTML = `<h2 class="subject-heading">${escHtml(subj)}<span>${sortedGroups.length} ${sortedGroups.length === 1 ? 'Klasse' : 'Klassen'}</span></h2>`;
+    section.innerHTML = `<h2 class="subject-heading">${escHtml(title)}<span>${sortedGroups.length} ${sortedGroups.length === 1 ? 'Klasse' : 'Klassen'}</span></h2>`;
     const list = document.createElement('div');
     list.className = 'class-list' + (classesView === 'list' ? ' is-list' : classesView === 'large' ? ' is-large' : '');
 
@@ -2604,7 +2629,11 @@ function renderSubjectGroups() {
       const linkedSlots = db.lessonSlots.filter(s => s.groupId === g.id && !isOneOffSlot(s) && (!s.validUntil || s.validUntil >= todayStr));
       const scheduledDays = [...new Set(linkedSlots.map(s => s.day))].sort();
       const days = scheduledDays.map(d => DAY_SHORT[d]).join(', ');
-      const meta = [days || '<span class="cr-no-schedule">Kein Stundenplan verknüpft</span>', gradeCount + ' Noten'].join(' · ');
+      // „Als Nächstes“: statt der Tage die nächste Stunde; „Auffällige zuerst“: die Anzahl dazu
+      const nextL = sort === 'next' ? nextByGroup.get(g.id) : null;
+      const when = sort === 'next' ? (nextL ? `<span class="cr-next">${nextLessonLabelHTML(nextL, now)}</span>` : '<span class="cr-no-schedule">keine Stunde geplant</span>')
+        : (days || '<span class="cr-no-schedule">Kein Stundenplan verknüpft</span>');
+      const meta = [when, gradeCount + ' Noten', sort === 'warnings' && warnCount(g) ? `<span class="cr-warn">${warnCount(g)} auffällig</span>` : ''].filter(Boolean).join(' · ');
 
       const row = document.createElement('div');
       const cNotes = activeClassNotes(g, todayStr);
@@ -2631,7 +2660,7 @@ function renderSubjectGroups() {
         row.innerHTML = `
         <div class="cr-head"><div class="cr-name">${escHtml(g.className)}</div>${notesBtn}${editBtn}</div>
         ${metaHTML}${notesHTML}
-        ${classesView === 'large' ? classTileDetailsHTML(g, now, (warnByGroup.get(g.id) || new Set()).size) : ''}
+        ${classesView === 'large' ? classTileDetailsHTML(g, now, warnCount(g)) : ''}
         <div class="cr-foot">${numsHTML}${seatingBtn}</div>`;
       }
       row.addEventListener('click', () => openGroupStudents(g.id));
