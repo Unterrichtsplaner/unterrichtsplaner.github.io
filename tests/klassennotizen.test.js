@@ -271,9 +271,13 @@ describe('Dashboard, Stundenplan, Stunden-Fenster', () => {
     app('closeModal("modal-lesson")');
   });
 
-  it('Stunde einer Klasse ohne Notizen: kein Kasten', () => {
+  it('Stunde einer Klasse ohne Notizen: Kasten mit Eingabefeld, aber ohne Notizen und ohne „Ändern“ (AH9)', () => {
     app('openLessonDetail("di", "2026-11-10")');
-    expect(document.getElementById('lesson-class-notes').classList.contains('hidden')).toBe(true);
+    const box = document.getElementById('lesson-class-notes');
+    expect(box.classList.contains('hidden')).toBe(false);
+    expect(box.querySelector('#lesson-class-note-input')).not.toBeNull();
+    expect(box.querySelector('.cn-chip')).toBeNull();
+    expect(box.querySelector('.lcn-btn')).toBeNull();
     app('closeModal("modal-lesson")');
   });
 
@@ -294,5 +298,59 @@ describe('Layout (jsdom misst nicht, im Browser bei 375/768/1024 px nachgemessen
   it('Notizen stehen in der Klassenkachel untereinander (seit AH8 Kacheln statt Zeilen), nichts in festen Spalten', () => {
     expect(CSS).toMatch(/\.cr-notes\{min-width:0;\}/);
     expect(CSS).not.toMatch(/\.class-row\.has-notes\{grid-template-areas/);
+  });
+});
+
+// AH9: Klassennotiz direkt im Stunden-Fenster eintragen (Rückmeldung 03.11.: über die Klassenliste zu umständlich)
+describe('AH9: Klassennotiz im Stunden-Fenster', () => {
+  const input = () => document.getElementById('lesson-class-note-input');
+  it('Eintippen + „+“: Notiz der Klasse ab heute, Feld leer, Notiz sofort sichtbar', () => {
+    app('openLessonDetail("di", "2026-11-10")');
+    input().value = 'Buch vergessen';
+    document.querySelector('#lesson-class-notes .lcn-add-btn').click();
+    expect(app('db.groups[1].classNotes')).toEqual([expect.objectContaining({ text: 'Buch vergessen', date: '2026-11-09' })]);
+    expect(app('db.settings.lastModified')).toBeTruthy();
+    expect(input().value).toBe('');
+    expect(document.getElementById('lesson-class-notes').textContent).toMatch(/Buch vergessen/);
+    app('closeModal("modal-lesson")');
+  });
+  it('Enter im Feld trägt ein', () => {
+    app('openLessonDetail("di", "2026-11-10")');
+    input().value = 'Test angekündigt';
+    input().dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+    expect(app('db.groups[1].classNotes.map(n => n.text)')).toEqual(['Test angekündigt']);
+    app('closeModal("modal-lesson")');
+  });
+  it('Schließen übernimmt Eingetipptes, statt es zu verwerfen (Regel 27)', () => {
+    app('openLessonDetail("di", "2026-11-10")');
+    input().value = 'Fenster offen lassen';
+    app('closeTopModal()');
+    expect(app('db.groups[1].classNotes.map(n => n.text)')).toEqual(['Fenster offen lassen']);
+  });
+  it('leeres Feld legt nichts an; Stunde ohne Klasse hat kein Feld', () => {
+    app('openLessonDetail("di", "2026-11-10")');
+    document.querySelector('#lesson-class-notes .lcn-add-btn').click();
+    app('saveLessonDataAndClose()');
+    expect(app('db.groups[1].classNotes')).toEqual([]);
+    app(`db.lessonSlots.push({ id: 'frei', day: 1, block: 2, part: 'full', subject: 'AG', color: '#3d63dd', recurring: 'weekly' })`);
+    app('openLessonDetail("frei", "2026-11-10")');
+    expect(document.getElementById('lesson-class-notes').classList.contains('hidden')).toBe(true);
+    app('closeModal("modal-lesson")');
+  });
+  it('Neuzeichnen (z. B. Notiz im anderen Fenster gelöscht) lässt Eingetipptes stehen', () => {
+    app(`db.groups[1].classNotes = [${JSON.stringify(N('x', 'alt'))}]`);
+    app('openLessonDetail("di", "2026-11-10")');
+    input().value = 'halb getippt';
+    app('db.groups[1].classNotes = []; refreshClassNoteViews()');
+    expect(input().value).toBe('halb getippt');
+    app('closeModal("modal-lesson")');
+  });
+  it('nächstes Stunden-Fenster beginnt mit leerem Feld', () => {
+    app('openLessonDetail("di", "2026-11-10")');
+    input().value = 'nur hier';
+    app('closeModal("modal-lesson")');   // ohne Übernahme geschlossen (Testweg)
+    app('openLessonDetail("mo", "2026-11-09")');
+    expect(input().value).toBe('');
+    app('closeModal("modal-lesson")');
   });
 });

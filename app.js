@@ -2339,7 +2339,8 @@ function ensureLessonData() {
 
 // Eingaben des Stunden-Fensters übernehmen. Gespeichert (= „geändert“) wird nur, wenn sich etwas geändert hat.
 function storeLessonForm() {
-  // Eingetippte, aber nicht per „+“ übernommene HA/Tests nicht verwerfen
+  // Eingetippte, aber nicht per „+“ übernommene HA/Tests und Klassennotiz nicht verwerfen
+  addLessonClassNote();
   if (document.getElementById('hw-toggle').checked) addHWItem(true);
   if (document.getElementById('test-toggle').checked) addTestItem(true);
   const form = {
@@ -7372,17 +7373,43 @@ function refreshClassNoteViews() {
   if (active('view-dashboard')) renderDashboard();
   if (active('view-timetable')) renderTimetable();
   const slot = activeLessonId && db.lessonSlots.find(s => s.id === activeLessonId);
-  if (slot && !document.getElementById('modal-lesson').classList.contains('hidden')) renderLessonClassNotes(slot, activeLessonDate);
+  if (slot && !document.getElementById('modal-lesson').classList.contains('hidden')) renderLessonClassNotes(slot, activeLessonDate, true);
 }
-function renderLessonClassNotes(slot, dateStr) {
+// Klassennotizen im Stunden-Fenster: lesen und gleich eintragen (AH9), Ändern/Löschen/„gilt bis“ im Fenster „Notizen“.
+// Wird auch bei offenem Fenster neu gezeichnet (refreshClassNoteViews): Eingetipptes bleibt stehen.
+function renderLessonClassNotes(slot, dateStr, keepTyped = false) {
   const box = document.getElementById('lesson-class-notes');
   if (!box) return;
   const g = slot.groupId && db.groups.find(x => x.id === slot.groupId);
-  const notes = g ? activeClassNotes(g, dateStr) : [];
-  box.classList.toggle('hidden', !notes.length);
-  box.innerHTML = notes.length ? `<div class="lcn-row">${classNotesInlineHTML(notes, 'lcn-notes')}<button type="button" class="btn-secondary lcn-btn">Ändern</button></div>` : '';
+  const typed = keepTyped ? document.getElementById('lesson-class-note-input')?.value || '' : '';   // neues Fenster: leer
+  box.classList.toggle('hidden', !g);
+  if (!g) { box.innerHTML = ''; return; }
+  const notes = activeClassNotes(g, dateStr);
+  box.innerHTML = `<div class="notes-section-header"><span class="notes-section-icon">${icon('pin')}</span><span class="notes-section-label">Notiz für die Klasse</span></div>`
+    + (notes.length ? `<div class="lcn-row">${classNotesInlineHTML(notes, 'lcn-notes')}<button type="button" class="btn-secondary lcn-btn">Ändern</button></div>` : '')
+    + `<div class="lcn-add"><input type="text" id="lesson-class-note-input" class="entry-input" placeholder="z. B. Buch vergessen" aria-label="Neue Notiz für die Klasse" />`
+    + `<button type="button" class="btn-secondary btn-circle lcn-add-btn" aria-label="Notiz für die Klasse hinzufügen">${icon('plus')}</button></div>`;
+  const input = box.querySelector('#lesson-class-note-input');
+  input.value = typed;
+  input.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); addLessonClassNote(); } });
+  box.querySelector('.lcn-add-btn').addEventListener('click', () => addLessonClassNote());
   const btn = box.querySelector('.lcn-btn');
   if (btn) btn.addEventListener('click', () => openClassNotes(g.id));
+}
+// Eingetippte Klassennotiz übernehmen (auch beim Schließen des Stunden-Fensters, storeLessonForm). Gilt ab heute.
+function addLessonClassNote() {
+  const input = document.getElementById('lesson-class-note-input');
+  const text = input ? input.value.trim() : '';
+  if (!text) return false;
+  const slot = activeLessonId && db.lessonSlots.find(s => s.id === activeLessonId);
+  const g = slot && slot.groupId && db.groups.find(x => x.id === slot.groupId);
+  if (!g) { showToast('Diese Klasse gibt es nicht mehr (z. B. durch Sync)', 'error'); return false; }
+  if (!Array.isArray(g.classNotes)) g.classNotes = [];
+  g.classNotes.push({ id: uid(), text, date: formatDate(new Date()) });
+  input.value = '';
+  saveDB();
+  refreshClassNoteViews();
+  return true;
 }
 
 // ── Fenster „Notizen“ ──

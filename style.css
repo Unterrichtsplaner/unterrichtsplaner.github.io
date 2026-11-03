@@ -1451,6 +1451,9 @@ h1,h2,h3,.dash-heading,.subject-heading{text-wrap:balance;}
 .lcn-row{display:flex;align-items:center;gap:12px;}
 .lcn-row .cn-inline{flex:1;}
 .lcn-btn{flex-shrink:0;}
+.lcn-add{display:flex;align-items:center;gap:8px;margin-top:8px;}
+.lcn-row .cn-inline > .ico{display:none;}   /* Stecknadel steht schon in der Überschrift */
+.lcn-add .btn-circle .ico{width:16px;height:16px;}
 .tt-status-klasse{color:var(--text-secondary);}
 .cr-notes-btn .ico{width:18px;height:18px;}
 .cn-box{margin-bottom:16px;}
