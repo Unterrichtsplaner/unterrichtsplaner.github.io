@@ -394,6 +394,7 @@ function switchView(name) {
   }
   if (name !== 'timetable' && timetableEditMode) setTimetableEditUI(false); // AC2
   if (name !== 'seating') setSeatingWakeLock(false); // Bildschirm darf wieder ausgehen (AD2)
+  if (name !== 'seating' && typeof gradeRound !== 'undefined' && gradeRound) endGradeRound();   // Notenrunde (AH28)
   if (name !== 'students') hideClassGrades();   // Beamer-Schutz (AH24 c)
   if (typeof closeParticipationPicker === 'function') closeParticipationPicker();
   document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
@@ -5831,7 +5832,7 @@ function refreshSeatingCockpit() {
 // Klasse, nie bei offenem Fenster, im Bearbeiten-Modus oder wenn ein anderer Tag gewählt ist.
 let seatingAutoLast = null;
 function maybeAutoSwitchSeatingClass(now = new Date()) {
-  if (db.settings.seatingAutoSwitch === false || seatingEditMode) return false;
+  if (db.settings.seatingAutoSwitch === false || seatingEditMode || gradeRound) return false;
   if (!document.getElementById('view-seating')?.classList.contains('active')) return false;
   if (document.querySelector('.modal-overlay:not(.hidden)')) return false;
   if (currentSeatingDateStr !== formatDate(now)) return false;
@@ -6403,6 +6404,110 @@ function formatWeekdayShort(dateStr) {
 }
 
 let seatingEditMode = false;
+// ─── Notenrunde im Sitzplan (AH28) ───────────────────────────────────────────
+// Werkzeug „Noten geben“: Karte antippen → Notentafel an der Karte → Zahl antippen = gespeichert → nächste Karte.
+// Art in der Leiste (wie im Schüler-Fenster je Klasse gemerkt), Datum = Tag im Sitzplan. Zustand nie gespeichert;
+// endet mit „Fertig“, beim Verlassen des Sitzplans und beim Klassenwechsel.
+let gradeRound = null;   // { groupId, done: Set(studentId), count }
+function toggleGradeRound() { if (gradeRound) endGradeRound(); else startGradeRound(); }
+function startGradeRound() {
+  if (!currentSeatingGroupId) return;
+  if (seatingEditMode) toggleSeatingEditMode();   // Antippen soll eintragen, nicht verschieben
+  gradeRound = { groupId: currentSeatingGroupId, done: new Set(), count: 0 };
+  renderGradeRoundBar();
+  renderSeatingPlan();
+}
+function endGradeRound() {
+  closeGradeRoundPad();
+  const was = !!gradeRound;
+  gradeRound = null;
+  renderGradeRoundBar();
+  if (was && document.getElementById('view-seating')?.classList.contains('active')) renderSeatingPlan();
+}
+function renderGradeRoundBar() {
+  const bar = document.getElementById('grade-round-bar');
+  const btn = document.getElementById('btn-seating-round');
+  if (btn) { btn.classList.toggle('active', !!gradeRound); btn.setAttribute('aria-pressed', gradeRound ? 'true' : 'false'); }
+  if (!bar) return;
+  if (!gradeRound) { bar.classList.add('hidden'); bar.innerHTML = ''; return; }
+  const type = quickGradeType(gradeRound.groupId);
+  const n = gradeRound.count;
+  bar.innerHTML = `<span class="grade-round-title">${icon('grades')}<span class="grade-round-label">Noten geben</span></span>
+    <select class="form-input grade-round-type" aria-label="Art der Note">${QUICK_GRADE_TYPES.map(([k, label]) =>
+      `<option value="${k}"${k === type ? ' selected' : ''}>${label}</option>`).join('')}</select>
+    <span class="grade-round-count">${n === 1 ? '1 Note' : n + ' Noten'}</span>
+    <span class="grade-round-hint">Schüler antippen, dann die Note</span>
+    <button type="button" class="btn-secondary grade-round-done">Fertig</button>`;
+  bar.classList.remove('hidden');
+  bar.querySelector('select').addEventListener('change', e => rememberQuickGradeType(gradeRound.groupId, e.target.value));
+  bar.querySelector('.grade-round-done').addEventListener('click', endGradeRound);
+}
+function closeGradeRoundPad() { document.getElementById('grade-round-pop')?.remove(); }
+function openGradeRoundPad(card, studentId) {
+  closeGradeRoundPad();
+  if (!gradeRound) return;
+  const groupId = gradeRound.groupId;
+  const s = (db.students[groupId] || []).find(x => x.id === studentId);
+  if (!s) return;
+  const pop = document.createElement('div');
+  pop.id = 'grade-round-pop';
+  pop.className = 'grade-round-pop';
+  pop.setAttribute('role', 'dialog');
+  pop.setAttribute('aria-label', `Note für ${studentListName(s)}`);
+  const scale = gradeScale(groupId);
+  pop.innerHTML = `<div class="grade-round-who">${escHtml(`${s.firstName || ''} ${s.lastName || ''}`.trim())}</div>
+    <div class="sw-grid${scale.higherIsBetter ? ' is-points' : ''}">${quickGradeValues(scale).map(v =>
+      `<button type="button" data-val="${escHtml(v.val)}" class="${v.main ? 'is-main' : ''}" aria-label="Note ${escHtml(v.label)}">${escHtml(v.label)}</button>`).join('')}</div>`;
+  document.body.appendChild(pop);
+  pop.querySelectorAll('[data-val]').forEach(b => b.addEventListener('click', () => giveRoundGrade(studentId, b.dataset.val)));
+  const r = card.getBoundingClientRect();
+  const w = pop.offsetWidth || 300, h = pop.offsetHeight || 170;
+  pop.style.left = Math.max(8, Math.min(r.left + r.width / 2 - w / 2, window.innerWidth - w - 8)) + 'px';
+  pop.style.top = (r.bottom + 8 + h <= window.innerHeight - 8 ? r.bottom + 8 : Math.max(8, r.top - h - 8)) + 'px';
+}
+function giveRoundGrade(studentId, val) {
+  if (!gradeRound) return;
+  const round = gradeRound;
+  const groupId = round.groupId;
+  const s = (db.students[groupId] || []).find(x => x.id === studentId);
+  closeGradeRoundPad();
+  if (!s) { showToast('Diesen Schüler gibt es nicht mehr (z. B. durch Sync). Note nicht gespeichert', 'error'); return; }
+  if (refreshSeatingDate()) renderSeatingDateStrip();   // über Nacht offen (Regel 24)
+  const parsed = parseGradeInput(val, gradeScale(groupId));
+  if (!parsed) return;
+  const type = document.querySelector('#grade-round-bar select')?.value || quickGradeType(groupId);
+  const entry = { type, value: parsed.value, date: currentSeatingDateStr || profileDefaultDate(), note: '' };
+  if (!Array.isArray(s.grades)) s.grades = [];
+  s.grades.push(entry);
+  round.done.add(studentId);
+  round.given = [...(round.given || []), entry];
+  round.count++;
+  saveDB();
+  renderGradeRoundBar();
+  refreshGradeViews(s, groupId);
+  const typeName = (QUICK_GRADE_TYPES.find(([k]) => k === type) || [])[1] || gradeTypeName(type);
+  showUndoToast(`${studentListName(s)}: ${gradeText(entry.value)} (${typeName})`, () => {
+    const i = (s.grades || []).indexOf(entry);
+    if (i === -1) return;
+    s.grades.splice(i, 1);
+    if (gradeRound === round) {
+      round.count--;
+      round.given = (round.given || []).filter(x => x !== entry);
+      if (!round.given.some(x => s.grades.includes(x))) round.done.delete(studentId);
+      renderGradeRoundBar();
+    }
+    saveDB();
+    refreshGradeViews(s, groupId);
+  }, 'round');
+}
+// Tippen daneben (Druck auch daneben begonnen, Regel 27) und Escape schließen die Tafel
+document.addEventListener('click', e => {
+  const p = document.getElementById('grade-round-pop');
+  if (!p || p.contains(e.target) || pressStartedIn(p)) return;
+  closeGradeRoundPad();
+});
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && document.getElementById('grade-round-pop')) closeGradeRoundPad(); });
+
 function toggleSeatingEditMode() {
   seatingEditMode = !seatingEditMode;
   const btn = document.getElementById('btn-seating-edit');
@@ -6518,6 +6623,8 @@ function onToggleSeatingStagger(on) {
 function renderSeatingPlan() {
   const groupId = currentSeatingGroupId;
   const dateStr = currentSeatingDateStr;
+  // Notenrunde gehört zu einer Klasse: Klassenwechsel beendet sie (AH28)
+  if (gradeRound && gradeRound.groupId !== groupId) { gradeRound = null; closeGradeRoundPad(); renderGradeRoundBar(); }
   renderSeatingCockpit(); // vor dem Messen: die Leiste nimmt dem Raster Höhe weg
   const canvas = document.getElementById('seating-canvas');
   const emptyState = document.getElementById('seating-empty');
@@ -6714,9 +6821,11 @@ function renderSeatingPlan() {
       makeDraggable(card, s.id, groupId, cellWidth, cellHeight, cols, rows, offsetX, 1, layout, rowShift);
       card.classList.add('draggable-mode');
     } else {
+      if (gradeRound && gradeRound.done.has(s.id)) card.classList.add('sc-graded');
       card.addEventListener('click', (e) => {
         // Seit dem Zeichnen kann ein neuer Tag begonnen haben (App über Nacht offen, BUGS E2)
         if (refreshSeatingDate()) { renderSeatingDateStrip(); renderSeatingPlan(); }
+        if (gradeRound) { e.stopPropagation(); openGradeRoundPad(card, s.id); return; }   // Notenrunde (AH28)
         openSeatingStudentModal(s.id, groupId, currentSeatingDateStr);
       });
     }
@@ -7799,8 +7908,11 @@ function closeModalOnOverlay(event, id) {
 }
 
 // Toast mit „Rückgängig“ (klickbar, anders als normale Toasts) für Einträge, die ein zweites Tippen entfernt (BUGS N6)
-function showUndoToast(msg, undo) {
+// group: Hinweise derselben Gruppe ersetzen sich (Notenrunde: sonst stapeln sie sich über Leiste und Karten, AH28)
+function showUndoToast(msg, undo, group) {
+  if (group) document.querySelectorAll(`#toast-container .toast-undo[data-group="${group}"]`).forEach(x => x.remove());
   const t = Object.assign(document.createElement('div'), { className: 'toast success toast-undo' });
+  if (group) t.dataset.group = group;
   t.appendChild(Object.assign(document.createElement('span'), { textContent: msg }));
   const btn = Object.assign(document.createElement('button'), { type: 'button', textContent: 'Rückgängig' });
   let done = false;
@@ -8132,7 +8244,7 @@ const WHATS_NEW = {
     { icon: 'todo',     title: 'Merkzettel', text: 'Neuer Menüpunkt: schnell aufschreiben, woran du denken willst, wahlweise mit Klasse und Frist. Offene Punkte stehen im Dashboard und im Fenster der passenden Stunde.' },
     { icon: 'search',   title: 'Suche', text: 'Oben in der Seitenleiste (Handy: im Dashboard) Klasse, Schüler, Notiz oder Thema eintippen und direkt öffnen. Am Laptop auch mit ⌘K.' },
     { icon: 'eye-off',  title: 'Noten erst auf Knopfdruck', text: 'In einer Klasse erscheinen Schnitte, Noten und Mitarbeit erst nach „Anzeigen“, damit am Beamer niemand mitliest. Abschalten: Einstellungen → Klassenansicht.' },
-    { icon: 'classes',  title: 'Klassen schneller', text: 'Klassenübersicht als Liste, Kacheln oder groß, sortierbar (z. B. „Als Nächstes“). Die Tabellen starten beim neuesten Tag und springen beim Eintragen nicht mehr zurück.' },
+    { icon: 'grades',   title: 'Note mit drei Tipps', text: 'Schüler antippen → „Note geben“ → Note antippen. Für ganze Abfragen im Sitzplan: Werkzeug „Noten geben“. Alles Weitere zum Schüler steht im selben Fenster unter „Mehr zu …“.' },
     { icon: 'settings', title: 'Handy: Menü unten', text: 'Auf dem Handy liegt das Menü jetzt unten, mit dem Daumen erreichbar. Die Einstellungen öffnet das Zahnrad oben im Dashboard.' },
   ],
 };

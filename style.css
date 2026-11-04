@@ -1299,6 +1299,25 @@ button.date-chip{font-family:inherit;padding:0;}
 .sw-sec .entry-item:last-child,.sw-sec .grade-item:last-child{border-bottom:none;}
 .sw-sec .grades-summary{margin-bottom:6px;}
 .entry-face{font-size:20px;line-height:1;min-width:26px;text-align:center;}
+/* Notenrunde im Sitzplan (AH28) */
+.grade-round-bar{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin:10px 20px 0;padding:8px 10px 8px 16px;box-sizing:border-box;background:var(--bg-card);border:1px solid var(--text-primary);border-radius:var(--radius-md);flex-shrink:0;}
+.grade-round-title{display:flex;align-items:center;gap:6px;font-size:14px;font-weight:600;color:var(--text-primary);}
+.grade-round-title .ico{width:16px;height:16px;}
+.grade-round-type{width:auto;min-height:36px;padding:4px 32px 4px 10px;font-size:14px;}
+.grade-round-count{font-size:14px;color:var(--text-secondary);font-variant-numeric:tabular-nums;}
+.grade-round-hint{flex:1;font-size:13px;color:var(--text-muted);}
+.grade-round-done{min-height:36px;margin-left:auto;}
+#btn-seating-round.active{background:var(--text-primary);color:var(--bg-secondary);}
+.grade-round-pop{position:fixed;z-index:1200;width:320px;max-width:calc(100vw - 16px);padding:8px;background:var(--bg-secondary);border:1px solid var(--border);border-radius:var(--radius-md);box-shadow:var(--shadow-lg);}
+.grade-round-who{font-size:13px;font-weight:600;color:var(--text-secondary);margin:2px 4px 8px;}
+.grade-round-pop .sw-grid{gap:4px;}
+.seating-card.sc-graded{border-color:var(--text-primary);box-shadow:inset 0 0 0 1px var(--text-primary);}
+.seating-card.sc-graded::after{content:'✓';position:absolute;top:2px;right:4px;font-size:12px;font-weight:700;line-height:1;color:var(--text-primary);}
+@media (max-width: 600px){
+  .grade-round-bar{margin:8px 10px 0;gap:8px;padding:6px 8px 6px 12px;flex-wrap:nowrap;}
+  .grade-round-hint,.grade-round-label{display:none;}
+  .grade-round-type{min-width:0;flex:1;}
+}
 .sw-sec .add-entry-row{margin-top:8px;}
 .sw-add-btn{margin-top:8px;}
 .sw-hint{font-size:14px;color:var(--text-primary);padding:8px 10px;margin-bottom:8px;border-radius:var(--radius-sm);background:var(--bg-card);border:1px solid var(--border);overflow-wrap:anywhere;white-space:pre-wrap;}
