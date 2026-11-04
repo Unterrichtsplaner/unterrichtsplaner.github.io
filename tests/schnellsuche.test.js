@@ -207,3 +207,10 @@ describe('Ohne Eingabe', () => {
     expect(sections()).toEqual(['Springen zu']);
   });
 });
+
+describe('Handy: Suche als ganze Seite', () => {
+  it('ohne graue Abdunklung: unter Tastatur und Statusleiste die Farbe der Suche', () => {
+    const CSS = require('fs').readFileSync(require('path').join(__dirname, '..', 'style.css'), 'utf8');
+    expect(CSS).toMatch(/@media\(max-width:600px\)\{[^@]*#modal-search\{padding:0;background:var\(--bg-secondary\);backdrop-filter:none;\}/);
+  });
+});

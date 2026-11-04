@@ -1615,7 +1615,7 @@ h1,h2,h3,.dash-heading,.subject-heading{text-wrap:balance;}
   .sidebar-search{display:none;}
   .dash-search{display:flex;}
   #level-subjects .classes-search-btn{display:inline-flex;width:44px;height:44px;}   /* erste Zeile neben „Nach Fach“, + Fach/Klasse bleibt in Zeile 2 */
-  #modal-search{padding:0;}
+  #modal-search{padding:0;background:var(--bg-secondary);backdrop-filter:none;}   /* ganze Seite: unter Tastatur und Statusleiste Farbe der Suche statt grauer Abdunklung */
   .search-palette{width:100%;height:var(--search-vh, 100%);max-height:none;border:none;border-radius:0;}
   .search-field{padding-top:calc(8px + env(safe-area-inset-top));}
   .search-acts{padding:0 0 8px 58px;}

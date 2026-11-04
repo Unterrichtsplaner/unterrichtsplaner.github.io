@@ -1,21 +1,21 @@
-const CACHE_NAME = 'lehrer-app-v369';
+const CACHE_NAME = 'lehrer-app-v370';
 const ASSETS = [
   './',
   './index.html',
-  './app.js?v=369',
-  './style.css?v=369',
+  './app.js?v=370',
+  './style.css?v=370',
   './manifest.json',
   './icon.svg',
   './icon-180.png',
   './icon-192.png',
   './icon-512.png',
   './lib/crypto-js.min.js',
-  './crypto-helper.js?v=369',
+  './crypto-helper.js?v=370',
   './lib/firebase-app-compat.js',
   './lib/firebase-auth-compat.js',
   './lib/firebase-firestore-compat.js',
-  './firebase-config.js?v=369',
-  './sync-manager.js?v=369'
+  './firebase-config.js?v=370',
+  './sync-manager.js?v=370'
 ];
 
 self.addEventListener('install', event => {
