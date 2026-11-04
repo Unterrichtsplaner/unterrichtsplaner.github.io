@@ -9393,11 +9393,11 @@ window.jumpToStudentDetailFromSeating = function() {
   leaveLessonModal(); // Eingetipptes übernehmen, Stunden-Fenster nicht darunter liegen lassen (Regel 35, BUGS S5)
   // Aus der Klassenansicht derselben Klasse: dort bleiben, sonst sprang sie auf den Reiter „Schüler“ (BUGS I10)
   const inClassView = document.getElementById('view-students').classList.contains('active') && currentGroupId === groupId;
-  if (!inClassView) {
-    switchView('classes');
-    openGroupStudents(groupId);
-  }
-  openStudentDetail(studentId);
+  // Sonst (Sitzplan, Stundenplan …): Profil über der aktuellen Ansicht öffnen, nicht in die Klassenansicht springen –
+  // der Sitzplan bleibt offen (AH28). Das Profil liest seine Klasse aus currentGroupId.
+  if (!inClassView) currentGroupId = groupId;
+  // Beamer: nie auf „Noten“, außer die Noten sind in der Klassenansicht gerade bewusst eingeblendet (Regel 16, AH28)
+  openStudentDetail(studentId, inClassView && classGradesShown ? 'grades' : 'attendance');
 };
 
 
