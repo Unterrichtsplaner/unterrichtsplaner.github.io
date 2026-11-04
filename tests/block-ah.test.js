@@ -134,7 +134,7 @@ describe('AH7: Geburtstag nur, wenn er stimmen kann', () => {
     expect(app('birthdayInfo(db.students.g1[1], "2026-05-04")')).not.toBeNull();
   });
   it('Speichern mit unmöglichem Datum: Hinweis, nichts gespeichert', () => {
-    app('currentStudentId = "s2"; openEditStudent()');
+    app('openStudentDetail("s2"); openEditStudent()');
     document.getElementById('new-student-birthday').value = '2026-11-03';
     app('saveStudent()');
     expect(app('db.students.g1[1].birthday')).toBe('2013-05-04');
@@ -142,7 +142,7 @@ describe('AH7: Geburtstag nur, wenn er stimmen kann', () => {
     app('closeModal("modal-add-student")');
   });
   it('Bearbeiten zeigt einen unmöglichen Geburtstag nicht an', () => {
-    app('currentStudentId = "s1"; openEditStudent()');
+    app('openStudentDetail("s1"); openEditStudent()');
     expect(document.getElementById('new-student-birthday').value).toBe('');
     app('closeModal("modal-add-student")');
   });
@@ -175,7 +175,7 @@ describe('AH17: was sich markieren lässt', () => {
     expect(block()).toMatch(/body\{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;\}/);
   });
   it('Inhalte wieder markierbar: Tabellen, Profil, Stunden-Fenster, Heute, Datenschutz, Neuigkeiten, Notizen', () => {
-    for (const sel of ['#overview-content', '#modal-student-detail .modal-body', '#modal-lesson .modal-body', '#seating-today-body',
+    for (const sel of ['#overview-content', '#sw-more', '#modal-lesson .modal-body', '#seating-today-body',
       '#modal-privacy .modal-body', '#modal-whats-new .modal-body', '.cn-chip', '.seating-notes'])
       expect(block()).toContain(sel);
     expect(block()).toMatch(/\{-webkit-user-select:text;user-select:text;-webkit-touch-callout:default;\}/);

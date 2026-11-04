@@ -55,14 +55,18 @@ describe('Reiter Schüler', () => {
     app('toggleClassGrades()');
     expect(studentsBox().querySelector('.student-grade-badge')).toBeNull();
   });
-  it('Zeile antippen öffnet das Profil verborgen nicht auf „Noten“, sichtbar schon', () => {
+  it('Zeile antippen öffnet das Schüler-Fenster verborgen nicht auf „Noten“, sichtbar schon (AH28: ein „Anzeigen“)', () => {
     app('openGroupStudents("g1", "students")');
     studentsBox().querySelector('.student-row').click();
-    expect(document.querySelector('#modal-student-detail .tab-btn.active').textContent).not.toMatch(/Noten/);
-    app('closeModal("modal-student-detail"); toggleClassGrades()');
+    const more = () => document.getElementById('sw-more');
+    expect(more().hidden).toBe(false);
+    expect(more().classList.contains('is-veiled')).toBe(true);
+    expect(more().dataset.focus).not.toBe('grades');
+    app('closeModal("modal-seating-student"); toggleClassGrades()');
     studentsBox().querySelector('.student-row').click();
-    expect(document.querySelector('#modal-student-detail .tab-btn.active').textContent).toMatch(/Noten/);
-    app('closeModal("modal-student-detail")');
+    expect(more().classList.contains('is-veiled')).toBe(false);
+    expect(more().dataset.focus).toBe('grades');
+    app('closeModal("modal-seating-student")');
   });
 });
 
@@ -114,9 +118,10 @@ describe('Andere Reiter und Zurücksetzen', () => {
     const inp = document.getElementById('search-input');
     inp.value = 'anna'; inp.dispatchEvent(new Event('input'));
     inp.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
-    expect(document.getElementById('modal-student-detail').classList.contains('hidden')).toBe(false);
-    expect(document.querySelector('#modal-student-detail .tab-btn.active').textContent).not.toMatch(/Noten/);
-    app('closeModal("modal-student-detail")');
+    expect(document.getElementById('modal-seating-student').classList.contains('hidden')).toBe(false);
+    expect(document.getElementById('sw-more').classList.contains('is-veiled')).toBe(true);
+    expect(document.getElementById('sw-more').dataset.focus).not.toBe('grades');
+    app('closeModal("modal-seating-student")');
   });
 });
 

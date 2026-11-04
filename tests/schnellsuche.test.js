@@ -143,8 +143,8 @@ describe('Öffnen eines Treffers', () => {
     expect(isOpen()).toBe(false);
     expect(app('currentGroupId')).toBe('g1');
     expect(app('currentStudentId')).toBe('s1');
-    expect(document.getElementById('modal-student-detail').classList.contains('hidden')).toBe(false);
-    app('closeModal("modal-student-detail")');
+    expect(document.getElementById('modal-seating-student').classList.contains('hidden')).toBe(false);
+    app('closeModal("modal-seating-student")');
   });
   it('Klasse antippen öffnet die Klasse; „Noten“ den Reiter Noten; „Sitzplan“ den Sitzplan; „+ Notiz“ die Klassennotizen', () => {
     type('7b');
@@ -176,7 +176,7 @@ describe('Öffnen eines Treffers', () => {
     type('ben');
     app('db.students.g1 = db.students.g1.filter(s => s.id !== "s1")');
     key('Enter');
-    expect(document.getElementById('modal-student-detail').classList.contains('hidden')).toBe(true);
+    expect(document.getElementById('modal-seating-student').classList.contains('hidden')).toBe(true);
     expect(document.getElementById('toast-container').textContent).toMatch(/gibt es nicht mehr/);
   });
 });
@@ -192,7 +192,7 @@ describe('Ohne Eingabe', () => {
   it('„Zuletzt geöffnet“: Klassen und Schüler, die man geöffnet hat; Gelöschtes fällt weg', () => {
     app('openGroupStudents("g2")');
     app('openSearch()'); type('ben'); key('Enter'); // Ben Becker (7b)
-    app('closeModal("modal-student-detail")');
+    app('closeModal("modal-seating-student")');
     app('openSearch()');
     expect(sections()).toEqual(['Zuletzt geöffnet', 'Springen zu']);
     expect(titles().slice(0, 3)).toEqual(['Ben Becker', '7b Mathe', '9c Physik']);

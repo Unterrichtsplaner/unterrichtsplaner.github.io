@@ -65,6 +65,7 @@ const ICONS = {
   alert:        '<path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>',
   'trend-down': '<polyline points="23 18 13.5 8.5 8.5 13.5 1 6"/><polyline points="17 18 23 18 23 12"/>',
   lock:         '<rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>',
+  more:         '<circle cx="5" cy="12" r="1.2"/><circle cx="12" cy="12" r="1.2"/><circle cx="19" cy="12" r="1.2"/>',
   eye:          '<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>',
   undo:         '<polyline points="9 14 4 9 9 4"/><path d="M20 20v-7a4 4 0 0 0-4-4H4"/>',
   edit:         '<path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/>',
@@ -4302,39 +4303,36 @@ function saveStudent() {
   // Ein Name genügt: der Import erlaubt Schüler mit nur einem Namen, die müssen bearbeitbar bleiben (BUGS L8)
   if (!firstName && !lastName) { showToast('Bitte einen Namen eingeben', 'error'); return; }
   if (birthday && !validBirthday(birthday)) { showToast('Der Geburtstag kann nicht stimmen. Bitte prüfen oder das Feld leeren', 'error'); return; }
-  if (!db.students[currentGroupId]) db.students[currentGroupId] = [];
+  // Bearbeiten aus dem Schüler-Fenster: dessen Klasse (kann eine andere sein als die offene Klassenansicht, AH28)
+  const gid = editingStudentId && editingStudentGroupId ? editingStudentGroupId : currentGroupId;
+  if (!db.students[gid]) db.students[gid] = [];
   if (editingStudentId) {
-    const s = db.students[currentGroupId].find(x => x.id === editingStudentId);
+    const s = db.students[gid].find(x => x.id === editingStudentId);
     if (s) {
       const oldStudent = { firstName: s.firstName, lastName: s.lastName };
       Object.assign(s, { firstName, lastName, notes });
       setImportantNote(s, important);
       if (birthday) s.birthday = birthday; else delete s.birthday; // kein leeres Feld an alle Schüler hängen
-      renameAbsenceNotes(currentGroupId, oldStudent, s);
+      renameAbsenceNotes(gid, oldStudent, s);
     }
   } else {
-    db.students[currentGroupId].push({ id:uid(), firstName, lastName, notes, ...(important ? { importantNote: important } : {}), ...(birthday ? { birthday } : {}), grades:[], studentNotes:[], attendance:[] });
+    db.students[gid].push({ id:uid(), firstName, lastName, notes, ...(important ? { importantNote: important } : {}), ...(birthday ? { birthday } : {}), grades:[], studentNotes:[], attendance:[] });
   }
   saveDB();
   closeModal('modal-add-student');
-  refreshStudentViews(currentGroupId); // auch eine offene Tabelle (BUGS Q4)
+  refreshStudentViews(gid); // auch eine offene Tabelle (BUGS Q4)
   showToast(editingStudentId ? 'Schüler geändert ✓' : 'Schüler hinzugefügt ✓');
   editingStudentId = null;
+  editingStudentGroupId = null;
 }
 
 // ─── Student Detail ───────────────────────────────────────────────────────
+// Profil = Schüler-Fenster mit aufgeklapptem „Mehr zu …“ (AH28; früher eigenes Fenster mit Reitern). Gehört zur
+// Klasse der Klassenansicht; Datum oben = heute bzw. letzter Schultag.
 function openStudentDetail(studentId, initialTab = 'grades') {
-  const s = (db.students[currentGroupId]||[]).find(x => x.id === studentId);
-  if (!s) return;
+  if (!(db.students[currentGroupId] || []).some(x => x.id === studentId)) return;
   rememberSearchRecent({ kind: 'student', groupId: currentGroupId, studentId });   // AH19
-  currentStudentId = studentId;
-  const group = db.groups.find(g => g.id === currentGroupId);
-  document.getElementById('sdetail-name').textContent = `${s.firstName || ''} ${s.lastName || ''}`.trim();
-  document.getElementById('sdetail-group').textContent = group ? `${group.subject} · Klasse ${group.className}` : '';
-  renderStudentDetailLists(s);
-  resetProfileDates();
-  switchStudentTab(initialTab);
-  openModal('modal-student-detail');
+  openSeatingStudentModal(studentId, currentGroupId, profileDefaultDate(), { more: true, focus: initialTab });
 }
 // Alle Listen im offenen Schülerprofil neu zeichnen (z. B. nach „Rückgängig“)
 function renderStudentDetailLists(s) {
@@ -4345,7 +4343,7 @@ function renderStudentDetailLists(s) {
   renderStudentHomeworkList(s);
 }
 function refreshOpenProfile(s) {
-  if (document.getElementById('modal-student-detail').classList.contains('hidden')) return;
+  if (document.getElementById('modal-seating-student').classList.contains('hidden')) return;
   const cur = getCurrentStudent();
   if (cur && cur === s) renderStudentDetailLists(s);
 }
@@ -4358,30 +4356,26 @@ function resetProfileDates() {
   ['new-att-date', 'new-hw-student-date', 'new-student-note-date'].forEach(id => { document.getElementById(id).value = d; });
 }
 
+// Früher Reiter im Profil; heute springt es zum Abschnitt unter „Mehr zu …“ (AH28)
 function switchStudentTab(tab) {
-  document.querySelectorAll('#modal-student-detail .tab-btn').forEach((b,i) => {
-    b.classList.toggle('active', ['grades','participation','attendance','homework','notes'][i] === tab);
-  });
-  ['grades','participation','attendance','homework','notes'].forEach(t => {
-    const el = document.getElementById('student-tab-'+t);
-    if (el) {
-      el.classList.toggle('active', t===tab);
-      el.classList.toggle('hidden', t!==tab);
-    }
-  });
+  setSeatingStudentMore(true);
+  const more = document.getElementById('sw-more');
+  if (more) more.dataset.focus = tab;
+  const sec = document.getElementById('sw-sec-' + tab);
+  if (sec && sec.scrollIntoView) try { sec.scrollIntoView({ block: 'start' }); } catch (e) { /* jsdom */ }
 }
 
 function openGradeFormForCurrentStudentDetailed() {
   const s = getCurrentStudent();
   if (!s) return;
-  openGradeForm(s.id, currentGroupId, -1);
+  openGradeForm(s.id, profileGroupId, -1);
 }
 
-function getCurrentStudent() { return (db.students[currentGroupId]||[]).find(x => x.id === currentStudentId); }
+function getCurrentStudent() { return (db.students[profileGroupId]||[]).find(x => x.id === currentStudentId); }
 
 function renderGradesList(s) {
   const grades = s.grades||[];
-  const scale = gradeScale(currentGroupId);
+  const scale = gradeScale(profileGroupId);
   const summary = document.getElementById('grades-summary');
   if (!grades.length) {
     summary.innerHTML = '<span style="color:var(--text-muted);font-size:13px">Noch keine Noten.</span>';
@@ -4393,7 +4387,7 @@ function renderGradesList(s) {
       if (!byType[g.type]) byType[g.type]=[];
       byType[g.type].push(v);
     });
-    const rawAvg = calculateStudentAverage(s, currentGroupId);
+    const rawAvg = calculateStudentAverage(s, profileGroupId);
     summary.innerHTML = `
       <div class="grade-summary-item" style="margin-right:16px">
         <div class="grade-avg-display" style="color:${gradeColor(rawAvg, scale)}">${formatGradeAverage(rawAvg)}</div>
@@ -4426,7 +4420,7 @@ function renderGradesList(s) {
         if (cur) renderGradesList(cur);
         return;
       }
-      openGradeForm(s.id, currentGroupId, idx);
+      openGradeForm(s.id, profileGroupId, idx);
     };
     el.innerHTML = `
       <div class="grade-value" style="color:${color}">${escHtml(gradeText(g.value))}</div>
@@ -4460,7 +4454,7 @@ function deleteStudentNote(note) {
 }
 // Ein Tipp aufs ✕ löscht sofort – deshalb „Rückgängig“ wie im Sitzplan (BUGS U3, Regel 45)
 function offerProfileUndo(msg, s, list, entry, after) {
-  const groupId = currentGroupId;
+  const groupId = profileGroupId;
   showUndoToast(msg, () => restoreSeatingEntry(groupId, s, list, entry, after));
 }
 
@@ -4514,9 +4508,9 @@ function addAttendanceEntry() {
   } else {
     s.attendance.push({ id: uid(), date, type, note });
   }
-  if (wasUnexcused && type !== 'abwesend') removeAbsenceNote(currentGroupId, date, s);
-  if (!wasUnexcused && type === 'abwesend') addAbsenceNote(currentGroupId, date, s); // wie im Sitzplan (BUGS L3, Regel 25)
-  saveDB(); renderAttendanceList(s); refreshStudentViews(currentGroupId);
+  if (wasUnexcused && type !== 'abwesend') removeAbsenceNote(profileGroupId, date, s);
+  if (!wasUnexcused && type === 'abwesend') addAbsenceNote(profileGroupId, date, s); // wie im Sitzplan (BUGS L3, Regel 25)
+  saveDB(); renderAttendanceList(s); refreshStudentViews(profileGroupId);
   if (existing) showToast('Eintrag vom ' + formatDateShort(date) + ' geändert');
   document.getElementById('new-att-date').value=profileDefaultDate();
   document.getElementById('new-att-note').value='';
@@ -4526,8 +4520,8 @@ function deleteAttendance(a) {
   const s = getCurrentStudent(); if (!s) return;
   const idx = (s.attendance||[]).indexOf(a);
   if (idx === -1) { renderAttendanceList(s); return; }
-  // Schülerdetail gehört zu currentGroupId (getCurrentStudent), nicht zur Klassenübersicht
-  const groupId = currentGroupId;
+  // Schülerdetail gehört zu profileGroupId (getCurrentStudent), nicht zur Klassenübersicht
+  const groupId = profileGroupId;
   if (a.type === 'abwesend') removeAbsenceNote(groupId, a.date, s);
   s.attendance.splice(idx,1); saveDB(); renderAttendanceList(s); refreshStudentViews(groupId);
   offerProfileUndo('Fehlzeit gelöscht', s, 'attendance', a, a.type === 'abwesend' ? () => addAbsenceNote(groupId, a.date, s) : null);
@@ -4539,16 +4533,15 @@ function renderStudentParticipationList(s) {
   if (!list) return;
   list.innerHTML = '';
   if (!pList.length) { list.innerHTML = '<div style="color:var(--text-muted);font-size:13px;padding:6px 0">Keine Einträge.</div>'; return; }
-  const valColors = { 'positive':'var(--success)', 'neutral':'var(--warning)', 'negative':'var(--danger)' };
-  const valLabels = { 'positive':'+', 'neutral':'=', 'negative':'-' };
-  const textLabels = { 'positive':'Hervorragende Mitarbeit', 'neutral':'Moderate Mitarbeit', 'negative':'Schlechte Mitarbeit' };
+  // Gesichter wie überall (Sitzplan, Tabelle), statt „Hervorragende/Moderate Mitarbeit“ (AH28)
+  const faces = { 'positive':'😊', 'neutral':'😐', 'negative':'☹️' };
+  const words = { 'positive':'gut', 'neutral':'mittel', 'negative':'schwach' };
   [...pList].sort((a,b) => (b.date||'').localeCompare(a.date||'')).forEach(p => {
     const el = document.createElement('div');
     el.className = 'entry-item';
-    const desc = p.label || textLabels[p.value] || 'Mitarbeit';
     el.innerHTML = `
-      <span style="color:${valColors[p.value]||'inherit'};font-weight:800;font-size:16px;min-width:30px;text-align:center;">${escHtml(valLabels[p.value]||p.value)}</span>
-      <span class="entry-item-text">${escHtml(desc)}</span>
+      <span class="entry-face" role="img" aria-label="${escHtml(words[p.value] || 'Mitarbeit')}">${faces[p.value] || escHtml(p.value)}</span>
+      <span class="entry-item-text">${p.label ? escHtml(p.label) : ''}</span>
       <span class="entry-item-date">${p.date ? formatDateShort(p.date) : ''}</span>
       <button class="entry-item-delete" aria-label="Löschen">×</button>`;
     el.querySelector('.entry-item-delete').onclick = () => deleteParticipation(p);
@@ -4560,7 +4553,7 @@ function deleteParticipation(p) {
   const s = getCurrentStudent(); if (!s) return;
   const idx = (s.participation||[]).indexOf(p);
   if (idx === -1) { renderStudentParticipationList(s); return; }
-  s.participation.splice(idx, 1); saveDB(); renderStudentParticipationList(s); refreshStudentViews(currentGroupId);
+  s.participation.splice(idx, 1); saveDB(); renderStudentParticipationList(s); refreshStudentViews(profileGroupId);
   offerProfileUndo('Mitarbeit gelöscht', s, 'participation', p);
 }
 
@@ -4570,9 +4563,9 @@ function renderStudentHomeworkList(s) {
   // Die Bemerkung ist der Spaltentitel in der HA-Tabelle: vorhandene Titel vorschlagen (BUGS Q15)
   const titles = document.getElementById('hw-column-titles');
   if (titles) {
-    const group = db.groups.find(g => g.id === currentGroupId);
+    const group = db.groups.find(g => g.id === profileGroupId);
     const labels = new Set([...(group && group.homeworkEvents || []).map(e => e.label || ''),
-      ...(db.students[currentGroupId] || []).flatMap(st => (st.homework || []).map(h => h.note || ''))]);
+      ...(db.students[profileGroupId] || []).flatMap(st => (st.homework || []).map(h => h.note || ''))]);
     labels.delete('');
     titles.innerHTML = [...labels].sort().map(l => `<option value="${escHtml(l)}"></option>`).join('');
   }
@@ -4612,7 +4605,7 @@ function addStudentHomework() {
   s.homework.push({ id: uid(), date: date, note: note });
   saveDB();
   renderStudentHomeworkList(s);
-  refreshStudentViews(currentGroupId);
+  refreshStudentViews(profileGroupId);
   document.getElementById('new-hw-student-date').value = profileDefaultDate();
   document.getElementById('new-hw-student-note').value = '';
 }
@@ -4624,16 +4617,16 @@ function deleteStudentHomework(id) {
   s.homework.splice(s.homework.indexOf(entry), 1);
   saveDB();
   renderStudentHomeworkList(s);
-  refreshStudentViews(currentGroupId);
+  refreshStudentViews(profileGroupId);
   offerProfileUndo('Eintrag gelöscht', s, 'homework', entry);
 }
 
 function deleteCurrentStudent() {
   if (!confirm('Schüler wirklich löschen?')) return;
-  const removed = (db.students[currentGroupId]||[]).filter(s=>s.id===currentStudentId);
-  db.students[currentGroupId]=(db.students[currentGroupId]||[]).filter(s=>s.id!==currentStudentId);
-  cleanUpDeletedStudents(currentGroupId, removed);
-  saveDB(); closeModal('modal-student-detail'); refreshStudentViews(currentGroupId); renderSubjectGroups();
+  const removed = (db.students[profileGroupId]||[]).filter(s=>s.id===currentStudentId);
+  db.students[profileGroupId]=(db.students[profileGroupId]||[]).filter(s=>s.id!==currentStudentId);
+  cleanUpDeletedStudents(profileGroupId, removed);
+  saveDB(); closeModal('modal-seating-student'); refreshStudentViews(profileGroupId); renderSubjectGroups();
   showToast('Schüler gelöscht');
 }
 
@@ -4646,15 +4639,16 @@ function openEditStudent() {
   document.getElementById('new-student-notes').value = s.notes||'';
   document.getElementById('new-student-important').value = s.importantNote||'';
   document.getElementById('new-student-birthday').value = validBirthday(s.birthday) ? s.birthday : '';
-  closeModal('modal-student-detail');
+  editingStudentGroupId = profileGroupId;
+  closeModal('modal-seating-student');
   openModal('modal-add-student');
 }
 
 function exportCurrentStudent() {
   const s = getCurrentStudent();
   if (!s) return;
-  // Das Profil gehört zu currentGroupId (getCurrentStudent), nicht zur zuletzt geöffneten Tabelle
-  const group = db.groups.find(g => g.id === currentGroupId);
+  // Das Profil gehört zu profileGroupId (getCurrentStudent), nicht zur zuletzt geöffneten Tabelle
+  const group = db.groups.find(g => g.id === profileGroupId);
   const subjName = group ? (group.subject + ' ' + group.className) : 'Unbekannte Klasse';
   const points = gradeScale(group).higherIsBetter;
   
@@ -4674,7 +4668,7 @@ function exportCurrentStudent() {
   const byDate = (a,b) => (a.date||'').localeCompare(b.date||'');
   const dateStr = d => d ? formatDateLong(d) : 'ohne Datum';
 
-  const avg = calculateStudentAverage(s, currentGroupId);
+  const avg = calculateStudentAverage(s, profileGroupId);
   const avgText = avg === null ? '-' : points ? formatGradeAverage(avg) + ' Punkte' : formatGradeAverage(avg, 2);
   txt += `=== NOTEN (Aktueller Schnitt: ${avgText}) ===\n`;
   if (s.grades && s.grades.length > 0) {
@@ -5926,6 +5920,18 @@ function renderSeatingStudentHint(show) {
       <button type="button" class="btn-secondary seating-reveal-btn" onclick="renderSeatingStudentHint(true)">Anzeigen</button></div>`;
     return;
   }
+  // Lesen statt offener Eingabefelder (AH28): erst „Ändern“ zeigt die Felder – kein versehentliches Tippen am Beamer
+  if (show === 'view') {
+    box.innerHTML = (important ? `<div class="sw-hint is-important"><small>${icon('alert')}Wichtig</small>${escHtml(important)}</div>` : '')
+      + (text ? `<div class="sw-hint"><small>Sonstiges</small>${escHtml(text)}</div>` : '')
+      + (!important && !text ? '<div class="sw-hint-empty">Kein Hinweis</div>' : '')
+      + `<button type="button" class="btn-secondary sw-hint-edit">${icon('edit')}${important || text ? 'Ändern' : 'Hinweis eintragen'}</button>`;
+    box.querySelector('.sw-hint-edit').addEventListener('click', () => {
+      renderSeatingStudentHint(true);
+      try { box.querySelector('textarea').focus(); } catch (e) { /* egal */ }
+    });
+    return;
+  }
   box.innerHTML = `<label class="seating-hint-label is-important" for="seating-student-important-input">${icon('alert')}Wichtig</label>
     <textarea id="seating-student-important-input" class="form-input seating-hint-input" rows="1"
       placeholder="z. B. Diabetes, Allergie, Nachteilsausgleich …"></textarea>
@@ -5958,7 +5964,7 @@ function commitSeatingStudentHint() {
 
 // Notiz zum Schüler direkt im Sitzplan (AH10), landet bei den Anmerkungen im Profil (studentNotes). Vorhandene
 // Notizen nur auf Knopfdruck (Beamer, Regel 67); was man eben selbst getippt hat, bleibt sichtbar. Nie gespeichert.
-let seatingNotesShown = false, seatingNotesFresh = [];
+let seatingNotesFresh = [];
 function commitSeatingStudentForm() { addSeatingStudentNote(); commitSeatingStudentHint(); }
 function renderSeatingStudentNotes() {
   const box = document.getElementById('seating-student-notes');
@@ -5966,16 +5972,10 @@ function renderSeatingStudentNotes() {
   if (!box || !ctx) return;
   const s = (db.students[ctx.groupId] || []).find(x => x.id === ctx.studentId);
   if (!s) { box.innerHTML = ''; return; }
-  const notes = [...(s.studentNotes || [])].sort((a, b) => (b.date || '').localeCompare(a.date || ''));
-  const all = seatingNotesShown || seatingShowGrades;
-  const visible = all ? notes : notes.filter(n => seatingNotesFresh.includes(n));
-  const hidden = notes.length - visible.length;
-  box.innerHTML = (visible.length ? `<ul class="seating-notes">${visible.map(n =>
-      `<li><small>${n.date ? escHtml(formatDateShort(n.date)) : ''}</small>${escHtml(n.text)}</li>`).join('')}</ul>` : '')
-    + (hidden ? `<div class="seating-hint-hidden"><span>${hidden === 1 ? '1 Notiz' : hidden + ' Notizen'} (verborgen)</span>`
-      + `<button type="button" class="btn-secondary seating-reveal-btn">Anzeigen</button></div>` : '');
-  const btn = box.querySelector('.seating-reveal-btn');
-  if (btn) btn.addEventListener('click', () => { seatingNotesShown = true; renderSeatingStudentNotes(); });
+  // Oben nur, was eben getippt wurde; alle Notizen stehen unter „Mehr zu …“ (hinter „Anzeigen“, AH28)
+  const visible = (s.studentNotes || []).filter(n => seatingNotesFresh.includes(n));
+  box.innerHTML = visible.length ? `<ul class="seating-notes">${visible.map(n =>
+      `<li><small>${n.date ? escHtml(formatDateShort(n.date)) : ''}</small>${escHtml(n.text)}</li>`).join('')}</ul>` : '';
 }
 function addSeatingStudentNote() {
   const input = document.getElementById('seating-student-note-input');
@@ -5992,6 +5992,7 @@ function addSeatingStudentNote() {
   saveDB();
   refreshStudentViews(ctx.groupId);
   renderSeatingStudentNotes();
+  refreshOpenProfile(s);
   return true;
 }
 document.getElementById('seating-student-note-input')?.addEventListener('keydown', e => {
@@ -7257,20 +7258,27 @@ function makeDraggable(el, studentId, groupId, cellWidth, cellHeight, maxCols, m
 }
 
 
-function openSeatingStudentModal(studentId, groupId, dateStr) {
-  const s = db.students[groupId].find(x => x.id === studentId);
+// Schüler-Fenster (AH28): Sitzplan, Stunde und Klassenansicht/Profil öffnen dasselbe Fenster. opts.more = „Mehr zu …“
+// gleich offen (Profil), opts.focus = Abschnitt, opts.keep = Zustand wie vorher (nach dem Notenformular).
+let swShown = false;   // Noten, Mitarbeit, Notizen, Hinweise unter „Mehr“ eingeblendet – nie gespeichert (Regel 16, 67)
+function openSeatingStudentModal(studentId, groupId, dateStr, opts = {}) {
+  const s = (db.students[groupId] || []).find(x => x.id === studentId);
   if (!s) return;
+  const prev = window.currentSeatingStudent;
+  const same = opts.keep && prev && prev.studentId === studentId && prev.groupId === groupId;
+  const moreWasOpen = !document.getElementById('sw-more').hidden;
   document.getElementById('seating-student-title').textContent = `${s.firstName} ${s.lastName}`;
   // Klasse · Fach · Tag: Der Tag gilt für alles oben im Fenster (Mitarbeit, Fehlzeit, HA, Note, Notiz; AH28)
   const sg = db.groups.find(x => x.id === groupId);
   document.getElementById('seating-student-sub').textContent = [sg && sg.className, sg && sg.subject, formatWeekdayShort(dateStr)].filter(Boolean).join(' · ');
-  closeSeatingGradePad();
-  setSeatingStudentMore(false, s);
-  
-  // Save context for smiley buttons
-  window.currentSeatingStudent = { studentId, groupId, dateStr };
 
-  // Render participation summary
+  window.currentSeatingStudent = { studentId, groupId, dateStr };
+  profileGroupId = groupId;
+  currentStudentId = studentId;
+  // Beamer: aus dem Sitzplan nur, wenn dort die Noten eingeblendet sind; aus der Klassenansicht wie dort (AH24 c)
+  const fromClassView = document.getElementById('view-students').classList.contains('active') && currentGroupId === groupId;
+  if (!same) swShown = fromClassView ? classGradesShown : seatingShowGrades;
+
   const partPos = (s.participation||[]).filter(p => p.value==='positive').length;
   const partNeutral = (s.participation||[]).filter(p => p.value==='neutral').length;
   const partNeg = (s.participation||[]).filter(p => p.value==='negative').length;
@@ -7280,14 +7288,28 @@ function openSeatingStudentModal(studentId, groupId, dateStr) {
     <span style="color:var(--danger)">☹️ ${partNeg}</span>
   `;
 
-  renderSeatingStudentGrades(seatingShowGrades);
-  renderSeatingStudentHint(seatingShowGrades);
-  seatingNotesShown = false; seatingNotesFresh = [];
+  closeSeatingGradePad();
+  closeSeatingMenu();
+  renderStudentDetailLists(s);
+  resetProfileDates();
+  renderSeatingStudentHint('view');
+  if (!same) seatingNotesFresh = [];
   document.getElementById('seating-student-note-input').value = '';
   renderSeatingStudentNotes();
   markSeatingStudentState(s, dateStr);
+  setSeatingStudentVeil();
+  setSeatingStudentMore(same ? moreWasOpen : !!opts.more, s);
 
   openModal('modal-seating-student');
+  if (opts.focus && opts.more) switchStudentTab(opts.focus);
+}
+function setSeatingStudentVeil() {
+  const more = document.getElementById('sw-more');
+  if (more) more.classList.toggle('is-veiled', !swShown);
+}
+function revealSeatingStudent() {
+  swShown = true;
+  setSeatingStudentVeil();
 }
 
 // Was heute schon eingetragen ist, ist markiert – ein zweites Tippen nimmt es zurück (BUGS N6)
@@ -7303,56 +7325,8 @@ function markSeatingStudentState(s, dateStr) {
   });
 }
 
-// Notenliste im Schüler-Fenster des Sitzplans. Datenschutz (BUGS H1): Solange die Noten im Sitzplan
-// verborgen sind, erst nach „Anzeigen“ – und dann nur für diesen einen Schüler.
-function revealSeatingStudentGrades() { renderSeatingStudentGrades(true); }
-
-function renderSeatingStudentGrades(show) {
-  if (!window.currentSeatingStudent) return;
-  const { studentId, groupId } = window.currentSeatingStudent;
-  const s = (db.students[groupId] || []).find(x => x.id === studentId);
-  const gradesContainer = document.getElementById('seating-student-grades');
-  if (!s || !gradesContainer) return;
-  gradesContainer.innerHTML = '';
-  if (!s.grades || !s.grades.length) {
-    gradesContainer.innerHTML = '<div style="font-size:12px;color:var(--text-muted);text-align:center;padding:10px;">Keine Noten vorhanden</div>';
-    return;
-  }
-  if (!show) {
-    gradesContainer.innerHTML = `
-      <div style="display:flex; justify-content:space-between; align-items:center; font-size:12px; color:var(--text-muted); padding:8px 12px; background:var(--bg-secondary); border-radius:var(--radius-sm);">
-        <span>${s.grades.length === 1 ? '1 Note' : s.grades.length + ' Noten'} (verborgen)</span>
-        <button class="btn-secondary seating-reveal-btn" style="padding:4px 10px; font-size:12px;" onclick="revealSeatingStudentGrades()">Anzeigen</button>
-      </div>`;
-    return;
-  }
-  // Sort chronologically (descending)
-  const sortedGrades = [...s.grades].sort((a,b) => (b.date||'').localeCompare(a.date||''));
-  sortedGrades.forEach(g => {
-    const el = document.createElement('div');
-    el.style.cssText = 'display:flex; justify-content:space-between; align-items:center; background:var(--bg-secondary); padding:8px 12px; border-radius:var(--radius-sm); font-size:13px;';
-    const valColor = gradeColor(gradeNumber(g.value), gradeScale(groupId));
-    el.innerHTML = `
-      <div style="display:flex; flex-direction:column; flex:1;">
-        <span style="font-weight:600; color:var(--text-primary)">${escHtml(g.note || gradeTypeName(g.type))}</span>
-        <span style="font-size:11px; color:var(--text-muted)">${g.date ? formatDateShort(g.date) : ''}</span>
-      </div>
-      <div style="display:flex; align-items:center; gap:12px;">
-        <div style="font-weight:800; font-size:14px; color:${valColor}">${escHtml(gradeText(g.value))}</div>
-        <button class="btn-icon seating-grade-edit-btn" style="padding:4px;" aria-label="Note bearbeiten">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-        </button>
-      </div>
-    `;
-    // Per Referenz: der Index kann sich bis zum Antippen verschoben haben (Regel 9, BUGS N13)
-    el.querySelector('button').onclick = () => {
-      const idx = s.grades.indexOf(g);
-      if (idx === -1) { showToast('Diese Note gibt es nicht mehr (z. B. durch Sync)', 'error'); return; }
-      openGradeForm(studentId, groupId, idx);
-    };
-    gradesContainer.appendChild(el);
-  });
-}
+// Noten unter „Mehr zu …“ zeigt dieselbe Liste wie früher das Profil (renderGradesList, AH28); „Anzeigen“ blendet sie ein
+function revealSeatingStudentGrades() { revealSeatingStudent(); }
 
 // „Mehr zu …“ (AH28): Hinweise, Noten, Bilanz und der Weg ins Profil – zu beim Öffnen, damit oben das Schnelle bleibt
 function setSeatingStudentMore(open, s) {
@@ -7429,10 +7403,35 @@ function closeSeatingGradePad() {
 }
 // Knöpfe im Schüler-Fenster per Listener (das Markup wird neu gesetzt; Inline-onclick läuft im Test nicht, Regel 18/19).
 // Am inneren Fenster, nicht am Overlay: .modal stoppt das Hochblubbern (event.stopPropagation).
-document.querySelector('#modal-seating-student .sw-body')?.addEventListener('click', e => {
+document.querySelector('#modal-seating-student .modal')?.addEventListener('click', e => {
+  const menu = document.getElementById('sw-menu');
+  const item = e.target.closest('#sw-menu [data-menu]');
+  if (e.target.closest('#sw-menu-btn')) { toggleSeatingMenu(); return; }
+  if (item) { closeSeatingMenu(); seatingMenuAction(item.dataset.menu); return; }
+  if (menu && !menu.hidden) closeSeatingMenu();   // Tippen woanders im Fenster schließt das Menü
   if (e.target.closest('#sw-grade-btn')) openSeatingGradePad();
   else if (e.target.closest('#sw-more-btn')) toggleSeatingStudentMore();
+  else if (e.target.closest('#sw-reveal')) revealSeatingStudent();
+  else if (e.target.closest('#sw-grade-form-btn')) openGradeFormForCurrentStudentDetailed();
 });
+// „…“: Seltenes (Name/Geburtstag/Hinweise ändern, Export, Löschen) nicht mehr groß im Fenster (AH28)
+function toggleSeatingMenu() {
+  const menu = document.getElementById('sw-menu');
+  if (!menu) return;
+  menu.hidden = !menu.hidden;
+  document.getElementById('sw-menu-btn').setAttribute('aria-expanded', menu.hidden ? 'false' : 'true');
+}
+function closeSeatingMenu() {
+  const menu = document.getElementById('sw-menu');
+  if (!menu || menu.hidden) return;
+  menu.hidden = true;
+  document.getElementById('sw-menu-btn').setAttribute('aria-expanded', 'false');
+}
+function seatingMenuAction(action) {
+  if (action === 'edit') { commitSeatingStudentForm(); openEditStudent(); }
+  else if (action === 'export') exportCurrentStudent();
+  else if (action === 'delete') deleteCurrentStudent();
+}
 function giveQuickGrade(val) {
   const ctx = window.currentSeatingStudent;
   if (!ctx) return;
@@ -7467,6 +7466,8 @@ function openGradeFormForCurrentStudent() {
 }
 
 // ─── Global Grade Form ────────────────────────────────────────────────────
+let profileGroupId = null;          // Klasse des offenen Schüler-Fensters (AH28), unabhängig von der Klassenansicht
+let editingStudentGroupId = null;   // Klasse beim Bearbeiten aus dem Schüler-Fenster
 let currentGradeFormCtx = null; // { studentId, groupId, grade } – grade = Objekt-Referenz (null = neue Note)
 
 function openGradeForm(studentId, groupId, gradeIdx, defaultDateStr = '', defaultLabel = '') {
@@ -7483,12 +7484,6 @@ function openGradeForm(studentId, groupId, gradeIdx, defaultDateStr = '', defaul
     currentGradeFormCtx.wasSeatingModalOpen = true;
   }
 
-  // Also hide the detailed student modal from the classes view
-  const detailModal = document.getElementById('modal-student-detail');
-  if (detailModal && !detailModal.classList.contains('hidden')) {
-    detailModal.classList.add('hidden');
-    currentGradeFormCtx.wasDetailModalOpen = true;
-  }
 
   // Das Feld ist der Spaltentitel in der Notentabelle: vorhandene Titel der Klasse vorschlagen (BUGS U2)
   const group = db.groups.find(g => g.id === groupId);
@@ -7539,12 +7534,8 @@ function closeGradeForm() {
   if (ctx) {
     if (ctx.wasSeatingModalOpen && window.currentSeatingStudent) {
       const { studentId, groupId } = ctx;
-      // Re-open underlying modal
-      openSeatingStudentModal(studentId, groupId, window.currentSeatingStudent.dateStr);
-    }
-    if (ctx.wasDetailModalOpen) {
-      const detailModal = document.getElementById('modal-student-detail');
-      if (detailModal) detailModal.classList.remove('hidden');
+      // Fenster wieder öffnen, „Mehr“ und „Anzeigen“ wie vorher (AH28)
+      openSeatingStudentModal(studentId, groupId, window.currentSeatingStudent.dateStr, { keep: true });
     }
   }
 }
@@ -7609,8 +7600,8 @@ function deleteGradeFromForm() {
 
 // Nach Änderungen im Notenformular alles neu zeichnen, was gerade sichtbar ist und Noten zeigt
 function refreshGradeViews(s, groupId) {
-  const detailModal = document.getElementById('modal-student-detail');
-  if (detailModal && !detailModal.classList.contains('hidden') && currentGroupId === groupId) renderGradesList(s);
+  const win = document.getElementById('modal-seating-student');
+  if (win && !win.classList.contains('hidden') && profileGroupId === groupId) renderGradesList(s);
   refreshStudentViews(groupId);
 }
 
@@ -9495,18 +9486,10 @@ window.openStudentDetailFromDashboard = function(studentId, groupId, type) {
   }
 };
 
+// „Ganzes Profil“ gibt es nicht mehr als eigenes Fenster: „Mehr zu …“ im selben Fenster aufklappen (AH28)
 window.jumpToStudentDetailFromSeating = function() {
   if (!window.currentSeatingStudent) return;
-  const { studentId, groupId } = window.currentSeatingStudent;
-  closeModal('modal-seating-student');
-  leaveLessonModal(); // Eingetipptes übernehmen, Stunden-Fenster nicht darunter liegen lassen (Regel 35, BUGS S5)
-  // Aus der Klassenansicht derselben Klasse: dort bleiben, sonst sprang sie auf den Reiter „Schüler“ (BUGS I10)
-  const inClassView = document.getElementById('view-students').classList.contains('active') && currentGroupId === groupId;
-  // Sonst (Sitzplan, Stundenplan …): Profil über der aktuellen Ansicht öffnen, nicht in die Klassenansicht springen –
-  // der Sitzplan bleibt offen (AH28). Das Profil liest seine Klasse aus currentGroupId.
-  if (!inClassView) currentGroupId = groupId;
-  // Beamer: nie auf „Noten“, außer die Noten sind in der Klassenansicht gerade bewusst eingeblendet (Regel 16, AH28)
-  openStudentDetail(studentId, inClassView && classGradesShown ? 'grades' : 'attendance');
+  setSeatingStudentMore(true);
 };
 
 

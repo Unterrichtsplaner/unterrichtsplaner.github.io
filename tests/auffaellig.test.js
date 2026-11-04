@@ -91,9 +91,9 @@ describe('„neu“', () => {
     chip('7b').click();
     pop().querySelector('.watch-who').click();
     expect(pop()).toBeNull();
-    expect(document.getElementById('modal-student-detail').classList.contains('hidden')).toBe(false);
-    expect(document.getElementById('sdetail-name').textContent).toBe('Anna X');
-    app('closeModal("modal-student-detail")');
+    expect(document.getElementById('modal-seating-student').classList.contains('hidden')).toBe(false);
+    expect(document.getElementById('seating-student-title').textContent).toBe('Anna X');
+    app('closeModal("modal-seating-student")');
   });
   it('Escape und Tippen daneben schließen; Uhr-Takt zeichnet die Übersicht nicht unter der offenen Liste neu', () => {
     chip('7b').click();

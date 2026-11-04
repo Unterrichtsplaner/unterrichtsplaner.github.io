@@ -55,15 +55,17 @@ describe('AH10: Schülernotiz im Sitzplan', () => {
     app('addParticipationSmiley("positive")');   // schließt das Fenster ohne closeModal
     expect(app('db.students.g1[1].studentNotes.map(n => n.text)')).toEqual(['eins', 'zwei']);
   });
-  it('vorhandene Notizen nur auf Knopfdruck (Beamer), Text erst nach „Anzeigen“', () => {
+  it('vorhandene Notizen nur auf Knopfdruck (Beamer): oben nie, unter „Mehr zu …“ erst nach „Anzeigen“ (AH28)', () => {
     open('a');
-    expect(list().textContent).toMatch(/1 Notiz \(verborgen\)/);
     expect(list().textContent).not.toContain('Elterngespräch');
-    list().querySelector('.seating-reveal-btn').click();
-    expect(list().textContent).toContain('Elterngespräch geführt');
+    const more = () => document.getElementById('sw-more');
+    expect(more().classList.contains('is-veiled')).toBe(true);
+    expect(document.getElementById('sw-sec-notes').hasAttribute('data-private')).toBe(true);
+    app('revealSeatingStudent()');
+    expect(document.getElementById('student-notes-list').textContent).toContain('Elterngespräch geführt');
     app('closeModal("modal-seating-student")');
     open('a');
-    expect(list().textContent).not.toContain('Elterngespräch');   // nie gespeichert, beim nächsten Öffnen wieder zu
+    expect(more().classList.contains('is-veiled')).toBe(true);   // nie gespeichert, beim nächsten Öffnen wieder zu
   });
   it('neue Notiz ist sofort lesbar (eben selbst getippt), alte bleiben verborgen', () => {
     open('a');

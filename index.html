@@ -40,7 +40,7 @@
       }
     })();
   </script>
-  <link rel="stylesheet" href="style.css?v=386" />
+  <link rel="stylesheet" href="style.css?v=389" />
   <script>
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
@@ -844,86 +844,6 @@
 </div>
 
 <!-- Student Detail -->
-<div id="modal-student-detail" class="modal-overlay hidden" onclick="closeModalOnOverlay(event,'modal-student-detail')">
-  <div class="modal modal-student-detail" onclick="event.stopPropagation()">
-    <div class="modal-header">
-      <div style="display:flex; align-items:center; gap:12px;">
-        <div><h2 id="sdetail-name" style="margin:0;"></h2><span id="sdetail-group" class="modal-subtitle"></span></div>
-        <button class="btn-icon" title="Daten exportieren" onclick="exportCurrentStudent()" style="color:var(--text-secondary); width:36px; height:36px;">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-        </button>
-      </div>
-      <div style="display:flex;gap:8px;align-items:center">
-        <button class="modal-close" aria-label="Schließen" onclick="closeModal('modal-student-detail')">✕</button>
-      </div>
-    </div>
-    <div class="modal-tabs">
-      <button class="tab-btn active" onclick="switchStudentTab('grades')"><i data-icon="grades"></i>Noten</button>
-      <button class="tab-btn" onclick="switchStudentTab('participation')"><i data-icon="participation"></i>Mitarbeit</button>
-      <button class="tab-btn" onclick="switchStudentTab('attendance')"><i data-icon="attendance"></i>Anwesenheit</button>
-      <button class="tab-btn" onclick="switchStudentTab('homework')"><i data-icon="homework"></i>Hausaufgaben</button>
-      <button class="tab-btn" onclick="switchStudentTab('notes')"><i data-icon="notes"></i>Notizen</button>
-    </div>
-    <div class="modal-body">
-      <div id="student-tab-grades" class="s-tab active">
-        <div class="grades-summary" id="grades-summary"></div>
-        <div class="entry-list" id="grades-list"></div>
-        <div style="margin-top: 16px;">
-          <button class="btn-primary" style="width: 100%; justify-content: center;" onclick="openGradeFormForCurrentStudentDetailed()">+ Neue Note eintragen</button>
-        </div>
-      </div>
-      <div id="student-tab-notes" class="s-tab hidden">
-        <div class="entry-list" id="student-notes-list"></div>
-        <div class="add-entry-row">
-          <input type="text" id="new-student-note-text" placeholder="Neue Anmerkung …" class="entry-input" />
-          <input type="date" id="new-student-note-date" class="entry-date" />
-          <button class="btn-primary" onclick="addStudentNote()">Hinzufügen</button>
-        </div>
-      </div>
-      <div id="student-tab-attendance" class="s-tab hidden">
-        <div class="entry-list" id="attendance-list"></div>
-        <div class="add-entry-row">
-          <input type="date" id="new-att-date" class="entry-date" />
-          <select id="new-att-type" class="form-input" style="flex:1">
-            <option value="abwesend">Unentschuldigt</option>
-            <option value="entschuldigt">Entschuldigt</option>
-            <option value="zuspät">Zu spät</option>
-          </select>
-          <input type="text" id="new-att-note" placeholder="Grund …" class="entry-input" style="flex:1" />
-          <button class="btn-primary btn-circle" onclick="addAttendanceEntry()" aria-label="Fehlzeit eintragen">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
-          </button>
-        </div>
-      </div>
-      <div id="student-tab-participation" class="s-tab hidden">
-        <div class="entry-list" id="participation-list"></div>
-      </div>
-      <div id="student-tab-homework" class="s-tab hidden">
-        <div class="entry-list" id="student-homework-list"></div>
-        <div class="add-entry-row">
-          <input type="date" id="new-hw-student-date" class="entry-date" />
-          <input type="text" id="new-hw-student-note" placeholder="Spalte (optional)" list="hw-column-titles" class="entry-input" style="flex:1" aria-label="Spalte in der HA-Tabelle (optional)" />
-          <datalist id="hw-column-titles"></datalist>
-          <button class="btn-primary btn-circle" onclick="addStudentHomework()" aria-label="Vergessene Hausaufgabe eintragen">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
-          </button>
-        </div>
-      </div>
-    </div>
-    <div class="modal-footer" style="justify-content: space-between;">
-      <button class="btn-icon btn-danger-icon" title="Schüler löschen" onclick="deleteCurrentStudent()" style="width: auto; padding: 0 12px; border: 1px solid var(--danger);">
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right:6px;"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/></svg> Schüler löschen
-      </button>
-      <div style="display:flex; gap:8px; margin-left:auto;">
-        <button class="btn-secondary" onclick="openEditStudent()">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right:4px;"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg> Bearbeiten
-        </button>
-        <button class="btn-secondary" onclick="closeModal('modal-student-detail')">Fertig</button>
-      </div>
-    </div>
-  </div>
-</div>
-
 <!-- Settings -->
 <div id="modal-settings" class="modal-overlay hidden" onclick="closeModalOnOverlay(event,'modal-settings')">
   <div class="modal modal-settings-modal" onclick="event.stopPropagation()">
@@ -1421,7 +1341,15 @@
     <div class="modal modal-small sw-modal" onclick="event.stopPropagation()">
       <div class="modal-header">
         <div class="sw-title"><h2 id="seating-student-title">Schüler</h2><span id="seating-student-sub" class="modal-subtitle"></span></div>
-        <button class="modal-close" aria-label="Schließen" onclick="closeModal('modal-seating-student')">✕</button>
+        <div class="sw-head-btns">
+          <button type="button" id="sw-menu-btn" class="btn-icon sw-menu-btn" aria-label="Weitere Aktionen" aria-haspopup="menu" aria-expanded="false"><i data-icon="more"></i></button>
+          <div id="sw-menu" class="sw-menu" role="menu" hidden>
+            <button type="button" role="menuitem" data-menu="edit"><i data-icon="edit"></i>Name, Geburtstag, Hinweise ändern</button>
+            <button type="button" role="menuitem" data-menu="export"><i data-icon="download"></i>Daten exportieren</button>
+            <button type="button" role="menuitem" data-menu="delete" class="is-danger"><i data-icon="trash"></i>Schüler löschen …</button>
+          </div>
+          <button class="modal-close" aria-label="Schließen" onclick="closeModal('modal-seating-student')">✕</button>
+        </div>
       </div>
       <div class="modal-body sw-body">
         <div class="seating-part-block">
@@ -1451,19 +1379,61 @@
           </div>
           <div id="seating-student-notes"></div>
         </div>
-        <button type="button" id="sw-more-btn" class="sw-more-btn" aria-expanded="false" aria-controls="sw-more"><span id="sw-more-label">Mehr</span><small>Noten, Hinweise, Profil</small></button>
+        <button type="button" id="sw-more-btn" class="sw-more-btn" aria-expanded="false" aria-controls="sw-more"><span id="sw-more-label">Mehr</span><small>Noten, Verlauf, Notizen, Hinweise</small></button>
         <div id="sw-more" hidden>
-          <div id="seating-student-participation-summary" class="seating-part-summary"></div>
-          <div class="seating-hint-block">
+          <div class="grades-veil sw-veil"><i data-icon="eye-off"></i><span>Noten, Mitarbeit, Notizen und Hinweise sind verborgen, damit am Beamer niemand mitliest.</span><button type="button" id="sw-reveal" class="btn-secondary">Anzeigen</button></div>
+          <section id="sw-sec-grades" class="sw-sec" data-private>
+            <h3 class="seating-hint-title"><i data-icon="grades"></i>Noten</h3>
+            <div class="grades-summary" id="grades-summary"></div>
+            <div class="entry-list" id="grades-list"></div>
+            <button type="button" id="sw-grade-form-btn" class="btn-secondary sw-add-btn"><i data-icon="plus"></i>Note mit Formular (anderer Tag, Klassenarbeit …)</button>
+          </section>
+          <section id="sw-sec-participation" class="sw-sec" data-private>
+            <h3 class="seating-hint-title"><i data-icon="participation"></i>Mitarbeit</h3>
+            <div id="seating-student-participation-summary" class="seating-part-summary"></div>
+            <div class="entry-list" id="participation-list"></div>
+          </section>
+          <section id="sw-sec-attendance" class="sw-sec">
+            <h3 class="seating-hint-title"><i data-icon="attendance"></i>Fehlzeiten</h3>
+            <div class="entry-list" id="attendance-list"></div>
+            <div class="add-entry-row">
+          <input type="date" id="new-att-date" class="entry-date" />
+          <select id="new-att-type" class="form-input" style="flex:1">
+            <option value="abwesend">Unentschuldigt</option>
+            <option value="entschuldigt">Entschuldigt</option>
+            <option value="zuspät">Zu spät</option>
+          </select>
+          <input type="text" id="new-att-note" placeholder="Grund …" class="entry-input" style="flex:1" />
+          <button class="btn-secondary btn-circle" onclick="addAttendanceEntry()" aria-label="Fehlzeit eintragen">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+          </button>
+        </div>
+          </section>
+          <section id="sw-sec-homework" class="sw-sec">
+            <h3 class="seating-hint-title"><i data-icon="homework"></i>Hausaufgaben</h3>
+            <div class="entry-list" id="student-homework-list"></div>
+            <div class="add-entry-row">
+          <input type="date" id="new-hw-student-date" class="entry-date" />
+          <input type="text" id="new-hw-student-note" placeholder="Spalte (optional)" list="hw-column-titles" class="entry-input" style="flex:1" aria-label="Spalte in der HA-Tabelle (optional)" />
+          <datalist id="hw-column-titles"></datalist>
+          <button class="btn-secondary btn-circle" onclick="addStudentHomework()" aria-label="Vergessene Hausaufgabe eintragen">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+          </button>
+        </div>
+          </section>
+          <section id="sw-sec-notes" class="sw-sec" data-private>
+            <h3 class="seating-hint-title"><i data-icon="notes"></i>Notizen</h3>
+            <div class="entry-list" id="student-notes-list"></div>
+            <div class="add-entry-row">
+          <input type="text" id="new-student-note-text" placeholder="Neue Anmerkung …" class="entry-input" />
+          <input type="date" id="new-student-note-date" class="entry-date" />
+          <button class="btn-secondary" onclick="addStudentNote()">Hinzufügen</button>
+        </div>
+          </section>
+          <section id="sw-sec-hints" class="sw-sec seating-hint-block" data-private>
             <h3 class="seating-hint-title"><i data-icon="info"></i>Hinweise</h3>
             <div id="seating-student-hint"></div>
-          </div>
-          <div class="sw-grades-head">
-            <h3 class="seating-hint-title"><i data-icon="grades"></i>Bisherige Noten</h3>
-            <button class="btn-secondary" onclick="openGradeFormForCurrentStudent()"><i data-icon="plus"></i>Note mit Formular</button>
-          </div>
-          <div id="seating-student-grades" class="sw-grades"></div>
-          <button type="button" class="btn-secondary sw-profile-btn" onclick="jumpToStudentDetailFromSeating()">Ganzes Profil öffnen</button>
+          </section>
         </div>
       </div>
     </div>
@@ -1653,12 +1623,12 @@
   </div>
 
   <script src="lib/crypto-js.min.js"></script>
-  <script src="crypto-helper.js?v=386"></script>
+  <script src="crypto-helper.js?v=389"></script>
   <script src="lib/firebase-app-compat.js"></script>
   <script src="lib/firebase-auth-compat.js"></script>
   <script src="lib/firebase-firestore-compat.js"></script>
-  <script src="firebase-config.js?v=386"></script>
-  <script src="sync-manager.js?v=386"></script>
-  <script src="app.js?v=386"></script>
+  <script src="firebase-config.js?v=389"></script>
+  <script src="sync-manager.js?v=389"></script>
+  <script src="app.js?v=389"></script>
 </body>
 </html>

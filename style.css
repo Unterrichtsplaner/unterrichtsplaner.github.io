@@ -437,7 +437,6 @@ button.cr-name:focus-visible{outline:2px solid var(--accent);outline-offset:3px;
   min-height: 380px;
 }
 .modal-lesson-detail{width:min(580px,96vw);}
-.modal-student-detail{width:min(660px,96vw);}
 .modal-settings-modal{width:min(560px,96vw);}
 .modal-header{display:flex;align-items:flex-start;justify-content:space-between;padding:16px 18px 13px;border-bottom:1px solid var(--border);flex-shrink:0;}
 .modal-header h2{font-family:var(--font-display);font-size:20px;font-weight:600;letter-spacing:0;}
@@ -1287,12 +1286,35 @@ button.date-chip{font-family:inherit;padding:0;}
 .sw-more-btn[aria-expanded="true"]::after{transform:rotate(90deg);}
 #sw-more{display:flex;flex-direction:column;gap:14px;}
 #sw-more[hidden]{display:none;}
-#sw-more .seating-part-summary{margin-top:0;}
+#sw-more .seating-part-summary{margin:0 0 8px;}
 #sw-more .seating-hint-block{margin-bottom:0;}
-.sw-grades-head{display:flex;justify-content:space-between;align-items:center;gap:8px;}
-.sw-grades-head .seating-hint-title{margin:0;}
-.sw-grades{display:flex;flex-direction:column;gap:8px;}
-.sw-profile-btn{align-self:flex-start;}
+/* Beamer (AH28): Noten, Mitarbeit, Notizen, Hinweise erst nach einem „Anzeigen“ */
+#sw-more .sw-veil{margin:0;}
+#sw-more:not(.is-veiled) .sw-veil{display:none;}
+#sw-more.is-veiled [data-private]{display:none;}
+.sw-sec{border-top:1px solid var(--border);padding-top:12px;}
+.sw-sec .entry-list{max-height:none;overflow:visible;gap:0;}
+/* Einträge als ruhige Zeilen statt Einzelkarten (AH28) */
+.sw-sec .entry-item,.sw-sec .grade-item{background:none;border:none;border-bottom:1px solid var(--border);border-radius:0;padding:6px 2px;min-height:40px;animation:none;}
+.sw-sec .entry-item:last-child,.sw-sec .grade-item:last-child{border-bottom:none;}
+.sw-sec .grades-summary{margin-bottom:6px;}
+.entry-face{font-size:20px;line-height:1;min-width:26px;text-align:center;}
+.sw-sec .add-entry-row{margin-top:8px;}
+.sw-add-btn{margin-top:8px;}
+.sw-hint{font-size:14px;color:var(--text-primary);padding:8px 10px;margin-bottom:8px;border-radius:var(--radius-sm);background:var(--bg-card);border:1px solid var(--border);overflow-wrap:anywhere;white-space:pre-wrap;}
+.sw-hint small{display:flex;align-items:center;gap:4px;font-size:12px;font-weight:600;color:var(--text-secondary);margin-bottom:2px;white-space:normal;}
+.sw-hint.is-important{border-color:color-mix(in srgb, var(--danger) 45%, transparent);}
+.sw-hint.is-important small{color:var(--danger);}
+.sw-hint small .ico{width:13px;height:13px;}
+.sw-hint-empty{font-size:13px;color:var(--text-muted);margin-bottom:8px;}
+.sw-head-btns{position:relative;display:flex;align-items:center;gap:8px;}
+.sw-menu-btn .ico{width:20px;height:20px;}
+.sw-menu{position:absolute;right:0;top:calc(100% + 6px);z-index:20;min-width:260px;padding:6px;background:var(--bg-secondary);border:1px solid var(--border);border-radius:var(--radius-md);box-shadow:var(--shadow-lg);display:flex;flex-direction:column;}
+.sw-menu[hidden]{display:none;}
+.sw-menu button{display:flex;align-items:center;gap:10px;min-height:44px;padding:0 12px;border:none;border-radius:var(--radius-sm);background:none;font-family:inherit;font-size:14px;color:var(--text-primary);text-align:left;cursor:pointer;}
+.sw-menu button .ico{width:16px;height:16px;color:var(--text-secondary);}
+.sw-menu button.is-danger,.sw-menu button.is-danger .ico{color:var(--danger);}
+@media (hover: hover){ .sw-menu button:hover{background:var(--bg-elevated);} }
 .seating-note-block{margin-bottom:0;}
 @media (max-width: 600px){
   .sw-seg{grid-template-columns:repeat(2,minmax(0,1fr));}
@@ -1738,7 +1760,7 @@ h1,h2,h3,.dash-heading,.subject-heading{text-wrap:balance;}
    (iPad: sonst Lupe und blaue Markierung statt Aktion); Inhalte, die man lesen oder weitergeben will, und alle
    Eingabefelder schon. Reihenfolge zählt: Grundsatz → Inhalte → Knöpfe darin → Eingaben. */
 body{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;}
-#overview-content, #modal-student-detail .modal-body, #modal-lesson .modal-body, #seating-today-body,
+#overview-content, #sw-more, #modal-lesson .modal-body, #seating-today-body,
 #modal-privacy .modal-body, #modal-whats-new .modal-body, .cn-chip, .seating-notes{-webkit-user-select:text;user-select:text;-webkit-touch-callout:default;}
 button, [role="button"], .tab-btn{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;}
 input, textarea, [contenteditable="true"]{-webkit-user-select:text;user-select:text;-webkit-touch-callout:default;}

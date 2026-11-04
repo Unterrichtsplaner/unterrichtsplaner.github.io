@@ -99,13 +99,15 @@ describe('S4: Schnellbewertung aus der Tabelle nimmt das Datum beim Tippen', () 
   });
 });
 
-describe('S5: „Zum Profil“ aus der Stunde', () => {
-  it('schließt das Stunden-Fenster', () => {
+describe('S5/AH28: „Mehr zu …“ aus der Stunde', () => {
+  it('klappt im selben Fenster auf; das Stunden-Fenster bleibt darunter (kein Sprung mehr)', () => {
     app(`openLessonDetail('c', '2026-09-21')`);
     app(`openSeatingStudentModal('s1', 'g1', '2026-09-21')`);
     app('jumpToStudentDetailFromSeating()');
-    expect(hidden('modal-lesson')).toBe(true);
-    expect(hidden('modal-student-detail')).toBe(false);
+    expect(hidden('modal-seating-student')).toBe(false);
+    expect(document.getElementById('sw-more').hidden).toBe(false);
+    expect(hidden('modal-lesson')).toBe(false);
+    app('closeModal("modal-seating-student"); saveLessonDataAndClose()');
   });
 });
 

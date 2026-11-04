@@ -251,7 +251,7 @@ describe('N13: Note im Schüler-Fenster bearbeiten', () => {
   it('öffnet die angeklickte Note, auch wenn sich die Liste inzwischen geändert hat', () => {
     stu('s3').grades.push({ type: 'test', value: '2.0', date: '2026-09-10', note: 'A' });
     app(`openSeatingStudentModal("s3", "g1", "${DAY}"); revealSeatingStudentGrades()`);
-    const btn = document.querySelector('#seating-student-grades button');
+    const btn = [...document.querySelectorAll('#grades-list .grade-item')].find(el => el.textContent.includes('A'));   // seit AH28 die Profil-Liste (Zeile antippen)
     stu('s3').grades.unshift({ type: 'test', value: '5.0', date: '2026-09-01', note: 'B' });
     btn.click();
     expect(document.getElementById('gf-label').value).toBe('A');

@@ -310,13 +310,14 @@ describe('Paket 4: Klassenansicht und Fenster', () => {
     app('closeModal("modal-seating-student")');
   });
 
-  it('I10: „Zum Profil“ aus einem Reiter der Klassenansicht bleibt auf diesem Reiter', () => {
+  it('I10: „Mehr zu …“ aus einem Reiter der Klassenansicht bleibt auf diesem Reiter', () => {
     app('openGroupStudents("g1", "homework")');
     app(`openSeatingStudentModal("s1", "g1", "${TODAY}")`);
     app('jumpToStudentDetailFromSeating()');
+    expect(document.getElementById('sw-more').hidden).toBe(false);
     expect(app('currentClassDashboardTab')).toBe('homework');
     expect(document.getElementById('overview-tab-homework').classList.contains('active')).toBe(true);
-    app('closeModal("modal-student-detail")');
+    app('closeModal("modal-seating-student")');
   });
 
   it('I11: Klassenansicht markiert „Klassen“ in der Navigation, auch aus dem Stunden-Fenster', () => {
@@ -372,9 +373,11 @@ describe('Paket 5a: Texte', () => {
 
   it('I14: „1 Note“ / „3 Noten“ statt „Note(n)“', () => {
     app('db.students.g1[0].grades = [{ type: "test", value: "2", date: "2026-09-17", note: "T" }]');
+    app('openGroupStudents("g1"); showClassGrades()');
+    const row = [...document.querySelectorAll('#students-container .student-row')].find(r => r.textContent.includes('Fischer'));
+    expect(row.textContent).toMatch(/1 Note\b/);
     app('openSeatingStudentModal("s1", "g1", "2026-09-24")');
-    expect(document.getElementById('seating-student-grades').textContent).toMatch(/1 Note\b/);
-    expect(document.getElementById('seating-student-grades').textContent).not.toContain('Note(n)');
+    expect(document.getElementById('modal-seating-student').textContent).not.toContain('Note(n)');
     app('closeModal("modal-seating-student")');
   });
 
@@ -416,8 +419,8 @@ describe('Paket 5b: Einheitlichkeit', () => {
   it('I12: Überschriften (Profil, Schnellbewertung) immer „Vorname Nachname“', () => {
     app('db.settings.studentSortOrder = "lastName"');
     app('openGroupStudents("g1"); openStudentDetail("s1")');
-    expect(document.getElementById('sdetail-name').textContent).toBe('David Fischer-Weißenberger');   // s1
-    app('closeModal("modal-student-detail")');
+    expect(document.getElementById('seating-student-title').textContent).toBe('David Fischer-Weißenberger');   // s1
+    app('closeModal("modal-seating-student")');
   });
 
   it('I13: Klassenansicht wie Kacheln und Karten: Klasse groß, Fach klein', () => {
@@ -444,9 +447,8 @@ describe('Paket 5c: Knöpfe, Einstellungen, Formular', () => {
     // Klassenkopf: „Zum Sitzplan“ nebenrangig
     const seatBtn = [...document.querySelectorAll('#view-students .header-actions button')].find(b => b.textContent.includes('Zum Sitzplan'));
     expect(seatBtn.classList.contains('btn-secondary')).toBe(true);
-    // Profil: „Fertig“ nebenrangig neben „+ Neue Note eintragen“
-    const fertig = [...document.querySelectorAll('#modal-student-detail .modal-footer button')].find(b => b.textContent.trim() === 'Fertig');
-    expect(fertig.classList.contains('btn-secondary')).toBe(true);
+    // Schüler-Fenster (AH28): kein gefüllter Hauptknopf – Eintragen geht über die ruhigen Knöpfe oben
+    expect(document.querySelector('#modal-seating-student .btn-primary')).toBeNull();
     // Stunden-Fenster: „Notenübersicht“ wie „Schüler bewerten“, Hauptknopf ist „Speichern & Schließen“
     expect(document.getElementById('lesson-btn-overview').classList.contains('btn-secondary')).toBe(true);
   });

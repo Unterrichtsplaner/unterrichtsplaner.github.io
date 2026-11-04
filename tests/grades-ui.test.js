@@ -232,7 +232,7 @@ describe('B7: leere Bemerkung', () => {
   it('Sitzplan-Schülerfenster zeigt den Notentyp statt eines leeren Titels', () => {
     anna().grades = [{ type: 'test', value: '2.0', date: '2026-09-01', note: '' }];
     app('openSeatingStudentModal("s1", "g1", "2026-09-10")');
-    expect(document.getElementById('seating-student-grades').textContent).toContain('Test');
+    expect(document.getElementById('grades-list').textContent).toContain('Test');   // seit AH28 dieselbe Liste wie im Profil
     app('closeModal("modal-seating-student")');
   });
 });

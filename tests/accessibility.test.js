@@ -89,12 +89,12 @@ describe('G7: Escape schließt das oberste Fenster', () => {
   it('Notenformular aus der Schülerakte: Escape kehrt zur Schülerakte zurück', () => {
     app('currentGroupId = "g1"');
     app('openStudentDetail("s1")');
-    expect(isOpen('modal-student-detail')).toBe(true);
+    expect(isOpen('modal-seating-student')).toBe(true);
     app('openGradeForm("s1", "g1", -1)');
-    expect(isOpen('modal-student-detail')).toBe(false);
+    expect(isOpen('modal-seating-student')).toBe(false);
     escape();
     expect(isOpen('modal-grade-form')).toBe(false);
-    expect(isOpen('modal-student-detail')).toBe(true);
+    expect(isOpen('modal-seating-student')).toBe(true);
   });
 
   it('Notenformular: Escape setzt den bearbeiteten Eintrag zurück (wie ✕)', () => {
@@ -153,7 +153,7 @@ describe('G13: Tippen neben ein Fenster schließt es wie sein Schließen-Knopf',
     app('openGradeForm("s1", "g1", -1)');
     tapBeside('modal-grade-form');
     expect(isOpen('modal-grade-form')).toBe(false);
-    expect(isOpen('modal-student-detail')).toBe(true);
+    expect(isOpen('modal-seating-student')).toBe(true);
     expect(app('currentGradeFormCtx')).toBeNull();
   });
 

@@ -52,8 +52,8 @@ describe('kompakt', () => {
     openAnna();
     const more = document.getElementById('sw-more');
     expect(more.hidden).toBe(true);
-    expect(more.contains(document.getElementById('seating-student-hint'))).toBe(true);
-    expect(more.contains(document.getElementById('seating-student-grades'))).toBe(true);
+    for (const id of ['seating-student-hint', 'grades-list', 'participation-list', 'attendance-list', 'student-homework-list', 'student-notes-list', 'seating-student-participation-summary'])
+      expect(more.contains(document.getElementById(id)), id).toBe(true);
     const btn = document.getElementById('sw-more-btn');
     expect(btn.textContent).toMatch(/Mehr zu Anna/);
     btn.click();
@@ -120,5 +120,56 @@ describe('Note geben', () => {
     pad().querySelector('.sw-pad-cancel').click();
     expect(pad()).toBeNull();
     expect(stu('g1', 'a').grades.length).toBe(1);
+  });
+});
+
+describe('AH28 Schritt 2: „Mehr zu …“ ersetzt das Profil', () => {
+  it('ein Fenster für alles: das alte Profil-Fenster gibt es nicht mehr; Profil = Fenster mit „Mehr“ offen', () => {
+    expect(document.getElementById('modal-student-detail')).toBeNull();
+    app('openGroupStudents("g1"); openStudentDetail("a")');
+    expect(M().classList.contains('hidden')).toBe(false);
+    expect(document.getElementById('sw-more').hidden).toBe(false);
+    expect(document.getElementById('seating-student-sub').textContent).toMatch(/7b · Mathe · Mi\.?,? 04\.11\./);
+    app('closeModal("modal-seating-student")');
+  });
+  it('Abschnitte untereinander, ohne Reiter; Noten, Mitarbeit, Notizen, Hinweise privat; ein „Anzeigen“', () => {
+    openAnna();
+    const secs = [...document.querySelectorAll('#sw-more .sw-sec')].map(s => s.id.replace('sw-sec-', ''));
+    expect(secs).toEqual(['grades', 'participation', 'attendance', 'homework', 'notes', 'hints']);
+    expect([...document.querySelectorAll('#sw-more [data-private]')].map(s => s.id.replace('sw-sec-', ''))).toEqual(['grades', 'participation', 'notes', 'hints']);
+    expect(M().querySelectorAll('.tab-btn').length).toBe(0);
+    expect(M().querySelectorAll('#sw-reveal').length).toBe(1);
+    q('#sw-more-btn').click();
+    q('#sw-reveal').click();
+    expect(document.getElementById('sw-more').classList.contains('is-veiled')).toBe(false);
+  });
+  it('Hinweis zum Lesen, nicht als offenes Feld', () => {
+    openAnna();
+    expect(document.querySelector('#seating-student-hint .sw-hint').textContent).toContain('mag Fußball');
+    expect(document.querySelector('#seating-student-hint textarea')).toBeNull();
+  });
+  it('„…“: Ändern, Export, Löschen im Menü; Löschen fragt und schließt', () => {
+    openAnna();
+    const menu = document.getElementById('sw-menu');
+    expect(menu.hidden).toBe(true);
+    q('#sw-menu-btn').click();
+    expect(menu.hidden).toBe(false);
+    expect([...menu.querySelectorAll('[data-menu]')].map(b => b.dataset.menu)).toEqual(['edit', 'export', 'delete']);
+    window.confirm = () => true;
+    menu.querySelector('[data-menu="delete"]').click();
+    expect(app('db.students.g1.map(s => s.id)')).toEqual(['b']);
+    expect(M().classList.contains('hidden')).toBe(true);
+  });
+  it('Notenformular aus dem Fenster: danach wieder offen, „Mehr“ und „Anzeigen“ wie vorher', () => {
+    openAnna();
+    q('#sw-more-btn').click();
+    q('#sw-reveal').click();
+    q('#sw-grade-form-btn').click();
+    expect(document.getElementById('modal-grade-form').classList.contains('hidden')).toBe(false);
+    app('cancelGradeForm()');
+    expect(M().classList.contains('hidden')).toBe(false);
+    expect(document.getElementById('sw-more').hidden).toBe(false);
+    expect(document.getElementById('sw-more').classList.contains('is-veiled')).toBe(false);
+    app('closeModal("modal-seating-student")');
   });
 });

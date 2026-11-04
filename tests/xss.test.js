@@ -130,7 +130,7 @@ describe('Ansichten mit präparierten Daten', () => {
     },
     'schnellsuche (zuletzt + treffer)': () => {   // AH19
       document.querySelectorAll('.modal-overlay').forEach(m => m.classList.add('hidden'));   // Suche öffnet nie über einem anderen Fenster
-      app(`openGroupStudents(${G}); openStudentDetail(${S}); closeModal("modal-student-detail"); openSearch()`);
+      app(`openGroupStudents(${G}); openStudentDetail(${S}); closeModal("modal-seating-student"); openSearch()`);
       expect(document.querySelectorAll('#search-results .search-main').length).toBeGreaterThan(2);   // Zuletzt + Springen gezeichnet
       expect(injected()).toBe(0); expect(brokenHandlers()).toEqual([]);
       const inp = document.getElementById('search-input');

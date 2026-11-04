@@ -260,6 +260,7 @@ describe('C9: Warnschwellen', () => {
 describe('C10: Dashboard-Warnung „Hausaufgaben“', () => {
   it('öffnet den Tab Hausaufgaben', () => {
     app('openStudentDetailFromDashboard("s1", "g1", "homework")');
-    expect(document.getElementById('student-tab-homework').classList.contains('hidden')).toBe(false);
+    expect(document.getElementById('sw-more').hidden).toBe(false);   // AH28: Abschnitt unter „Mehr zu …“
+    expect(document.getElementById('sw-more').dataset.focus).toBe('homework');
   });
 });

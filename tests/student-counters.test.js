@@ -30,14 +30,14 @@ function setHover(canHover) {
 const counter = kind => document.querySelector(`#students-container .student-counter[data-kind="${kind}"]`);
 const hint = () => document.getElementById('counter-hint');
 const hintOpen = () => !!hint() && !hint().classList.contains('hidden');
-const detailOpen = () => !document.getElementById('modal-student-detail').classList.contains('hidden');
+const detailOpen = () => !document.getElementById('modal-seating-student').classList.contains('hidden');
 
 beforeAll(() => {
   localStorage.setItem('lehrerapp_v3', JSON.stringify(sampleDB()));
   loadApp(); showGradesOnOpen();
 });
 beforeEach(() => {
-  app('closeModal("modal-student-detail")');
+  app('closeModal("modal-seating-student")');
   app('hideCounterHint()');
   app('openGroupStudents("g1")');
 });
@@ -71,7 +71,7 @@ describe('H11: Zähler in der Schülerliste erklären sich', () => {
     hint().querySelector('button').click();
     expect(hintOpen()).toBe(false);
     expect(detailOpen()).toBe(true);
-    expect(document.querySelector('#modal-student-detail .tab-btn.active').textContent).toMatch(/Mitarbeit/);
+    expect(document.getElementById('sw-more').dataset.focus).toBe('participation');
   });
 
   it('Tippen woanders schließt die Erklärung, ohne etwas anderes auszulösen', () => {
@@ -93,7 +93,7 @@ describe('H11: Zähler in der Schülerliste erklären sich', () => {
     counter('attendance').click();
     expect(hintOpen()).toBe(false);
     expect(detailOpen()).toBe(true);
-    expect(document.querySelector('#modal-student-detail .tab-btn.active').textContent).toMatch(/Anwesenheit|Fehl/);
+    expect(document.getElementById('sw-more').dataset.focus).toBe('attendance');
   });
 
   it('Erklärung zeigt die Zahlen in den Farben des Zählers', () => {

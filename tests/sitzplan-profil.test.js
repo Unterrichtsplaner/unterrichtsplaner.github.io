@@ -25,30 +25,40 @@ beforeEach(() => {
 });
 afterEach(() => vi.useRealTimers());
 
-describe('AH28: „Zum Profil“ aus dem Sitzplan', () => {
-  it('bleibt im Sitzplan, Profil darüber, nicht auf „Noten“', () => {
+describe('AH28: „Mehr zu …“ statt „Zum Profil“', () => {
+  it('Sitzplan bleibt, alles im selben Fenster, verborgen (Beamer) – kein Sprung in die Klassenansicht', () => {
     app('switchView("classes"); openGroupStudents("g2"); openSeatingForGroup("g1")');
-    expect(activeView()).toBe('view-seating');
     app('openSeatingStudentModal("a", "g1", "2026-11-04"); jumpToStudentDetailFromSeating()');
     expect(activeView()).toBe('view-seating');
-    expect(hidden('modal-seating-student')).toBe(true);
-    expect(hidden('modal-student-detail')).toBe(false);
-    expect(document.getElementById('sdetail-name').textContent).toBe('Anna X');
-    expect(activeTab()).not.toMatch(/Noten/);
-    expect(document.getElementById('student-tab-grades').classList.contains('hidden')).toBe(true);
-    app('closeModal("modal-student-detail")');
+    expect(hidden('modal-seating-student')).toBe(false);
+    expect(document.getElementById('seating-student-title').textContent).toBe('Anna X');
+    expect(document.getElementById('sw-more').hidden).toBe(false);
+    expect(document.getElementById('sw-more').classList.contains('is-veiled')).toBe(true);
+    expect(app('currentGroupId')).toBe('g2');   // Klassenansicht dahinter bleibt bei ihrer Klasse
+    app('closeModal("modal-seating-student")');
     expect(activeView()).toBe('view-seating');
   });
-  it('Eintrag im Profil zeigt sich sofort im Sitzplan', () => {
-    app('openSeatingForGroup("g1"); openSeatingStudentModal("a", "g1", "2026-11-04"); jumpToStudentDetailFromSeating()');
-    app('getCurrentStudent().attendance.push({ id: "f1", date: "2026-11-04", type: "abwesend", note: "" }); refreshStudentViews("g1")');
+  it('Eintrag unter „Mehr“ zeigt sich sofort im Sitzplan; gehört zur Klasse des Fensters', () => {
+    app('switchView("classes"); openGroupStudents("g2"); openSeatingForGroup("g1"); openSeatingStudentModal("a", "g1", "2026-11-04"); jumpToStudentDetailFromSeating()');
+    expect(app('getCurrentStudent().id')).toBe('a');
+    document.getElementById('new-att-date').value = '2026-11-03';
+    app('addAttendanceEntry()');
     expect(app('db.students.g1[0].attendance.length')).toBe(1);
-    app('closeModal("modal-student-detail")');
+    expect(app('db.students.g2[0].attendance.length')).toBe(0);
+    app('closeModal("modal-seating-student")');
   });
-  it('aus der Klassenansicht mit sichtbaren Noten: wie bisher auf „Noten“', () => {
-    app('openGroupStudents("g1", "grades"); toggleClassGrades(); openSeatingStudentModal("a", "g1", "2026-11-04"); jumpToStudentDetailFromSeating()');
+  it('aus der Klassenansicht mit sichtbaren Noten: offen und bei „Noten“', () => {
+    app('openGroupStudents("g1", "grades"); toggleClassGrades(); openStudentDetail("a", "grades")');
     expect(activeView()).toBe('view-students');
-    expect(activeTab()).toMatch(/Noten/);
-    app('closeModal("modal-student-detail")');
+    expect(document.getElementById('sw-more').classList.contains('is-veiled')).toBe(false);
+    expect(document.getElementById('sw-more').dataset.focus).toBe('grades');
+    app('closeModal("modal-seating-student")');
+  });
+  it('Bearbeiten aus dem Fenster einer anderen Klasse ändert den richtigen Schüler', () => {
+    app('openGroupStudents("g2"); openSeatingForGroup("g1"); openSeatingStudentModal("a", "g1", "2026-11-04"); seatingMenuAction("edit")');
+    document.getElementById('new-student-first').value = 'Annika';
+    app('saveStudent()');
+    expect(app('db.students.g1[0].firstName')).toBe('Annika');
+    expect(app('db.students.g2[0].firstName')).toBe('Ben');
   });
 });

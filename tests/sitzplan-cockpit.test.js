@@ -273,21 +273,29 @@ describe('Karten: Verlauf, Hinweis, Geburtstag', () => {
 
 describe('Hinweis im Schüler-Fenster', () => {
   const hintBox = () => document.getElementById('seating-student-hint');
-  it('verborgen bis „Anzeigen“ (außer Noten sind eingeblendet)', () => {
+  // AH28: Hinweise stehen unter „Mehr zu …“ im privaten Abschnitt (ein „Anzeigen“ für alles); zum Lesen, Felder erst nach „Ändern“
+  const veiled = () => document.getElementById('sw-more').classList.contains('is-veiled');
+  const edit = () => hintBox().querySelector('.sw-hint-edit').click();
+  it('verborgen bis „Anzeigen“ (außer Noten sind eingeblendet), dann zum Lesen; Felder erst nach „Ändern“', () => {
     openSeating();
     app(`openSeatingStudentModal("a", "g1", "${MON}")`);
-    expect(hintBox().textContent).toMatch(/Hinweis vorhanden \(verborgen\)/);
-    expect(hintBox().textContent).not.toContain('hörgeschädigt');
-    app('renderSeatingStudentHint(true)');
+    expect(veiled()).toBe(true);
+    expect(document.getElementById('sw-sec-hints').hasAttribute('data-private')).toBe(true);
+    expect(document.getElementById('seating-student-hint-input')).toBeNull();
+    app('revealSeatingStudent()');
+    expect(hintBox().querySelector('.sw-hint').textContent).toContain('hörgeschädigt – vorne sitzen');
+    edit();
     expect(document.getElementById('seating-student-hint-input').value).toBe('hörgeschädigt – vorne sitzen');
     app('closeModal("modal-seating-student"); toggleSeatingGrades()');
     app(`openSeatingStudentModal("a", "g1", "${MON}")`);
-    expect(document.getElementById('seating-student-hint-input')).toBeTruthy();
+    expect(veiled()).toBe(false);
   });
 
-  it('ohne Hinweis gleich ein leeres Feld; Eintippen + Schließen speichert, Karte bekommt das Symbol', () => {
+  it('ohne Hinweis „Hinweis eintragen“ → Feld; Eintippen + Schließen speichert, Karte bekommt das Symbol', () => {
     openSeating();
     app(`openSeatingStudentModal("b", "g1", "${MON}")`);
+    expect(hintBox().textContent).toMatch(/Kein Hinweis/);
+    edit();
     const ta = document.getElementById('seating-student-hint-input');
     ta.value = 'mag FCM';
     app('closeModalLikeButton("modal-seating-student")');   // Escape / daneben tippen
@@ -298,6 +306,7 @@ describe('Hinweis im Schüler-Fenster', () => {
   it('Smiley antippen schließt das Fenster – der Hinweis geht trotzdem nicht verloren', () => {
     openSeating();
     app(`openSeatingStudentModal("b", "g1", "${MON}")`);
+    edit();
     document.getElementById('seating-student-hint-input').value = 'Brille';
     app('addParticipationSmiley("positive")');
     app('addParticipationSmiley("positive")'); // zweites Tippen nimmt zurück und schließt
@@ -307,6 +316,7 @@ describe('Hinweis im Schüler-Fenster', () => {
   it('„Neue Note“ aus dem Schüler-Fenster sichert den eingetippten Hinweis vorher', () => {
     openSeating();
     app(`openSeatingStudentModal("b", "g1", "${MON}")`);
+    edit();
     document.getElementById('seating-student-hint-input').value = 'sitzt am Fenster';
     app('openGradeFormForCurrentStudent()');
     expect(app('db.students.g1[1].notes')).toBe('sitzt am Fenster');
@@ -408,11 +418,12 @@ describe('Wichtiger Hinweis (AD17): eigenes Feld, rotes Symbol', () => {
     expect(CSS).toMatch(/\.seating-card \.sc-important\{color:var\(--danger\);\}/);
   });
 
-  it('Schüler-Fenster: verborgen bis „Anzeigen“, dann zwei Felder; Ändern + Schließen speichert beide', () => {
+  it('Schüler-Fenster: verborgen bis „Anzeigen“, dann rot „Wichtig“ zum Lesen; Ändern + Schließen speichert beide', () => {
     openSeating();
     app(`openSeatingStudentModal("b", "g1", "${MON}")`);
-    expect(hintBox().textContent).toMatch(/Wichtiger Hinweis vorhanden \(verborgen\)/);
-    expect(hintBox().textContent).not.toContain('Diabetes');
+    expect(document.getElementById('sw-more').classList.contains('is-veiled')).toBe(true);
+    app('revealSeatingStudent()');
+    expect(hintBox().querySelector('.sw-hint.is-important').textContent).toContain('Diabetes');
     app('renderSeatingStudentHint(true)');
     expect(imp().value).toBe('Diabetes: darf jederzeit essen');
     expect(document.getElementById('seating-student-hint-input').value).toBe('');

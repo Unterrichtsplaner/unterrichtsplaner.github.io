@@ -1,4 +1,5 @@
 // Block H (Sitzplan): Noten ausblenden (H1), „zu spät“ in der Schnellbewertung (H8), keine Wochenenden (H9).
+const CSS = require('fs').readFileSync(require('path').join(__dirname, '..', 'style.css'), 'utf8');
 const { loadApp, app } = require('./helpers/load-app');
 
 function sampleDB() {
@@ -66,26 +67,35 @@ describe('H1: Noten im Sitzplan standardmäßig verborgen', () => {
 });
 
 describe('H1: auch das Schüler-Fenster im Sitzplan verbirgt die Noten', () => {
-  const gradesText = () => document.getElementById('seating-student-grades').textContent;
+  // Seit AH28: Noten stehen unter „Mehr zu …“ in einem privaten Abschnitt; verborgen heißt: Bereich „is-veiled“,
+  // private Abschnitte per CSS weg, ein „Anzeigen“ für alles
+  const veiled = () => document.getElementById('sw-more').classList.contains('is-veiled');
+  const gradesText = () => document.getElementById('grades-list').textContent;
 
   it('Antippen eines Schülers zeigt keine Einzelnoten, solange Noten verborgen sind', () => {
     app('seatingShowGrades = false');
     app('openSeatingStudentModal("s1", "g1", "2026-09-10")');
-    expect(gradesText()).not.toContain('2,0');
-    expect(gradesText()).toContain('verborgen');
+    expect(document.getElementById('sw-more').hidden).toBe(true);       // „Mehr“ zu
+    expect(veiled()).toBe(true);
+    expect(document.getElementById('sw-sec-grades').hasAttribute('data-private')).toBe(true);
+    expect(CSS).toMatch(/#sw-more\.is-veiled \[data-private\]\{display:none;\}/);
   });
 
   it('„Anzeigen“ im Fenster blendet die Noten nur für diesen Schüler ein', () => {
     app('seatingShowGrades = false');
     app('openSeatingStudentModal("s1", "g1", "2026-09-10")');
     app('revealSeatingStudentGrades()');
+    expect(veiled()).toBe(false);
     expect(gradesText()).toContain('2,0');
     expect(app('seatingShowGrades')).toBe(false); // Kacheln bleiben verborgen
+    app('closeModal("modal-seating-student"); openSeatingStudentModal("s1", "g1", "2026-09-10")');
+    expect(veiled()).toBe(true);   // nie gemerkt
   });
 
   it('mit eingeblendeten Noten (Augen-Knopf) sind sie auch im Fenster direkt sichtbar', () => {
     app('seatingShowGrades = true');
     app('openSeatingStudentModal("s1", "g1", "2026-09-10")');
+    expect(veiled()).toBe(false);
     expect(gradesText()).toContain('2,0');
     app('seatingShowGrades = false');
   });
