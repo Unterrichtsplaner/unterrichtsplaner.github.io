@@ -1,5 +1,5 @@
 // F1: Nutzerdaten (auch aus Import/Sync) dürfen weder HTML einschleusen noch onclick-Handler zerbrechen.
-const { loadApp, app } = require('./helpers/load-app');
+const { loadApp, app, showGradesOnOpen } = require('./helpers/load-app');
 
 // Harmlos aussehender Apostroph + Anführungszeichen + eingeschleustes Element
 const X = `Peter's "Test" <img data-xss src=x>`;
@@ -60,7 +60,7 @@ beforeAll(() => {
   vi.setSystemTime(new Date('2026-09-21T08:30:00')); // Montag, 1. Stunde
   window.confirm = vi.fn(() => false);
   localStorage.setItem('lehrerapp_v3', JSON.stringify(evilDB()));
-  loadApp();
+  loadApp(); showGradesOnOpen();
 });
 afterAll(() => vi.useRealTimers());
 

@@ -393,6 +393,7 @@ function switchView(name) {
   }
   if (name !== 'timetable' && timetableEditMode) setTimetableEditUI(false); // AC2
   if (name !== 'seating') setSeatingWakeLock(false); // Bildschirm darf wieder ausgehen (AD2)
+  if (name !== 'students') hideClassGrades();   // Beamer-Schutz (AH24 c)
   document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
   document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
   const viewEl = document.getElementById('view-' + name);
@@ -2975,6 +2976,7 @@ function switchClassDashboardTab(tabName) {
     currentOverviewTab = 'plan';
     currentOverviewGroupId = currentGroupId;
     renderPlanTab();
+    updateClassGradesButton();
     return;
   }
   if (tabName === 'students') {
@@ -2999,11 +3001,54 @@ function switchClassDashboardTab(tabName) {
     currentOverviewGroupId = currentGroupId;
     renderOverviewTable();
   }
+  updateClassGradesButton();
 }
 
 function switchOverviewTab(tabName) {
   switchClassDashboardTab(tabName);
 }
+// ─── Beamer-Schutz in der Klassenansicht (AH24 c, Regel 16/67) ───────────────
+// Schnitte, Noten-Tabelle und Mitarbeit nur auf Knopfdruck. Nie gespeichert; weg beim Öffnen einer Klasse,
+// beim Verlassen der Klassenansicht und beim Verlassen der App.
+let classGradesShown = false;
+const CLASS_GRADE_TABS = ['students', 'grades', 'participation'];
+function updateClassGradesButton() {
+  const b = document.getElementById('btn-class-grades');
+  const tab = currentClassDashboardTab;
+  if (b) {
+    b.classList.toggle('hidden', !CLASS_GRADE_TABS.includes(tab));
+    const label = classGradesShown ? 'Noten verbergen' : 'Noten anzeigen';
+    b.setAttribute('aria-pressed', String(classGradesShown));
+    b.setAttribute('aria-label', label);
+    b.title = label;
+    b.innerHTML = icon(classGradesShown ? 'eye-off' : 'eye') + `<span class="btn-label">${classGradesShown ? 'Verbergen' : 'Noten zeigen'}</span>`;
+  }
+  const add = document.getElementById('btn-add-overview-col');
+  if (add && (tab === 'grades' || tab === 'participation')) add.classList.toggle('hidden', !classGradesShown);
+}
+function rerenderClassTab() {
+  if (!document.getElementById('view-students').classList.contains('active')) return;
+  if (currentClassDashboardTab === 'students') renderStudents();
+  else if (currentClassDashboardTab !== 'plan') renderOverviewTable();
+}
+function hideClassGrades() {
+  classGradesShown = false;
+  updateClassGradesButton();
+}
+function toggleClassGrades() {
+  classGradesShown = !classGradesShown;
+  updateClassGradesButton();
+  rerenderClassTab();
+}
+function showClassGrades() { if (!classGradesShown) toggleClassGrades(); }
+function gradesVeilHTML(text, big = false) {
+  return `<div class="grades-veil${big ? ' grades-veil-big' : ''}">${icon('eye-off')}<span>${escHtml(text)}</span><button type="button" class="btn-secondary">Anzeigen</button></div>`;
+}
+function wireGradesVeil(container) {
+  const b = container.querySelector('.grades-veil button');
+  if (b) b.addEventListener('click', showClassGrades);
+}
+
 // Spaltenkopf der Tabellen: Wochentag + Datum ohne Jahr (schmalere Spalten), Spalte von heute markiert (AH24)
 function overviewDateHead(dateStr) { return escHtml(formatWeekdayShort(dateStr)); }
 const overviewTodayClass = dateStr => dateStr === formatDate(new Date()) ? ' class="ov-today"' : '';
@@ -3022,6 +3067,14 @@ function renderOverviewTable() {
     if (focused === overviewCommittedInput) focused.onchange = null;
     overviewCommittedInput = null;
     focused.blur();
+  }
+  if ((currentOverviewTab === 'grades' || currentOverviewTab === 'participation') && !classGradesShown) {
+    content.innerHTML = gradesVeilHTML(currentOverviewTab === 'grades'
+      ? 'Die Noten sind verborgen, damit am Beamer niemand mitliest.'
+      : 'Die Mitarbeit ist verborgen, damit am Beamer niemand mitliest.', true);
+    wireGradesVeil(content);
+    overviewRenderedKey = null;   // beim Anzeigen: neueste Spalte zeigen
+    return;
   }
   const group = db.groups.find(g => g.id === currentOverviewGroupId);
   const students = db.students[currentOverviewGroupId] || [];
@@ -3660,6 +3713,7 @@ function openGroupStudents(groupId, initialTab = 'students') {
   const g = db.groups.find(x => x.id === groupId);
   if (!g) return;
   rememberSearchRecent({ kind: 'group', groupId });   // „Zuletzt geöffnet“ in der Suche (AH19)
+  hideClassGrades();   // Beamer-Schutz: jede Klasse öffnet verborgen (AH24 c)
   setClassViewHeader(g);
   switchView('students');
   switchClassDashboardTab(initialTab);
@@ -3714,9 +3768,12 @@ function renderStudents() {
     return;
   }
   // Schlichte Liste mit Kopfzeile statt einer Karte je Schüler (BUGS AE8)
-  container.innerHTML = `<div class="students-head" aria-hidden="true">${isStudentEditMode ? '<span class="students-head-cb"></span>' : ''}
-    <span class="students-head-main">Name</span><span class="students-head-part">Mitarbeit + / = / −</span>
-    <span class="students-head-att">Fehlt F / E</span><span class="students-head-avg">Ø</span></div>`;
+  const showGrades = classGradesShown;   // Beamer-Schutz (AH24 c): Schnitt und Mitarbeit nur auf Knopfdruck
+  container.innerHTML = (showGrades ? '' : gradesVeilHTML('Schnitte und Mitarbeit sind verborgen, damit am Beamer niemand mitliest.'))
+    + `<div class="students-head${showGrades ? '' : ' is-veiled'}" aria-hidden="true">${isStudentEditMode ? '<span class="students-head-cb"></span>' : ''}
+    <span class="students-head-main">Name</span>${showGrades ? '<span class="students-head-part">Mitarbeit + / = / −</span>' : ''}
+    <span class="students-head-att">Fehlt F / E</span>${showGrades ? '<span class="students-head-avg">Ø</span>' : ''}</div>`;
+  wireGradesVeil(container);
   const scale = gradeScale(currentGroupId);
   const todayStr = formatDate(new Date());
   sortStudents(students).forEach(s => {
@@ -3746,20 +3803,20 @@ function renderStudents() {
           (s.importantNote || '').trim() ? '<span class="sq-important">Wichtig</span>' : '', (s.notes || '').trim() ? 'Hinweis' : '', birthdayInfo(s, todayStr) ? 'Geburtstag' : ''].filter(Boolean).join(' · ')}</div>
       </div>
       <div class="student-counters">
-        <div class="student-counter" data-kind="participation" role="button" tabindex="0" title="${hintText('participation')}" aria-label="${hintText('participation')}">
+        ${showGrades ? `<div class="student-counter" data-kind="participation" role="button" tabindex="0" title="${hintText('participation')}" aria-label="${hintText('participation')}">
           <span class="student-counter-label">Mitarbeit</span>
           <span>${partPos}</span><span class="sep">/</span><span>${partNeutral}</span><span class="sep">/</span><span${partNeg ? ' class="n-bad"' : ''}>${partNeg}</span>
-        </div>
+        </div>` : ''}
         <div class="student-counter" data-kind="attendance" role="button" tabindex="0" title="${hintText('attendance')}" aria-label="${hintText('attendance')}">
           <span class="student-counter-label">Fehlt</span>
           <span${attUnexcused ? ' class="n-bad"' : ''}>${attUnexcused}</span><span class="sep">/</span><span>${attExcused}</span>
         </div>
       </div>
-      ${avg!==null
+      ${!showGrades ? '' : avg!==null
         ? `<div class="student-grade-badge" style="color:${gradeColor(avg, scale)}">${formatGradeAverage(avg)}</div>`
         : `<div class="student-grade-badge student-grade-none">–</div>`}
     `;
-    row.addEventListener('click', () => openStudentDetail(s.id));
+    row.addEventListener('click', () => openStudentDetail(s.id, showGrades ? 'grades' : 'attendance'));   // verborgen: nicht auf „Noten“ öffnen
     row.querySelectorAll('.student-counter').forEach(el => {
       el.addEventListener('click', e => { e.stopPropagation(); onStudentCounterTap(el, s.id, hints); });
       el.addEventListener('keydown', e => {
@@ -6042,7 +6099,7 @@ function runSearchItem(it, act = 'open') {
     if (act === 'note') return openClassNotes(g.id);
     return openGroupStudents(g.id, act === 'grades' ? 'grades' : 'students');
   }
-  if (it.kind === 'student') { openGroupStudents(g.id); return openStudentDetail(it.studentId); }
+  if (it.kind === 'student') { openGroupStudents(g.id); return openStudentDetail(it.studentId, 'attendance'); }   // nicht auf „Noten“ (Beamer, AH24 c)
   if (it.kind === 'todo') return switchView('todos');
   if (it.kind === 'classNote') return openClassNotes(g.id);
   if (it.kind === 'plan') return openGroupStudents(g.id, 'plan');
@@ -9880,6 +9937,7 @@ function flushPendingSync() {
 // verloren: Eingetipptes im Stunden-Fenster deshalb schon jetzt übernehmen, das Fenster bleibt offen (BUGS T3).
 function onAppHidden() {
   hideAllPasswords();
+  if (classGradesShown) { hideClassGrades(); rerenderClassTab(); }   // Beamer-Schutz: nach der Pause wieder verborgen (AH24 c)
   if (!document.getElementById('modal-lesson').classList.contains('hidden')) storeLessonForm();
   if (!document.getElementById('modal-seating-student').classList.contains('hidden')) commitSeatingStudentForm();
   flushPendingSync();

@@ -1,5 +1,5 @@
 // Block Q (Review 25.09.2026, zweite Runde): Klassen, Noten, Anwesenheit.
-const { loadApp, app } = require('./helpers/load-app');
+const { loadApp, app, showGradesOnOpen } = require('./helpers/load-app');
 
 const MON = '2026-09-21', WED = '2026-09-23';
 
@@ -44,7 +44,7 @@ const fire = (el, type) => el.dispatchEvent(new Event(type, { bubbles: true }));
 
 beforeAll(() => {
   localStorage.setItem('lehrerapp_v3', JSON.stringify(sampleDB()));
-  loadApp();
+  loadApp(); showGradesOnOpen();
 });
 
 beforeEach(() => {

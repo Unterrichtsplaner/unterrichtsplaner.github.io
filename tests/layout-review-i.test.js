@@ -2,7 +2,7 @@
 // im Browser nachgemessen bei 375/768/1024 px.
 const fs = require('fs');
 const path = require('path');
-const { loadApp, app } = require('./helpers/load-app');
+const { loadApp, app, showGradesOnOpen } = require('./helpers/load-app');
 
 const css = fs.readFileSync(path.join(__dirname, '..', 'style.css'), 'utf8');
 
@@ -27,7 +27,7 @@ beforeAll(() => {
     groups: [{ id: 'g1', subject: 'Mathematik', className: 'Q1 Leistungskurs', color: '#6366f1', schularbeitWeight: 50 }],
     students: { g1: [student('s1', 'David', 'Fischer-Weißenberger'), student('s2', 'Anna', 'Muster')] },
   }));
-  loadApp();
+  loadApp(); showGradesOnOpen();
 });
 
 describe('I1: Dashboard lässt sich scrollen', () => {

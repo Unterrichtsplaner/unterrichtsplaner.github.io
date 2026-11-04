@@ -1006,7 +1006,7 @@ select option{background:var(--bg-secondary);}
   .class-view-title > div { min-width: 0; }
   .class-view-title .subtitle { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .class-view-header .btn-label { display: none; }
-  .class-view-header .btn-back, .class-view-header .btn-seating, #btn-add-overview-col { width: 40px; height: 40px; padding: 0; justify-content: center; flex-shrink: 0; }
+  .class-view-header .btn-back, .class-view-header .btn-seating, #btn-add-overview-col, #btn-class-grades { width: 40px; height: 40px; padding: 0; justify-content: center; flex-shrink: 0; }
   .class-view-top .header-actions { flex-wrap: nowrap; gap: 6px; }
   .class-tabs { flex-wrap: nowrap; gap: 4px; }
   .class-tabs .tab-btn { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 6px 2px; font-size: 11px; border-radius:var(--radius-md); }
@@ -1014,11 +1014,22 @@ select option{background:var(--bg-secondary);}
   .class-tabs .tab-long { display: none; }
   .class-tabs .tab-short { display: inline; white-space: nowrap; }
 }
+/* Beamer-Schutz in der Klassenansicht (AH24 c): Hinweis statt Noten/Mitarbeit */
+.grades-veil{display:flex;align-items:center;flex-wrap:wrap;gap:10px;margin:0 0 12px;padding:10px 14px;border:1px dashed var(--border);border-radius:var(--radius-md);color:var(--text-secondary);font-size:14px;}
+.grades-veil .ico{width:18px;height:18px;margin:0;flex-shrink:0;}
+.grades-veil span{flex:1;min-width:0;}
+#students-container .grades-veil{margin:12px 20px;}   /* Liste hat keinen eigenen Rand */
+.grades-veil-big{flex-direction:column;justify-content:center;text-align:center;gap:12px;margin:0;padding:48px 20px;}
+.grades-veil-big .ico{width:28px;height:28px;}
+.grades-veil-big span{flex:none;max-width:420px;}
+.btn-grades-toggle{display:inline-flex;align-items:center;gap:6px;}
+.btn-grades-toggle .ico{margin:0;}
 /* Klassenansicht: Tippflächen (AH24) */
 @media (pointer: coarse){
   .class-tabs .tab-btn, .class-view-header button{min-height:44px;min-width:44px;}
   .ov-part-btn{min-width:44px;min-height:44px;}
   .student-counter{min-height:44px;}
+  .grades-veil button{min-height:44px;}
 }
 /* Handy-Navigation: gleich breite Felder mit kurzer Beschriftung unter dem Symbol (BUGS O7) */
 @media (max-width: 600px) {

@@ -1,6 +1,6 @@
 // H10: Einheitliche Linien-Icons statt Emojis in Knöpfen, Reitern und Überschriften.
 // Ausnahme: 😊😐☹️ bei der Mitarbeit – dort sind die Smileys die Information selbst.
-const { loadApp, app } = require('./helpers/load-app');
+const { loadApp, app, showGradesOnOpen } = require('./helpers/load-app');
 
 // Erlaubt: Mitarbeit-Smileys (+ Variantenzeichen), „kein Wert“ ➖, Schließen-Kreuz ✕, Häkchen ✓, Stift ✎
 const EMOJI = /\p{Extended_Pictographic}/u;
@@ -34,7 +34,7 @@ function sampleDB() {
 
 beforeAll(() => {
   localStorage.setItem('lehrerapp_v3', JSON.stringify(sampleDB()));
-  loadApp();
+  loadApp(); showGradesOnOpen();
 });
 
 describe('H10: Linien-Icons statt Emojis', () => {

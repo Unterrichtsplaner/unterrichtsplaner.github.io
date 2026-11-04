@@ -1,7 +1,7 @@
 // Block S (Review 25.09.2026, zweite Runde): Sitzplan, Fenster, Einstellungen, Design.
 const fs = require('fs');
 const path = require('path');
-const { loadApp, app } = require('./helpers/load-app');
+const { loadApp, app, showGradesOnOpen } = require('./helpers/load-app');
 
 const CSS = fs.readFileSync(path.join(__dirname, '..', 'style.css'), 'utf8');
 const HTML = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
@@ -37,7 +37,7 @@ beforeAll(() => {
   window.scrollTo = () => {};
   Element.prototype.scrollIntoView = () => {}; // Zufallsauswahl scrollt die Karte ins Bild (fehlt in jsdom)
   localStorage.setItem('lehrerapp_v3', JSON.stringify(sampleDB()));
-  loadApp();
+  loadApp(); showGradesOnOpen();
 });
 afterAll(() => vi.useRealTimers());
 

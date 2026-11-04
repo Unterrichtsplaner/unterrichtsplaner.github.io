@@ -1,5 +1,5 @@
 // Block L (Review 25.09.2026): Noten, Anwesenheit, Klassen.
-const { loadApp, app } = require('./helpers/load-app');
+const { loadApp, app, showGradesOnOpen } = require('./helpers/load-app');
 
 const MON = '2026-09-21', WED = '2026-09-23';
 
@@ -37,7 +37,7 @@ function showTab(tab) {
 
 beforeAll(() => {
   localStorage.setItem('lehrerapp_v3', JSON.stringify(sampleDB()));
-  loadApp();
+  loadApp(); showGradesOnOpen();
 });
 
 beforeEach(() => {

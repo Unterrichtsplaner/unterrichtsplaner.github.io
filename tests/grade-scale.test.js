@@ -1,6 +1,6 @@
 // BUGS H7: Notenskala pro Klasse. 1–6 (Standard, auch für bestehende Klassen ohne Feld) oder
 // 0–15 Punkte (Oberstufe, höher = besser). Jede Stelle nutzt die Skala der jeweiligen Klasse.
-const { loadApp, app } = require('./helpers/load-app');
+const { loadApp, app, showGradesOnOpen } = require('./helpers/load-app');
 
 // g1: alte Klasse ohne gradeScale (= 1–6). g2: Oberstufe mit Punkten.
 // Ben (g2): KA 12, Test 3 → 50/50 = 7,5 Punkte. Cara (g2): 13, 14 → 13,5. Dora (g2): 3, 4 → 3,5 (kritisch).
@@ -32,7 +32,7 @@ const toasts = () => document.getElementById('toast-container').textContent;
 
 beforeAll(() => {
   localStorage.setItem('lehrerapp_v3', JSON.stringify(sampleDB()));
-  loadApp();
+  loadApp(); showGradesOnOpen();
 });
 
 beforeEach(() => {

@@ -1,6 +1,6 @@
 // H11: Die Zähler „MITARBEIT 1 : 0 : 2 · FEHLT 3 / 1“ in der Schülerliste erklären sich
 // beim Darüberfahren (Maus) und beim Antippen (iPad, kein Hover). Die Farben bleiben.
-const { loadApp, app } = require('./helpers/load-app');
+const { loadApp, app, showGradesOnOpen } = require('./helpers/load-app');
 
 function sampleDB() {
   return {
@@ -34,7 +34,7 @@ const detailOpen = () => !document.getElementById('modal-student-detail').classL
 
 beforeAll(() => {
   localStorage.setItem('lehrerapp_v3', JSON.stringify(sampleDB()));
-  loadApp();
+  loadApp(); showGradesOnOpen();
 });
 beforeEach(() => {
   app('closeModal("modal-student-detail")');

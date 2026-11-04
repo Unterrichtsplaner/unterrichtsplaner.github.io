@@ -40,7 +40,7 @@
       }
     })();
   </script>
-  <link rel="stylesheet" href="style.css?v=371" />
+  <link rel="stylesheet" href="style.css?v=373" />
   <script>
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
@@ -239,6 +239,7 @@
           </div>
           <div class="header-actions">
             <button id="btn-add-overview-col" class="btn-primary hidden" onclick="openAddColumnModal()" aria-label="Neue Spalte">+<span class="btn-label"> Neue Spalte</span></button>
+            <button id="btn-class-grades" class="btn-secondary btn-grades-toggle hidden" onclick="toggleClassGrades()" aria-pressed="false" aria-label="Noten anzeigen" title="Noten anzeigen"><i data-icon="eye"></i><span class="btn-label">Noten zeigen</span></button>
             <button class="btn-secondary btn-seating" onclick="openSeatingForGroup(currentGroupId)" aria-label="Zum Sitzplan"><i data-icon="seating"></i><span class="btn-label">Zum Sitzplan</span></button>
             <button id="btn-student-actions" class="btn-icon" title="Schüler hinzufügen, importieren …" aria-label="Schüler hinzufügen, importieren und mehr" onclick="openStudentActionsModal()">
               <i data-icon="list"></i>
@@ -1646,12 +1647,12 @@
   </div>
 
   <script src="lib/crypto-js.min.js"></script>
-  <script src="crypto-helper.js?v=371"></script>
+  <script src="crypto-helper.js?v=373"></script>
   <script src="lib/firebase-app-compat.js"></script>
   <script src="lib/firebase-auth-compat.js"></script>
   <script src="lib/firebase-firestore-compat.js"></script>
-  <script src="firebase-config.js?v=371"></script>
-  <script src="sync-manager.js?v=371"></script>
-  <script src="app.js?v=371"></script>
+  <script src="firebase-config.js?v=373"></script>
+  <script src="sync-manager.js?v=373"></script>
+  <script src="app.js?v=373"></script>
 </body>
 </html>

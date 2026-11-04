@@ -1,6 +1,6 @@
 // Block B (Noten): Eingabe, Speichern/Löschen über das Notenformular, einheitlicher Durchschnitt,
 // CSV-Export, Gewichtung, Feld `note` statt `label`.
-const { loadApp, app } = require('./helpers/load-app');
+const { loadApp, app, showGradesOnOpen } = require('./helpers/load-app');
 
 // Anna: Schularbeit 1, zwei Tests 3 → gewichtet (50/50) 2,0; ungewichtet wäre es 2,3.
 function sampleDB() {
@@ -42,7 +42,7 @@ function fillGradeForm({ type = 'test', value, date = '2026-09-10', label = '' }
 
 beforeAll(() => {
   localStorage.setItem('lehrerapp_v3', JSON.stringify(sampleDB()));
-  loadApp();
+  loadApp(); showGradesOnOpen();
 });
 
 beforeEach(() => {

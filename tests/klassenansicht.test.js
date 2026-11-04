@@ -2,7 +2,7 @@
 // einheitliche Zusammenfassungen und Begriffe, leise Leerzellen, Tippflächen für den Finger.
 const fs = require('fs');
 const path = require('path');
-const { loadApp, app } = require('./helpers/load-app');
+const { loadApp, app, showGradesOnOpen } = require('./helpers/load-app');
 const CSS = fs.readFileSync(path.join(__dirname, '..', 'style.css'), 'utf8');
 const HTML = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
 
@@ -28,7 +28,7 @@ const wrap = () => document.querySelector('#overview-content .overview-table-wra
 const heads = () => [...document.querySelectorAll('#overview-content thead th')];
 const row = name => [...document.querySelectorAll('#overview-content tbody tr')].find(r => r.textContent.includes(name));
 
-beforeAll(() => { localStorage.setItem('lehrerapp_v3', JSON.stringify(sampleDB())); loadApp(); });
+beforeAll(() => { localStorage.setItem('lehrerapp_v3', JSON.stringify(sampleDB())); loadApp(); showGradesOnOpen(); });
 beforeEach(() => {
   vi.useFakeTimers({ toFake: ['Date'] });
   vi.setSystemTime(new Date(2026, 10, 4, 10, 0));

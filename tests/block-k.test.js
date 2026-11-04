@@ -1,6 +1,6 @@
 // Block K (Review 25.09.2026): Datenverlust außerhalb des Cloud-Syncs.
 // Die Sync-Fälle (K1, K6, K8, K9, K13) stehen in tests/sync.test.js.
-const { loadApp, loadScript, app } = require('./helpers/load-app');
+const { loadApp, loadScript, app, showGradesOnOpen } = require('./helpers/load-app');
 
 function sampleDB() {
   return {
@@ -30,7 +30,7 @@ beforeAll(() => {
   globalThis.alert = vi.fn();
   globalThis.confirm = () => true;
   loadScript('crypto-helper.js');
-  loadApp();
+  loadApp(); showGradesOnOpen();
 });
 
 beforeEach(() => {

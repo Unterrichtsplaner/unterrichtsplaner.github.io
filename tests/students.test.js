@@ -1,6 +1,6 @@
 // Block C (Schüler & Klassen): Löschen in der Schülerakte, Namen/Import, Klasse speichern/löschen,
 // Spalten umbenennen, Schülerakten-Export, Zähler, „zu spät“, Warnschwellen, Dashboard-Sprung.
-const { loadApp, app } = require('./helpers/load-app');
+const { loadApp, app, showGradesOnOpen } = require('./helpers/load-app');
 
 // Einträge absichtlich NICHT nach Datum sortiert: die Anzeige sortiert (neueste zuerst), das Original nicht.
 function sampleDB() {
@@ -55,7 +55,7 @@ function clickDelete(listId, n) {
 
 beforeAll(() => {
   localStorage.setItem('lehrerapp_v3', JSON.stringify(sampleDB()));
-  loadApp();
+  loadApp(); showGradesOnOpen();
 });
 
 beforeEach(() => {

@@ -23,4 +23,10 @@ function app(expr) {
   return vm.runInThisContext(expr);
 }
 
-module.exports = { loadApp, loadScript, app };
+// Ältere Tests prüfen Notentabellen und Schnitte direkt. Sie verhalten sich wie jemand, der in der Klassenansicht
+// sofort „Anzeigen“ tippt. Der Beamer-Schutz selbst (AH24 c) wird in tests/beamer-klasse.test.js geprüft.
+function showGradesOnOpen() {
+  app('classGradesShown = true; hideClassGrades = function () { classGradesShown = true; updateClassGradesButton(); }');
+}
+
+module.exports = { loadApp, loadScript, app, showGradesOnOpen };
