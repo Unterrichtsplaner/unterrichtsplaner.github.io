@@ -491,7 +491,7 @@ button.cr-name:focus-visible{outline:2px solid var(--accent);outline-offset:3px;
   box-shadow: var(--shadow-sm);
   max-height: 100%;
 }
-.overview-table{width:100%;border-collapse:separate;border-spacing:0;font-size:13px;text-align:center;}
+.overview-table{width:100%;border-collapse:separate;border-spacing:0;font-size:13px;text-align:center;font-variant-numeric:tabular-nums;}
 .overview-table th{background:var(--bg-elevated);color:var(--text-secondary);font-weight:600;padding:12px 16px;border-bottom:1px solid var(--border);border-right:1px solid var(--border);white-space:nowrap;position:sticky;top:0;z-index:1;text-align:center;}
 .overview-table th:first-child, .overview-table td:first-child{text-align:left;}
 .overview-table td{padding:12px 16px;border-bottom:1px solid var(--border);border-right:1px solid var(--border);white-space:nowrap;}
@@ -505,6 +505,16 @@ button.cr-name:focus-visible{outline:2px solid var(--accent);outline-offset:3px;
 .overview-table .ov-name-col{position:sticky;left:0;z-index:1;background:var(--bg-card);text-align:left;}
 .overview-table th.ov-name-col{background:var(--bg-elevated);z-index:2;min-width:140px;}
 .overview-table td.ov-name{font-weight:500;cursor:pointer;color:var(--text-primary);}
+/* Zusammenfassung (Ø, Mitarbeit, Fehlt, Vergessen) bleibt beim seitlichen Wischen neben dem Namen stehen (AH24) */
+.overview-table .ov-sum-col{position:sticky;left:var(--ov-name-w, 140px);z-index:1;background:var(--bg-card);}
+.overview-table th.ov-sum-col{background:var(--bg-elevated);z-index:2;}
+.overview-table .ov-sum{text-align:center;font-weight:600;white-space:nowrap;}
+.overview-table .ov-sum .sep{color:var(--text-muted);font-weight:400;}
+.overview-table .ov-sum .n-bad{color:var(--danger);}
+.overview-table th.ov-today{color:var(--accent);box-shadow:inset 0 -2px 0 var(--accent);}   /* Spalte von heute */
+.overview-table td.ov-part-cell{text-align:center;padding:4px;}
+.ov-part-btn{display:inline-flex;align-items:center;justify-content:center;min-width:40px;min-height:34px;padding:0;background:none;border:none;border-radius:var(--radius-sm);font-family:inherit;font-size:20px;color:inherit;cursor:pointer;}
+.ov-part-btn .ov-empty{font-size:16px;color:var(--text-muted);}   /* leere Mitarbeit: leiser Strich statt Emoji (Regel 22) */
 .ov-name-text{display:block;}
 #overview-content{flex:1;overflow-y:auto;padding:22px;container-type:inline-size;}
 /* Schmale Tabelle (Handy, Split View): Namen kürzen, damit Notenspalten Platz haben (BUGS I7) */
@@ -974,13 +984,18 @@ select option{background:var(--bg-secondary);}
 .class-view-title{display:flex;align-items:center;gap:16px;min-width:0;}
 .class-view-top .header-actions{display:flex;flex-wrap:wrap;align-items:center;margin-left:auto;}
 /* Reiter der Klassenansicht brechen um, statt rechts abgeschnitten zu werden (BUGS I7) */
-.class-tabs{flex-wrap:wrap;border-bottom:none;padding:0;width:100%;}
+.class-tabs{flex-wrap:wrap;border-bottom:none;padding:0;width:100%;mask-image:none;-webkit-mask-image:none;padding-right:0;}   /* kein Ausblend-Rand: die Reiter passen immer (AH24) */
 @media (max-width: 600px) {
   .class-view-header { padding: 16px; }
   .class-tabs .tab-btn { padding: 7px 12px; }
   #overview-content { padding: 12px; }
 }
 .tab-short{display:none;}
+/* iPad hochkant: Kurzformen, damit alle Reiter in eine Zeile passen (AH24) */
+@media (min-width: 601px) and (max-width: 1023px){
+  .class-tabs .tab-long{display:none;}
+  .class-tabs .tab-short{display:inline;}
+}
 /* Handy: Kopf der Klassenansicht kompakt – Knöpfe als Symbole in der Titelzeile, Reiter in einer Zeile
    mit Symbol über kurzem Text. Vorher belegte der Kopf ein Drittel des Bildschirms (BUGS O7). */
 @media (max-width: 600px) {
@@ -998,6 +1013,12 @@ select option{background:var(--bg-secondary);}
   .class-tabs .tab-btn svg { margin: 0; }
   .class-tabs .tab-long { display: none; }
   .class-tabs .tab-short { display: inline; white-space: nowrap; }
+}
+/* Klassenansicht: Tippflächen (AH24) */
+@media (pointer: coarse){
+  .class-tabs .tab-btn, .class-view-header button{min-height:44px;min-width:44px;}
+  .ov-part-btn{min-width:44px;min-height:44px;}
+  .student-counter{min-height:44px;}
 }
 /* Handy-Navigation: gleich breite Felder mit kurzer Beschriftung unter dem Symbol (BUGS O7) */
 @media (max-width: 600px) {

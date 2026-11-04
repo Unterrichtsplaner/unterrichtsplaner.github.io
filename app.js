@@ -2954,6 +2954,7 @@ let currentClassDashboardTab = 'students';
 
 function switchClassDashboardTab(tabName) {
   currentClassDashboardTab = tabName;
+  overviewRenderedKey = null;   // neu geöffnet: neueste Spalte zeigen, nicht die alte Scroll-Stelle (AH24)
   document.querySelectorAll('#view-students .tab-btn').forEach(b => b.classList.remove('active'));
   const activeBtn = document.getElementById('overview-tab-' + tabName);
   if (activeBtn) activeBtn.classList.add('active');
@@ -3003,6 +3004,11 @@ function switchClassDashboardTab(tabName) {
 function switchOverviewTab(tabName) {
   switchClassDashboardTab(tabName);
 }
+// Spaltenkopf der Tabellen: Wochentag + Datum ohne Jahr (schmalere Spalten), Spalte von heute markiert (AH24)
+function overviewDateHead(dateStr) { return escHtml(formatWeekdayShort(dateStr)); }
+const overviewTodayClass = dateStr => dateStr === formatDate(new Date()) ? ' class="ov-today"' : '';
+// Welche Tabelle zuletzt gezeichnet wurde: gleiche Tabelle = Scroll-Stelle behalten (AH23), neue = neueste Spalte zeigen
+let overviewRenderedKey = null;
 function renderOverviewTable() {
   if (!currentOverviewGroupId) return;
   if (currentOverviewTab === 'plan') { renderPlanTab(); return; } // Planung ist keine Tabelle
@@ -3019,6 +3025,11 @@ function renderOverviewTable() {
   }
   const group = db.groups.find(g => g.id === currentOverviewGroupId);
   const students = db.students[currentOverviewGroupId] || [];
+  // Neu zeichnen ersetzt den Scrollbereich: Stelle merken, sonst springt die Tabelle nach jedem Eintrag an den Anfang (AH23)
+  const renderKey = currentOverviewGroupId + '|' + currentOverviewTab;
+  const oldWrap = content.querySelector('.overview-table-wrapper');
+  const keepScroll = oldWrap && overviewRenderedKey === renderKey
+    ? { left: oldWrap.scrollLeft, top: oldWrap.scrollTop, outer: content.scrollTop } : null;
   
   if (!students.length) {
     content.innerHTML = '<div class="empty-state" style="padding:20px;text-align:center;color:var(--text-muted);">Keine Schüler in dieser Klasse.</div>';
@@ -3031,15 +3042,15 @@ function renderOverviewTable() {
   if (currentOverviewTab === 'grades') {
     const gradeEvents = gradeColumns(group, sortedStudents);
 
-    html += '<th>Ø</th>';
+    html += '<th class="ov-sum-col">Ø</th>';
     const weight = getSchularbeitWeight(group);
     gradeEvents.forEach(ev => {
       const type = ev.type || 'test';
       const weighted = gradeCategory(type) === 'schularbeit';
       const typeTitle = weighted ? `${gradeTypeName(type)}: zählt ${weight} % der Note` : `${gradeTypeName(type)}: Sonstige, zählt ${100 - weight} % der Note`;
-      html += `<th style="cursor:pointer;" title="Klicken zum Bearbeiten" onclick="openEditColumnModal(${jsArg(ev.date)}, ${jsArg(ev.label)}, ${jsArg(type)}, ${ev.nth})">`
+      html += `<th${overviewTodayClass(ev.date)} style="cursor:pointer;" title="Klicken zum Bearbeiten" onclick="openEditColumnModal(${jsArg(ev.date)}, ${jsArg(ev.label)}, ${jsArg(type)}, ${ev.nth})">`
         + `<div class="col-type${weighted ? ' weighted' : ''}" title="${escHtml(typeTitle)}">${escHtml(gradeTypeShort(type))}</div>`
-        + `<div>${formatDateShort(ev.date)}</div><div class="col-title">${escHtml(ev.label || gradeTypeName(type))}</div></th>`;
+        + `<div>${overviewDateHead(ev.date)}</div><div class="col-title">${escHtml(ev.label || gradeTypeName(type))}</div></th>`;
     });
     html += '</tr></thead><tbody>';
 
@@ -3050,12 +3061,12 @@ function renderOverviewTable() {
       
       const nameDisplay = escHtml(studentListName(s));
       html += `<tr><td class="ov-name-col ov-name" role="button" tabindex="0" onclick="openQuickRatingFromTable(${jsArg(s.id)})"><span class="ov-name-text" title="${nameDisplay}">${nameDisplay}</span></td>`;
-      html += `<td style="font-weight:700;color:${gradeColor(rawAvg, scale)};text-align:center;">${avg}</td>`;
+      html += `<td class="ov-sum-col" style="font-weight:700;color:${gradeColor(rawAvg, scale)};text-align:center;">${avg}</td>`;
       
       gradeEvents.forEach(ev => {
         const grade = findColumnGrade(s, ev);
         const val = grade ? grade.value : '';
-        html += `<td style="padding:4px;"><input type="text" enterkeyhint="next" class="form-input" style="width:100%; text-align:center; padding:6px; font-weight:600; color:${val ? gradeColor(gradeNumber(val), scale) : 'inherit'}" value="${escHtml(gradeText(val))}" placeholder="-" onchange="updateInlineGrade(${jsArg(s.id)}, ${jsArg(ev.date)}, ${jsArg(ev.label)}, this.value, ${jsArg(ev.type)}, ${ev.nth})" /></td>`;
+        html += `<td style="padding:4px;"><input type="text" enterkeyhint="next" class="form-input" style="width:100%; text-align:center; padding:6px; font-weight:600; color:${val ? gradeColor(gradeNumber(val), scale) : 'inherit'}" value="${escHtml(gradeText(val))}" placeholder="–" onchange="updateInlineGrade(${jsArg(s.id)}, ${jsArg(ev.date)}, ${jsArg(ev.label)}, this.value, ${jsArg(ev.type)}, ${ev.nth})" /></td>`;
       });
       html += `</tr>`;
     });
@@ -3063,7 +3074,7 @@ function renderOverviewTable() {
     // Bottom average row
     html += '<tr><td class="ov-name-col" style="font-weight:700;">Durchschnitt</td>';
     const groupAvg = calculateGroupAverage(currentOverviewGroupId);
-    html += `<td style="font-weight:700;color:${gradeColor(groupAvg, scale)};text-align:center;">${formatGradeAverage(groupAvg)}</td>`;
+    html += `<td class="ov-sum-col" style="font-weight:700;color:${gradeColor(groupAvg, scale)};text-align:center;">${formatGradeAverage(groupAvg)}</td>`;
 
     gradeEvents.forEach(ev => {
       let sum = 0, count = 0;
@@ -3090,9 +3101,9 @@ function renderOverviewTable() {
     });
     const partDates = Array.from(partEventsMap.values()).sort((a,b) => a.date.localeCompare(b.date));
     
-    html += '<th>Bilanz</th>';
+    html += '<th class="ov-sum-col" title="Mitarbeit: positiv / neutral / negativ">+ / = / –</th>';
     partDates.forEach(ev => {
-      html += `<th style="cursor:pointer;" title="Klicken zum Bearbeiten" onclick="openEditColumnModal(${jsArg(ev.date)}, ${jsArg(ev.label)})"><div>${formatDateShort(ev.date)}</div>${ev.label ? `<div style="font-weight:400;font-size:11px;">${escHtml(ev.label)}</div>` : ''}</th>`;
+      html += `<th${overviewTodayClass(ev.date)} style="cursor:pointer;" title="Klicken zum Bearbeiten" onclick="openEditColumnModal(${jsArg(ev.date)}, ${jsArg(ev.label)})"><div>${overviewDateHead(ev.date)}</div>${ev.label ? `<div style="font-weight:400;font-size:11px;">${escHtml(ev.label)}</div>` : ''}</th>`;
     });
     html += '</tr></thead><tbody>';
 
@@ -3107,20 +3118,17 @@ function renderOverviewTable() {
         else if (val === 'neutral') neu++;
         else if (val === 'negative') neg++;
       });
-      html += `<td style="text-align:center; font-size:12px; font-weight:600; white-space:nowrap;">
-        <span style="color:var(--success)">${pos}</span> : <span style="color:var(--warning)">${neu}</span> : <span style="color:var(--danger)">${neg}</span>
-      </td>`;
+      // Wie im Reiter Schüler: Schrägstriche, nur negative Einträge rot (AH24)
+      html += `<td class="ov-sum-col ov-sum"><span>${pos}</span> <span class="sep">/</span> <span>${neu}</span> <span class="sep">/</span> <span${neg ? ' class="n-bad"' : ''}>${neg}</span></td>`;
 
       partDates.forEach(ev => {
         const pIdx = (s.participation||[]).findIndex(x => x.date === ev.date && (x.label||'') === (ev.label||''));
         const val = pIdx !== -1 ? s.participation[pIdx].value : '';
-        // Inline Cycler
-        let emoji = '➖';
-        if (val === 'positive') emoji = '😊';
-        else if (val === 'neutral') emoji = '😐';
-        else if (val === 'negative') emoji = '☹️';
-        html += `<td style="text-align:center; padding:4px;">
-          <button style="background:none; border:none; font-size:20px; cursor:pointer;" onclick="cycleInlineParticipation(${jsArg(s.id)}, ${jsArg(ev.date)}, ${jsArg(ev.label||'')})">${emoji}</button>
+        // Antippen schaltet weiter; leer ist ein leiser Strich statt eines Emojis (Regel 22, AH24)
+        const face = { positive: ['😊', 'gut'], neutral: ['😐', 'neutral'], negative: ['☹️', 'schlecht'] }[val];
+        const label = `Mitarbeit ${studentListName(s)}, ${formatWeekdayShort(ev.date)}: ${face ? face[1] : 'keine'}`;
+        html += `<td class="ov-part-cell">
+          <button type="button" class="ov-part-btn" aria-label="${escHtml(label)}" onclick="cycleInlineParticipation(${jsArg(s.id)}, ${jsArg(ev.date)}, ${jsArg(ev.label||'')})">${face ? face[0] : '<span class="ov-empty" aria-hidden="true">–</span>'}</button>
         </td>`;
       });
       html += `</tr>`;
@@ -3139,23 +3147,25 @@ function renderOverviewTable() {
     });
     const attDates = Array.from(attEventsMap.values()).sort((a,b) => a.date.localeCompare(b.date));
     
-    html += '<th title="Unentschuldigt (F) + entschuldigt (E), ohne zu spät (Z)">Fehltage</th>';
+    html += '<th class="ov-sum-col" title="Fehltage unentschuldigt (F) / entschuldigt (E), ohne zu spät (Z)">Fehlt F / E</th>';
     attDates.forEach(ev => {
-      html += `<th style="cursor:pointer;" title="Klicken zum Bearbeiten" onclick="openEditColumnModal(${jsArg(ev.date)}, ${jsArg(ev.label)})"><div>${formatDateShort(ev.date)}</div>${ev.label ? `<div style="font-weight:400;font-size:11px;">${escHtml(ev.label)}</div>` : ''}</th>`;
+      html += `<th${overviewTodayClass(ev.date)} style="cursor:pointer;" title="Klicken zum Bearbeiten" onclick="openEditColumnModal(${jsArg(ev.date)}, ${jsArg(ev.label)})"><div>${overviewDateHead(ev.date)}</div>${ev.label ? `<div style="font-weight:400;font-size:11px;">${escHtml(ev.label)}</div>` : ''}</th>`;
     });
     html += '</tr></thead><tbody>';
 
     sortedStudents.forEach(s => {
       html += `<tr><td class="ov-name-col ov-name" role="button" tabindex="0" onclick="openQuickRatingFromTable(${jsArg(s.id)})"><span class="ov-name-text" title="${escHtml(studentListName(s))}">${escHtml(studentListName(s))}</span></td>`;
-      const totalMissed = (s.attendance||[]).filter(a => a.type === 'abwesend' || a.type === 'entschuldigt').length;
-      html += `<td style="text-align:center;font-weight:600;${totalMissed ? '' : 'color:var(--text-muted);'}">${totalMissed}</td>`;
+      // Wie im Reiter Schüler: F / E, nur unentschuldigte rot (AH24)
+      const missF = (s.attendance||[]).filter(a => a.type === 'abwesend').length;
+      const missE = (s.attendance||[]).filter(a => a.type === 'entschuldigt').length;
+      html += `<td class="ov-sum-col ov-sum"><span${missF ? ' class="n-bad"' : ''}>${missF}</span> <span class="sep">/</span> <span>${missE}</span></td>`;
 
       attDates.forEach(ev => {
         const aIdx = (s.attendance||[]).findIndex(x => x.date === ev.date);
         const status = aIdx !== -1 ? s.attendance[aIdx].type : ''; // 'abwesend', 'entschuldigt', 'zuspät'
         const displayVal = ATTENDANCE_SHORT[status] || '';
 
-        html += `<td style="padding:4px;"><input type="text" enterkeyhint="next" class="form-input" style="width:100%; text-align:center; padding:6px; font-weight:600; color:${status==='abwesend' ? 'var(--danger)' : status==='entschuldigt' ? 'var(--success)' : 'inherit'}" value="${displayVal}" placeholder="-" onchange="updateInlineAttendance(${jsArg(s.id)}, ${jsArg(ev.date)}, this.value)" /></td>`;
+        html += `<td style="padding:4px;"><input type="text" enterkeyhint="next" class="form-input" style="width:100%; text-align:center; padding:6px; font-weight:600; color:${status==='abwesend' ? 'var(--danger)' : 'inherit'}" value="${displayVal}" placeholder="–" onchange="updateInlineAttendance(${jsArg(s.id)}, ${jsArg(ev.date)}, this.value)" /></td>`;
       });
       html += `</tr>`;
     });
@@ -3167,21 +3177,21 @@ function renderOverviewTable() {
     });
     const hwDates = Array.from(hwEventsMap.values()).sort((a,b) => a.date.localeCompare(b.date));
     
-    html += '<th title="Wie oft die Hausaufgaben gefehlt haben">Vergessen</th>';
+    html += '<th class="ov-sum-col" title="Wie oft die Hausaufgaben gefehlt haben">Vergessen</th>';
     hwDates.forEach(ev => {
-      html += `<th style="cursor:pointer;" title="Klicken zum Bearbeiten" onclick="openEditColumnModal(${jsArg(ev.date)}, ${jsArg(ev.label)})"><div>${formatDateShort(ev.date)}</div>${ev.label ? `<div style="font-weight:400;font-size:11px;">${escHtml(ev.label)}</div>` : ''}</th>`;
+      html += `<th${overviewTodayClass(ev.date)} style="cursor:pointer;" title="Klicken zum Bearbeiten" onclick="openEditColumnModal(${jsArg(ev.date)}, ${jsArg(ev.label)})"><div>${overviewDateHead(ev.date)}</div>${ev.label ? `<div style="font-weight:400;font-size:11px;">${escHtml(ev.label)}</div>` : ''}</th>`;
     });
     html += '</tr></thead><tbody>';
 
     sortedStudents.forEach(s => {
       html += `<tr><td class="ov-name-col ov-name" role="button" tabindex="0" onclick="openQuickRatingFromTable(${jsArg(s.id)})"><span class="ov-name-text" title="${escHtml(studentListName(s))}">${escHtml(studentListName(s))}</span></td>`;
       const totalMissed = (s.homework||[]).length;
-      html += `<td style="text-align:center;font-weight:600;color:${totalMissed ? 'var(--danger)' : 'var(--text-muted)'};">${totalMissed}</td>`;
+      html += `<td class="ov-sum-col" style="text-align:center;font-weight:600;color:${totalMissed ? 'var(--danger)' : 'var(--text-muted)'};">${totalMissed}</td>`;
 
       hwDates.forEach(ev => {
         const hIdx = (s.homework||[]).findIndex(x => x.date === ev.date && (x.note||'') === (ev.label||''));
         const hasMissed = hIdx !== -1;
-        html += `<td style="padding:4px;"><input type="text" enterkeyhint="next" class="form-input" style="width:100%; text-align:center; padding:6px; font-weight:800; color:var(--danger);" value="${hasMissed ? 'X' : ''}" placeholder="-" onchange="updateInlineHomework(${jsArg(s.id)}, ${jsArg(ev.date)}, ${jsArg(ev.label||'')}, this.value)" /></td>`;
+        html += `<td style="padding:4px;"><input type="text" enterkeyhint="next" class="form-input" style="width:100%; text-align:center; padding:6px; font-weight:800; color:var(--danger);" value="${hasMissed ? 'X' : ''}" placeholder="–" onchange="updateInlineHomework(${jsArg(s.id)}, ${jsArg(ev.date)}, ${jsArg(ev.label||'')}, this.value)" /></td>`;
       });
       html += `</tr>`;
     });
@@ -3189,6 +3199,15 @@ function renderOverviewTable() {
 
   html += '</tbody></table></div>';
   content.innerHTML = html;
+  const wrapEl = content.querySelector('.overview-table-wrapper');
+  if (wrapEl) {
+    // Zusammenfassung klebt neben der Namensspalte; deren Breite hängt von den Namen ab
+    const nameTh = wrapEl.querySelector('th.ov-name-col');
+    if (nameTh && nameTh.offsetWidth) wrapEl.style.setProperty('--ov-name-w', nameTh.offsetWidth + 'px');
+    if (keepScroll) { wrapEl.scrollLeft = keepScroll.left; wrapEl.scrollTop = keepScroll.top; content.scrollTop = keepScroll.outer; }
+    else wrapEl.scrollLeft = wrapEl.scrollWidth;   // neu geöffnet: neueste Spalte (rechts) zeigen (AH24)
+  }
+  overviewRenderedKey = renderKey;
   restoreOverviewFocus(content);
 }
 
@@ -3697,7 +3716,7 @@ function renderStudents() {
   // Schlichte Liste mit Kopfzeile statt einer Karte je Schüler (BUGS AE8)
   container.innerHTML = `<div class="students-head" aria-hidden="true">${isStudentEditMode ? '<span class="students-head-cb"></span>' : ''}
     <span class="students-head-main">Name</span><span class="students-head-part">Mitarbeit + / = / −</span>
-    <span class="students-head-att">Fehlt U / E</span><span class="students-head-avg">Ø</span></div>`;
+    <span class="students-head-att">Fehlt F / E</span><span class="students-head-avg">Ø</span></div>`;
   const scale = gradeScale(currentGroupId);
   const todayStr = formatDate(new Date());
   sortStudents(students).forEach(s => {

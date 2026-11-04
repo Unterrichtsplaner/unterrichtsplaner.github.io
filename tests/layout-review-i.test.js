@@ -280,13 +280,13 @@ describe('Paket 4: Klassenansicht und Fenster', () => {
   });
   const row = name => [...document.querySelectorAll('#overview-content tbody tr')].find(r => r.textContent.includes(name));
 
-  it('I8: Anwesenheit – Spalte heißt „Fehltage“ und erklärt, dass Verspätungen nicht zählen; E grün', () => {
+  it('I8: Anwesenheit – Spalte „Fehlt F / E“ erklärt, dass Verspätungen nicht zählen; E neutral (AH24: E ist kein „gut“)', () => {
     app('openGroupStudents("g1", "attendance")');
     const head = [...document.querySelectorAll('#overview-content thead th')][1];
-    expect(head.textContent).toBe('Fehltage');
+    expect(head.textContent).toBe('Fehlt F / E');
     expect(head.title).toMatch(/entschuldigt.*ohne.*zu spät/i);
     const e = [...row('Muster').querySelectorAll('input')].find(i => i.value === 'E');
-    expect(e.getAttribute('style')).toContain('var(--success)');
+    expect(e.getAttribute('style')).not.toContain('var(--success)');
   });
 
   it('I8: Hausaufgaben – 0 ist nicht rot, nur vergessene HA', () => {

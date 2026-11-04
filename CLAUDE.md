@@ -202,6 +202,8 @@ Datumswerte sind Strings `YYYY-MM-DD` in **lokaler** Zeit (`formatDate()`). Nie 
 
 75. **Handy: Menüleiste unten mit 5 Punkten** (AH21). Einstellungen gibt es dort nur als Zahnrad im Dashboard (`btn-settings-dashboard`). Wer am Einstellungen-Knopf etwas anzeigt (Hinweis-Punkt, Titel), setzt es an beide Knöpfe (`updateSyncAttention`). Ein neuer Menüpunkt passt auf dem Handy nicht mehr dazu: dann erst klären, was rausfällt.
 
+76. **Tabellen der Klassenansicht behalten beim Neuzeichnen ihre Scroll-Stelle** (`overviewRenderedKey` in `renderOverviewTable`, AH23); neu geöffnet (anderer Reiter/Klasse) stehen sie ganz rechts beim neuesten Tag. Zusammenfassungen (Ø, „+ / = / –“, „Fehlt F / E“, Vergessen) in allen Reitern gleich schreiben und nur Auffälliges rot (`.n-bad`); leere Zellen leise („–“, nie ein Emoji).
+
 ## Arbeitsablauf
 
 1. Aufgabe aus `BUGS.md` wählen (ein Block pro Sitzung).
