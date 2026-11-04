@@ -285,8 +285,8 @@ describe('Paket 4: Klassenansicht und Fenster', () => {
     const head = [...document.querySelectorAll('#overview-content thead th')][1];
     expect(head.textContent).toBe('Fehlt F / E');
     expect(head.title).toMatch(/entschuldigt.*ohne.*zu spät/i);
-    const e = [...row('Muster').querySelectorAll('input')].find(i => i.value === 'E');
-    expect(e.getAttribute('style')).not.toContain('var(--success)');
+    const e = [...row('Muster').querySelectorAll('.ov-cycle-btn')].find(b => b.textContent === 'E');   // AH24 e: Knöpfe
+    expect(e.classList.contains('is-bad')).toBe(false);
   });
 
   it('I8: Hausaufgaben – 0 ist nicht rot, nur vergessene HA', () => {

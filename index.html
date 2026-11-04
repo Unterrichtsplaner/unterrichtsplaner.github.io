@@ -40,7 +40,7 @@
       }
     })();
   </script>
-  <link rel="stylesheet" href="style.css?v=374" />
+  <link rel="stylesheet" href="style.css?v=378" />
   <script>
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
@@ -238,7 +238,8 @@
             </div>
           </div>
           <div class="header-actions">
-            <button id="btn-add-overview-col" class="btn-primary hidden" onclick="openAddColumnModal()" aria-label="Neue Spalte">+<span class="btn-label"> Neue Spalte</span></button>
+            <button id="btn-add-overview-col" class="btn-primary hidden" onclick="addOverviewColumn()" aria-label="Neue Spalte">+<span class="btn-label"> Neue Spalte</span></button>
+            <button id="btn-add-overview-other" class="btn-secondary hidden" onclick="openAddColumnModal()" aria-label="Andere Spalte anlegen" title="Spalte für einen anderen Tag oder mit Titel"><i data-icon="calendar"></i><span class="btn-label">Andere Spalte …</span></button>
             <button id="btn-class-grades" class="btn-secondary btn-grades-toggle hidden" onclick="toggleClassGrades()" aria-pressed="false" aria-label="Noten anzeigen" title="Noten anzeigen"><i data-icon="eye"></i><span class="btn-label">Noten zeigen</span></button>
             <button class="btn-secondary btn-seating" onclick="openSeatingForGroup(currentGroupId)" aria-label="Zum Sitzplan"><i data-icon="seating"></i><span class="btn-label">Zum Sitzplan</span></button>
             <button id="btn-student-actions" class="btn-icon" title="Schüler hinzufügen, importieren …" aria-label="Schüler hinzufügen, importieren und mehr" onclick="openStudentActionsModal()">
@@ -1652,12 +1653,12 @@
   </div>
 
   <script src="lib/crypto-js.min.js"></script>
-  <script src="crypto-helper.js?v=374"></script>
+  <script src="crypto-helper.js?v=378"></script>
   <script src="lib/firebase-app-compat.js"></script>
   <script src="lib/firebase-auth-compat.js"></script>
   <script src="lib/firebase-firestore-compat.js"></script>
-  <script src="firebase-config.js?v=374"></script>
-  <script src="sync-manager.js?v=374"></script>
-  <script src="app.js?v=374"></script>
+  <script src="firebase-config.js?v=378"></script>
+  <script src="sync-manager.js?v=378"></script>
+  <script src="app.js?v=378"></script>
 </body>
 </html>

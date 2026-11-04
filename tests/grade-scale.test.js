@@ -121,11 +121,11 @@ describe('Anzeige', () => {
     expect(html).toMatch(/--grade:var\(--grade-5\)">5,0</);
   });
 
-  it('Notentabelle: Einzelwerte und Schnitt in Punkt-Farben', () => {
+  it('Notentabelle: Schnitt nach Punkten, nur schwache farbig (AH24 d)', () => {
     app('openClassOverview("g2")');
     const html = document.getElementById('overview-content').innerHTML;
-    expect(html).toMatch(/color:var\(--grade-1\);text-align:center;">13,5</); // Cara
-    expect(html).toMatch(/color:var\(--grade-5\);text-align:center;">3,5</); // Dora
+    expect(html).toMatch(/color:var\(--text-primary\);text-align:center;">13,5</); // Cara: gut = Schriftfarbe
+    expect(html).toMatch(/color:var\(--danger\);text-align:center;">3,5</); // Dora: unter 5 Punkten rot
   });
 
   it('Sitzplan: Punkte-Klasse färbt nach Punkten', () => {

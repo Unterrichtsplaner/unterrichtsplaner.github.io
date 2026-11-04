@@ -217,8 +217,8 @@ describe('C8: „zu spät“ in der Übersicht', () => {
   it('wird angezeigt und bleibt beim Bearbeiten erhalten', () => {
     anna().attendance = [{ date: '2026-09-15', type: 'zuspät', note: '' }];
     app('openGroupStudents("g1", "attendance")');
-    const input = document.querySelector('#overview-content input[onchange*="2026-09-15"]');
-    expect(input.value).toBe('Z');
+    const cell = document.querySelector('#overview-content button.ov-cycle-btn[onclick*="2026-09-15"]');   // AH24 e: Antippen statt Feld
+    expect(cell.textContent).toBe('Z');
     app('updateInlineAttendance("s1", "2026-09-15", "z")');
     expect(anna().attendance[0].type).toBe('zuspät');
     app('updateInlineAttendance("s1", "2026-09-15", "F")');

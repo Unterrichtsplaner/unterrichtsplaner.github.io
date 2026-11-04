@@ -1006,7 +1006,7 @@ select option{background:var(--bg-secondary);}
   .class-view-title > div { min-width: 0; }
   .class-view-title .subtitle { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .class-view-header .btn-label { display: none; }
-  .class-view-header .btn-back, .class-view-header .btn-seating, #btn-add-overview-col, #btn-class-grades { width: 40px; height: 40px; padding: 0; justify-content: center; flex-shrink: 0; }
+  .class-view-header .btn-back, .class-view-header .btn-seating, #btn-add-overview-col, #btn-add-overview-other, #btn-class-grades { width: 40px; height: 40px; padding: 0; justify-content: center; flex-shrink: 0; }
   .class-view-top .header-actions { flex-wrap: nowrap; gap: 6px; }
   .class-tabs { flex-wrap: nowrap; gap: 4px; }
   .class-tabs .tab-btn { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 6px 2px; font-size: 11px; border-radius:var(--radius-md); }
@@ -1014,6 +1014,27 @@ select option{background:var(--bg-secondary);}
   .class-tabs .tab-long { display: none; }
   .class-tabs .tab-short { display: inline; white-space: nowrap; }
 }
+/* Notentabelle ruhig (AH24 d): keine Kästchen, Rahmen erst beim Antippen; schwache Noten mit Fläche */
+.overview-table .ov-grade-input{background:transparent;border-color:transparent;box-shadow:none;}
+.overview-table .ov-grade-input:focus{background:var(--bg-card);border-color:var(--accent);}
+.overview-table td.ov-grade-weak{background:var(--danger-soft);}
+/* Fehlzeiten/HA: Antippen schaltet weiter (AH24 e) */
+.overview-table td.ov-cycle-cell{padding:4px;text-align:center;}
+.ov-cycle-btn{display:block;width:100%;min-width:44px;min-height:36px;padding:0;background:none;border:1px solid transparent;border-radius:var(--radius-sm);font-family:inherit;font-size:14px;font-weight:600;color:var(--text-primary);cursor:pointer;}
+.ov-cycle-btn.is-bad{color:var(--danger);}
+.ov-cycle-btn:focus-visible{border-color:var(--accent);}
+@media (hover: hover){.ov-cycle-btn:hover{background:var(--bg-elevated);}}
+@media (pointer: coarse){.ov-cycle-btn{min-height:44px;}}
+.ov-legend{display:flex;flex-wrap:wrap;gap:4px 14px;margin:0 0 10px;font-size:12px;color:var(--text-secondary);}
+.ov-legend b{color:var(--text-primary);}
+/* Mitarbeit: kleine Auswahl neben dem Feld (AH24 e) */
+.ov-part-pop{position:fixed;z-index:1200;display:flex;gap:4px;padding:6px;background:var(--bg-secondary);border:1px solid var(--border);border-radius:var(--radius-md);box-shadow:var(--shadow-lg);}
+.ov-part-pop button{width:48px;height:48px;display:grid;place-items:center;padding:0;border:1px solid transparent;border-radius:var(--radius-sm);background:var(--bg-elevated);font-family:inherit;font-size:20px;color:var(--text-secondary);cursor:pointer;}
+.ov-part-pop button.is-clear{font-size:13px;}
+.ov-part-pop button.on{border-color:var(--text-primary);}
+/* Schülerliste schmaler, jede zweite Zeile leicht hinterlegt (AH24 d) */
+#students-container{max-width:760px;}
+.student-row:nth-child(even of .student-row){background:color-mix(in srgb, var(--bg-card) 45%, transparent);}
 /* Beamer-Schutz in der Klassenansicht (AH24 c): Hinweis statt Noten/Mitarbeit */
 .grades-veil{display:flex;align-items:center;flex-wrap:wrap;gap:10px;margin:0 0 12px;padding:10px 14px;border:1px dashed var(--border);border-radius:var(--radius-md);color:var(--text-secondary);font-size:14px;}
 .grades-veil .ico{width:18px;height:18px;margin:0;flex-shrink:0;}

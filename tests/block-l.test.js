@@ -53,7 +53,7 @@ describe('L1: Tabellen aktualisieren sich nach Schnellbewertung und Profil', () 
     app(`openSeatingStudentModal("s1", "g1", "${MON}")`);
     app('setSeatingAbsence("abwesend")');
     const anna = bodyRows().find(r => r.textContent.includes('Anna'));
-    expect([...anna.querySelectorAll('input')].map(i => i.value)).toContain('F');
+    expect([...anna.querySelectorAll('.ov-cycle-btn')].map(b => b.textContent)).toContain('F');   // AH24 e: Knöpfe statt Felder
   });
 
   it('Smiley aus der Schnellbewertung erscheint sofort in der Mitarbeitstabelle', () => {

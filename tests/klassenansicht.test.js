@@ -41,8 +41,8 @@ describe('AH23: Scroll-Stelle bleibt beim Eintragen', () => {
   it('Mitarbeit: Smiley antippen zeichnet neu, die Tabelle bleibt, wo sie war', () => {
     app('openGroupStudents("g1", "participation")');
     wrap().scrollLeft = 300; wrap().scrollTop = 40;
-    expect(row('Ben').querySelectorAll('.ov-part-btn')[1].getAttribute('onclick')).toContain('cycleInlineParticipation(');
-    app('cycleInlineParticipation("b", "2026-11-04", "")');   // Inline-onclick läuft im Test nicht (Regel 18)
+    expect(row('Ben').querySelectorAll('.ov-part-btn')[1].getAttribute('onclick')).toContain('openParticipationPicker(this,');
+    app('setInlineParticipation("b", "2026-11-04", "", "positive")');   // Wahl aus der Auswahl (AH24 e); Inline-onclick läuft im Test nicht (Regel 18)
     expect(app('db.students.g1[1].participation.length')).toBe(2);   // wirklich eingetragen und neu gezeichnet
     expect(wrap().scrollLeft).toBe(300);
     expect(wrap().scrollTop).toBe(40);
@@ -106,20 +106,22 @@ describe('AH24 a: einheitlich und leise', () => {
     const sum = row('Anna').querySelectorAll('td')[1];
     expect(sum.textContent.replace(/\s+/g, ' ').trim()).toBe('1 / 1');
     expect(sum.querySelector('.n-bad').textContent).toBe('1');
-    const e = [...row('Ben').querySelectorAll('input')].find(i => i.value === 'E');
-    expect(e.getAttribute('style') || '').not.toContain('success');
+    const e = [...row('Ben').querySelectorAll('.ov-cycle-btn')].find(b => b.textContent === 'E');
+    expect(e.classList.contains('is-bad')).toBe(false);
   });
   it('Reiter Schüler: „Fehlt F / E“ (nicht U), Reiter heißt „Fehlzeiten“', () => {
     app('openGroupStudents("g1", "students")');
     expect(document.querySelector('.students-head-att').textContent).toBe('Fehlt F / E');
     expect(document.querySelector('#overview-tab-attendance .tab-long').textContent).toBe('Fehlzeiten');
   });
-  it('Platzhalter einheitlich „–“', () => {
-    for (const tab of ['grades', 'attendance', 'homework']) {
+  it('Platzhalter einheitlich „–“ (Noten; Fehlzeiten/HA haben seit AH24 e Knöpfe statt Felder)', () => {
+    app('openGroupStudents("g1", "grades")');
+    const ph = [...document.querySelectorAll('#overview-content tbody input')].map(i => i.getAttribute('placeholder'));
+    expect(ph.length).toBeGreaterThan(0);
+    expect(ph.every(p => p === '–')).toBe(true);
+    for (const tab of ['attendance', 'homework']) {
       app(`openGroupStudents("g1", "${tab}")`);
-      const ph = [...document.querySelectorAll('#overview-content tbody input')].map(i => i.getAttribute('placeholder'));
-      expect(ph.length, tab).toBeGreaterThan(0);
-      expect(ph.every(p => p === '–'), tab).toBe(true);
+      expect(document.querySelector('#overview-content tbody input'), tab).toBeNull();
     }
   });
   it('Zahlen gleich breit; Reiter ohne Ausblend-Rand; iPad hochkant Kurzformen; Tippflächen 44 px', () => {

@@ -394,6 +394,7 @@ function switchView(name) {
   if (name !== 'timetable' && timetableEditMode) setTimetableEditUI(false); // AC2
   if (name !== 'seating') setSeatingWakeLock(false); // Bildschirm darf wieder ausgehen (AD2)
   if (name !== 'students') hideClassGrades();   // Beamer-Schutz (AH24 c)
+  if (typeof closeParticipationPicker === 'function') closeParticipationPicker();
   document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
   document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
   const viewEl = document.getElementById('view-' + name);
@@ -3023,8 +3024,7 @@ function updateClassGradesButton() {
     b.title = label;
     b.innerHTML = icon(classGradesShown ? 'eye-off' : 'eye') + `<span class="btn-label">${classGradesShown ? 'Verbergen' : 'Noten zeigen'}</span>`;
   }
-  const add = document.getElementById('btn-add-overview-col');
-  if (add && (tab === 'grades' || tab === 'participation')) add.classList.toggle('hidden', !classGradesShown);
+  updateOverviewAddButtons();
 }
 function rerenderClassTab() {
   if (!document.getElementById('view-students').classList.contains('active')) return;
@@ -3051,12 +3051,54 @@ function wireGradesVeil(container) {
   if (b) b.addEventListener('click', showClassGrades);
 }
 
+// Notentabelle ruhig (AH24 d): nur schwache Noten farbig – 1–3 in Schriftfarbe, 4 orange, 5–6 (Punkte unter 5) rot
+// mit Fläche. Farbe der Skala kommt weiter aus gradeColor (Regel 1).
+function gradeInk(val, scale) {
+  const c = gradeColor(val, scale);
+  if (c === 'var(--grade-5)') return 'var(--danger)';
+  if (c === 'var(--grade-4)' || c === 'var(--text-muted)') return c;
+  return 'var(--text-primary)';
+}
+const gradeIsWeak = (val, scale) => gradeColor(val, scale) === 'var(--grade-5)';
+
+// Kopfknöpfe der Tabellen (AH24 e): Noten „+ Neue Spalte“ (Fenster: Titel, Art), sonst „+ Heute“ ohne Fenster
+// und „Andere Spalte …“ für andere Tage
+function updateOverviewAddButtons() {
+  const add = document.getElementById('btn-add-overview-col'), other = document.getElementById('btn-add-overview-other');
+  if (!add || !other) return;
+  const tab = currentClassDashboardTab;
+  const tableTab = ['grades', 'participation', 'attendance', 'homework'].includes(tab);
+  const veiled = (tab === 'grades' || tab === 'participation') && !classGradesShown;
+  add.classList.toggle('hidden', !tableTab || veiled);
+  other.classList.toggle('hidden', !tableTab || veiled || tab === 'grades');
+  const today = tab !== 'grades';
+  add.setAttribute('aria-label', today ? 'Spalte für heute' : 'Neue Spalte');
+  add.innerHTML = '+<span class="btn-label">' + (today ? ' Heute' : ' Neue Spalte') + '</span>';
+}
+function addOverviewColumn() {
+  if (currentOverviewTab === 'grades') { openAddColumnModal(); return; }
+  addTodayColumn();
+}
+function addTodayColumn() {
+  const tab = currentOverviewTab;
+  const field = { participation: 'participationEvents', attendance: 'attendanceEvents', homework: 'homeworkEvents' }[tab];
+  const group = db.groups.find(g => g.id === currentOverviewGroupId);
+  if (!field || !group) return;
+  const date = profileDefaultDate();   // am Wochenende/in den Ferien der letzte Schultag (Regel 58)
+  const key = tab === 'attendance' ? date : `${date}_`;
+  if (overviewColumnKeys(group, db.students[currentOverviewGroupId] || []).has(key)) showToast('Die Spalte für heute gibt es schon');
+  else { (group[field] = group[field] || []).push({ date, label: '' }); saveDB(); }
+  overviewRenderedKey = null;   // neueste Spalte zeigen
+  renderOverviewTable();
+}
+
 // Spaltenkopf der Tabellen: Wochentag + Datum ohne Jahr (schmalere Spalten), Spalte von heute markiert (AH24)
 function overviewDateHead(dateStr) { return escHtml(formatWeekdayShort(dateStr)); }
 const overviewTodayClass = dateStr => dateStr === formatDate(new Date()) ? ' class="ov-today"' : '';
 // Welche Tabelle zuletzt gezeichnet wurde: gleiche Tabelle = Scroll-Stelle behalten (AH23), neue = neueste Spalte zeigen
 let overviewRenderedKey = null;
 function renderOverviewTable() {
+  closeParticipationPicker();   // hängt an einer Zelle, die gleich ersetzt wird
   if (!currentOverviewGroupId) return;
   if (currentOverviewTab === 'plan') { renderPlanTab(); return; } // Planung ist keine Tabelle
   const content = document.getElementById('overview-content');
@@ -3116,12 +3158,14 @@ function renderOverviewTable() {
       
       const nameDisplay = escHtml(studentListName(s));
       html += `<tr><td class="ov-name-col ov-name" role="button" tabindex="0" onclick="openQuickRatingFromTable(${jsArg(s.id)})"><span class="ov-name-text" title="${nameDisplay}">${nameDisplay}</span></td>`;
-      html += `<td class="ov-sum-col" style="font-weight:700;color:${gradeColor(rawAvg, scale)};text-align:center;">${avg}</td>`;
+      html += `<td class="ov-sum-col" style="font-weight:700;color:${gradeInk(rawAvg, scale)};text-align:center;">${avg}</td>`;
       
       gradeEvents.forEach(ev => {
         const grade = findColumnGrade(s, ev);
         const val = grade ? grade.value : '';
-        html += `<td style="padding:4px;"><input type="text" enterkeyhint="next" class="form-input" style="width:100%; text-align:center; padding:6px; font-weight:600; color:${val ? gradeColor(gradeNumber(val), scale) : 'inherit'}" value="${escHtml(gradeText(val))}" placeholder="–" onchange="updateInlineGrade(${jsArg(s.id)}, ${jsArg(ev.date)}, ${jsArg(ev.label)}, this.value, ${jsArg(ev.type)}, ${ev.nth})" /></td>`;
+        const num = val ? gradeNumber(val) : NaN;
+        const weak = !isNaN(num) && gradeIsWeak(num, scale);
+        html += `<td class="ov-grade-cell${weak ? ' ov-grade-weak' : ''}" style="padding:4px;"><input type="text" enterkeyhint="next" class="form-input ov-grade-input" style="width:100%; text-align:center; padding:6px; font-weight:${weak ? 700 : 600}; color:${val ? gradeInk(num, scale) : 'inherit'}" value="${escHtml(gradeText(val))}" placeholder="–" onchange="updateInlineGrade(${jsArg(s.id)}, ${jsArg(ev.date)}, ${jsArg(ev.label)}, this.value, ${jsArg(ev.type)}, ${ev.nth})" /></td>`;
       });
       html += `</tr>`;
     });
@@ -3129,7 +3173,7 @@ function renderOverviewTable() {
     // Bottom average row
     html += '<tr><td class="ov-name-col" style="font-weight:700;">Durchschnitt</td>';
     const groupAvg = calculateGroupAverage(currentOverviewGroupId);
-    html += `<td class="ov-sum-col" style="font-weight:700;color:${gradeColor(groupAvg, scale)};text-align:center;">${formatGradeAverage(groupAvg)}</td>`;
+    html += `<td class="ov-sum-col" style="font-weight:700;color:${gradeInk(groupAvg, scale)};text-align:center;">${formatGradeAverage(groupAvg)}</td>`;
 
     gradeEvents.forEach(ev => {
       let sum = 0, count = 0;
@@ -3141,7 +3185,7 @@ function renderOverviewTable() {
         }
       });
       const colAvg = count > 0 ? sum / count : null;
-      html += `<td style="font-weight:700;color:${gradeColor(colAvg, scale)};text-align:center;">${formatGradeAverage(colAvg)}</td>`;
+      html += `<td style="font-weight:700;color:${gradeInk(colAvg, scale)};text-align:center;">${formatGradeAverage(colAvg)}</td>`;
     });
     html += `</tr>`;
     
@@ -3183,7 +3227,7 @@ function renderOverviewTable() {
         const face = { positive: ['😊', 'gut'], neutral: ['😐', 'neutral'], negative: ['☹️', 'schlecht'] }[val];
         const label = `Mitarbeit ${studentListName(s)}, ${formatWeekdayShort(ev.date)}: ${face ? face[1] : 'keine'}`;
         html += `<td class="ov-part-cell">
-          <button type="button" class="ov-part-btn" aria-label="${escHtml(label)}" onclick="cycleInlineParticipation(${jsArg(s.id)}, ${jsArg(ev.date)}, ${jsArg(ev.label||'')})">${face ? face[0] : '<span class="ov-empty" aria-hidden="true">–</span>'}</button>
+          <button type="button" class="ov-part-btn" aria-label="${escHtml(label)}" onclick="openParticipationPicker(this, ${jsArg(s.id)}, ${jsArg(ev.date)}, ${jsArg(ev.label||'')})">${face ? face[0] : '<span class="ov-empty" aria-hidden="true">–</span>'}</button>
         </td>`;
       });
       html += `</tr>`;
@@ -3219,8 +3263,9 @@ function renderOverviewTable() {
         const aIdx = (s.attendance||[]).findIndex(x => x.date === ev.date);
         const status = aIdx !== -1 ? s.attendance[aIdx].type : ''; // 'abwesend', 'entschuldigt', 'zuspät'
         const displayVal = ATTENDANCE_SHORT[status] || '';
-
-        html += `<td style="padding:4px;"><input type="text" enterkeyhint="next" class="form-input" style="width:100%; text-align:center; padding:6px; font-weight:600; color:${status==='abwesend' ? 'var(--danger)' : 'inherit'}" value="${displayVal}" placeholder="–" onchange="updateInlineAttendance(${jsArg(s.id)}, ${jsArg(ev.date)}, this.value)" /></td>`;
+        // Antippen schaltet weiter – → F → E → Z → – (AH24 e); am Laptop F/E/Z/Entf tippbar
+        const label = `Fehlzeit ${studentListName(s)}, ${formatWeekdayShort(ev.date)}: ${{ abwesend: 'fehlt', entschuldigt: 'entschuldigt', 'zuspät': 'zu spät' }[status] || 'da'}`;
+        html += `<td class="ov-cycle-cell"><button type="button" class="ov-cycle-btn${status === 'abwesend' ? ' is-bad' : ''}" data-kind="att" data-sid="${escHtml(s.id)}" data-date="${escHtml(ev.date)}" aria-label="${escHtml(label)}" onclick="cycleInlineAttendance(${jsArg(s.id)}, ${jsArg(ev.date)})">${displayVal}</button></td>`;
       });
       html += `</tr>`;
     });
@@ -3246,19 +3291,28 @@ function renderOverviewTable() {
       hwDates.forEach(ev => {
         const hIdx = (s.homework||[]).findIndex(x => x.date === ev.date && (x.note||'') === (ev.label||''));
         const hasMissed = hIdx !== -1;
-        html += `<td style="padding:4px;"><input type="text" enterkeyhint="next" class="form-input" style="width:100%; text-align:center; padding:6px; font-weight:800; color:var(--danger);" value="${hasMissed ? 'X' : ''}" placeholder="–" onchange="updateInlineHomework(${jsArg(s.id)}, ${jsArg(ev.date)}, ${jsArg(ev.label||'')}, this.value)" /></td>`;
+        const label = `Hausaufgabe ${studentListName(s)}, ${formatWeekdayShort(ev.date)}: ${hasMissed ? 'vergessen' : 'da'}`;
+        html += `<td class="ov-cycle-cell"><button type="button" class="ov-cycle-btn is-bad" data-kind="hw" data-sid="${escHtml(s.id)}" data-date="${escHtml(ev.date)}" data-label="${escHtml(ev.label || '')}" aria-label="${escHtml(label)}" onclick="cycleInlineHomework(${jsArg(s.id)}, ${jsArg(ev.date)}, ${jsArg(ev.label||'')})">${hasMissed ? 'X' : ''}</button></td>`;
       });
       html += `</tr>`;
     });
   }
 
   html += '</tbody></table></div>';
-  content.innerHTML = html;
+  const legend = currentOverviewTab === 'attendance'
+    ? '<div class="ov-legend"><span>Antippen schaltet weiter:</span><span>leer = da</span><span><b>F</b> fehlt</span><span><b>E</b> entschuldigt</span><span><b>Z</b> zu spät</span></div>'
+    : currentOverviewTab === 'homework' ? '<div class="ov-legend"><span>Antippen: <b>X</b> = Hausaufgabe vergessen</span></div>' : '';
+  content.innerHTML = legend + html;
   const wrapEl = content.querySelector('.overview-table-wrapper');
   if (wrapEl) {
+    wrapEl.addEventListener('scroll', () => {   // Wischen schließt die Auswahl; das späte Scroll-Ereignis vom Springen zur neuesten Spalte nicht
+      if (ovPartPicker && (wrapEl.scrollLeft !== ovPartPicker.left || wrapEl.scrollTop !== ovPartPicker.top)) closeParticipationPicker();
+    }, { passive: true });
     // Zusammenfassung klebt neben der Namensspalte; deren Breite hängt von den Namen ab
     const nameTh = wrapEl.querySelector('th.ov-name-col');
-    if (nameTh && nameTh.offsetWidth) wrapEl.style.setProperty('--ov-name-w', nameTh.offsetWidth + 'px');
+    // genaue Breite (mit Nachkommastellen), sonst blitzt in der Lücke die Tabelle darunter durch
+    const nameW = nameTh ? nameTh.getBoundingClientRect().width : 0;
+    if (nameW) wrapEl.style.setProperty('--ov-name-w', nameW + 'px');
     if (keepScroll) { wrapEl.scrollLeft = keepScroll.left; wrapEl.scrollTop = keepScroll.top; content.scrollTop = keepScroll.outer; }
     else wrapEl.scrollLeft = wrapEl.scrollWidth;   // neu geöffnet: neueste Spalte (rechts) zeigen (AH24)
   }
@@ -3343,29 +3397,117 @@ function updateInlineGrade(studentId, date, label, value, type = 'test', nth = 0
   renderOverviewTable(); // Rerender to update averages and colors
 }
 
-function cycleInlineParticipation(studentId, date, label) {
+// Mitarbeit in der Tabelle (AH24 e): Antippen öffnet eine kleine Auswahl 😊 😐 ☹️ leer neben dem Feld
+let ovPartPicker = null;   // { btn, left, top }: Scroll-Stelle der Tabelle beim Öffnen
+function closeParticipationPicker() {
+  const p = document.getElementById('ov-part-pop');
+  if (p) p.remove();
+  ovPartPicker = null;
+}
+function openParticipationPicker(btn, studentId, date, label) {
+  closeParticipationPicker();
+  const s = db.students[currentOverviewGroupId]?.find(x => x.id === studentId);
+  if (!s || !btn) return;
+  const cur = (s.participation || []).find(p => p.date === date && (p.label || '') === (label || ''));
+  const curVal = cur ? cur.value : '';
+  const opts = [['positive', '😊', 'gut'], ['neutral', '😐', 'neutral'], ['negative', '☹️', 'schlecht'], ['', 'leer', 'leer']];
+  const pop = document.createElement('div');
+  pop.id = 'ov-part-pop';
+  pop.className = 'ov-part-pop';
+  pop.setAttribute('role', 'group');
+  pop.setAttribute('aria-label', `Mitarbeit ${studentListName(s)}, ${formatWeekdayShort(date)}`);
+  pop.innerHTML = opts.map(([v, face, name]) => `<button type="button" class="${curVal === v ? 'on' : ''}${v ? '' : ' is-clear'}" data-val="${v}" aria-label="${name}">${face}</button>`).join('');
+  document.body.appendChild(pop);
+  pop.querySelectorAll('button').forEach(b => b.addEventListener('click', () => {
+    closeParticipationPicker();
+    setInlineParticipation(studentId, date, label, b.dataset.val || null);
+  }));
+  const r = btn.getBoundingClientRect();
+  const w = pop.offsetWidth || 220, h = pop.offsetHeight || 60;
+  const left = Math.max(8, Math.min(r.left + r.width / 2 - w / 2, window.innerWidth - w - 8));
+  const top = r.bottom + 4 + h > window.innerHeight - 8 ? r.top - h - 4 : r.bottom + 4;
+  pop.style.left = left + 'px';
+  pop.style.top = top + 'px';
+  const wrap = btn.closest('.overview-table-wrapper');
+  ovPartPicker = { btn, left: wrap ? wrap.scrollLeft : 0, top: wrap ? wrap.scrollTop : 0 };
+  // Mit Tastatur den Fokus in die Auswahl, mit dem Finger nicht (sonst steht ein Fokusrahmen da)
+  const coarse = window.matchMedia && window.matchMedia('(pointer: coarse)').matches;
+  const focusEl = pop.querySelector('button.on') || pop.querySelector('button');
+  if (!coarse) try { focusEl.focus({ preventScroll: true }); } catch (e) { /* nicht fokussierbar */ }
+}
+// Tippen daneben (Druck auch daneben begonnen, Regel 27) oder Escape schließt ohne Änderung
+document.addEventListener('click', e => {
+  const p = document.getElementById('ov-part-pop');
+  if (!p || p.contains(e.target) || pressStartedIn(p)) return;
+  if (ovPartPicker && ovPartPicker.btn.contains(e.target)) return;   // der Tipp, der sie gerade geöffnet hat
+  closeParticipationPicker();
+});
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && document.getElementById('ov-part-pop')) closeParticipationPicker(); });
+function setInlineParticipation(studentId, date, label, value) {
   const s = db.students[currentOverviewGroupId]?.find(x => x.id === studentId);
   if (!s) return;
   if (!s.participation) s.participation = [];
-
-  const idx = s.participation.findIndex(p => p.date === date && (p.label||'') === (label||''));
-  const currentVal = idx !== -1 ? s.participation[idx].value : null;
-
-  let nextVal;
-  if (!currentVal) nextVal = 'positive';
-  else if (currentVal === 'positive') nextVal = 'neutral';
-  else if (currentVal === 'neutral') nextVal = 'negative';
-  else nextVal = null; // reset
-
-  if (nextVal) {
-    if (idx !== -1) s.participation[idx].value = nextVal;
-    else s.participation.push({ date, label, value: nextVal });
-  } else {
-    if (idx !== -1) s.participation.splice(idx, 1);
-  }
+  const cur = s.participation.find(p => p.date === date && (p.label || '') === (label || ''));
+  if (value) {
+    if (cur) cur.value = value;
+    else s.participation.push({ id: uid(), date, label: label || '', value });
+  } else if (cur) {
+    s.participation.splice(s.participation.indexOf(cur), 1);
+    const gid = currentOverviewGroupId;
+    showUndoToast(`Mitarbeit am ${formatWeekdayShort(date)} entfernt`, () => restoreSeatingEntry(gid, s, 'participation', cur));
+  } else return;
   saveDB();
-  renderOverviewTable(); // Render to update Ratio instantly
+  renderOverviewTable();
 }
+
+// Fehlzeiten/HA per Antippen (AH24 e). Umschalten behält den Eintrag samt Grund (Regel 50); Entfernen bietet
+// „Rückgängig“ (Regel 45)
+const ATT_CYCLE = ['', 'F', 'E', 'Z'];
+function setAttendanceWithUndo(studentId, date, letter) {
+  const s = db.students[currentOverviewGroupId]?.find(x => x.id === studentId);
+  if (!s) return;
+  const before = (s.attendance || []).find(a => a.date === date);
+  updateInlineAttendance(studentId, date, letter);
+  if (before && !letter && !(s.attendance || []).includes(before)) {
+    const gid = currentOverviewGroupId;
+    showUndoToast(`Fehlzeit am ${formatWeekdayShort(date)} entfernt`, () => restoreSeatingEntry(gid, s, 'attendance', before,
+      () => { if (before.type === 'abwesend') addAbsenceNote(gid, date, s); }));
+  }
+}
+function cycleInlineAttendance(studentId, date) {
+  const s = db.students[currentOverviewGroupId]?.find(x => x.id === studentId);
+  if (!s) return;
+  const cur = (s.attendance || []).find(a => a.date === date && DAY_ATTENDANCE_TYPES.includes(a.type));
+  const next = ATT_CYCLE[(ATT_CYCLE.indexOf(cur ? ATTENDANCE_SHORT[cur.type] : '') + 1) % ATT_CYCLE.length];
+  setAttendanceWithUndo(studentId, date, next);
+}
+function cycleInlineHomework(studentId, date, label) {
+  const s = db.students[currentOverviewGroupId]?.find(x => x.id === studentId);
+  if (!s) return;
+  const cur = (s.homework || []).find(h => h.date === date && (h.note || '') === (label || ''));
+  if (!cur) { updateInlineHomework(studentId, date, label, 'X'); return; }
+  updateInlineHomework(studentId, date, label, '');
+  const gid = currentOverviewGroupId;
+  showUndoToast(`Hausaufgabe am ${formatWeekdayShort(date)} entfernt`, () => restoreSeatingEntry(gid, s, 'homework', cur));
+}
+// Am Laptop: auf einem Feld F/E/Z (Fehlzeiten) bzw. X (HA) tippen setzt direkt, Entf/Rücktaste/„-“ entfernt
+document.getElementById('overview-content').addEventListener('keydown', e => {
+  const b = e.target.closest && e.target.closest('.ov-cycle-btn');
+  if (!b) return;
+  const k = e.key.length === 1 ? e.key.toUpperCase() : e.key;
+  const del = k === 'Delete' || k === 'Backspace' || k === '-';
+  const { sid, date } = b.dataset;
+  if (b.dataset.kind === 'att' && (['F', 'E', 'Z'].includes(k) || del)) {
+    e.preventDefault();
+    overviewFocusTarget = overviewCellPos(b);
+    if (del) setAttendanceWithUndo(sid, date, ''); else updateInlineAttendance(sid, date, k);
+  } else if (b.dataset.kind === 'hw' && (k === 'X' || del)) {
+    e.preventDefault();
+    overviewFocusTarget = overviewCellPos(b);
+    const has = (db.students[currentOverviewGroupId]?.find(x => x.id === sid)?.homework || []).some(h => h.date === date && (h.note || '') === (b.dataset.label || ''));
+    if (k === 'X' ? !has : has) cycleInlineHomework(sid, date, b.dataset.label || '');
+  }
+});
 
 function updateInlineAttendance(studentId, date, value) {
   value = value.trim().toUpperCase();
