@@ -91,6 +91,7 @@ describe('AH12: Ansicht der Klassenübersicht wählbar', () => {
     expect(row.querySelector('.cr-notes-btn')).not.toBeNull();
   });
   it('Groß: nächste Stunde, letztes Thema, geplantes Thema, Fälliges, Auffällige (nur Zahl)', () => {
+    localStorage.removeItem('warnings_seen');   // alles Vorhandene gilt als gesehen (AH24 f)
     app('setClassesView("large")');
     const t = tileOf('7b');
     expect(t.classList.contains('is-large')).toBe(true);
@@ -100,8 +101,8 @@ describe('AH12: Ansicht der Klassenübersicht wählbar', () => {
     expect(m.querySelector('.ct-topic').textContent).toBe('DezimalzahlenStunde 1 von 3');
     expect(m.querySelector('.ct-prev').textContent).toBe('Zuletzt: Brüche kürzen');   // nur die erste Zeile
     const chips = [...m.querySelectorAll('.ct-chip')].map(c => c.textContent);
-    expect(chips).toEqual(['1 Schüler auffällig', 'HA fällig: S. 12 Nr. 3']);
-    expect(m.querySelector('.ct-chip.is-warn')).not.toBeNull();
+    expect(chips).toEqual(['1 auffällig', 'HA fällig: S. 12 Nr. 3']);
+    expect(m.querySelector('.ct-chip.is-watch')).not.toBeNull();       // neutral, antippbar (AH24 f)
     expect(m.textContent).not.toContain('A B');                        // keine Namen
     expect([...m.children].map(c => c.className.split(' ')[0])).toEqual(['ct-when', 'ct-topic', 'ct-prev', 'ct-chips']);
     // links nur Fach und Tage, rechts Schnitt groß
@@ -202,18 +203,21 @@ describe('Sortierung der Klassenübersicht', () => {
     app('setClassesSort("class")');
     expect(names()).toEqual(['5a', '7b', '10a', 'Q1']);
   });
-  it('Auffällige zuerst: meiste Schüler über den Warnschwellen oben, Anzahl als rote Plakette in der Kachel', () => {
+  it('Auffällige zuerst: meiste Schüler über den Warnschwellen oben, Anzahl als Plakette in der Kachel', () => {
+    localStorage.removeItem('warnings_seen');
     app('setClassesSort("warnings")');
     expect(names()).toEqual(['10a', '7b', '5a', 'Q1']);
-    expect(document.querySelector('.class-tile .ct-chip.is-warn').textContent).toBe('2 auffällig');
+    expect(document.querySelector('.class-tile .ct-chip.is-watch').textContent).toBe('2 auffällig');
   });
-  it('normale Kacheln zeigen Auffällige immer als rote Plakette (auch nach Fach), Liste nicht', () => {
+  it('Auffällige als Plakette in allen Ansichten (auch nach Fach, auch in der Liste, AH24 f)', () => {
+    localStorage.removeItem('warnings_seen');
     app('setClassesSort("subject")');
     const t7b = [...document.querySelectorAll('.class-tile')].find(t => t.querySelector('.cr-name').textContent === '7b');
-    expect(t7b.querySelector('.ct-chip.is-warn').textContent).toBe('1 auffällig');
+    expect(t7b.querySelector('.ct-chip.is-watch').textContent).toBe('1 auffällig');
     expect([...document.querySelectorAll('.class-tile')].find(t => t.querySelector('.cr-name').textContent === '5a').querySelector('.ct-chip')).toBeNull();
     app('setClassesView("list")');
-    expect(document.querySelector('.class-row .ct-chip')).toBeNull();
+    const r7b = [...document.querySelectorAll('.class-row')].find(t => t.querySelector('.cr-name').textContent === '7b');
+    expect(r7b.querySelector('.cr-meta .ct-chip.is-watch').textContent).toBe('1 auffällig');
     app('setClassesView("tiles")');
   });
   it('Standard wird nicht gespeichert; Wert aus der Cloud wird übernommen', () => {
@@ -258,6 +262,7 @@ describe('Kacheln: Plaketten in einer Reihe', () => {
       db.students = { g1: [{ id: 's1', firstName: 'A', lastName: 'B', grades: [], participation: [], homework: [], studentNotes: [],
         attendance: [{ id: 'a1', date: '2026-10-20', type: 'abwesend' }, { id: 'a2', date: '2026-10-21', type: 'abwesend' }] }] };
       db.settings.warnAbsences = 2; db.acknowledgedWarnings = {}; db.lessonSlots = [];
+      localStorage.removeItem('warnings_seen');
       setClassesView('tiles'); setClassesSort('subject'); switchView('classes')`);
   });
   it('eine Zeile, beide als .ct-chip mit Symbol, Notiz nach „auffällig“', () => {

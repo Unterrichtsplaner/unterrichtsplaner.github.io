@@ -1253,7 +1253,7 @@ let timetableClockMinute = null;
 function refreshTimetableClock() {
   if (document.hidden || ttDrag) return; // nicht unter dem Finger neu zeichnen (AC2)
   const active = id => document.getElementById(id)?.classList.contains('active');
-  if (active('view-classes') && classesClockSignature() !== classesClockSig) renderSubjectGroups();   // Restzeit, „jetzt“ (AH14)
+  if (active('view-classes') && !watchPop && classesClockSignature() !== classesClockSig) renderSubjectGroups();   // Restzeit, „jetzt“ (AH14); nie unter der offenen Liste (AH24 f)
   if (!active('view-timetable') && !active('view-dashboard')) return;
   const now = new Date();
   const minute = formatDate(now) + ' ' + now.getHours() + ':' + now.getMinutes();
@@ -2557,13 +2557,107 @@ function lessonWhenParts(l, now) {
   const day = l.dateStr === todayStr ? 'Heute' : l.dateStr === formatDate(addDays(parseDate(todayStr), 1)) ? 'Morgen' : escHtml(formatWeekdayShort(l.dateStr));
   return { now: false, html: `${day} · ${escHtml(l.block.label)}${l.dateStr === todayStr && l.range ? ' · ' + minsToTime(l.range.start) : ''}${room}` };
 }
-// Plakette (AH14): eckig, rot nur für Auffällige; HA/Test neutral mit Symbol
-const classChip = (iconName, text, warn = false) => `<span class="ct-chip${warn ? ' is-warn' : ''}">${icon(iconName)}${text}</span>`;
+// Plakette (AH14): eckig, neutral mit Symbol; „auffällig“ über watchChipHTML (AH24 f)
+const classChip = (iconName, text) => `<span class="ct-chip">${icon(iconName)}${text}</span>`;
+// ─── „auffällig“ ruhig, rot nur Neues (AH24 f) ───────────────────────────────
+// Die Plakette ist neutral; rot ist nur der Zusatz „N neu“: Warnungen, die man seit dem letzten Hinschauen (Liste
+// aufgemacht, Klasse im Dashboard aufgeklappt) nicht gesehen hat. Gesehen merkt sich nur dieses Gerät (wie „Zuletzt
+// geöffnet“), nie in db. Schlimmer geworden (mehr Fehltage) = neue Kennung = wieder neu.
+const WARN_SEEN_KEY = 'warnings_seen';
+const warningKey = w => `${w.student.id}_${w.type}_${w.count}`;
+function writeWarnSeen(seen, warnings) {
+  const current = new Set(warnings.map(warningKey));   // nur Kennungen offener Warnungen behalten (bleibt klein)
+  try { localStorage.setItem(WARN_SEEN_KEY, JSON.stringify([...seen].filter(k => current.has(k)))); } catch (e) { /* gesperrt: dann eben ohne Merken */ }
+}
+// Beim ersten Mal (nach dem Update, auf einem neuen Gerät) gilt alles Vorhandene als gesehen, sonst wäre wieder alles rot
+function warnSeenSet(warnings) {
+  let list = null;
+  try { list = JSON.parse(localStorage.getItem(WARN_SEEN_KEY)); } catch (e) { list = null; }
+  if (Array.isArray(list)) return new Set(list);
+  const seen = new Set(warnings.map(warningKey));
+  if (db.groups.length) writeWarnSeen(seen, warnings);   // leeres Gerät: erst nach dem Laden der Daten festlegen
+  return seen;
+}
+function markWarningsSeen(list) {
+  const all = collectWarnings();
+  const seen = warnSeenSet(all);
+  list.forEach(w => seen.add(warningKey(w)));
+  writeWarnSeen(seen, all);
+}
+const warningIsNew = (w, seen) => !seen.has(warningKey(w));
+// Grund in einfachen Worten; bei Noten ohne Zahl (die Liste kann am Beamer aufgehen)
+const warningReason = w => w.type === 'grade' ? 'Notenstand kritisch'
+  : w.type === 'absences' ? `${w.count}× unentschuldigt gefehlt` : `${w.count}× Hausaufgaben vergessen`;
+function watchChipHTML(g, list, seen) {
+  if (!list || !list.length) return '';
+  const n = new Set(list.map(w => w.student.id)).size;
+  const neu = new Set(list.filter(w => warningIsNew(w, seen)).map(w => w.student.id)).size;
+  return `<button type="button" class="ct-chip is-watch" data-group="${escHtml(g.id)}" aria-haspopup="dialog"
+    aria-label="${n} auffällig${neu ? `, ${neu} neu` : ''}: Namen anzeigen">${icon('alert')}${n} auffällig${neu ? `<span class="neu">${neu} neu</span>` : ''}</button>`;
+}
+let watchPop = null;   // { btn, groupId }
+function closeWatchPop() {
+  const p = document.getElementById('watch-pop');
+  if (p) p.remove();
+  const was = watchPop;
+  watchPop = null;
+  // Gesehenes verliert sein Rot erst nach dem Zumachen (in der Liste steht „neu“ noch dran)
+  if (was && document.getElementById('view-classes')?.classList.contains('active')) renderSubjectGroups();
+}
+function openWatchPop(btn, groupId) {
+  closeWatchPop();
+  const g = db.groups.find(x => x.id === groupId);
+  if (!g || !btn) return;
+  const all = collectWarnings();
+  const seen = warnSeenSet(all);
+  const list = all.filter(w => w.group === g);
+  if (!list.length) return;
+  const pop = document.createElement('div');
+  pop.id = 'watch-pop';
+  pop.className = 'watch-pop';
+  pop.setAttribute('role', 'dialog');
+  pop.setAttribute('aria-label', `${g.className} auffällig`);
+  const fill = () => {
+    const open = collectWarnings().filter(w => w.group === g);
+    if (!open.length) { closeWatchPop(); return; }
+    pop.innerHTML = `<h3>${escHtml(g.className)} · auffällig</h3>` + open.map(w => `<div class="watch-row">
+        <button type="button" class="watch-who"><b>${escHtml(studentListName(w.student))}${warningIsNew(w, seen) ? '<span class="tag-neu">neu</span>' : ''}</b><span>${warningReason(w)}</span></button>
+        <button type="button" class="btn-secondary watch-ack">Erledigt</button></div>`).join('');
+    pop.querySelectorAll('.watch-row').forEach((row, i) => {
+      const w = open[i];
+      row.querySelector('.watch-who').addEventListener('click', () => {
+        closeWatchPop();
+        openStudentDetailFromDashboard(w.student.id, g.id, w.type);
+      });
+      row.querySelector('.watch-ack').addEventListener('click', () => { acknowledgeWarning(w.student.id, w.type, w.count); fill(); });
+    });
+  };
+  document.body.appendChild(pop);
+  watchPop = { btn, groupId };
+  fill();
+  if (!watchPop) return;
+  markWarningsSeen(list);
+  const r = btn.getBoundingClientRect();
+  const w = pop.offsetWidth || 320, h = pop.offsetHeight || 200;
+  pop.style.left = Math.max(8, Math.min(r.left, window.innerWidth - w - 8)) + 'px';
+  pop.style.top = (r.bottom + 6 + h > window.innerHeight - 8 && r.top - h - 6 > 8 ? r.top - h - 6 : r.bottom + 6) + 'px';
+  const coarse = window.matchMedia && window.matchMedia('(pointer: coarse)').matches;
+  if (!coarse) try { pop.querySelector('button').focus({ preventScroll: true }); } catch (e) { /* nicht fokussierbar */ }
+}
+// Tippen daneben (Druck auch daneben begonnen, Regel 27) oder Escape schließt
+document.addEventListener('click', e => {
+  const p = document.getElementById('watch-pop');
+  if (!p || p.contains(e.target) || pressStartedIn(p)) return;
+  if (watchPop && watchPop.btn.contains(e.target)) return;
+  closeWatchPop();
+});
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && document.getElementById('watch-pop')) closeWatchPop(); });
+
 // Große Kachel, Mitte (A+ nach der Design-Prüfung, AH14): fester Stapel wann → Thema → zuletzt → Plaketten, ohne Etiketten
-function classTileDetailsHTML(g, now, warnCount) {
+function classTileDetailsHTML(g, now, watchChip = '') {
   const todayStr = formatDate(now), nowMins = now.getHours() * 60 + now.getMinutes();
   const next = currentOrNextLessonOfGroup(g.id, now);
-  if (!next) return `<div class="ct-main"><div class="ct-when is-none">Keine Stunde geplant</div></div>`;
+  if (!next) return `<div class="ct-main"><div class="ct-when is-none">Keine Stunde geplant</div>${watchChip ? `<div class="ct-chips">${watchChip}</div>` : ''}</div>`;
   const when = lessonWhenParts(next, now);
   let html = `<div class="ct-when">${when.now ? '<span class="ct-now">jetzt</span>' : icon('late')}${when.html}</div>`;
   // Thema nur, wenn die Klasse überhaupt plant; geplant, aber nicht für diese Stunde: leise sagen
@@ -2577,7 +2671,7 @@ function classTileDetailsHTML(g, now, warnCount) {
   if (prevTopic) html += `<div class="ct-prev">Zuletzt: ${escHtml(prevTopic)}</div>`;
   const due = dueItemsFor(next.slot.id, next.dateStr);
   const more = items => items.length > 1 ? ` (+${items.length - 1})` : '';
-  const chips = [warnCount ? classChip('alert', `${warnCount} Schüler auffällig`, true) : '',
+  const chips = [watchChip,
     due.hw.length ? classChip('homework', `HA fällig: ${escHtml(due.hw[0].text)}${more(due.hw)}`) : '',
     due.tests.length ? classChip('test', `Test: ${escHtml(due.tests[0].text)}${more(due.tests)}`) : ''].join('');
   if (chips) html += `<div class="ct-chips">${chips}</div>`;
@@ -2616,13 +2710,17 @@ function renderSubjectGroups() {
   // Namen wieder wie im Stundenplan. Ganze Kachel öffnet die Klasse.
   const now = new Date();
   const todayStr = formatDate(now);
-  // Auffällige Schüler je Klasse (nicht quittierte Warnungen, wie im Dashboard) – für „Groß“ und „Auffällige zuerst“
+  // Auffällige Schüler je Klasse (nicht quittierte Warnungen, wie im Dashboard), in allen drei Ansichten (AH24 f)
+  if (watchPop) { const p = document.getElementById('watch-pop'); if (p) p.remove(); watchPop = null; }
+  const warnings = collectWarnings();
+  const warnSeen = warnSeenSet(warnings);
   const warnByGroup = new Map();
-  if (classesView !== 'list' || sort === 'warnings') collectWarnings().forEach(w => {
-    if (!warnByGroup.has(w.group.id)) warnByGroup.set(w.group.id, new Set());
-    warnByGroup.get(w.group.id).add(w.student.id);
+  warnings.forEach(w => {
+    if (!warnByGroup.has(w.group.id)) warnByGroup.set(w.group.id, []);
+    warnByGroup.get(w.group.id).push(w);
   });
-  const warnCount = g => (warnByGroup.get(g.id) || new Set()).size;
+  const warnCount = g => new Set((warnByGroup.get(g.id) || []).map(w => w.student.id)).size;
+  const watchChip = g => watchChipHTML(g, warnByGroup.get(g.id), warnSeen);
   const nextByGroup = new Map();
   if (sort === 'next') db.groups.forEach(g => nextByGroup.set(g.id, currentOrNextLessonOfGroup(g.id, now)));
   const nextKey = g => { const l = nextByGroup.get(g.id); return l ? l.dateStr + String(l.range ? l.range.start : 0).padStart(4, '0') : '9'; };
@@ -2660,7 +2758,7 @@ function renderSubjectGroups() {
       const nextL = sort === 'next' ? nextByGroup.get(g.id) : null;
       const when = sort === 'next' ? (nextL ? `<span class="cr-next">${nextLessonLabelHTML(nextL, now)}</span>` : '<span class="cr-no-schedule">keine Stunde geplant</span>')
         : (days || '<span class="cr-no-schedule">Kein Stundenplan verknüpft</span>');
-      const meta = [when, gradeCount + ' Noten', sort === 'warnings' && classesView === 'list' && warnCount(g) ? `<span class="cr-warn">${warnCount(g)} auffällig</span>` : ''].filter(Boolean).join(' · ');
+      const meta = [when, gradeCount + ' Noten'].join(' · ');
 
       const row = document.createElement('div');
       const cNotes = activeClassNotes(g, todayStr);
@@ -2671,7 +2769,7 @@ function renderSubjectGroups() {
       const notesBtn = `<button class="btn-icon cr-notes-btn" title="Notizen" aria-label="Notizen ${escHtml(g.className)}" onclick="event.stopPropagation();openClassNotes(${jsArg(g.id)})">${icon('pin')}</button>`;
       const editBtn = `<button class="btn-icon" title="Bearbeiten" aria-label="${escHtml(g.className)} bearbeiten" onclick="event.stopPropagation();openEditGroup(${jsArg(g.id)})">${icon('edit')}</button>`;
       const seatingBtn = `<button class="btn-secondary cr-seating-btn" title="Sitzplan" aria-label="Sitzplan ${escHtml(g.className)}" onclick="event.stopPropagation();openSeatingForGroup(${jsArg(g.id)})">${icon('seating')}<span>Sitzplan</span></button>`;
-      const metaHTML = `<div class="cr-meta"><b>${escHtml([g.subject, g.year].filter(Boolean).join(' · '))}</b><small>${meta}</small></div>`;
+      const metaHTML = `<div class="cr-meta"><b>${escHtml([g.subject, g.year].filter(Boolean).join(' · '))}</b><small>${meta}${classesView === 'list' && warnCount(g) ? ' ' + watchChip(g) : ''}</small></div>`;
       const numsHTML = `<div class="cr-nums">
             <span><em>${students.length}</em> Schüler</span>
             <span><em class="cr-avg" style="--grade:${gradeColor(groupAvg, scale)}">${formatGradeAverage(groupAvg)}</em> ${scale.higherIsBetter ? 'Pkt.' : 'Ø'}</span>
@@ -2689,20 +2787,22 @@ function renderSubjectGroups() {
         row.innerHTML = `
         <div class="cr-head">${nameBtn}${notesBtn}${editBtn}</div>
         <div class="cr-meta"><small>${escHtml(g.subject || '')}${g.subject && days ? ' · ' : ''}${escHtml(days)}</small></div>${notesHTML}
-        ${classTileDetailsHTML(g, now, warnCount(g))}
+        ${classTileDetailsHTML(g, now, watchChip(g))}
         <div class="cr-foot"><div class="ct-score"><span>${students.length} Schüler</span><span><b>${avgHTML}</b> ${scale.higherIsBetter ? 'Pkt.' : 'Ø'}</span></div>${seatingBtn}</div>`;
       } else {
         row.className = 'class-row class-tile' + (cNotes.length ? ' has-notes' : '');
         // „auffällig“ und Klassennotizen als eine Reihe gleicher Plaketten, jede mit Symbol darin (sonst unterschiedlich eingerückt)
         const noteChips = cNotes.map(n => `<span class="ct-chip cn-chip">${icon('pin')}${escHtml(n.text.trim())}${isDateStr(n.until) ? ` <small>bis ${escHtml(formatDateDE(parseDate(n.until)))}</small>` : ''}</span>`).join('');
         const chipRow = warnCount(g) || cNotes.length
-          ? `<div class="ct-chips${cNotes.length ? ' cr-notes' : ''}">${warnCount(g) ? classChip('alert', `${warnCount(g)} auffällig`, true) : ''}${noteChips}</div>` : '';
+          ? `<div class="ct-chips${cNotes.length ? ' cr-notes' : ''}">${watchChip(g)}${noteChips}</div>` : '';
         row.innerHTML = `
         <div class="cr-head">${nameBtn}${notesBtn}${editBtn}</div>
         ${metaHTML}${chipRow}
         <div class="cr-foot">${numsHTML}${seatingBtn}</div>`;
       }
       row.addEventListener('click', () => openGroupStudents(g.id));
+      const wc = row.querySelector('.ct-chip.is-watch');   // Antippen zeigt Namen, öffnet nicht die Klasse
+      if (wc) wc.addEventListener('click', e => { e.stopPropagation(); if (watchPop && watchPop.btn === wc) closeWatchPop(); else openWatchPop(wc, g.id); });
       list.appendChild(row);
     });
 
@@ -9000,8 +9100,10 @@ function renderDashboard() {
   fillDashboardTodos(document.getElementById('dash-todos-slot'));   // Merkzettel (AH18)
   container.querySelectorAll('details.dash-warn-group').forEach(el => {
     el.addEventListener('toggle', () => {
-      if (el.open) dashboardOpenGroups.add(el.dataset.group);
-      else dashboardOpenGroups.delete(el.dataset.group);
+      if (el.open) {
+        dashboardOpenGroups.add(el.dataset.group);
+        markWarningsSeen(collectWarnings().filter(w => w.group.id === el.dataset.group));   // „neu“ gesehen (AH24 f)
+      } else dashboardOpenGroups.delete(el.dataset.group);
     });
   });
 }
@@ -9233,6 +9335,7 @@ function renderDashboardWarnings() {
   }
   const icons = { absences: icon('absences'), grade: icon('trend-down'), homework: icon('homework') };
   const colors = { absences: 'var(--danger)', grade: 'var(--danger)', homework: 'var(--warning)' };
+  const seen = warnSeenSet(warnings);   // „neu“ wie in der Klassenübersicht (AH24 f)
   db.groups.forEach(group => {
     const list = warnings.filter(w => w.group === group);
     if (!list.length) return;
@@ -9243,7 +9346,7 @@ function renderDashboardWarnings() {
     list.forEach(w => {
       html += `<div class="dash-warn" style="border-left-color:${colors[w.type]}">
           <div class="dash-warn-text" onclick="openStudentDetailFromDashboard(${jsArg(w.student.id)}, ${jsArg(group.id)}, ${jsArg(w.type)})" title="Zum Schülerprofil springen">
-            <div class="dash-warn-title">${icons[w.type]}${w.title}</div>
+            <div class="dash-warn-title">${icons[w.type]}${w.title}${warningIsNew(w, seen) ? '<span class="tag-neu">neu</span>' : ''}</div>
             <div class="dash-warn-desc">${w.desc}</div>
           </div>
           <button class="btn-secondary" onclick="acknowledgeWarning(${jsArg(w.student.id)}, ${jsArg(w.type)}, ${w.count})">Erledigt</button>

@@ -204,6 +204,7 @@ Datumswerte sind Strings `YYYY-MM-DD` in **lokaler** Zeit (`formatDate()`). Nie 
 
 76. **Tabellen der Klassenansicht behalten beim Neuzeichnen ihre Scroll-Stelle** (`overviewRenderedKey` in `renderOverviewTable`, AH23); neu geöffnet (anderer Reiter/Klasse) stehen sie ganz rechts beim neuesten Tag. Zusammenfassungen (Ø, „+ / = / –“, „Fehlt F / E“, Vergessen) in allen Reitern gleich schreiben und nur Auffälliges rot (`.n-bad`); leere Zellen leise („–“, nie ein Emoji).
 77. **Eintragen in den Tabellen der Klassenansicht ohne Tastatur** (AH24 e): Fehlzeiten per Antippen über `cycleInlineAttendance` (– → F → E → Z → –, stellt einen vorhandenen Eintrag um, Regel 50), HA über `cycleInlineHomework`, Mitarbeit über die kleine Auswahl `openParticipationPicker` → `setInlineParticipation`. Wer per Antippen entfernt, bietet „Rückgängig“ (Regel 45). „+ Heute“ (`addOverviewColumn`) legt die Spalte ohne Fenster an, Noten gehen weiter über das Fenster. Notenfarbe in Tabellen nur über `gradeInk` (1–3 Schriftfarbe, 4 orange, 5–6 rot mit Fläche), nicht über `gradeColor` direkt.
+78. **„auffällig“ nur über `watchChipHTML`/`openWatchPop`** (AH24 f): Plakette neutral, rot nur „N neu“. Neu = Kennung `warningKey` (Schüler, Art, Anzahl) nicht in `localStorage['warnings_seen']` (nur dieses Gerät, nie in `db`; lesen über `warnSeenSet`, das beim ersten Mal alles Vorhandene als gesehen festlegt). Gesehen wird über `markWarningsSeen` (Liste aufgemacht, Klasse im Dashboard aufgeklappt). Gründe in der Liste über `warningReason` – bei Noten nie die Zahl (Beamer).
 
 ## Arbeitsablauf
 

@@ -311,7 +311,6 @@ input[type="date"] { min-height: 1.2em; } /* Fix iOS Safari date input collapse 
 .classes-sort select:focus-visible{outline:2px solid var(--accent);outline-offset:2px;}
 @media (pointer: coarse){.classes-sort{height:44px;}}
 .cr-next{color:var(--text-primary);font-weight:600;}
-.cr-warn{color:var(--danger);font-weight:600;}
 /* iPad hochkant (mit Seitenleiste): Titel, Sortierung, Ansicht und „+“ passen nicht nebeneinander, der Titel brach in
    drei Zeilen um und ragte oben hinaus. Die Seitenleiste zeigt „Klassen“ ohnehin (AH14). */
 @media (min-width: 601px) and (max-width: 1023px){
@@ -353,9 +352,26 @@ input[type="date"] { min-height: 1.2em; } /* Fix iOS Safari date input collapse 
 .ct-chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px;}
 .ct-chip{display:inline-flex;align-items:center;gap:5px;font-size:13px;font-weight:500;line-height:1.3;padding:3px 9px;border-radius:var(--radius-xs);background:var(--bg-elevated);border:1px solid var(--border);color:var(--text-primary);overflow-wrap:anywhere;}
 .ct-chip .ico{width:14px;height:14px;flex-shrink:0;color:var(--text-secondary);}
-.ct-chip.is-warn{font-weight:600;border-color:transparent;background:color-mix(in srgb, var(--danger) 15%, transparent);color:var(--tint-danger);}
-.ct-chip.is-warn .ico{color:inherit;}
-:root[data-theme="light"] .ct-chip.is-warn{background:color-mix(in srgb, var(--danger) 10%, #fff);}
+/* „auffällig“ (AH24 f): neutral wie jede Plakette, rot nur „N neu“; ein Knopf, der die Namen zeigt.
+   Tippfläche nach oben/unten unsichtbar auf 44 px vergrößert, damit die Plakette so groß bleibt wie die Notiz daneben */
+.ct-chip.is-watch{position:relative;font-family:inherit;cursor:pointer;white-space:nowrap;overflow-wrap:normal;}
+.ct-chip.is-watch::after{content:'';position:absolute;inset:-9px -3px;}
+.ct-chip.is-watch .neu{margin-left:4px;padding:0 6px;border-radius:var(--radius-xs);background:color-mix(in srgb, var(--danger) 14%, transparent);color:var(--tint-danger);font-weight:600;}
+:root[data-theme="light"] .ct-chip.is-watch .neu{background:color-mix(in srgb, var(--danger) 10%, #fff);}
+.cr-meta small .ct-chip.is-watch{margin-left:2px;padding:1px 8px;font-size:12px;vertical-align:middle;}
+.cr-meta small .ct-chip.is-watch::after{inset:-12px -3px;}   /* kleinere Plakette in der Liste: Tippfläche trotzdem 44 px */
+@media (max-width: 600px){ .ct-chip.is-watch{gap:4px;padding:3px 7px;} .ct-chip.is-watch .neu{margin-left:2px;padding:0 4px;} }
+.watch-pop{position:fixed;z-index:1200;width:340px;max-width:calc(100vw - 16px);max-height:min(420px, calc(100dvh - 16px));overflow-y:auto;padding:8px;background:var(--bg-secondary);border:1px solid var(--border);border-radius:var(--radius-md);box-shadow:var(--shadow-lg);}
+.watch-pop h3{margin:4px 8px 6px;font-size:13px;font-weight:600;color:var(--text-secondary);}
+.watch-row{display:flex;align-items:center;gap:8px;padding:4px 0;}
+.watch-row + .watch-row{border-top:1px solid var(--border);}
+.watch-who{flex:1;min-width:0;display:flex;flex-direction:column;align-items:flex-start;gap:1px;padding:6px 8px;border:none;border-radius:var(--radius-sm);background:none;font-family:inherit;text-align:left;cursor:pointer;color:var(--text-primary);}
+.watch-who b{font-size:14px;font-weight:600;}
+.watch-who span{font-size:13px;color:var(--text-secondary);}
+.watch-row .watch-ack{min-height:36px;padding:0 12px;font-size:13px;flex-shrink:0;}
+@media (pointer: coarse){ .watch-who, .watch-row .watch-ack{min-height:44px;} }
+@media (hover: hover){ .watch-who:hover{background:var(--bg-elevated);} }
+.tag-neu{margin-left:6px;font-size:11px;font-weight:600;color:var(--danger);}
 .class-tile:not(.is-large) .ct-chips{margin-top:0;}
 .ct-chips .cn-chip{font-size:13px;padding:3px 9px;line-height:1.3;}   /* Notiz als Plakette neben „auffällig“, gleich hoch */
 .ct-chips .cn-chip small{font-size:12px;}
