@@ -1048,8 +1048,8 @@ select option{background:var(--bg-secondary);}
 .ov-part-pop button{width:48px;height:48px;display:grid;place-items:center;padding:0;border:1px solid transparent;border-radius:var(--radius-sm);background:var(--bg-elevated);font-family:inherit;font-size:20px;color:var(--text-secondary);cursor:pointer;}
 .ov-part-pop button.is-clear{font-size:13px;}
 .ov-part-pop button.on{border-color:var(--text-primary);}
-/* Schülerliste schmaler, jede zweite Zeile leicht hinterlegt (AH24 d) */
-#students-container{max-width:760px;}
+/* Schülerliste über die ganze Breite (AH26: schmaler ließ rechts eine Lücke), jede zweite Zeile leicht hinterlegt,
+   damit das Auge auf dem Weg vom Namen zu den Zahlen in der Zeile bleibt (AH24 d) */
 .student-row:nth-child(even of .student-row){background:color-mix(in srgb, var(--bg-card) 45%, transparent);}
 /* Beamer-Schutz in der Klassenansicht (AH24 c): Hinweis statt Noten/Mitarbeit */
 .grades-veil{display:flex;align-items:center;flex-wrap:wrap;gap:10px;margin:0 0 12px;padding:10px 14px;border:1px dashed var(--border);border-radius:var(--radius-md);color:var(--text-secondary);font-size:14px;}

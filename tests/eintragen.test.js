@@ -52,11 +52,11 @@ describe('d: Notentabelle ruhig', () => {
     expect(row('Anna').querySelectorAll('td')[2].querySelector('input').style.color).toBe('var(--text-primary)');
     expect(row('Cem').querySelectorAll('td')[2].classList.contains('ov-grade-weak')).toBe(true);
   });
-  it('Zellen ohne Kästchen, Rahmen erst beim Antippen; Schülerliste schmaler mit Streifen', () => {
+  it('Zellen ohne Kästchen, Rahmen erst beim Antippen; Schülerliste ganz breit mit Streifen', () => {
     expect(CSS).toMatch(/\.overview-table \.ov-grade-input\{[^}]*background:transparent;[^}]*border-color:transparent;/);
     expect(CSS).toMatch(/\.overview-table \.ov-grade-input:focus\{[^}]*border-color:var\(--accent\);/);
     expect(CSS).toMatch(/\.overview-table td\.ov-grade-weak\{background:var\(--danger-soft\);\}/);
-    expect(CSS).toMatch(/#students-container\{max-width:760px;\}/);
+    expect(CSS).not.toMatch(/#students-container\{max-width/);   // wieder ganz breit (AH26)
     expect(CSS).toMatch(/\.student-row:nth-child\(even of \.student-row\)\{background:/);
   });
 });
