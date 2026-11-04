@@ -40,7 +40,7 @@
       }
     })();
   </script>
-  <link rel="stylesheet" href="style.css?v=361" />
+  <link rel="stylesheet" href="style.css?v=364" />
   <script>
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
@@ -70,6 +70,9 @@
         </svg>
       </button>
     </div>
+    <button type="button" class="sidebar-search" id="btn-search" onclick="openSearch()" aria-label="Suchen" title="Suchen (⌘K)">
+      <i data-icon="search"></i><span class="sidebar-search-label">Suchen</span>
+    </button>
     <div class="nav-items">
       <button class="nav-item" data-view="dashboard" id="nav-dashboard">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -128,6 +131,7 @@
         <h1>Dashboard</h1>
       </div>
       <div class="dashboard-scroll">
+        <button type="button" class="dash-search" id="btn-search-dashboard" onclick="openSearch()" aria-label="Suchen"><i data-icon="search"></i><span>Klasse, Schüler, Notiz suchen …</span></button>
         <div class="view-content" id="dashboard-content">
           <!-- Dashboard Content will be injected here -->
         </div>
@@ -208,6 +212,7 @@
                 <option value="warnings">Auffällige zuerst</option>
               </select>
             </label>
+            <button type="button" class="btn-icon classes-search-btn" id="btn-search-classes" onclick="openSearch()" aria-label="Suchen"><i data-icon="search"></i></button>
             <div id="classes-mode" class="tt-mode" role="group" aria-label="Ansicht">
               <button type="button" data-mode="list" onclick="setClassesView('list')" aria-pressed="false">Liste</button>
               <button type="button" data-mode="tiles" onclick="setClassesView('tiles')" aria-pressed="true">Kacheln</button>
@@ -1557,6 +1562,19 @@
   </div>
 
   <!-- Sync Conflict Modal -->
+  <!-- Schnellsuche (AH19): nie Noten, Hinweise oder Schülernotizen -->
+  <div id="modal-search" class="modal-overlay hidden" onclick="closeModalOnOverlay(event,'modal-search')">
+    <div class="modal search-palette" aria-label="Suchen">
+      <div class="search-field">
+        <i data-icon="search"></i>
+        <input type="search" id="search-input" class="search-input" placeholder="Klasse, Schüler, Notiz suchen …" aria-label="Suchen" aria-controls="search-results" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" enterkeyhint="go" />
+        <button type="button" class="btn-secondary search-close" onclick="closeModal('modal-search')">Schließen</button>
+      </div>
+      <div id="search-results" class="search-results"></div>
+      <div class="search-foot" aria-hidden="true"><span><kbd>↑</kbd> <kbd>↓</kbd> auswählen</span><span><kbd>↵</kbd> öffnen</span><span><kbd>esc</kbd> schließen</span></div>
+    </div>
+  </div>
+
   <div id="modal-sync-conflict" class="modal-overlay hidden" onclick="event.stopPropagation()">
     <div class="modal modal-medium" onclick="event.stopPropagation()" style="max-width: 480px;">
       <div class="modal-header">
@@ -1627,12 +1645,12 @@
   </div>
 
   <script src="lib/crypto-js.min.js"></script>
-  <script src="crypto-helper.js?v=361"></script>
+  <script src="crypto-helper.js?v=364"></script>
   <script src="lib/firebase-app-compat.js"></script>
   <script src="lib/firebase-auth-compat.js"></script>
   <script src="lib/firebase-firestore-compat.js"></script>
-  <script src="firebase-config.js?v=361"></script>
-  <script src="sync-manager.js?v=361"></script>
-  <script src="app.js?v=361"></script>
+  <script src="firebase-config.js?v=364"></script>
+  <script src="sync-manager.js?v=364"></script>
+  <script src="app.js?v=364"></script>
 </body>
 </html>

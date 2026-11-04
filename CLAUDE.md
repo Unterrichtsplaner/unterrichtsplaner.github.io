@@ -198,6 +198,8 @@ Datumswerte sind Strings `YYYY-MM-DD` in **lokaler** Zeit (`formatDate()`). Nie 
 
 73. **Merkzettel nur über `todosOf()`** (überspringt kaputte Einträge, legt nichts an); ändern per Objekt-Referenz (`todoEdit`), abhaken/löschen über `toggleTodo`/`deleteTodo` (mit „Rückgängig“, `indexOf`), danach `refreshTodoViews()`. **Nie im Sitzplan anzeigen** (Beamer). Wer eine Klasse löscht, lässt ihre Punkte stehen und entfernt nur `groupId` (AH18).
 
+74. **Schnellsuche nur über `searchResults`/`searchItemView`** (AH19). Sie durchsucht nie Noten, Hinweise (`notes`, `importantNote`) oder Schülernotizen und zeigt sie nie an (Beamer). Treffer merken sich nur Kennungen, geöffnet wird über `runSearchItem` mit frisch gesuchten Objekten (weg → Hinweis). „Zuletzt geöffnet“ liegt nur auf dem Gerät (`search_recent`, nie in `db`), eingetragen von `openGroupStudents`/`openStudentDetail`. Wer neue Inhalte durchsuchbar macht, prüft zuerst Regel 67.
+
 ## Arbeitsablauf
 
 1. Aufgabe aus `BUGS.md` wählen (ein Block pro Sitzung).

@@ -128,6 +128,17 @@ describe('Ansichten mit präparierten Daten', () => {
       expect(document.querySelectorAll('.cn-suggest').length).toBe(0);   // gleicher Text schon da
       app('closeModal("modal-class-notes"); db.groups.pop()');
     },
+    'schnellsuche (zuletzt + treffer)': () => {   // AH19
+      document.querySelectorAll('.modal-overlay').forEach(m => m.classList.add('hidden'));   // Suche öffnet nie über einem anderen Fenster
+      app(`openGroupStudents(${G}); openStudentDetail(${S}); closeModal("modal-student-detail"); openSearch()`);
+      expect(document.querySelectorAll('#search-results .search-main').length).toBeGreaterThan(2);   // Zuletzt + Springen gezeichnet
+      expect(injected()).toBe(0); expect(brokenHandlers()).toEqual([]);
+      const inp = document.getElementById('search-input');
+      inp.value = 'peter'; inp.dispatchEvent(new Event('input'));
+      expect(document.querySelectorAll('#search-results .search-sec').length).toBe(3);   // Klassen, Schüler, Merkzettel/Notizen/Planung
+      expect(injected()).toBe(0); expect(brokenHandlers()).toEqual([]);
+      app('closeModal("modal-search")');
+    },
     einstellungen: () => app('openSettings()'),
   };
 

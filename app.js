@@ -53,6 +53,7 @@ const ICONS = {
   'cloud-up':   '<polyline points="16 16 12 12 8 16"/><line x1="12" y1="12" x2="12" y2="21"/><path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3"/>',
   save:         '<path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/>',
   check:        '<polyline points="20 6 9 17 4 12"/>',
+  search:       '<circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.5" y2="16.5"/>',
   todo:         '<path d="m3 17 2 2 4-4"/><path d="m3 7 2 2 4-4"/><path d="M13 6h8"/><path d="M13 12h8"/><path d="M13 18h8"/>',
   trash:        '<polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/>',
   refresh:      '<polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>',
@@ -3638,6 +3639,7 @@ function openGroupStudents(groupId, initialTab = 'students') {
   }
   const g = db.groups.find(x => x.id === groupId);
   if (!g) return;
+  rememberSearchRecent({ kind: 'group', groupId });   // „Zuletzt geöffnet“ in der Suche (AH19)
   setClassViewHeader(g);
   switchView('students');
   switchClassDashboardTab(initialTab);
@@ -4003,6 +4005,7 @@ function saveStudent() {
 function openStudentDetail(studentId, initialTab = 'grades') {
   const s = (db.students[currentGroupId]||[]).find(x => x.id === studentId);
   if (!s) return;
+  rememberSearchRecent({ kind: 'student', groupId: currentGroupId, studentId });   // AH19
   currentStudentId = studentId;
   const group = db.groups.find(g => g.id === currentGroupId);
   document.getElementById('sdetail-name').textContent = `${s.firstName || ''} ${s.lastName || ''}`.trim();
@@ -5829,6 +5832,215 @@ document.getElementById('todo-input')?.addEventListener('keydown', e => { if (e.
 document.getElementById('btn-todo-add')?.addEventListener('click', () => submitTodo());
 document.getElementById('btn-todo-cancel')?.addEventListener('click', () => { resetTodoForm(); renderTodos(); });
 document.getElementById('todo-done-wrap')?.addEventListener('toggle', e => { todoDoneOpen = e.target.open; });
+
+// ─── Schnellsuche (AH19) ────────────────────────────────────────────────────
+// Findet Klassen, Schüler, offene Merkzettel-Punkte, gültige Klassennotizen und offene Planungsthemen.
+// Nie Noten, Hinweise (notes/importantNote) oder Schülernotizen: Die Suche kann am Beamer offen sein (Regel 67).
+// Treffer merken sich nur Kennungen; geöffnet wird mit frisch gesuchten Objekten (Sync kann dazwischen liegen).
+const SEARCH_RECENT_KEY = 'search_recent';   // nur dieses Gerät, nur Kennungen
+let searchItems = [];
+let searchActive = 0;
+const searchNorm = s => String(s ?? '').toLocaleLowerCase('de').normalize('NFD').replace(/[̀-ͯ]/g, '');
+const searchWords = s => searchNorm(s).split(/[^0-9a-zß]+/).filter(Boolean);
+
+// 0 = ganzes erstes Wort, 1 = Anfang des ersten Worts, 2 = Anfang eines anderen Worts, 3 = irgendwo; null = passt nicht
+function searchScore(text, token) {
+  const words = searchWords(text);
+  if (words[0] === token) return 0;
+  if (words[0] && words[0].startsWith(token)) return 1;
+  if (words.some(w => w.startsWith(token))) return 2;
+  return searchNorm(text).includes(token) ? 3 : null;
+}
+// Alle Wörter der Suche müssen vorkommen (im Namen oder im Zusatz, z. B. der Klasse), mindestens eins im Namen
+function searchMatch(name, extra, tokens) {
+  const all = searchNorm(name + ' ' + extra);
+  if (!tokens.every(t => all.includes(t))) return null;
+  const scores = tokens.map(t => searchScore(name, t)).filter(s => s !== null);
+  return scores.length ? Math.min(...scores) : null;
+}
+const groupLabel = g => `${g.className || ''} ${g.subject || ''}`.trim();
+
+function searchResults(query) {
+  const tokens = searchWords(query);
+  if (!tokens.length) return [];
+  const ranked = list => list.filter(x => x.score !== null).sort((a, b) => a.score - b.score || a.sort.localeCompare(b.sort, 'de'));
+  const groups = ranked(db.groups.map(g => ({ kind: 'group', groupId: g.id, score: searchMatch(groupLabel(g), '', tokens), sort: groupLabel(g) }))).slice(0, 5);
+  const students = ranked(db.groups.flatMap(g => (db.students[g.id] || []).map(s => {
+    const name = `${s.firstName || ''} ${s.lastName || ''}`.trim();
+    return { kind: 'student', groupId: g.id, studentId: s.id, score: searchMatch(name, groupLabel(g), tokens), sort: name };
+  }))).slice(0, 6);
+  const todayStr = formatDate(new Date());
+  const groupOf = id => db.groups.find(g => g.id === id);
+  const other = ranked([
+    ...todosOf().filter(t => !t.done).map(t => ({ kind: 'todo', todoId: t.id, score: searchMatch(t.text, groupOf(t.groupId) ? groupLabel(groupOf(t.groupId)) : '', tokens), sort: t.text })),
+    ...db.groups.flatMap(g => activeClassNotes(g, todayStr).map(n => ({ kind: 'classNote', groupId: g.id, noteId: n.id, score: searchMatch(n.text, groupLabel(g), tokens), sort: n.text }))),
+    ...db.groups.flatMap(g => (Array.isArray(g.plan) ? g.plan : []).filter(p => p && !p.done && typeof p.title === 'string')
+      .map(p => ({ kind: 'plan', groupId: g.id, topicId: p.id, score: searchMatch(p.title, groupLabel(g), tokens), sort: p.title }))),
+  ]).slice(0, 6);
+  return [['Klassen', groups], ['Schüler', students], ['Merkzettel, Notizen, Planung', other]].filter(([, items]) => items.length);
+}
+
+function readSearchRecent() {
+  try { const v = JSON.parse(localStorage.getItem(SEARCH_RECENT_KEY) || '[]'); return Array.isArray(v) ? v : []; } catch (e) { return []; }
+}
+function rememberSearchRecent(item) {
+  try {
+    const key = it => it.kind + ':' + it.groupId + ':' + (it.studentId || '');
+    const list = [{ kind: item.kind, groupId: item.groupId, ...(item.studentId ? { studentId: item.studentId } : {}) },
+      ...readSearchRecent().filter(it => it && key(it) !== key(item))].slice(0, 6);
+    localStorage.setItem(SEARCH_RECENT_KEY, JSON.stringify(list));
+  } catch (e) { /* Speicher gesperrt: dann eben ohne „Zuletzt“ */ }
+}
+// Was es noch gibt, höchstens 4
+function searchRecentItems() {
+  return readSearchRecent().filter(it => it && (it.kind === 'group' ? db.groups.some(g => g.id === it.groupId)
+    : it.kind === 'student' && (db.students[it.groupId] || []).some(s => s.id === it.studentId))).slice(0, 4);
+}
+function searchJumpItems(now) {
+  const items = [{ kind: 'jump', target: 'today' }];
+  const gid = getSuggestedSeatingGroupId(now);
+  if (gid && db.groups.some(g => g.id === gid)) items.push({ kind: 'jump', target: 'seating', groupId: gid });
+  items.push({ kind: 'jump', target: 'todos' });
+  return items;
+}
+
+// Anzeige eines Treffers (null = gibt es nicht mehr)
+function searchItemView(it, tokens, now) {
+  const g = it.groupId ? db.groups.find(x => x.id === it.groupId) : null;
+  const color = g ? g.color : '';
+  if (it.kind === 'group') {
+    if (!g) return null;
+    const l = currentOrNextLessonOfGroup(g.id, now);
+    const when = l ? lessonWhenParts(l, now) : null;
+    return { badge: escHtml(g.className || '?'), color, title: groupLabel(g),
+      sub: when ? (when.now ? 'Jetzt: ' : 'Als Nächstes: ') + when.html : 'Keine Stunde geplant', subIsHTML: true, acts: true };
+  }
+  if (it.kind === 'student') {
+    const s = g && (db.students[g.id] || []).find(x => x.id === it.studentId);
+    if (!s) return null;
+    return { badge: escHtml(((s.firstName || ' ')[0] + (s.lastName || ' ')[0]).trim().toUpperCase()), color,
+      title: `${s.firstName || ''} ${s.lastName || ''}`.trim(), sub: groupLabel(g), go: 'Profil öffnen' };
+  }
+  if (it.kind === 'todo') {
+    const t = todosOf().find(x => x.id === it.todoId);
+    if (!t) return null;
+    const tg = db.groups.find(x => x.id === t.groupId);
+    return { badge: icon('todo'), color: tg ? tg.color : '', title: t.text, sub: 'Merkzettel' + (tg ? ' · ' + tg.className : ''), go: 'Merkzettel' };
+  }
+  if (it.kind === 'classNote') {
+    const n = g && classNotesOf(g).find(x => x.id === it.noteId);
+    if (!n) return null;
+    return { badge: icon('pin'), color, title: n.text, sub: 'Klassennotiz · ' + groupLabel(g), go: 'Notizen' };
+  }
+  if (it.kind === 'plan') {
+    const p = g && (g.plan || []).find(x => x && x.id === it.topicId);
+    if (!p) return null;
+    return { badge: icon('list'), color, title: p.title, sub: 'Planung · ' + groupLabel(g), go: 'Planung' };
+  }
+  if (it.target === 'today') return { badge: icon('calendar'), title: 'Heute im Stundenplan', sub: formatWeekdayShort(formatDate(todaySchoolDay())), go: '' };
+  if (it.target === 'todos') { const n = todosOf().filter(t => !t.done).length; return { badge: icon('todo'), title: 'Merkzettel', sub: n ? `${n} offen` : 'nichts offen', go: '' }; }
+  if (it.target === 'seating') return g ? { badge: icon('seating'), color, title: 'Sitzplan ' + (g.className || ''), sub: 'Klasse dieser Stunde', go: '' } : null;
+  return null;
+}
+// Treffer-Text mit markierten Stellen; Rohtext wird escaped, nur <mark> kommt dazu
+function searchMarked(text, tokens) {
+  const raw = String(text), norm = searchNorm(raw);
+  if (!tokens.length || norm.length !== raw.length) return escHtml(raw);
+  const on = new Array(raw.length).fill(false);
+  tokens.forEach(t => { let i = norm.indexOf(t); while (i >= 0) { for (let k = i; k < i + t.length; k++) on[k] = true; i = norm.indexOf(t, i + t.length); } });
+  let out = '', i = 0;
+  while (i < raw.length) { let j = i; while (j < raw.length && on[j] === on[i]) j++; out += on[i] ? `<mark>${escHtml(raw.slice(i, j))}</mark>` : escHtml(raw.slice(i, j)); i = j; }
+  return out;
+}
+
+function renderSearchResults() {
+  const box = document.getElementById('search-results');
+  if (!box) return;
+  const query = document.getElementById('search-input').value;
+  const tokens = searchWords(query), now = new Date();
+  const sectionsList = tokens.length ? searchResults(query)
+    : [['Zuletzt geöffnet', searchRecentItems()], ['Springen zu', searchJumpItems(now)]].filter(([, items]) => items.length);
+  searchItems = [];
+  let html = '';
+  sectionsList.forEach(([name, items]) => {
+    const rows = items.map(it => {
+      const v = searchItemView(it, tokens, now);
+      if (!v) return '';
+      const i = searchItems.push(it) - 1;
+      return `<div class="search-row">
+        <button type="button" class="search-main" id="search-opt-${i}" data-i="${i}">
+          <span class="search-badge"${v.color ? ` style="--c:${escHtml(v.color)}"` : ''}>${v.badge}</span>
+          <span class="search-txt"><span class="search-title">${searchMarked(v.title, tokens)}</span><span class="search-sub">${v.subIsHTML ? v.sub : escHtml(v.sub)}</span></span>
+          ${v.go ? `<span class="search-go">${escHtml(v.go)}</span>` : ''}
+        </button>
+        ${v.acts ? `<span class="search-acts"><button type="button" data-i="${i}" data-act="seating">Sitzplan</button><button type="button" data-i="${i}" data-act="grades">Noten</button><button type="button" data-i="${i}" data-act="note">+ Notiz</button></span>` : ''}
+      </div>`;
+    }).join('');
+    if (rows) html += `<div class="search-sec">${escHtml(name)}</div>${rows}`;
+  });
+  if (!searchItems.length) html = tokens.length
+    ? `<p class="search-empty">Nichts gefunden für „${escHtml(query.trim())}“.<br><small>Gesucht wird in Klassen, Schülernamen, Merkzettel, Klassennotizen und Planung. Noten und Hinweise werden nie durchsucht.</small></p>`
+    : '';
+  box.innerHTML = html;
+  box.querySelectorAll('button[data-i]').forEach(b => b.addEventListener('click', () => runSearchItem(searchItems[+b.dataset.i], b.dataset.act || 'open')));
+  setSearchActive(0);
+}
+function setSearchActive(i) {
+  const rows = [...document.querySelectorAll('#search-results .search-main')];
+  searchActive = rows.length ? Math.max(0, Math.min(i, rows.length - 1)) : 0;
+  rows.forEach((r, k) => r.classList.toggle('is-active', k === searchActive));
+  const inp = document.getElementById('search-input');
+  if (rows[searchActive]) { inp.setAttribute('aria-activedescendant', rows[searchActive].id); rows[searchActive].scrollIntoView?.({ block: 'nearest' }); }
+  else inp.removeAttribute('aria-activedescendant');
+}
+
+function openSearch() {
+  if (document.querySelector('.modal-overlay:not(.hidden):not(#modal-search)')) return;   // nie über ein anderes Fenster
+  const inp = document.getElementById('search-input');
+  inp.value = '';
+  renderSearchResults();
+  openModal('modal-search');
+  inp.focus({ preventScroll: true });
+  fitSearchToKeyboard();
+}
+// Bildschirmtastatur (iPad/Handy) verdeckt sonst die unteren Treffer: Höhe nach dem sichtbaren Bereich richten
+function fitSearchToKeyboard() {
+  const m = document.getElementById('modal-search');
+  if (!m || m.classList.contains('hidden') || !window.visualViewport) return;
+  m.style.setProperty('--search-vh', Math.round(window.visualViewport.height) + 'px');
+}
+window.visualViewport?.addEventListener('resize', fitSearchToKeyboard);
+
+function runSearchItem(it, act = 'open') {
+  if (!it) return;
+  const g = it.groupId ? db.groups.find(x => x.id === it.groupId) : null;
+  const gone = () => { showToast('Das gibt es nicht mehr (inzwischen geändert).', 'error'); renderSearchResults(); };
+  if (it.kind !== 'jump' && !searchItemView(it, [], new Date())) return gone();
+  closeModal('modal-search');
+  if (it.kind === 'group') {
+    if (act === 'seating') return openSeatingForGroup(g.id);
+    if (act === 'note') return openClassNotes(g.id);
+    return openGroupStudents(g.id, act === 'grades' ? 'grades' : 'students');
+  }
+  if (it.kind === 'student') { openGroupStudents(g.id); return openStudentDetail(it.studentId); }
+  if (it.kind === 'todo') return switchView('todos');
+  if (it.kind === 'classNote') return openClassNotes(g.id);
+  if (it.kind === 'plan') return openGroupStudents(g.id, 'plan');
+  if (it.target === 'today') { switchView('timetable'); return jumpToDate(formatDate(new Date())); }
+  if (it.target === 'todos') return switchView('todos');
+  if (it.target === 'seating' && g) return openSeatingForGroup(g.id);
+}
+
+document.getElementById('search-input')?.addEventListener('input', renderSearchResults);
+document.getElementById('search-input')?.addEventListener('keydown', e => {
+  if (e.key === 'ArrowDown') { e.preventDefault(); setSearchActive(searchActive + 1); }
+  else if (e.key === 'ArrowUp') { e.preventDefault(); setSearchActive(searchActive - 1); }
+  else if (e.key === 'Enter') { e.preventDefault(); runSearchItem(searchItems[searchActive]); }
+});
+// ⌘K / Strg+K (Laptop, iPad mit Tastatur)
+document.addEventListener('keydown', e => {
+  if ((e.metaKey || e.ctrlKey) && !e.altKey && !e.shiftKey && (e.key === 'k' || e.key === 'K')) { e.preventDefault(); openSearch(); }
+});
 
 // ─── Geburtstage (AD6) ──────────────────────────────────────────────────────
 // Nur ein Datum, das als Geburtstag eines Kindes stimmen kann: Ein Datum aus diesem oder den letzten Jahren kam vom iPad,
@@ -9625,7 +9837,7 @@ function noticeSlowSync(promise) {
 // Einstellungen zählen nur mit, wenn dort etwas eingetippt ist: Sonst ersetzte der Pull die Eingaben still (BUGS T5).
 function inputModalOpen() {
   return [...document.querySelectorAll('.modal-overlay:not(.hidden)')]
-    .some(m => m.id === 'modal-settings' ? settingsDirty() : m.id !== 'modal-sync-conflict' && m.id !== 'modal-whats-new' && m.id !== 'modal-seating-today');
+    .some(m => m.id === 'modal-settings' ? settingsDirty() : m.id !== 'modal-sync-conflict' && m.id !== 'modal-whats-new' && m.id !== 'modal-seating-today' && m.id !== 'modal-search');   // Suche liest nur (AH19)
 }
 function syncAfterModalsClosed() {
   if (!syncAfterModalClose || inputModalOpen()) return;
