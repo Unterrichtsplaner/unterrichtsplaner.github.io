@@ -40,7 +40,7 @@
       }
     })();
   </script>
-  <link rel="stylesheet" href="style.css?v=373" />
+  <link rel="stylesheet" href="style.css?v=374" />
   <script>
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
@@ -970,6 +970,11 @@
         <label class="print-check" for="settings-seating-autoswitch" style="margin-top:8px;"><input type="checkbox" id="settings-seating-autoswitch" /> Offener Sitzplan wechselt von selbst zur nächsten Klasse</label>
       </div>
       <div class="settings-section">
+        <h3 style="margin-bottom:12px;font-size:14px;">Klassenansicht</h3>
+        <label class="print-check" for="settings-class-grades-protect"><input type="checkbox" id="settings-class-grades-protect" /> Noten und Mitarbeit erst auf Knopfdruck zeigen (Beamer-Schutz)</label>
+        <p class="field-hint-muted">Aus: Schnitte, Noten und Mitarbeit sind beim Öffnen einer Klasse sofort zu sehen. Der Sitzplan zeigt Noten weiter nur auf Knopfdruck.</p>
+      </div>
+      <div class="settings-section">
         <h3 style="margin-bottom:12px;font-size:14px;">Darstellung</h3>
         <div class="form-group">
           <span class="group-label" id="settings-bg-label">Hintergrundfarbe</span>
@@ -1647,12 +1652,12 @@
   </div>
 
   <script src="lib/crypto-js.min.js"></script>
-  <script src="crypto-helper.js?v=373"></script>
+  <script src="crypto-helper.js?v=374"></script>
   <script src="lib/firebase-app-compat.js"></script>
   <script src="lib/firebase-auth-compat.js"></script>
   <script src="lib/firebase-firestore-compat.js"></script>
-  <script src="firebase-config.js?v=373"></script>
-  <script src="sync-manager.js?v=373"></script>
-  <script src="app.js?v=373"></script>
+  <script src="firebase-config.js?v=374"></script>
+  <script src="sync-manager.js?v=374"></script>
+  <script src="app.js?v=374"></script>
 </body>
 </html>

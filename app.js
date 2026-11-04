@@ -3016,7 +3016,7 @@ function updateClassGradesButton() {
   const b = document.getElementById('btn-class-grades');
   const tab = currentClassDashboardTab;
   if (b) {
-    b.classList.toggle('hidden', !CLASS_GRADE_TABS.includes(tab));
+    b.classList.toggle('hidden', !CLASS_GRADE_TABS.includes(tab) || !classGradesProtected());
     const label = classGradesShown ? 'Noten verbergen' : 'Noten anzeigen';
     b.setAttribute('aria-pressed', String(classGradesShown));
     b.setAttribute('aria-label', label);
@@ -3031,8 +3031,10 @@ function rerenderClassTab() {
   if (currentClassDashboardTab === 'students') renderStudents();
   else if (currentClassDashboardTab !== 'plan') renderOverviewTable();
 }
+// Einstellung (AH24 c): Beamer-Schutz abschaltbar; Standard an, gespeichert wird nur „aus“ (classGradesProtect: false)
+const classGradesProtected = () => db.settings.classGradesProtect !== false;
 function hideClassGrades() {
-  classGradesShown = false;
+  classGradesShown = !classGradesProtected();   // ohne Schutz: alles sofort sichtbar
   updateClassGradesButton();
 }
 function toggleClassGrades() {
@@ -4553,6 +4555,7 @@ function fillSettingsForm() {
   document.getElementById('settings-half-year').value = isDateStr(db.settings.halfYearEnd) ? db.settings.halfYearEnd : '';
   document.getElementById('settings-year-end').value = isDateStr(db.settings.schoolYearEnd) ? db.settings.schoolYearEnd : '';
   document.getElementById('settings-seating-autoswitch').checked = db.settings.seatingAutoSwitch !== false;
+  document.getElementById('settings-class-grades-protect').checked = db.settings.classGradesProtect !== false;
   document.getElementById('settings-warn-absences').value = db.settings.warnAbsences !== undefined ? db.settings.warnAbsences : 3;
   document.getElementById('settings-warn-homework').value = db.settings.warnHomework !== undefined ? db.settings.warnHomework : 3;
   document.getElementById('settings-warn-grade').value = db.settings.warnGrade !== undefined ? db.settings.warnGrade : 4.5;
@@ -4965,6 +4968,9 @@ function saveSettings() {
   if (isDateStr(hy)) db.settings.halfYearEnd = hy; else delete db.settings.halfYearEnd;
   if (isDateStr(ye)) db.settings.schoolYearEnd = ye; else delete db.settings.schoolYearEnd;
   if (document.getElementById('settings-seating-autoswitch').checked) delete db.settings.seatingAutoSwitch; else db.settings.seatingAutoSwitch = false;
+  const protectBefore = classGradesProtected();
+  if (document.getElementById('settings-class-grades-protect').checked) delete db.settings.classGradesProtect; else db.settings.classGradesProtect = false;
+  if (protectBefore !== classGradesProtected()) { hideClassGrades(); rerenderClassTab(); }   // gilt sofort (AH24 c)
   db.settings.warnAbsences = parseWarnThreshold('settings-warn-absences', 3);
   db.settings.warnHomework = parseWarnThreshold('settings-warn-homework', 3);
   db.settings.warnGrade    = parseWarnThreshold('settings-warn-grade', 4.5);
@@ -7779,13 +7785,13 @@ function initAllCustomDropdowns() {
 // Für das nächste große Update: `id` ändern und die Punkte ersetzen. Gemerkt wird nur auf diesem Gerät
 // (nicht in `db`, nicht synchronisiert). Neue Nutzer ohne Daten sehen es nie.
 const WHATS_NEW = {
-  id: '2026-11',
+  id: '2026-11-2',
   items: [
-    { icon: 'seating',  title: 'Sitzplan im Unterricht', text: 'Läuft eine Stunde, zeigt der Sitzplan oben Restzeit, Thema, fällige HA, wer fehlt und Geburtstage. Der Bildschirm bleibt dann an. Tippen auf die Leiste zeigt alles im Detail.' },
-    { icon: 'refresh',  title: 'Sitzplan von selbst', text: 'Im Unterricht startet die App gleich im Sitzplan der laufenden Klasse und wechselt zur nächsten Stunde von selbst. Abschalten: Einstellungen → Sitzplan.' },
-    { icon: 'info',     title: 'Hinweise und Geburtstage', text: 'Im Schüler-Fenster Hinweise eintragen (z. B. „hörgeschädigt: vorne sitzen“), auf der Karte steht nur ein Symbol. Geburtstag im Schüler-Formular.' },
-    { icon: 'list',     title: 'Unterrichtsplanung', text: 'Klasse öffnen → Reiter „Planung“: Themen der Reihe nach eintragen, die App verteilt sie auf die nächsten Stunden. Im Stundenplan oben „Klasse“: alle Stunden mit Thema, „noch … bis zum Halbjahr“.' },
-    { icon: 'edit',     title: 'Neues Aussehen', text: 'Hell und ruhiger, Klassen und Schüler als übersichtliche Listen. Lieber dunkel? Einstellungen → Darstellung → Hintergrundfarbe „Dunkel“.' },
+    { icon: 'todo',     title: 'Merkzettel', text: 'Neuer Menüpunkt: schnell aufschreiben, woran du denken willst, wahlweise mit Klasse und Frist. Offene Punkte stehen im Dashboard und im Fenster der passenden Stunde.' },
+    { icon: 'search',   title: 'Suche', text: 'Oben in der Seitenleiste (Handy: im Dashboard) Klasse, Schüler, Notiz oder Thema eintippen und direkt öffnen. Am Laptop auch mit ⌘K.' },
+    { icon: 'eye-off',  title: 'Noten erst auf Knopfdruck', text: 'In einer Klasse erscheinen Schnitte, Noten und Mitarbeit erst nach „Anzeigen“, damit am Beamer niemand mitliest. Abschalten: Einstellungen → Klassenansicht.' },
+    { icon: 'classes',  title: 'Klassen schneller', text: 'Klassenübersicht als Liste, Kacheln oder groß, sortierbar (z. B. „Als Nächstes“). Die Tabellen starten beim neuesten Tag und springen beim Eintragen nicht mehr zurück.' },
+    { icon: 'settings', title: 'Handy: Menü unten', text: 'Auf dem Handy liegt das Menü jetzt unten, mit dem Daumen erreichbar. Die Einstellungen öffnet das Zahnrad oben im Dashboard.' },
   ],
 };
 const WHATS_NEW_SEEN_KEY = 'whats_new_seen';

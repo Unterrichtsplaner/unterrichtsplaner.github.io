@@ -119,3 +119,31 @@ describe('Andere Reiter und Zurücksetzen', () => {
     app('closeModal("modal-student-detail")');
   });
 });
+
+describe('Einstellung: Beamer-Schutz abschalten', () => {
+  const box = () => document.getElementById('settings-class-grades-protect');
+  it('Standard an (nicht gespeichert); aus: alles sofort sichtbar, kein Knopf, kein Hinweis', () => {
+    app('openSettings()');
+    expect(box().checked).toBe(true);
+    box().checked = false;
+    app('saveSettings()');
+    expect(app('db.settings.classGradesProtect')).toBe(false);
+    app('openGroupStudents("g1", "students")');
+    expect(shown()).toBe(true);
+    expect(studentsBox().querySelector('.grades-veil')).toBeNull();
+    expect(studentsBox().querySelector('.student-grade-badge').textContent).toBe('5,0');
+    expect(btn().classList.contains('hidden')).toBe(true);
+    app('switchClassDashboardTab("grades")');
+    expect(overview().querySelector('table')).not.toBeNull();
+    app('onAppHidden(); switchView("dashboard"); openGroupStudents("g1", "participation")');
+    expect(overview().querySelector('.ov-part-btn')).not.toBeNull();
+  });
+  it('wieder an: Speichern verbirgt sofort, Standard wird nicht gespeichert', () => {
+    app('db.settings.classGradesProtect = false; openGroupStudents("g1", "students"); openSettings()');
+    expect(box().checked).toBe(false);
+    box().checked = true;
+    app('saveSettings()');
+    expect('classGradesProtect' in app('db.settings')).toBe(false);
+    expect(studentsBox().querySelector('.grades-veil')).not.toBeNull();
+  });
+});

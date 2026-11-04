@@ -208,3 +208,13 @@ describe('AH21: Handy-Menüleiste unten', () => {
     expect(document.getElementById('btn-settings-dashboard').classList.contains('needs-attention')).toBe(false);
   });
 });
+
+// AH25: „Das ist neu“ für das Update mit Merkzettel, Suche, Beamer-Schutz, Klassenübersicht und Handy-Leiste
+describe('AH25: Das ist neu (Nov. 2026, zweite Runde)', () => {
+  it('neue Kennung, 5 Punkte zu den sichtbaren Änderungen', () => {
+    const w = app('WHATS_NEW');
+    expect(w.id).toBe('2026-11-2');
+    expect(w.items.map(i => i.title)).toEqual(['Merkzettel', 'Suche', 'Noten erst auf Knopfdruck', 'Klassen schneller', 'Handy: Menü unten']);
+    expect(w.items[2].text).toMatch(/Einstellungen → Klassenansicht/);
+  });
+});
