@@ -404,7 +404,6 @@ button.cr-name:focus-visible{outline:2px solid var(--accent);outline-offset:3px;
   .cr-nums{gap:8px;font-size:12px;}
   .cr-seating-btn{flex:1;justify-content:center;padding:0 10px;}
 }
-}
 
 /* ─── Students list ──────────────────── */
 /* Schlichte Liste mit Trennlinien und Kopfzeile statt Karte je Schüler (AE8) */
@@ -1055,7 +1054,7 @@ select option{background:var(--bg-secondary);}
 .grades-veil{display:flex;align-items:center;flex-wrap:wrap;gap:10px;margin:0 0 12px;padding:10px 14px;border:1px dashed var(--border);border-radius:var(--radius-md);color:var(--text-secondary);font-size:14px;}
 .grades-veil .ico{width:18px;height:18px;margin:0;flex-shrink:0;}
 .grades-veil span{flex:1;min-width:0;}
-#students-container .grades-veil{margin:12px 20px;}   /* Liste hat keinen eigenen Rand */
+#students-container .grades-veil{margin:4px 0 12px;}   /* Rand kommt von .students-list */
 .grades-veil-big{flex-direction:column;justify-content:center;text-align:center;gap:12px;margin:0;padding:48px 20px;}
 .grades-veil-big .ico{width:28px;height:28px;}
 .grades-veil-big span{flex:none;max-width:420px;}
@@ -1086,6 +1085,7 @@ select option{background:var(--bg-secondary);}
   .students-head { display: none; }
 }
 @media (max-width: 600px) {
+  .students-list { padding: 8px 12px 14px; }   /* wie die Reiter darüber (#overview-content) */
   .student-row { flex-wrap: wrap; row-gap: 2px; }
   .student-counters { order: 3; flex-basis: 100%; margin: 0; gap: 16px; }
   .student-counter[data-kind] { width: auto; }
