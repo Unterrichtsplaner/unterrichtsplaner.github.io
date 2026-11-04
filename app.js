@@ -7261,7 +7261,11 @@ function openSeatingStudentModal(studentId, groupId, dateStr) {
   const s = db.students[groupId].find(x => x.id === studentId);
   if (!s) return;
   document.getElementById('seating-student-title').textContent = `${s.firstName} ${s.lastName}`;
-  document.getElementById('seating-student-date-label').textContent = `Mitarbeit am ${formatDateDE(new Date(dateStr+'T12:00:00'))}`;
+  // Klasse · Fach · Tag: Der Tag gilt für alles oben im Fenster (Mitarbeit, Fehlzeit, HA, Note, Notiz; AH28)
+  const sg = db.groups.find(x => x.id === groupId);
+  document.getElementById('seating-student-sub').textContent = [sg && sg.className, sg && sg.subject, formatWeekdayShort(dateStr)].filter(Boolean).join(' · ');
+  closeSeatingGradePad();
+  setSeatingStudentMore(false, s);
   
   // Save context for smiley buttons
   window.currentSeatingStudent = { studentId, groupId, dateStr };
@@ -7347,6 +7351,111 @@ function renderSeatingStudentGrades(show) {
       openGradeForm(studentId, groupId, idx);
     };
     gradesContainer.appendChild(el);
+  });
+}
+
+// „Mehr zu …“ (AH28): Hinweise, Noten, Bilanz und der Weg ins Profil – zu beim Öffnen, damit oben das Schnelle bleibt
+function setSeatingStudentMore(open, s) {
+  const more = document.getElementById('sw-more');
+  const btn = document.getElementById('sw-more-btn');
+  if (!more || !btn) return;
+  more.hidden = !open;
+  btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+  if (s) document.getElementById('sw-more-label').textContent = `Mehr zu ${s.firstName || 'diesem Schüler'}`;
+}
+function toggleSeatingStudentMore() {
+  const more = document.getElementById('sw-more');
+  setSeatingStudentMore(more.hidden);
+}
+
+// ─── Note schnell geben (AH28) ───────────────────────────────────────────────
+// Schüler antippen → „Note geben“ → Zahl antippen = gespeichert. Art als Chips (je Klasse auf dem Gerät gemerkt, nie in
+// db), Titel nur wahlweise und nur für diese eine Note. Datum = Tag des Fensters. Rückgängig im Hinweis (Regel 45).
+const QUICK_GRADE_TYPES = [['muendlich', 'Mündlich'], ['test', 'Test'], ['mitarbeit', 'Mitarbeit'], ['projekt', 'Referat'], ['sonstig', 'Sonstiges']];
+const QUICK_GRADE_KEY = 'quick_grade_type';
+function quickGradeType(groupId) {
+  try {
+    const t = (JSON.parse(localStorage.getItem(QUICK_GRADE_KEY)) || {})[groupId];
+    return QUICK_GRADE_TYPES.some(([k]) => k === t) ? t : 'muendlich';
+  } catch (e) { return 'muendlich'; }
+}
+function rememberQuickGradeType(groupId, type) {
+  try {
+    const all = JSON.parse(localStorage.getItem(QUICK_GRADE_KEY)) || {};
+    all[groupId] = type;
+    localStorage.setItem(QUICK_GRADE_KEY, JSON.stringify(all));
+  } catch (e) { /* gesperrt: dann eben Mündlich */ }
+}
+// Knöpfe der Notentafel: 1–6 mit Tendenz (drei Reihen) bzw. 15 … 0 Punkte (zwei Reihen à 8)
+function quickGradeValues(scale) {
+  if (scale.higherIsBetter) return [15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0].map(n => ({ val: String(n), label: String(n), main: true }));
+  const n = [1, 2, 3, 4, 5, 6];
+  return [...n.map(x => ({ val: x + '+', label: x + '+' })), ...n.map(x => ({ val: String(x), label: String(x), main: true })),
+    ...n.map(x => ({ val: x + '-', label: x + '−' }))];
+}
+function quickGradePadHTML(groupId, withTitle) {
+  const scale = gradeScale(groupId);
+  const type = quickGradeType(groupId);
+  const vals = quickGradeValues(scale);
+  return `<div id="sw-grade-pad" class="sw-pad">
+    <div class="sw-chips" role="group" aria-label="Art der Note">${QUICK_GRADE_TYPES.map(([k, label]) =>
+      `<button type="button" data-type="${k}" class="${k === type ? 'on' : ''}" aria-pressed="${k === type}">${label}</button>`).join('')}</div>
+    ${withTitle ? '<input type="text" id="sw-grade-title" class="entry-input sw-grade-title" placeholder="Titel, z. B. Vokabeltest" aria-label="Titel der Note" list="gf-column-titles" />' : ''}
+    <div class="sw-grid${scale.higherIsBetter ? ' is-points' : ''}" role="group" aria-label="Note antippen = speichern">${vals.map(v =>
+      `<button type="button" data-val="${escHtml(v.val)}" class="${v.main ? 'is-main' : ''}" aria-label="Note ${escHtml(v.label)}">${escHtml(v.label)}</button>`).join('')}</div>
+    <div class="sw-pad-foot">${withTitle ? '' : '<button type="button" id="sw-grade-title-btn" class="btn-secondary sw-pad-title">+ Titel</button>'}<span>Antippen = gespeichert</span><button type="button" class="btn-secondary sw-pad-cancel">Abbrechen</button></div>
+  </div>`;
+}
+function openSeatingGradePad(withTitle = false) {
+  const ctx = window.currentSeatingStudent;
+  const box = document.getElementById('sw-grade');
+  if (!ctx || !box) return;
+  const title = document.getElementById('sw-grade-title');
+  const keepTitle = title ? title.value : '';
+  box.innerHTML = quickGradePadHTML(ctx.groupId, withTitle);
+  const pad = box.querySelector('#sw-grade-pad');
+  if (withTitle) { const t = pad.querySelector('#sw-grade-title'); t.value = keepTitle; try { t.focus(); } catch (e) { /* egal */ } }
+  pad.querySelectorAll('[data-type]').forEach(b => b.addEventListener('click', () => {
+    rememberQuickGradeType(ctx.groupId, b.dataset.type);
+    pad.querySelectorAll('[data-type]').forEach(x => { x.classList.toggle('on', x === b); x.setAttribute('aria-pressed', x === b ? 'true' : 'false'); });
+  }));
+  pad.querySelector('#sw-grade-title-btn')?.addEventListener('click', () => openSeatingGradePad(true));
+  pad.querySelectorAll('[data-val]').forEach(b => b.addEventListener('click', () => giveQuickGrade(b.dataset.val)));
+  pad.querySelector('.sw-pad-cancel').addEventListener('click', closeSeatingGradePad);
+}
+function closeSeatingGradePad() {
+  const box = document.getElementById('sw-grade');
+  if (box) box.innerHTML = `<button type="button" id="sw-grade-btn" class="sw-grade-btn">${icon('plus')}Note geben</button>`;
+}
+// Knöpfe im Schüler-Fenster per Listener (das Markup wird neu gesetzt; Inline-onclick läuft im Test nicht, Regel 18/19).
+// Am inneren Fenster, nicht am Overlay: .modal stoppt das Hochblubbern (event.stopPropagation).
+document.querySelector('#modal-seating-student .sw-body')?.addEventListener('click', e => {
+  if (e.target.closest('#sw-grade-btn')) openSeatingGradePad();
+  else if (e.target.closest('#sw-more-btn')) toggleSeatingStudentMore();
+});
+function giveQuickGrade(val) {
+  const ctx = window.currentSeatingStudent;
+  if (!ctx) return;
+  const { studentId, groupId, dateStr } = ctx;
+  const s = (db.students[groupId] || []).find(x => x.id === studentId);
+  if (!s) { showToast('Diesen Schüler gibt es nicht mehr (z. B. durch Sync). Note nicht gespeichert', 'error'); return; }
+  const parsed = parseGradeInput(val, gradeScale(groupId));
+  if (!parsed) return;
+  const type = document.querySelector('#sw-grade-pad .sw-chips .on')?.dataset.type || quickGradeType(groupId);
+  const titleEl = document.getElementById('sw-grade-title');
+  const entry = { type, value: parsed.value, date: dateStr || profileDefaultDate(), note: titleEl ? titleEl.value.trim() : '' };
+  if (!Array.isArray(s.grades)) s.grades = [];
+  s.grades.push(entry);
+  saveDB();
+  refreshGradeViews(s, groupId);
+  closeModal('modal-seating-student');
+  const typeName = (QUICK_GRADE_TYPES.find(([k]) => k === type) || [])[1] || gradeTypeName(type);
+  showUndoToast(`${studentListName(s)}: ${gradeText(entry.value)} (${entry.note || typeName})`, () => {
+    const i = (s.grades || []).indexOf(entry);
+    if (i === -1) return;
+    s.grades.splice(i, 1);
+    saveDB();
+    refreshGradeViews(s, groupId);
   });
 }
 

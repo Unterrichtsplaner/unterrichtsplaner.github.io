@@ -300,10 +300,10 @@ describe('Paket 4: Klassenansicht und Fenster', () => {
     expect(sumCell('Muster').getAttribute('style')).toContain('var(--danger)');
   });
 
-  it('I9: Mitarbeit-Bilanz steht beschriftet bei den Smileys, nicht neben „Bisherige Noten“', () => {
+  it('I9: Mitarbeit-Bilanz steht beschriftet für sich, nicht neben „Bisherige Noten“ (seit AH28 unter „Mehr zu …“, Beamer)', () => {
     app(`openSeatingStudentModal("s1", "g1", "${TODAY}")`);
     const sum = document.getElementById('seating-student-participation-summary');
-    expect(sum.closest('.seating-part-block')).not.toBeNull();
+    expect(sum.closest('#sw-more')).not.toBeNull();
     expect(sum.textContent).toMatch(/Mitarbeit bisher/);
     const gradesHead = [...document.querySelectorAll('#modal-seating-student h3')].find(h => h.textContent.includes('Noten'));
     expect(gradesHead.parentElement.contains(sum)).toBe(false);

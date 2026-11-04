@@ -40,7 +40,7 @@
       }
     })();
   </script>
-  <link rel="stylesheet" href="style.css?v=384" />
+  <link rel="stylesheet" href="style.css?v=386" />
   <script>
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
@@ -1417,54 +1417,54 @@
 
   <!-- Seating Student Quick Modal -->
   <div id="modal-seating-student" class="modal-overlay hidden" onclick="closeModalOnOverlay(event,'modal-seating-student')">
-    <div class="modal modal-small" onclick="event.stopPropagation()">
+    <!-- Schüler-Fenster (AH28): oben das Schnelle aus dem Unterricht, darunter aufklappbar alles Weitere -->
+    <div class="modal modal-small sw-modal" onclick="event.stopPropagation()">
       <div class="modal-header">
-        <h2 id="seating-student-title">Schüler</h2>
-        <div style="display:flex;gap:8px;align-items:center">
-          <button class="btn-secondary" onclick="jumpToStudentDetailFromSeating()">Zum Profil</button>
-          <button class="modal-close" aria-label="Schließen" onclick="closeModal('modal-seating-student')">✕</button>
-        </div>
+        <div class="sw-title"><h2 id="seating-student-title">Schüler</h2><span id="seating-student-sub" class="modal-subtitle"></span></div>
+        <button class="modal-close" aria-label="Schließen" onclick="closeModal('modal-seating-student')">✕</button>
       </div>
-      <div class="modal-body" style="padding:16px;">
-        <div style="text-align:center; margin-bottom:16px;">
-          <div class="seating-part-block">
-          <div style="font-size:14px; color:var(--text-secondary); margin-bottom:8px;" id="seating-student-date-label"></div>
-          <div style="display:flex; justify-content:center; gap:12px;">
-            <button class="btn-secondary" style="width:48px; height:48px; padding:0; display:flex; align-items:center; justify-content:center; font-size:26px; border-radius:99px;" data-action="positive" aria-pressed="false" aria-label="Gute Mitarbeit" onclick="addParticipationSmiley('positive')">😊</button>
-            <button class="btn-secondary" style="width:48px; height:48px; padding:0; display:flex; align-items:center; justify-content:center; font-size:26px; border-radius:99px;" data-action="neutral" aria-pressed="false" aria-label="Mittlere Mitarbeit" onclick="addParticipationSmiley('neutral')">😐</button>
-            <button class="btn-secondary" style="width:48px; height:48px; padding:0; display:flex; align-items:center; justify-content:center; font-size:26px; border-radius:99px;" data-action="negative" aria-pressed="false" aria-label="Schwache Mitarbeit" onclick="addParticipationSmiley('negative')">☹️</button>
-          </div>
-          <div id="seating-student-participation-summary" class="seating-part-summary" title="Mitarbeit bisher (positiv · neutral · negativ)"></div>
-          </div>
-          <div style="display:flex; flex-direction:column; gap:8px; margin-top:16px;">
-            <div style="display:flex; gap:8px;">
-              <button class="btn-secondary" style="flex:1; color:var(--danger); border-color:var(--danger);" data-action="abwesend" aria-pressed="false" onclick="setSeatingAbsence('abwesend')"><i data-icon="x-circle"></i>Unentschuldigt</button>
-              <button class="btn-secondary" style="flex:1; color:var(--success); border-color:var(--success);" data-action="entschuldigt" aria-pressed="false" onclick="setSeatingAbsence('entschuldigt')"><i data-icon="check-circle"></i>Entschuldigt</button>
-            </div>
-            <div style="display:flex; gap:8px;">
-              <button class="btn-secondary" style="flex:1;" data-action="zuspät" aria-pressed="false" onclick="setSeatingLate()"><i data-icon="late"></i>Zu spät</button>
-              <button class="btn-secondary" style="flex:1; color:var(--warning); border-color:var(--warning);" data-action="homework" aria-pressed="false" onclick="setSeatingHomework()"><i data-icon="homework"></i>Hausaufgabe fehlt</button>
-            </div>
+      <div class="modal-body sw-body">
+        <div class="seating-part-block">
+          <div class="sw-label">Mitarbeit</div>
+          <div class="sw-faces">
+            <button type="button" data-action="positive" aria-pressed="false" aria-label="Gute Mitarbeit" onclick="addParticipationSmiley('positive')">😊</button>
+            <button type="button" data-action="neutral" aria-pressed="false" aria-label="Mittlere Mitarbeit" onclick="addParticipationSmiley('neutral')">😐</button>
+            <button type="button" data-action="negative" aria-pressed="false" aria-label="Schwache Mitarbeit" onclick="addParticipationSmiley('negative')">☹️</button>
           </div>
         </div>
+        <div>
+          <div class="sw-label">Fehlzeit und Hausaufgabe</div>
+          <div class="sw-seg">
+            <button type="button" data-action="abwesend" aria-pressed="false" onclick="setSeatingAbsence('abwesend')">Fehlt</button>
+            <button type="button" data-action="entschuldigt" aria-pressed="false" onclick="setSeatingAbsence('entschuldigt')">Entschuldigt</button>
+            <button type="button" data-action="zuspät" aria-pressed="false" onclick="setSeatingLate()">Zu spät</button>
+            <button type="button" data-action="homework" aria-pressed="false" onclick="setSeatingHomework()">HA fehlt</button>
+          </div>
+        </div>
+        <div id="sw-grade"><button type="button" id="sw-grade-btn" class="sw-grade-btn"><i data-icon="plus"></i>Note geben</button></div>
         <!-- Notiz zum Schüler (AH10): eintippen sofort, vorhandene nur auf Knopfdruck -->
         <div class="seating-note-block">
-          <h3 class="seating-hint-title"><i data-icon="notes"></i>Notiz</h3>
+          <div class="sw-label">Notiz</div>
           <div class="lcn-add">
             <input type="text" id="seating-student-note-input" class="entry-input" placeholder="z. B. Heft vergessen" aria-label="Neue Notiz zum Schüler" />
             <button type="button" class="btn-secondary btn-circle seating-note-add" aria-label="Notiz hinzufügen"><i data-icon="plus"></i></button>
           </div>
           <div id="seating-student-notes"></div>
         </div>
-        <div class="seating-hint-block">
-          <h3 class="seating-hint-title"><i data-icon="info"></i>Hinweise</h3>
-          <div id="seating-student-hint"></div>
+        <button type="button" id="sw-more-btn" class="sw-more-btn" aria-expanded="false" aria-controls="sw-more"><span id="sw-more-label">Mehr</span><small>Noten, Hinweise, Profil</small></button>
+        <div id="sw-more" hidden>
+          <div id="seating-student-participation-summary" class="seating-part-summary"></div>
+          <div class="seating-hint-block">
+            <h3 class="seating-hint-title"><i data-icon="info"></i>Hinweise</h3>
+            <div id="seating-student-hint"></div>
+          </div>
+          <div class="sw-grades-head">
+            <h3 class="seating-hint-title"><i data-icon="grades"></i>Bisherige Noten</h3>
+            <button class="btn-secondary" onclick="openGradeFormForCurrentStudent()"><i data-icon="plus"></i>Note mit Formular</button>
+          </div>
+          <div id="seating-student-grades" class="sw-grades"></div>
+          <button type="button" class="btn-secondary sw-profile-btn" onclick="jumpToStudentDetailFromSeating()">Ganzes Profil öffnen</button>
         </div>
-        <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--border); padding-bottom:6px; margin-bottom:10px;">
-          <h3 style="font-size:13px; font-weight:600; color:var(--text-secondary); margin:0;">Bisherige Noten</h3>
-          <button class="btn-secondary" onclick="openGradeFormForCurrentStudent()"><i data-icon="plus"></i>Neue Note</button>
-        </div>
-        <div id="seating-student-grades" style="max-height:200px; overflow-y:auto; display:flex; flex-direction:column; gap:8px;"></div>
       </div>
     </div>
   </div>
@@ -1653,12 +1653,12 @@
   </div>
 
   <script src="lib/crypto-js.min.js"></script>
-  <script src="crypto-helper.js?v=384"></script>
+  <script src="crypto-helper.js?v=386"></script>
   <script src="lib/firebase-app-compat.js"></script>
   <script src="lib/firebase-auth-compat.js"></script>
   <script src="lib/firebase-firestore-compat.js"></script>
-  <script src="firebase-config.js?v=384"></script>
-  <script src="sync-manager.js?v=384"></script>
-  <script src="app.js?v=384"></script>
+  <script src="firebase-config.js?v=386"></script>
+  <script src="sync-manager.js?v=386"></script>
+  <script src="app.js?v=386"></script>
 </body>
 </html>
