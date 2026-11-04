@@ -53,6 +53,7 @@ const ICONS = {
   'cloud-up':   '<polyline points="16 16 12 12 8 16"/><line x1="12" y1="12" x2="12" y2="21"/><path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3"/>',
   save:         '<path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/>',
   check:        '<polyline points="20 6 9 17 4 12"/>',
+  settings:     '<circle cx="12" cy="12" r="3"/> <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>',
   search:       '<circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.5" y2="16.5"/>',
   todo:         '<path d="m3 17 2 2 4-4"/><path d="m3 7 2 2 4-4"/><path d="M13 6h8"/><path d="M13 12h8"/><path d="M13 18h8"/>',
   trash:        '<polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/>',
@@ -9692,15 +9693,18 @@ function syncNeedsAttention() {
   return !SyncManager.masterPassword || !!(confirmGroup && !confirmGroup.classList.contains('hidden'));
 }
 function updateSyncAttention() {
-  const btn = document.getElementById('nav-settings');
-  if (!btn) return;
   const needs = syncNeedsAttention();
-  btn.classList.toggle('needs-attention', needs);
   const confirmGroup = document.getElementById('sync-master-password-confirm-group');
-  if (needs && SyncManager.masterPassword && confirmGroup && !confirmGroup.classList.contains('hidden')) {
-    btn.title = 'Cloud-Sync wartet: Master-Passwort in den Einstellungen bitte noch einmal eingeben';
-  } else if (needs) btn.title = 'Cloud-Sync pausiert: Master-Passwort in den Einstellungen eingeben';
-  else btn.removeAttribute('title');
+  const title = needs && SyncManager.masterPassword && confirmGroup && !confirmGroup.classList.contains('hidden')
+    ? 'Cloud-Sync wartet: Master-Passwort in den Einstellungen bitte noch einmal eingeben'
+    : needs ? 'Cloud-Sync pausiert: Master-Passwort in den Einstellungen eingeben' : '';
+  // Menüpunkt (iPad/Laptop) und Zahnrad im Dashboard (Handy, AH21)
+  ['nav-settings', 'btn-settings-dashboard'].forEach(id => {
+    const btn = document.getElementById(id);
+    if (!btn) return;
+    btn.classList.toggle('needs-attention', needs);
+    if (title) btn.title = title; else btn.removeAttribute('title');
+  });
 }
 
 // Triggert den Sync-Prozess

@@ -95,12 +95,14 @@ input[type="date"] { min-height: 1.2em; } /* Fix iOS Safari date input collapse 
 .nav-item.needs-attention{position:relative;}
 .nav-item.needs-attention::after{content:'';position:absolute;top:6px;left:24px;width:9px;height:9px;border-radius:50%;background:var(--danger);}
 #sidebar.collapsed .nav-item.needs-attention::after{left:calc(50% + 4px);}
+.dash-settings-btn{display:none;margin-left:auto;position:relative;}   /* nur Handy, eingeblendet im Handy-Block unten (AH21) */
+.dash-settings-btn.needs-attention::after{content:'';position:absolute;top:4px;right:4px;width:9px;height:9px;border-radius:50%;background:var(--danger);}
 .nav-item svg{flex-shrink:0;transition:margin var(--transition);}
 .sidebar-footer{border-top:1px solid var(--border);height:80px;box-sizing:border-box;display:flex;align-items:center;padding:0 8px;}
 
 #sidebar.collapsed { width: 88px; padding: 0; }
 /* Mit Seitenleiste (iPad, Laptop): Die Ansichten reichen bis unten an den Rand, nur die Leiste hält Abstand zum
-   Home-Balken. Auf dem Handy (Leiste oben) bleibt der Abstand für die ganze App. */
+   Home-Balken. Auf dem Handy liegt die Leiste unten und hält den Abstand selbst (AH21). */
 @media (min-width: 601px){
   #app{padding-bottom:0;}
   #sidebar,#sidebar.collapsed{padding-bottom:env(safe-area-inset-bottom);}
@@ -778,15 +780,17 @@ input[name="new-lesson-part"]:checked + .duration-btn {
 select option{background:var(--bg-secondary);}
 
 @media(max-width:600px){
-  #app{flex-direction:column;min-height:0;}   /* Handy quer: nicht höher als der Bildschirm */
-  #sidebar{width:100%;flex-direction:row;padding:8px 12px;border-right:none;border-bottom:1px solid var(--border);}
+  #app{flex-direction:column;min-height:0;padding-bottom:0;}   /* Handy quer: nicht höher als der Bildschirm; Abstand zum Home-Balken hält die Leiste unten */
+  #sidebar{order:2;width:100%;flex-direction:row;padding:8px 12px;border-right:none;border-top:1px solid var(--border);padding-bottom:calc(8px + env(safe-area-inset-bottom));}   /* Leiste unten, mit dem Daumen erreichbar (AH21) */
   .sidebar-header{display:none;}   /* Logo + ☰ haben auf dem Handy keinen Zweck (BUGS I19) */
   .nav-items{flex-direction:row;align-items:center;}
   .nav-item span{display:none;}
   .sidebar-footer{border-top:none;padding:0;height:auto;}   /* 80 px zogen die ganze Leiste und die aktive Pille hoch */
-  #sidebar.collapsed{width:100%;padding:8px 12px;}  /* ☰ darf die Leiste oben nicht auf 88 px stauchen */
+  #sidebar.collapsed{width:100%;padding:8px 12px;padding-bottom:calc(8px + env(safe-area-inset-bottom));}  /* ☰ darf die Leiste nicht auf 88 px stauchen */
+  .sidebar-footer{display:none;}   /* Einstellungen als Zahnrad im Dashboard: unten nur 5 Punkte (AH21) */
+  .dash-settings-btn{display:inline-flex;width:44px;height:44px;}
   .nav-item.needs-attention::after{left:calc(50% + 4px);}
-  /* Klassenübersicht: Titel weg (die Leiste oben zeigt „Klassen“), Umschalter und „+“ passen in eine Zeile (AH12) */
+  /* Klassenübersicht: Titel weg (die Menüleiste zeigt „Klassen“), Umschalter und „+“ passen in eine Zeile (AH12) */
   #level-subjects .view-header h1{display:none;}
   #level-subjects .view-header{height:auto;min-height:68px;padding-top:10px;padding-bottom:10px;}
   #level-subjects .header-actions{width:100%;flex-wrap:wrap;justify-content:space-between;}
@@ -997,16 +1001,12 @@ select option{background:var(--bg-secondary);}
 }
 /* Handy-Navigation: gleich breite Felder mit kurzer Beschriftung unter dem Symbol (BUGS O7) */
 @media (max-width: 600px) {
-  #sidebar { padding: 6px 8px; gap: 4px; }
-  .nav-items { flex: 5 1 0; gap: 4px; padding: 0; }   /* 5 Menüpunkte + Einstellungen gleich breit (AH18) */
-  .sidebar-footer { flex: 1 1 0; display: flex; }
+  #sidebar { padding: 6px 8px calc(6px + env(safe-area-inset-bottom)); gap: 4px; }   /* Leiste unten: Abstand zum Home-Balken (AH21) */
+  .nav-items { flex: 1 1 0; gap: 4px; padding: 0; }   /* 5 Menüpunkte gleich breit; Einstellungen als Zahnrad im Dashboard (AH21) */
   .nav-item, #sidebar.collapsed .nav-item { flex: 1 1 0; min-width: 0; flex-direction: column; justify-content: center; gap: 2px; padding: 6px 0; border-radius:var(--radius-md); }
   .nav-item span, #sidebar.collapsed .nav-item span { display: block; font-size: 10px; font-weight: 600; line-height: 1.1; max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  /* Sechs Punkte: lange Namen als Kurzform, der volle Name steht im aria-label (Regel 47, AH18) */
-  .nav-item span.nav-long, #sidebar.collapsed .nav-item span.nav-long { display: none; }
 }
-.nav-item span.nav-short { display: none; }
-@media (max-width: 600px) { .nav-item span.nav-short, #sidebar.collapsed .nav-item span.nav-short { display: block; } }
+.nav-item span.nav-short { display: none; }   /* Kurzform wurde nur bei 6 Punkten gebraucht; seit AH21 sind es auf dem Handy 5 */
 #students-container { container-type: inline-size; }
 /* Schmal: Zahlen unter den Namen, mit eigener Bezeichnung statt Kopfzeile */
 @container (max-width: 520px) {

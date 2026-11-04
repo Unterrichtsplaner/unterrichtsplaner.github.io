@@ -40,7 +40,7 @@
       }
     })();
   </script>
-  <link rel="stylesheet" href="style.css?v=364" />
+  <link rel="stylesheet" href="style.css?v=369" />
   <script>
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
@@ -129,6 +129,7 @@
     <div id="view-dashboard" class="view">
       <div class="view-header">
         <h1>Dashboard</h1>
+        <button type="button" class="btn-icon dash-settings-btn" id="btn-settings-dashboard" onclick="openSettings()" aria-label="Einstellungen"><i data-icon="settings"></i></button>
       </div>
       <div class="dashboard-scroll">
         <button type="button" class="dash-search" id="btn-search-dashboard" onclick="openSearch()" aria-label="Suchen"><i data-icon="search"></i><span>Klasse, Schüler, Notiz suchen …</span></button>
@@ -1645,12 +1646,12 @@
   </div>
 
   <script src="lib/crypto-js.min.js"></script>
-  <script src="crypto-helper.js?v=364"></script>
+  <script src="crypto-helper.js?v=369"></script>
   <script src="lib/firebase-app-compat.js"></script>
   <script src="lib/firebase-auth-compat.js"></script>
   <script src="lib/firebase-firestore-compat.js"></script>
-  <script src="firebase-config.js?v=364"></script>
-  <script src="sync-manager.js?v=364"></script>
-  <script src="app.js?v=364"></script>
+  <script src="firebase-config.js?v=369"></script>
+  <script src="sync-manager.js?v=369"></script>
+  <script src="app.js?v=369"></script>
 </body>
 </html>

@@ -200,6 +200,8 @@ Datumswerte sind Strings `YYYY-MM-DD` in **lokaler** Zeit (`formatDate()`). Nie 
 
 74. **Schnellsuche nur über `searchResults`/`searchItemView`** (AH19). Sie durchsucht nie Noten, Hinweise (`notes`, `importantNote`) oder Schülernotizen und zeigt sie nie an (Beamer). Treffer merken sich nur Kennungen, geöffnet wird über `runSearchItem` mit frisch gesuchten Objekten (weg → Hinweis). „Zuletzt geöffnet“ liegt nur auf dem Gerät (`search_recent`, nie in `db`), eingetragen von `openGroupStudents`/`openStudentDetail`. Wer neue Inhalte durchsuchbar macht, prüft zuerst Regel 67.
 
+75. **Handy: Menüleiste unten mit 5 Punkten** (AH21). Einstellungen gibt es dort nur als Zahnrad im Dashboard (`btn-settings-dashboard`). Wer am Einstellungen-Knopf etwas anzeigt (Hinweis-Punkt, Titel), setzt es an beide Knöpfe (`updateSyncAttention`). Ein neuer Menüpunkt passt auf dem Handy nicht mehr dazu: dann erst klären, was rausfällt.
+
 ## Arbeitsablauf
 
 1. Aufgabe aus `BUGS.md` wählen (ein Block pro Sitzung).

@@ -186,3 +186,25 @@ describe('AH17: was sich markieren lässt', () => {
     expect(b.indexOf('input, textarea, [contenteditable="true"]{-webkit-user-select:text;user-select:text;-webkit-touch-callout:default;}')).toBeGreaterThan(b.indexOf('button, [role="button"]'));
   });
 });
+
+// AH21: Auf dem Handy liegt die Menüleiste unten (Daumen), 5 Punkte; Einstellungen als Zahnrad im Dashboard
+describe('AH21: Handy-Menüleiste unten', () => {
+  const phone = () => CSS.match(/@media\(max-width:600px\)\{([\s\S]*?)\n\}/)[1];
+  it('Leiste unten mit Abstand zum Home-Balken, Rand oben; App selbst ohne Abstand unten', () => {
+    expect(phone()).toMatch(/#sidebar\{[^}]*order:2;[^}]*border-top:1px solid var\(--border\);[^}]*padding-bottom:calc\(8px \+ env\(safe-area-inset-bottom\)\);/);
+    expect(phone()).toMatch(/#app\{[^}]*padding-bottom:0;/);
+  });
+  it('Einstellungen nicht in der Leiste, sondern als Zahnrad im Dashboard (nur Handy)', () => {
+    expect(phone()).toMatch(/\.sidebar-footer\{display:none;\}/);
+    expect(phone()).toMatch(/\.dash-settings-btn\{display:inline-flex;/);
+    expect(CSS).toMatch(/\.dash-settings-btn\{display:none;/);
+    expect(HTML).toMatch(/<button[^>]*id="btn-settings-dashboard"[^>]*onclick="openSettings\(\)"[^>]*aria-label="Einstellungen"/);
+  });
+  it('Hinweis „Sync wartet“ auch am Zahnrad im Dashboard', () => {   // App ist in dieser Datei schon geladen
+    app('SyncManager.isInitialized = true; SyncManager.currentUser = { uid: "u" }; SyncManager.masterPassword = ""; updateSyncAttention()');
+    expect(document.getElementById('btn-settings-dashboard').classList.contains('needs-attention')).toBe(true);
+    expect(document.getElementById('btn-settings-dashboard').title).toMatch(/Master-Passwort/);
+    app('SyncManager.masterPassword = "x"; updateSyncAttention()');
+    expect(document.getElementById('btn-settings-dashboard').classList.contains('needs-attention')).toBe(false);
+  });
+});
