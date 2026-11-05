@@ -96,6 +96,20 @@ describe('AA4: Stundenplan', () => {
     window.innerWidth = 1024;
   });
 
+  it('AH43: im Stundenplan steht der Ort vorne, ohne das Wort „Aufsicht“; ohne Ort steht „Aufsicht“', () => {
+    app('switchView("timetable")');
+    const chip = document.querySelector('.tt-supervision');
+    expect(chip.querySelector('.tt-sup-title').textContent).toBe('Hof');
+    expect(chip.getAttribute('aria-label')).toMatch(/^Aufsicht Hof,/);   // VoiceOver sieht das Raster nicht
+    app('db.supervisions[0].place = ""; renderTimetable()');
+    expect(document.querySelector('.tt-supervision .tt-sup-title').textContent).toBe('Aufsicht');
+  });
+
+  it('AH43: wird es eng, fällt die Uhrzeit weg, nicht der Ort', () => {
+    const css = require('fs').readFileSync(require('path').join(__dirname, '..', 'style.css'), 'utf8');
+    expect(css).toMatch(/\.timetable-grid\.tt-compact \.tt-supervision\{flex-wrap:wrap;box-sizing:border-box;height:26px;overflow:hidden;\}/);
+  });
+
   it('Knopf „+ Aufsicht“ öffnet das Formular, vorbelegt mit der ersten Pause', () => {
     app('switchView("timetable"); renderTimetable()');
     const btn = document.querySelector('#timetable-grid .tt-add-supervision');

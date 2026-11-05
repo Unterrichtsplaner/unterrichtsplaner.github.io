@@ -1397,7 +1397,7 @@ button.date-chip{font-family:inherit;padding:0;}
 .tt-break-label .tt-time-block-name{color:var(--text-muted);font-weight:500;}
 .tt-break-cell{display:flex;flex-direction:column;gap:var(--space-1);min-width:0;}
 .tt-supervision{display:flex;flex-direction:column;padding:var(--space-1) var(--space-2);border-radius:var(--radius-sm);color:var(--text-secondary);border:1px solid var(--border);font-size:12px;font-weight:700;cursor:pointer;min-width:0;}
-.tt-supervision .tt-sup-title{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.tt-supervision .tt-sup-title{color:var(--text-primary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .tt-supervision .tt-sup-time{font-weight:500;font-size:11px;opacity:.85;}
 .tt-corner{display:flex;align-items:center;justify-content:center;}
 .tt-add-supervision{font:inherit;font-size:11px;font-weight:600;line-height:1.2;padding:var(--space-1) var(--space-2);border-radius:var(--radius-sm);border:1px dashed var(--border);background:transparent;color:var(--text-secondary);cursor:pointer;}
@@ -1446,7 +1446,9 @@ button.date-chip{font-family:inherit;padding:0;}
 .timetable-grid.tt-compact .tt-break-label .tt-time-block-range{display:none;}
 .timetable-grid.tt-compact .tt-break-cell{gap:var(--space-1);}
 .timetable-grid.tt-compact .tt-supervision{flex-direction:row;align-items:baseline;gap:var(--space-1);padding:var(--space-1) var(--space-2);}
-.timetable-grid.tt-compact .tt-supervision .tt-sup-title{min-width:0;}
+.timetable-grid.tt-compact .tt-supervision{flex-wrap:wrap;box-sizing:border-box;height:26px;overflow:hidden;}   /* Passt die Uhrzeit nicht daneben, rutscht sie in die verdeckte zweite Zeile: Der Ort bleibt ganz (AH43) */
+.timetable-grid.tt-compact .tt-supervision .tt-sup-title{min-width:0;max-width:100%;line-height:16px;}
+.timetable-grid.tt-compact .tt-supervision .tt-sup-time{line-height:16px;}
 /* Ferien laden (Y8c) */
 .holiday-load-row{display:flex;gap:var(--space-2);align-items:center;flex-wrap:wrap;margin-bottom:var(--space-1);}
 .holiday-load-row select{flex:1 1 180px;min-width:0;}

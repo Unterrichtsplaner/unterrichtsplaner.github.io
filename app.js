@@ -562,7 +562,7 @@ function supervisionChip(sup) {
   chip.setAttribute('role', 'button');
   chip.tabIndex = 0;
   chip.setAttribute('aria-label', `Aufsicht ${sup.place || ''}, ${sup.start}–${sup.end}`.replace(' ,', ','));
-  chip.innerHTML = `<span class="tt-sup-title">Aufsicht${sup.place ? ` · ${escHtml(sup.place)}` : ''}</span><span class="tt-sup-time">${escHtml(sup.start || '')}–${escHtml(sup.end || '')}</span>`;
+  chip.innerHTML = `<span class="tt-sup-title">${escHtml(sup.place || 'Aufsicht')}</span><span class="tt-sup-time">${escHtml(sup.start || '')}–${escHtml(sup.end || '')}</span>`;
   chip.addEventListener('click', () => openSupervisionForm(sup.id));
   return chip;
 }
@@ -1204,7 +1204,7 @@ function buildPrintTimetable({ from, name = '', color = true }) {
   const supCell = (dayIdx, gap) => sups.filter(x => supervisionGap(x, blocks) === gap)
     .map(x => ({ x, inA: slotInRegularPlan(x, weekA[dayIdx]), inB: slotInRegularPlan(x, weekB[dayIdx]) }))
     .filter(e => e.inA || e.inB)
-    .map(e => { const tag = tagged(e.inA, e.inB); return `<div class="pt-sup">${tag ? `<i class="pt-tag">${tag}</i>` : ''}Aufsicht${e.x.place ? ' ' + escHtml(e.x.place) : ''} <span>${escHtml(e.x.start || '')}–${escHtml(e.x.end || '')}</span></div>`; }).join('');
+    .map(e => { const tag = tagged(e.inA, e.inB); return `<div class="pt-sup">${tag ? `<i class="pt-tag">${tag}</i>` : ''}${e.x.place ? escHtml(e.x.place) : 'Aufsicht'} <span>${escHtml(e.x.start || '')}–${escHtml(e.x.end || '')}</span></div>`; }).join('');
   const pauseRow = gap => {
     const cells = [0, 1, 2, 3, 4].map(i => supCell(i, gap));
     if (!cells.some(Boolean)) return '';
@@ -9801,7 +9801,7 @@ function supervisionDashRow(x, isTodayShown, nowMins) {
   return `<div class="dash-lesson dash-supervision ${state}" onclick="openSupervisionForm(${jsArg(x.id)})">
       <div class="dash-lesson-time">${escHtml(x.start || '')}<small>Pause</small></div>
       <div class="dash-lesson-main">
-        <div class="dash-lesson-title">Aufsicht${x.place ? ` <span>${escHtml(x.place)}</span>` : ''}</div>
+        <div class="dash-lesson-title">${x.place ? `${escHtml(x.place)} <span>Aufsicht</span>` : 'Aufsicht'}</div>
         <div class="dash-lesson-room">${escHtml(x.start || '')}–${escHtml(x.end || '')}</div>
       </div>
       <div class="dash-lesson-badges"></div>
