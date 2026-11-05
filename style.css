@@ -495,44 +495,53 @@ button.cr-name:focus-visible{outline:2px solid var(--accent);outline-offset:3px;
 
 /* ─── Overview Table ─── */
 .overview-table-wrapper {
+  --ov-name:208px;
+  --ov-sum:104px;
+  --ov-col:96px;
   background: var(--bg-card);
   border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-md);
   overflow: auto;
-  box-shadow: var(--shadow-sm);
-  max-height: 100%;
+  scroll-snap-type:x mandatory;   /* beim Wischen immer ganze Spalten */
+  scroll-padding-left:calc(var(--ov-name) + var(--ov-sum));
+  max-height:calc(100% - var(--space-5) - var(--space-3));   /* Platz für die Erklärzeile darüber (AH40) */
 }
-.overview-table{width:100%;border-collapse:separate;border-spacing:0;font-size:13px;text-align:center;font-variant-numeric:tabular-nums;}
-.overview-table th{background:var(--bg-elevated);color:var(--text-secondary);font-weight:600;padding:var(--space-3) var(--space-4);border-bottom:1px solid var(--border);border-right:1px solid var(--border);white-space:nowrap;position:sticky;top:0;z-index:1;text-align:center;}
+.overview-table{table-layout:fixed;width:100%;min-width:calc(var(--ov-name) + var(--ov-sum) + var(--ov-cols, 0) * var(--ov-col));border-collapse:separate;border-spacing:0;font-size:14px;text-align:center;font-variant-numeric:tabular-nums;}
+.overview-table th{box-sizing:border-box;height:calc(var(--control-h) + var(--space-3));padding:0 var(--space-2);background:var(--bg-elevated);color:var(--text-secondary);font-size:13px;font-weight:600;line-height:1.3;border-bottom:1px solid var(--border);white-space:nowrap;overflow:hidden;position:sticky;top:0;z-index:1;text-align:center;vertical-align:middle;}
 .overview-table th:first-child, .overview-table td:first-child{text-align:left;}
-.overview-table td{padding:var(--space-3) var(--space-4);border-bottom:1px solid var(--border);border-right:1px solid var(--border);white-space:nowrap;}
+.overview-table th:not(.ov-name-col):not(.ov-sum-col){scroll-snap-align:start;}
+.overview-table td{box-sizing:border-box;height:var(--control-h);padding:0 var(--space-2);border-bottom:1px solid var(--border);white-space:nowrap;}
 @media (hover: hover){.overview-table tr:hover td{background:var(--bg-card-hover);}}
-.overview-table th:last-child, .overview-table td:last-child{border-right:none;}
 .overview-table tr:last-child td{border-bottom:none;}
-.overview-table .col-type{display:inline-block;font-size:10px;font-weight:700;padding:1px var(--space-2);margin-bottom:var(--space-1);border-radius:var(--radius-xs);background:var(--bg-card);color:var(--text-muted);border:1px solid var(--border);letter-spacing:.3px;}
+.overview-table .col-sub{display:flex;align-items:center;justify-content:center;gap:var(--space-1);min-width:0;}
+.overview-table .col-type{flex-shrink:0;padding:0 var(--space-1);font-size:10px;font-weight:700;line-height:14px;border-radius:var(--radius-xs);background:var(--bg-card);color:var(--text-muted);border:1px solid var(--border);letter-spacing:.3px;}
 .overview-table .col-type.weighted{background:var(--bg-elevated);color:var(--text-primary);border-color:var(--text-muted);} /* Klassenarbeit: kräftiger, aber ohne Akzent (AE4) */
-.overview-table .col-title{font-weight:400;font-size:11px;}
+.overview-table .col-title{min-width:0;font-size:12px;font-weight:400;overflow:hidden;text-overflow:ellipsis;}
 /* Namensspalte bleibt beim seitlichen Scrollen links stehen */
-.overview-table .ov-name-col{position:sticky;left:0;z-index:1;background:var(--bg-card);text-align:left;}
-.overview-table th.ov-name-col{background:var(--bg-elevated);z-index:2;min-width:140px;}
+.overview-table .ov-name-col{position:sticky;left:0;z-index:1;width:var(--ov-name);padding-left:var(--space-4);background:var(--bg-card);text-align:left;}
+.overview-table th.ov-name-col{background:var(--bg-elevated);z-index:2;}
 .overview-table td.ov-name{font-weight:500;cursor:pointer;color:var(--text-primary);}
 /* Zusammenfassung (Ø, Mitarbeit, Fehlt, Vergessen) bleibt beim seitlichen Wischen neben dem Namen stehen (AH24) */
-.overview-table .ov-sum-col{position:sticky;left:var(--ov-name-w, 140px);z-index:1;background:var(--bg-card);}
+.overview-table .ov-sum-col{position:sticky;left:var(--ov-name);z-index:1;width:var(--ov-sum);border-right:1px solid var(--border);background:var(--bg-card);}
 .overview-table th.ov-sum-col{background:var(--bg-elevated);z-index:2;}
 .overview-table .ov-sum{text-align:center;font-weight:600;white-space:nowrap;}
 .overview-table .ov-sum .sep{color:var(--text-muted);font-weight:400;}
 .overview-table .ov-sum .n-bad{color:var(--danger);}
 .overview-table th.ov-today{color:var(--accent);box-shadow:inset 0 -2px 0 var(--accent);}   /* Spalte von heute */
-.overview-table td.ov-part-cell{text-align:center;padding:var(--space-1);}
-.ov-part-btn{display:inline-flex;align-items:center;justify-content:center;min-width:40px;min-height:34px;padding:0;background:none;border:none;border-radius:var(--radius-sm);font-family:inherit;font-size:20px;color:inherit;cursor:pointer;}
+.overview-table td.ov-part-cell,.overview-table td.ov-cycle-cell,.overview-table td.ov-grade-cell{padding:0;text-align:center;}
+.ov-part-btn{display:flex;align-items:center;justify-content:center;width:100%;min-height:var(--control-h);padding:0;background:none;border:none;border-radius:var(--radius-sm);font-family:inherit;font-size:20px;color:inherit;cursor:pointer;}
 .ov-part-btn .ov-empty{font-size:16px;color:var(--text-muted);}   /* leere Mitarbeit: leiser Strich statt Emoji (Regel 22) */
-.ov-name-text{display:block;}
+.ov-name-text{display:block;overflow:hidden;text-overflow:ellipsis;}
 #overview-content{flex:1;overflow-y:auto;padding:var(--space-4) var(--page-x);container-type:inline-size;}
 /* Schmale Tabelle (Handy, Split View): Namen kürzen, damit Notenspalten Platz haben (BUGS I7) */
 @container (max-width: 520px) {
-  .overview-table th, .overview-table td { padding: var(--space-2) var(--space-3); }
-  .overview-table th.ov-name-col { min-width: 0; }
-  .ov-name-text { max-width: 110px; overflow: hidden; text-overflow: ellipsis; }
+  .overview-table-wrapper{--ov-name:124px;--ov-sum:72px;--ov-col:max(72px, calc((100cqw - 2px - var(--ov-name) - var(--ov-sum)) / 2));}
+  .overview-table th,.overview-table td{padding:0 var(--space-1);}
+  .overview-table .ov-name-col{padding-left:var(--space-4);}
+  .overview-table th.ov-sum-col{font-size:12px;}
+  .overview-table .col-type:not(.weighted){display:none;}
+  .ov-wide-only{display:none;}
+  .ov-hint-wide{display:none;}
 }
 
 .modal-body{flex:1;overflow-y:auto;padding:var(--space-4);min-height:0;}
@@ -1024,17 +1033,15 @@ select option{background:var(--bg-secondary);}
   .class-tabs .tab-short { display: inline; white-space: nowrap; }
 }
 /* Notentabelle ruhig (AH24 d): keine Kästchen, Rahmen erst beim Antippen; schwache Noten mit Fläche */
-.overview-table .ov-grade-input{background:transparent;border-color:transparent;box-shadow:none;}
+.overview-table .ov-grade-input{width:100%;height:var(--control-h);min-height:0;padding:0 var(--space-1);text-align:center;background:transparent;border-color:transparent;box-shadow:none;}
 .overview-table .ov-grade-input:focus{background:var(--bg-card);border-color:var(--accent);}
 .overview-table td.ov-grade-weak{background:var(--danger-soft);}
 /* Fehlzeiten/HA: Antippen schaltet weiter (AH24 e) */
-.overview-table td.ov-cycle-cell{padding:var(--space-1);text-align:center;}
-.ov-cycle-btn{display:block;width:100%;min-width:44px;min-height:36px;padding:0;background:none;border:1px solid transparent;border-radius:var(--radius-sm);font-family:inherit;font-size:14px;font-weight:600;color:var(--text-primary);cursor:pointer;}
+.ov-cycle-btn{display:block;width:100%;min-height:var(--control-h);padding:0;background:none;border:1px solid transparent;border-radius:var(--radius-sm);font-family:inherit;font-size:14px;font-weight:600;color:var(--text-primary);cursor:pointer;}
 .ov-cycle-btn.is-bad{color:var(--danger);}
 .ov-cycle-btn:focus-visible{border-color:var(--accent);}
 @media (hover: hover){.ov-cycle-btn:hover{background:var(--bg-elevated);}}
-@media (pointer: coarse){.ov-cycle-btn{min-height:44px;}}
-.ov-legend{display:flex;flex-wrap:wrap;gap:var(--space-1) var(--space-3);margin:0 0 var(--space-2);font-size:12px;color:var(--text-secondary);}
+.ov-legend{display:flex;align-items:center;flex-wrap:nowrap;gap:var(--space-4);height:var(--space-5);margin:0 0 var(--space-3);font-size:13px;color:var(--text-secondary);white-space:nowrap;overflow:hidden;}
 .ov-legend b{color:var(--text-primary);}
 /* Mitarbeit: kleine Auswahl neben dem Feld (AH24 e) */
 .ov-part-pop{position:fixed;z-index:1200;display:flex;gap:var(--space-1);padding:var(--space-2);background:var(--bg-secondary);border:1px solid var(--border);border-radius:var(--radius-md);box-shadow:var(--shadow-lg);}
@@ -1057,7 +1064,6 @@ select option{background:var(--bg-secondary);}
 /* Klassenansicht: Tippflächen (AH24) */
 @media (pointer: coarse){
   .class-tabs .tab-btn, .class-view-header button{min-height:44px;min-width:44px;}
-  .ov-part-btn{min-width:44px;min-height:44px;}
   .student-counter{min-height:44px;}
   .grades-veil button{min-height:44px;}
 }
@@ -1867,6 +1873,15 @@ textarea.form-input,.notes-textarea{min-height:calc(var(--control-h) * 2.5);}
 .search-input{height:var(--control-h);box-sizing:border-box;padding:0 var(--space-3);border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--bg-input);font-size:14px;}
 .search-input:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 2px var(--accent-glow);}
 #sidebar.collapsed .sidebar-search{width:var(--control-h);padding:0;}
+/* Tabellen (AH40): Vier Knöpfe passen auf schmalen iPads nicht in den Kopf, die Tabelle spränge sonst nur auf diesem Reiter */
+@media (max-width: 800px){
+  #btn-add-overview-other .btn-label{display:none;}
+  #btn-add-overview-other{width:var(--control-h);padding:0;justify-content:center;}
+}
+@media (max-width: 700px){
+  .class-view-header .btn-label{display:none;}
+  .class-view-header .btn-seating,#btn-add-overview-col,#btn-class-grades{width:var(--control-h);padding:0;justify-content:center;}
+}
 /* Weitere Stellen mit eigener Größe */
 .classes-sort select{font-size:14px;}
 @media (pointer: coarse){.classes-sort select{font-size:16px;}}

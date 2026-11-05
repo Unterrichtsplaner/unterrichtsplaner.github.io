@@ -160,10 +160,9 @@ describe('I7: Klassenansicht auf iPad hochkant und Handy', () => {
 
   it('schmale Tabelle: lange Namen werden gekürzt, damit Notenspalten Platz haben', () => {
     expect(rulesFor('#overview-content')).toMatch(/container-type:\s*inline-size/);
-    const block = css.match(/@container\s*\(max-width:\s*\d+px\)\s*\{[^@]*\.ov-name-text\s*\{([^}]*)\}/);
-    expect(block).not.toBeNull();
-    expect(block[1]).toMatch(/max-width:\s*\d+px/);
-    expect(block[1]).toMatch(/text-overflow:\s*ellipsis/);
+    // AH40: Die Spalte hat eine feste Breite, schmal eine kleinere; der Name wird darin gekürzt
+    expect(css).toMatch(/@container\s*\(max-width:\s*\d+px\)\s*\{\s*\.overview-table-wrapper\{--ov-name:\d+px/);
+    expect(rulesFor('.ov-name-text')).toMatch(/text-overflow:\s*ellipsis/);
   });
 
   it('alle Tabellen-Reiter nutzen dieselbe Namensspalte', () => {

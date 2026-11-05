@@ -82,7 +82,7 @@ describe('AH24 b: Neuester Tag sichtbar', () => {
       expect(heads()[1].classList.contains('ov-sum-col'), tab).toBe(true);
       expect(row('Anna').querySelectorAll('td')[1].classList.contains('ov-sum-col'), tab).toBe(true);
     }
-    expect(CSS).toMatch(/\.overview-table \.ov-sum-col\{position:sticky;left:var\(--ov-name-w, 140px\);/);
+    expect(CSS).toMatch(/\.overview-table \.ov-sum-col\{position:sticky;left:var\(--ov-name\);/);
   });
 });
 
@@ -130,8 +130,9 @@ describe('AH24 a: einheitlich und leise', () => {
     expect(CSS).toMatch(/@media \(min-width: 601px\) and \(max-width: 1023px\)\{\s*\.class-tabs \.tab-long\{display:none;\}\s*\.class-tabs \.tab-short\{display:inline;\}/);
     const coarse = CSS.match(/\/\* Klassenansicht: Tippflächen \(AH24\) \*\/\s*@media \(pointer: coarse\)\{([^@]*?)\n\}/);
     expect(coarse).not.toBeNull();
-    for (const sel of ['.class-tabs .tab-btn', '.class-view-header button', '.ov-part-btn', '.student-counter']) expect(coarse[1]).toContain(sel);
+    for (const sel of ['.class-tabs .tab-btn', '.class-view-header button', '.student-counter']) expect(coarse[1]).toContain(sel);
     expect(coarse[1]).toMatch(/min-height:44px/);
+    expect(CSS).toMatch(/\.ov-part-btn\{[^}]*min-height:var\(--control-h\);/);   // Tabellenzellen über die gemeinsame Höhe (AH40)
     expect(HTML).toMatch(/id="overview-tab-attendance"[^>]*>.*<span class="tab-long">Fehlzeiten<\/span>/);
   });
 });

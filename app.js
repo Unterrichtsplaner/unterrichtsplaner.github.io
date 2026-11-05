@@ -3200,6 +3200,29 @@ function addTodayColumn() {
 
 // Spaltenkopf der Tabellen: Wochentag + Datum ohne Jahr (schmalere Spalten), Spalte von heute markiert (AH24)
 function overviewDateHead(dateStr) { return escHtml(formatWeekdayShort(dateStr)); }
+// Kopf einer Tabellenspalte: oben das Datum, darunter Art und Titel; alle Reiter gleich (AH40). tagHTML ist fertiges Markup.
+// Passen nicht alle Spalten, wird die Breite so gewählt, dass nur ganze Spalten zu sehen sind; null = alle passen (AH40)
+function overviewColWidth(free, cols, base) {
+  const fit = Math.floor(free / base);
+  return fit >= 1 && cols > fit ? free / fit : null;
+}
+function fitOverviewColumns() {
+  const wrap = document.querySelector('#overview-content .overview-table-wrapper');
+  const table = wrap && wrap.querySelector('table');
+  if (!table || !wrap.clientWidth) return;
+  table.style.removeProperty('--ov-col');
+  const css = getComputedStyle(wrap);
+  const [base, name, sum] = ['--ov-col', '--ov-name', '--ov-sum'].map(v => Number(css.getPropertyValue(v).trim().replace(/px$/, '')));
+  if (!base || !name || !sum) return;   // schmal: rechnet style.css selbst (zwei Spalten)
+  const width = overviewColWidth(wrap.clientWidth - name - sum, table.querySelectorAll('thead th').length - 2, base);
+  if (width) table.style.setProperty('--ov-col', width + 'px');
+}
+// Fenster gedreht, Seitenleiste eingeklappt, Split View: Spalten neu einpassen
+if (typeof ResizeObserver === 'function') new ResizeObserver(fitOverviewColumns).observe(document.getElementById('overview-content'));
+function overviewColHead(dateStr, label, tagHTML = '') {
+  const title = label ? `<span class="col-title" title="${escHtml(label)}">${escHtml(label)}</span>` : '';
+  return `<div class="col-date">${overviewDateHead(dateStr)}</div>${tagHTML || title ? `<div class="col-sub">${tagHTML}${title}</div>` : ''}`;
+}
 const overviewTodayClass = dateStr => dateStr === formatDate(new Date()) ? ' class="ov-today"' : '';
 // Welche Tabelle zuletzt gezeichnet wurde: gleiche Tabelle = Scroll-Stelle behalten (AH23), neue = neueste Spalte zeigen
 let overviewRenderedKey = null;
@@ -3252,8 +3275,7 @@ function renderOverviewTable() {
       const weighted = gradeCategory(type) === 'schularbeit';
       const typeTitle = weighted ? `${gradeTypeName(type)}: zählt ${weight} % der Note` : `${gradeTypeName(type)}: Sonstige, zählt ${100 - weight} % der Note`;
       html += `<th${overviewTodayClass(ev.date)} style="cursor:pointer;" title="Klicken zum Bearbeiten" onclick="openEditColumnModal(${jsArg(ev.date)}, ${jsArg(ev.label)}, ${jsArg(type)}, ${ev.nth})">`
-        + `<div class="col-type${weighted ? ' weighted' : ''}" title="${escHtml(typeTitle)}">${escHtml(gradeTypeShort(type))}</div>`
-        + `<div>${overviewDateHead(ev.date)}</div><div class="col-title">${escHtml(ev.label || gradeTypeName(type))}</div></th>`;
+        + overviewColHead(ev.date, ev.label || gradeTypeName(type), `<span class="col-type${weighted ? ' weighted' : ''}" title="${escHtml(typeTitle)}">${escHtml(gradeTypeShort(type))}</span>`) + '</th>';
     });
     html += '</tr></thead><tbody>';
 
@@ -3271,7 +3293,7 @@ function renderOverviewTable() {
         const val = grade ? grade.value : '';
         const num = val ? gradeNumber(val) : NaN;
         const weak = !isNaN(num) && gradeIsWeak(num, scale);
-        html += `<td class="ov-grade-cell${weak ? ' ov-grade-weak' : ''}" style="padding:var(--space-1);"><input type="text" enterkeyhint="next" class="form-input ov-grade-input" style="width:100%; text-align:center; padding:var(--space-2); font-weight:${weak ? 700 : 600}; color:${val ? gradeInk(num, scale) : 'inherit'}" value="${escHtml(gradeText(val))}" placeholder="–" onchange="updateInlineGrade(${jsArg(s.id)}, ${jsArg(ev.date)}, ${jsArg(ev.label)}, this.value, ${jsArg(ev.type)}, ${ev.nth})" /></td>`;
+        html += `<td class="ov-grade-cell${weak ? ' ov-grade-weak' : ''}"><input type="text" enterkeyhint="next" class="form-input ov-grade-input" style="font-weight:${weak ? 700 : 600}; color:${val ? gradeInk(num, scale) : 'inherit'}" value="${escHtml(gradeText(val))}" placeholder="–" onchange="updateInlineGrade(${jsArg(s.id)}, ${jsArg(ev.date)}, ${jsArg(ev.label)}, this.value, ${jsArg(ev.type)}, ${ev.nth})" /></td>`;
       });
       html += `</tr>`;
     });
@@ -3308,7 +3330,7 @@ function renderOverviewTable() {
     
     html += '<th class="ov-sum-col" title="Mitarbeit: positiv / neutral / negativ">+ / = / –</th>';
     partDates.forEach(ev => {
-      html += `<th${overviewTodayClass(ev.date)} style="cursor:pointer;" title="Klicken zum Bearbeiten" onclick="openEditColumnModal(${jsArg(ev.date)}, ${jsArg(ev.label)})"><div>${overviewDateHead(ev.date)}</div>${ev.label ? `<div style="font-weight:400;font-size:11px;">${escHtml(ev.label)}</div>` : ''}</th>`;
+      html += `<th${overviewTodayClass(ev.date)} style="cursor:pointer;" title="Klicken zum Bearbeiten" onclick="openEditColumnModal(${jsArg(ev.date)}, ${jsArg(ev.label)})">${overviewColHead(ev.date, ev.label)}</th>`;
     });
     html += '</tr></thead><tbody>';
 
@@ -3352,9 +3374,9 @@ function renderOverviewTable() {
     });
     const attDates = Array.from(attEventsMap.values()).sort((a,b) => a.date.localeCompare(b.date));
     
-    html += '<th class="ov-sum-col" title="Fehltage unentschuldigt (F) / entschuldigt (E), ohne zu spät (Z)">Fehlt F / E</th>';
+    html += '<th class="ov-sum-col" title="Fehltage unentschuldigt (F) / entschuldigt (E), ohne zu spät (Z)"><span class="ov-wide-only">Fehlt </span>F / E</th>';
     attDates.forEach(ev => {
-      html += `<th${overviewTodayClass(ev.date)} style="cursor:pointer;" title="Klicken zum Bearbeiten" onclick="openEditColumnModal(${jsArg(ev.date)}, ${jsArg(ev.label)})"><div>${overviewDateHead(ev.date)}</div>${ev.label ? `<div style="font-weight:400;font-size:11px;">${escHtml(ev.label)}</div>` : ''}</th>`;
+      html += `<th${overviewTodayClass(ev.date)} style="cursor:pointer;" title="Klicken zum Bearbeiten" onclick="openEditColumnModal(${jsArg(ev.date)}, ${jsArg(ev.label)})">${overviewColHead(ev.date, ev.label)}</th>`;
     });
     html += '</tr></thead><tbody>';
 
@@ -3385,7 +3407,7 @@ function renderOverviewTable() {
     
     html += '<th class="ov-sum-col" title="Wie oft die Hausaufgaben gefehlt haben">Vergessen</th>';
     hwDates.forEach(ev => {
-      html += `<th${overviewTodayClass(ev.date)} style="cursor:pointer;" title="Klicken zum Bearbeiten" onclick="openEditColumnModal(${jsArg(ev.date)}, ${jsArg(ev.label)})"><div>${overviewDateHead(ev.date)}</div>${ev.label ? `<div style="font-weight:400;font-size:11px;">${escHtml(ev.label)}</div>` : ''}</th>`;
+      html += `<th${overviewTodayClass(ev.date)} style="cursor:pointer;" title="Klicken zum Bearbeiten" onclick="openEditColumnModal(${jsArg(ev.date)}, ${jsArg(ev.label)})">${overviewColHead(ev.date, ev.label)}</th>`;
     });
     html += '</tr></thead><tbody>';
 
@@ -3405,20 +3427,22 @@ function renderOverviewTable() {
   }
 
   html += '</tbody></table></div>';
-  const legend = currentOverviewTab === 'attendance'
-    ? '<div class="ov-legend"><span>Antippen schaltet weiter:</span><span>leer = da</span><span><b>F</b> fehlt</span><span><b>E</b> entschuldigt</span><span><b>Z</b> zu spät</span></div>'
-    : currentOverviewTab === 'homework' ? '<div class="ov-legend"><span>Antippen: <b>X</b> = Hausaufgabe vergessen</span></div>' : '';
-  content.innerHTML = legend + html;
+  // Erklärzeile auf jedem Reiter, damit die Tabelle überall an derselben Stelle beginnt (AH40)
+  const legend = {
+    grades: '<span>Antippen zum Eintragen</span><span>Ø = Schnitt mit Gewichtung</span>',
+    participation: '<span>Antippen wählt:</span><span>😊 gut</span><span>😐 neutral</span><span>☹️ schlecht</span>',
+    attendance: '<span class="ov-hint-wide">Antippen schaltet weiter:</span><span class="ov-hint-wide">leer = da</span><span><b>F</b> fehlt</span><span><b>E</b> entschuldigt</span><span><b>Z</b> zu spät</span>',
+    homework: '<span>Antippen: <b>X</b> = Hausaufgabe vergessen</span>',
+  }[currentOverviewTab];
+  content.innerHTML = `<div class="ov-legend">${legend}</div>` + html;
   const wrapEl = content.querySelector('.overview-table-wrapper');
   if (wrapEl) {
     wrapEl.addEventListener('scroll', () => {   // Wischen schließt die Auswahl; das späte Scroll-Ereignis vom Springen zur neuesten Spalte nicht
       if (ovPartPicker && (wrapEl.scrollLeft !== ovPartPicker.left || wrapEl.scrollTop !== ovPartPicker.top)) closeParticipationPicker();
     }, { passive: true });
-    // Zusammenfassung klebt neben der Namensspalte; deren Breite hängt von den Namen ab
-    const nameTh = wrapEl.querySelector('th.ov-name-col');
-    // genaue Breite (mit Nachkommastellen), sonst blitzt in der Lücke die Tabelle darunter durch
-    const nameW = nameTh ? nameTh.getBoundingClientRect().width : 0;
-    if (nameW) wrapEl.style.setProperty('--ov-name-w', nameW + 'px');
+    const tableEl = wrapEl.querySelector('table');
+    tableEl.style.setProperty('--ov-cols', tableEl.querySelectorAll('thead th').length - 2);   // für die Mindestbreite (AH40)
+    fitOverviewColumns();
     if (keepScroll) { wrapEl.scrollLeft = keepScroll.left; wrapEl.scrollTop = keepScroll.top; content.scrollTop = keepScroll.outer; }
     else wrapEl.scrollLeft = wrapEl.scrollWidth;   // neu geöffnet: neueste Spalte (rechts) zeigen (AH24)
   }
