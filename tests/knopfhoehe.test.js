@@ -54,6 +54,10 @@ describe('AH39: Eingabefelder sehen gleich aus', () => {
   it('auf dem iPad auch die Auswahlfelder in Feldschrift (16), sonst stehen sie kleiner neben den Textfeldern', () => {
     expect(felder).toMatch(/@media \(pointer: coarse\)\{\.custom-form-dropdown-trigger\{font-size:16px;\}\}/);
   });
+  it('Suche wie alle Felder: Knopf in der Seitenleiste und im Dashboard sowie das Feld im Suchfenster nutzen die gemeinsame Höhe', () => {
+    expect(felder).toMatch(/\.sidebar-search,\.dash-search\{height:var\(--control-h\);/);
+    expect(felder).toMatch(/\.search-input\{[^}]*height:var\(--control-h\);[^}]*border:1px solid var\(--border\);[^}]*background:var\(--bg-input\);/);
+  });
   it('Textfelder mit mehreren Zeilen: eine gemeinsame Mindesthöhe', () => {
     expect(felder).toMatch(/textarea\.form-input,\.notes-textarea\{min-height:calc\(var\(--control-h\) \* 2\.5\);\}/);
   });

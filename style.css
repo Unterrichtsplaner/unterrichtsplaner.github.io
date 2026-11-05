@@ -1861,6 +1861,19 @@ input.form-input,select.form-input,input.entry-input,input.entry-date,.custom-fo
 .form-input,.entry-input,.entry-date,.block-row .block-name-input,.block-row .block-time-input,.custom-form-dropdown-trigger,.notes-textarea{padding-left:var(--space-3);padding-right:var(--space-3);font-size:14px;border-radius:var(--radius-sm);}
 @media (pointer: coarse){.custom-form-dropdown-trigger{font-size:16px;}}
 textarea.form-input,.notes-textarea{min-height:calc(var(--control-h) * 2.5);}
+/* Suche: Knopf und Feld sehen aus wie alle anderen Felder */
+.sidebar-search,.dash-search{height:var(--control-h);padding-left:var(--space-3);padding-right:var(--space-3);border-radius:var(--radius-sm);font-size:14px;}
+.search-field{gap:var(--space-2);padding:var(--space-3) var(--space-4);}
+.search-input{height:var(--control-h);box-sizing:border-box;padding:0 var(--space-3);border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--bg-input);font-size:14px;}
+.search-input:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 2px var(--accent-glow);}
+#sidebar.collapsed .sidebar-search{width:var(--control-h);padding:0;}
+/* Weitere Stellen mit eigener Größe */
+.classes-sort select{font-size:14px;}
+@media (pointer: coarse){.classes-sort select{font-size:16px;}}
+.grade-round-type{min-height:var(--control-h);padding:0 var(--space-3);font-size:14px;}
+.grade-round-done{min-height:var(--control-h);}
+.seating-grid-input{width:calc(var(--control-h) * 1.5);height:var(--control-h);box-sizing:border-box;border-radius:var(--radius-sm);font-size:14px;}
+@media (pointer: coarse){.seating-grid-input,.grade-round-type{font-size:16px;}}
 /* Ende Eingabefelder (AH39) */
 
 /* Einstellungen (AH38): Menü links, rechts Karten des gewählten Bereichs; Handy: Menü als Leiste oben */

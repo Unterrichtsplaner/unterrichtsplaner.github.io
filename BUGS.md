@@ -684,7 +684,7 @@ Geprüft: Cockpit, Fenster „Heute“, Schüler-Hinweis, Schülerliste/Klassen�
 
 - [x] **AH38** 🟠 **Einstellungen, Formulare, Klassenkopf** (Wunsch 05.11.). *Einstellungen: Menü und sieben Bereiche (`showSettingsPane`) statt vier Bildschirmen Scrollen, feste Fenstergröße, Handy mit Menüleiste oben. Alle Fenster: gleiche Kopf-, Innen- und Fußabstände, 520 breit statt 470; gefährliche Knöpfe unten links (`.footer-left`), Hauptknopf ganz rechts. Vorher lag der Knopf bei neuen Einträgen links, weil ein verstecktes „Löschen“ den Platz hielt. Klassenkopf: Hauptknopf rechts außen. Planung und Klassenplan bis zum rechten Rand. Test: `tests/einstellungen-aufbau.test.js`.*
 
-- [x] **AH39** 🟢 **Eingabefelder gleich groß?** (Frage 05.11.) *Nachgemessen in 21 Fenstern und Ansichten: Höhe überall gleich (Touch 44, Maus 36), aber Text begann bei 8 oder 12 px, Schrift 12/13/14 (Laptop), auf dem iPad Auswahlfelder 14 neben Textfeldern 16, Textfelder mit mehreren Zeilen verschieden hoch und rund. Jetzt alles gleich (Block „Eingabefelder (AH39)“). Bewusst anders: Suchfeld (eigene große Zeile), Zellen der Notentabelle.*
+- [x] **AH39** 🟢 **Eingabefelder gleich groß?** (Frage 05.11.) *Nachgemessen in 21 Fenstern und Ansichten: Höhe überall gleich (Touch 44, Maus 36), aber Text begann bei 8 oder 12 px, Schrift 12/13/14 (Laptop), auf dem iPad Auswahlfelder 14 neben Textfeldern 16, Textfelder mit mehreren Zeilen verschieden hoch und rund. Jetzt alles gleich (Block „Eingabefelder (AH39)“). Auch die Suche: Knopf in Seitenleiste und Dashboard und das Feld im Suchfenster wie alle Felder; dazu Notenrunde und Raster-Felder im Sitzplan. Bewusst anders nur die Zellen der Notentabelle.*
 
 ---
 
