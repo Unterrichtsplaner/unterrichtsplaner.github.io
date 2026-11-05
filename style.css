@@ -1218,8 +1218,6 @@ select option{background:var(--bg-secondary);}
 #btn-seating-trend.active,#btn-seating-grades.active{background:var(--accent-soft);color:var(--text-accent);}
 /* Schüler-Fenster: Hinweis */
 .seating-hint-block{margin-bottom:16px;}
-.seating-note-block{margin-bottom:16px;}
-.seating-note-block .lcn-add{margin-top:0;}
 #seating-student-notes:not(:empty){margin-top:8px;}
 .seating-notes{list-style:none;margin:0 0 8px;padding:0;display:flex;flex-direction:column;gap:4px;max-height:140px;overflow-y:auto;}
 .seating-notes li{font-size:13px;color:var(--text-primary);overflow-wrap:anywhere;}
@@ -1255,49 +1253,16 @@ button.date-chip{font-family:inherit;padding:0;}
 .date-chip:not(.has-lesson):not(.active){opacity:.6;}
 .seating-group-item{width:100%;}
 /* Schüler-Fenster (AH28): oben das Schnelle, alles gleich ruhig; heute schon eingetragen = dunkel gefüllt */
-.sw-modal .modal-header{align-items:flex-start;}
-.sw-title{display:flex;flex-direction:column;gap:2px;min-width:0;}
-.sw-title h2{margin:0;}
-.sw-body{display:flex;flex-direction:column;gap:14px;padding:14px 18px 18px;}
-.sw-label{font-size:12px;font-weight:600;color:var(--text-secondary);margin:0 0 6px;}
-.sw-faces{display:flex;gap:8px;}
-.sw-faces button{flex:1;height:52px;border-radius:var(--radius-sm);border:1px solid var(--border);background:var(--bg-elevated);font-size:26px;line-height:1;cursor:pointer;}
-.sw-seg{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px;}
-.sw-seg button{min-height:44px;padding:0 6px;border-radius:var(--radius-sm);border:1px solid var(--border);background:var(--bg-elevated);font-family:inherit;font-size:14px;font-weight:500;color:var(--text-primary);cursor:pointer;}
 #modal-seating-student .sw-seg [data-action].is-set{background:var(--text-primary);border-color:var(--text-primary);color:var(--bg-secondary);font-weight:600;}
 #modal-seating-student .sw-faces [data-action].is-set{border-color:var(--text-primary);box-shadow:inset 0 0 0 2px var(--text-primary);background:var(--bg-card);}
-.sw-grade-btn{width:100%;min-height:48px;display:flex;align-items:center;justify-content:center;gap:8px;border-radius:var(--radius-sm);border:1px dashed var(--text-muted);background:transparent;font-family:inherit;font-size:14px;font-weight:600;color:var(--text-primary);cursor:pointer;}
-.sw-grade-btn .ico{width:16px;height:16px;}
-.sw-pad{border:1px solid var(--border);border-radius:var(--radius-md);background:var(--bg-card);padding:10px;}
-.sw-chips{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px;}
-.sw-chips button{min-height:36px;padding:0 12px;border-radius:var(--radius-sm);border:1px solid var(--border);background:var(--bg-elevated);font-family:inherit;font-size:13px;color:var(--text-primary);cursor:pointer;}
 .sw-chips button.on{background:var(--text-primary);border-color:var(--text-primary);color:var(--bg-secondary);font-weight:600;}
-.sw-grade-title{width:100%;margin-bottom:10px;}
-.sw-grid{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:6px;}
-.sw-grid.is-points{grid-template-columns:repeat(8,minmax(0,1fr));}
-.sw-grid button{height:40px;border-radius:var(--radius-sm);border:1px solid var(--border);background:var(--bg-elevated);font-family:inherit;font-size:14px;font-weight:500;color:var(--text-secondary);font-variant-numeric:tabular-nums;cursor:pointer;}
-.sw-grid button.is-main{height:48px;font-size:20px;font-weight:600;color:var(--text-primary);}
-.sw-pad-foot{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-top:10px;font-size:12px;color:var(--text-muted);}
-.sw-pad-foot span{flex:1;text-align:center;}
-.sw-pad-cancel,.sw-pad-title{min-height:36px;}
-.sw-more-btn{width:100%;min-height:48px;display:flex;align-items:center;justify-content:space-between;gap:10px;padding:0 14px;border-radius:var(--radius-sm);border:1px solid var(--border);background:var(--bg-elevated);font-family:inherit;font-size:14px;font-weight:600;color:var(--text-primary);cursor:pointer;text-align:left;}
-.sw-more-btn small{font-size:13px;font-weight:400;color:var(--text-secondary);}
-.sw-more-btn::after{content:'›';font-size:20px;font-weight:400;color:var(--text-secondary);transition:transform var(--transition);}
 .sw-more-btn[aria-expanded="true"]::after{transform:rotate(90deg);}
-#sw-more{display:flex;flex-direction:column;gap:14px;}
 #sw-more[hidden]{display:none;}
-#sw-more .seating-part-summary{margin:0 0 8px;}
-#sw-more .seating-hint-block{margin-bottom:0;}
 /* Beamer (AH28): Noten, Mitarbeit, Notizen, Hinweise erst nach einem „Anzeigen“ */
-#sw-more .sw-veil{margin:0;}
 #sw-more:not(.is-veiled) .sw-veil{display:none;}
 #sw-more.is-veiled [data-private]{display:none;}
-.sw-sec{border-top:1px solid var(--border);padding-top:12px;}
 .sw-sec .entry-list{max-height:none;overflow:visible;gap:0;}
 /* Einträge als ruhige Zeilen statt Einzelkarten (AH28) */
-.sw-sec .entry-item,.sw-sec .grade-item{background:none;border:none;border-bottom:1px solid var(--border);border-radius:0;padding:6px 2px;min-height:40px;animation:none;}
-.sw-sec .entry-item:last-child,.sw-sec .grade-item:last-child{border-bottom:none;}
-.sw-sec .grades-summary{margin-bottom:6px;}
 .entry-face{font-size:20px;line-height:1;min-width:26px;text-align:center;}
 /* Notenrunde im Sitzplan (AH28) */
 .grade-round-bar{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin:10px 20px 0;padding:8px 10px 8px 16px;box-sizing:border-box;background:var(--bg-card);border:1px solid var(--text-primary);border-radius:var(--radius-md);flex-shrink:0;}
@@ -1318,15 +1283,10 @@ button.date-chip{font-family:inherit;padding:0;}
   .grade-round-hint,.grade-round-label{display:none;}
   .grade-round-type{min-width:0;flex:1;}
 }
-.sw-sec .add-entry-row{margin-top:8px;}
-.sw-add-btn{margin-top:8px;}
-.sw-hint{font-size:14px;color:var(--text-primary);padding:8px 10px;margin-bottom:8px;border-radius:var(--radius-sm);background:var(--bg-card);border:1px solid var(--border);overflow-wrap:anywhere;white-space:pre-wrap;}
 .sw-hint small{display:flex;align-items:center;gap:4px;font-size:12px;font-weight:600;color:var(--text-secondary);margin-bottom:2px;white-space:normal;}
 .sw-hint.is-important{border-color:color-mix(in srgb, var(--danger) 45%, transparent);}
 .sw-hint.is-important small{color:var(--danger);}
 .sw-hint small .ico{width:13px;height:13px;}
-.sw-hint-empty{font-size:13px;color:var(--text-muted);margin-bottom:8px;}
-.sw-head-btns{position:relative;display:flex;align-items:center;gap:8px;}
 .sw-menu-btn .ico{width:20px;height:20px;}
 .sw-menu{position:absolute;right:0;top:calc(100% + 6px);z-index:20;min-width:260px;padding:6px;background:var(--bg-secondary);border:1px solid var(--border);border-radius:var(--radius-md);box-shadow:var(--shadow-lg);display:flex;flex-direction:column;}
 .sw-menu[hidden]{display:none;}
@@ -1334,13 +1294,6 @@ button.date-chip{font-family:inherit;padding:0;}
 .sw-menu button .ico{width:16px;height:16px;color:var(--text-secondary);}
 .sw-menu button.is-danger,.sw-menu button.is-danger .ico{color:var(--danger);}
 @media (hover: hover){ .sw-menu button:hover{background:var(--bg-elevated);} }
-.seating-note-block{margin-bottom:0;}
-@media (max-width: 600px){
-  .sw-seg{grid-template-columns:repeat(2,minmax(0,1fr));}
-  .sw-body{padding:12px 14px 16px;}
-  .sw-grid{gap:4px;}
-  .sw-grid.is-points{grid-template-columns:repeat(4,minmax(0,1fr));}
-}
 /* Timer abgelaufen: bleibt sichtbar bis „Zurücksetzen“ */
 .tool-display.timer-done{color:var(--danger);animation:timerDone 1s ease-in-out infinite;}
 @keyframes timerDone{50%{opacity:.35;}}
@@ -1825,35 +1778,110 @@ input.form-input,select.form-input,input.entry-input,input.entry-date,.custom-fo
 .form-input,.entry-input,.entry-date,.custom-form-dropdown-trigger{border-radius:var(--radius-sm);}
 /* Ende Eine Höhe (AH33) */
 
-/* Schüler-Fenster breit (AH31): Hinweis im Kopf, ab iPad-Breite zwei Spalten; das Handy bleibt einspaltig */
-.sw-col{display:flex;flex-direction:column;gap:14px;min-width:0;}
-.sw-modal .modal-header{flex-wrap:wrap;gap:8px 16px;}
-.sw-modal .sw-title{flex:1 1 auto;}
-.sw-head-btns{flex-shrink:0;}
+/* Abstände (AH34): nur diese Werte. 4 Titel zu Untertitel · 8 Knopf zu Knopf, Überschrift zu Inhalt · 12 zwischen Karten ·
+   16 Innenrand von Karten und Fenstern · 24 zwischen großen Abschnitten · 32 große Seitenränder */
+:root{--space-1:4px;--space-2:8px;--space-3:12px;--space-4:16px;--space-5:24px;--space-6:32px;}
+
+/* Schüler-Fenster (AH28, AH31, AH34): Karten in einem gemeinsamen Raster, jede Reihe bündig. Ab iPad-Breite zwei Spalten, Handy eine. */
+.sw-modal .modal-header{flex-wrap:wrap;align-items:center;gap:var(--space-2) var(--space-4);padding:var(--space-4);}
+.sw-title{display:flex;flex-direction:column;gap:var(--space-1);min-width:0;flex:1 1 auto;}
+.sw-title h2{margin:0;}
+.sw-head-btns{position:relative;display:flex;align-items:center;gap:var(--space-2);flex-shrink:0;}
 .sw-head-hint{order:3;flex:1 1 100%;min-width:0;}
 .sw-head-hint[hidden]{display:none;}
-.sw-hint-chip{display:inline-flex;align-items:center;gap:8px;min-height:var(--control-h);padding:0 14px;border-radius:99px;border:1px solid var(--border);background:var(--bg-elevated);font-family:inherit;font-size:13px;font-weight:500;color:var(--text-primary);cursor:pointer;}
+.sw-hint-chip{display:inline-flex;align-items:center;gap:var(--space-2);min-height:var(--control-h);padding:0 var(--space-4);border-radius:99px;border:1px solid var(--border);background:var(--bg-elevated);font-family:inherit;font-size:13px;font-weight:500;color:var(--text-primary);cursor:pointer;}
 .sw-hint-chip .ico{width:16px;height:16px;margin:0;flex-shrink:0;}
 .sw-hint-chip.is-important{border-color:color-mix(in srgb, var(--danger) 45%, transparent);color:var(--danger);font-weight:600;}
-.sw-hint-text{display:flex;flex-direction:column;gap:2px;width:100%;max-height:96px;overflow-y:auto;padding:2px 0 2px 10px;border:none;border-left:3px solid var(--border-active);border-radius:0;background:none;font-family:inherit;font-size:13px;line-height:1.35;text-align:left;color:var(--text-primary);overflow-wrap:anywhere;white-space:pre-line;}
+.sw-hint-text{display:flex;flex-direction:column;gap:var(--space-1);width:100%;max-height:96px;overflow-y:auto;padding:0 0 0 var(--space-3);border:none;border-left:3px solid var(--border-active);border-radius:0;background:none;font-family:inherit;font-size:13px;line-height:1.35;text-align:left;color:var(--text-primary);overflow-wrap:anywhere;white-space:pre-line;}
 button.sw-hint-text{cursor:pointer;}
 .sw-hint-text.is-important{border-left-color:var(--danger);}
 .sw-hint-text b{font-weight:600;}
 .sw-hint-text span{color:var(--text-secondary);}
-.sw-sec .add-entry-row .entry-date{flex:0 0 auto;}
+
+.sw-body{display:flex;flex-direction:column;gap:var(--space-3);padding:var(--space-4);}
+.sw-body > *{flex-shrink:0;min-width:0;}
+.sw-card,.sw-sec,.sw-pad,#sw-more .sw-veil{display:flex;flex-direction:column;gap:var(--space-2);min-width:0;margin:0;padding:var(--space-4);box-sizing:border-box;background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-md);}
+#sw-more .sw-veil{flex-direction:row;align-items:center;gap:var(--space-3);}
+.sw-card-part{order:1;}.sw-card-att{order:2;}.sw-card-grade{order:3;}#sw-grade-slot{order:4;}.sw-card-note{order:5;}.sw-more-btn{order:6;}#sw-more{order:7;}
+#sw-grade-slot[hidden]{display:none;}
+.sw-label{font-size:12px;font-weight:600;color:var(--text-secondary);margin:0;}
+.sw-faces{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:var(--space-2);}
+.sw-seg{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--space-2);}
+.sw-faces button,.sw-seg button,.sw-grade-btn,.sw-more-btn,.sw-chips button,.sw-grid button{box-sizing:border-box;min-height:var(--control-h);border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--bg-elevated);font-family:inherit;font-size:13px;font-weight:500;color:var(--text-primary);cursor:pointer;}
+.sw-faces button{font-size:20px;line-height:1;padding:0;}
+.sw-seg button{padding:0 var(--space-2);}
+.sw-grade-btn{display:flex;align-items:center;justify-content:center;gap:var(--space-2);width:100%;padding:0 var(--space-3);}
+.sw-grade-btn[aria-expanded="true"]{border-color:var(--text-primary);}
+.sw-grade-btn .ico{width:16px;height:16px;margin:0;}
+.sw-card-note .lcn-add{display:flex;align-items:center;gap:var(--space-2);margin:0;}
+#seating-student-notes:empty{display:none;}
+.seating-notes{margin:0;}
+.sw-today{display:flex;align-items:center;flex-grow:1;min-height:var(--control-h);box-sizing:border-box;font-size:13px;line-height:1.35;color:var(--text-secondary);}
+.sw-pad{gap:var(--space-3);}
+.sw-chips{display:flex;flex-wrap:wrap;gap:var(--space-2);}
+.sw-chips button{padding:0 var(--space-3);}
+.sw-chips button.on{background:var(--text-primary);border-color:var(--text-primary);color:var(--bg-secondary);font-weight:600;}
+.sw-grade-title{width:100%;}
+.sw-grid{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:var(--space-2);}
+.sw-grid.is-points{grid-template-columns:repeat(8,minmax(0,1fr));}
+.sw-grid button{min-height:44px;padding:0;font-size:14px;color:var(--text-secondary);font-variant-numeric:tabular-nums;}
+.sw-grid button.is-main{font-size:20px;font-weight:600;color:var(--text-primary);}
+.sw-pad-foot{display:flex;justify-content:space-between;align-items:center;gap:var(--space-2);font-size:12px;color:var(--text-muted);}
+.sw-pad-foot span{flex:1;text-align:center;}
+.sw-more-btn{display:flex;align-items:center;justify-content:flex-start;gap:var(--space-3);width:100%;padding:0 var(--space-4);font-size:14px;font-weight:600;text-align:left;}
+.sw-more-btn > span{flex-shrink:0;white-space:nowrap;}
+.sw-more-btn small{flex:0 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px;font-weight:400;color:var(--text-secondary);}
+.sw-more-btn::after{content:'›';margin-left:auto;font-size:20px;font-weight:400;color:var(--text-secondary);transition:transform var(--transition);}
+.sw-more-btn[aria-expanded="true"]::after{transform:rotate(90deg);}
+#sw-more{display:flex;flex-direction:column;gap:var(--space-3);}
+#sw-more[hidden]{display:none;}
+.sw-sec .seating-hint-title{margin:0;}
+.sw-sec .seating-part-summary{margin:0;}
+.sw-sec .grades-summary{margin:0;}
+.sw-sec .entry-item,.sw-sec .grade-item{min-height:var(--control-h);box-sizing:border-box;padding:var(--space-1) 0;gap:var(--space-2);background:none;border:none;border-bottom:1px solid var(--border);border-radius:0;animation:none;}
+.sw-sec .entry-item:last-child,.sw-sec .grade-item:last-child{border-bottom:none;}
+.entry-empty{font-size:13px;color:var(--text-muted);}
+@media (pointer: coarse){.sw-sec .entry-item-delete{margin-right:calc(var(--space-4) * -1);}}   /* das ✕ sitzt bündig am Rand, die Tippfläche ragt nach außen */
+/* Eingabezeilen: immer unten in der Karte, damit sie nebeneinander auf einer Linie liegen */
+.sw-sec .add-entry-row{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr) var(--control-h);margin:auto 0 0;padding:0;gap:var(--space-2);background:none;border:none;border-radius:0;}
+.sw-sec .add-entry-row > *{min-width:0;width:100%;}
+#new-att-type,#sw-sec-attendance .custom-form-dropdown{grid-column:2 / 4;}
+#new-att-note{grid-column:1 / 3;}
+#new-hw-student-date{grid-column:1 / 4;}
+#new-hw-student-note{grid-column:1 / 3;}
+#new-hw-student-note + datalist{display:none;}
+#new-student-note-date{grid-column:1 / 4;}
+#new-student-note-text{grid-column:1 / 3;}
+.sw-add-btn{display:flex;align-items:center;justify-content:center;gap:var(--space-2);width:100%;margin-top:auto;}
+.sw-add-btn .ico{margin:0;}
+.sw-hint{font-size:14px;color:var(--text-primary);padding:var(--space-2) var(--space-3);border-radius:var(--radius-sm);background:var(--bg-elevated);border:1px solid var(--border);overflow-wrap:anywhere;white-space:pre-wrap;}
+.sw-hint + .sw-hint{margin-top:var(--space-2);}
+.sw-hint small{display:flex;align-items:center;gap:var(--space-1);font-size:12px;font-weight:600;color:var(--text-secondary);margin:0 0 var(--space-1);white-space:normal;}
+.sw-hint.is-important{border-color:color-mix(in srgb, var(--danger) 45%, transparent);}
+.sw-hint.is-important small{color:var(--danger);}
+.sw-hint small .ico{width:13px;height:13px;}
+.sw-hint-empty{font-size:13px;color:var(--text-muted);}
+#seating-student-hint{display:flex;flex-direction:column;align-items:stretch;gap:var(--space-2);}
+#seating-student-hint .sw-hint + .sw-hint{margin-top:0;}
+#seating-student-hint .sw-hint-edit{align-self:flex-start;}
+@media (max-width: 500px){.sw-more-btn small{display:none;}}   /* sonst bricht der Name um */
 @media (min-width: 800px){
   .modal.sw-modal{width:760px;max-width:calc(100vw - 32px);}
-  .sw-modal .modal-header{flex-wrap:nowrap;align-items:center;}
-  .sw-modal .sw-title{flex:0 1 auto;max-width:240px;}
+  .sw-modal .modal-header{flex-wrap:nowrap;}
+  .sw-title{flex:0 1 auto;max-width:240px;}
   .sw-head-hint{order:0;flex:1 1 0;}
   .sw-head-btns{margin-left:auto;}
-  .sw-body{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:16px 20px;}
-  .sw-body > .sw-more-btn, .sw-body > #sw-more{grid-column:1 / -1;}
-  .sw-seg{grid-template-columns:repeat(2,minmax(0,1fr));}
-  #sw-more:not([hidden]){display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:12px 20px;align-items:start;}
-  #sw-more .sw-veil, #sw-sec-hints{grid-column:1 / -1;}
+  .sw-body{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);align-content:start;}
+  .sw-body > *{order:0;}
+  .sw-card-part,.sw-card-att,.sw-card-grade,#sw-grade-slot,.sw-card-note,.sw-more-btn,#sw-more{order:0;}
+  #sw-grade-slot,.sw-more-btn,#sw-more{grid-column:1 / -1;}
+  #sw-more:not([hidden]){display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);}
+  #sw-more .sw-veil,#sw-sec-hints,#sw-sec-notes{grid-column:1 / -1;}
+  #sw-sec-notes .add-entry-row{grid-template-columns:minmax(0,1fr) minmax(0,2fr) var(--control-h);}
+  #new-student-note-date{grid-column:auto;}
+  #new-student-note-text{grid-column:auto;}
 }
-/* Ende Schüler-Fenster breit (AH31) */
+/* Ende Schüler-Fenster (AH34) */
 
 /* Markieren (AH17): wie in einer App. Bedienelemente nicht markierbar und ohne Kopieren-Menü beim langen Drücken
    (iPad: sonst Lupe und blaue Markierung statt Aktion); Inhalte, die man lesen oder weitergeben will, und alle

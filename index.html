@@ -40,7 +40,7 @@
       }
     })();
   </script>
-  <link rel="stylesheet" href="style.css?v=404" />
+  <link rel="stylesheet" href="style.css?v=407" />
   <script>
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
@@ -1360,16 +1360,20 @@
         </div>
       </div>
       <div class="modal-body sw-body">
-        <div class="sw-col">
-        <div class="seating-part-block">
+        <section class="sw-card sw-card-part">
           <div class="sw-label">Mitarbeit</div>
           <div class="sw-faces">
             <button type="button" data-action="positive" aria-pressed="false" aria-label="Gute Mitarbeit" onclick="addParticipationSmiley('positive')">😊</button>
             <button type="button" data-action="neutral" aria-pressed="false" aria-label="Mittlere Mitarbeit" onclick="addParticipationSmiley('neutral')">😐</button>
             <button type="button" data-action="negative" aria-pressed="false" aria-label="Schwache Mitarbeit" onclick="addParticipationSmiley('negative')">☹️</button>
           </div>
-        </div>
-        <div>
+        </section>
+        <section class="sw-card sw-card-grade">
+          <div class="sw-label">Note</div>
+          <div id="sw-grade"><button type="button" id="sw-grade-btn" class="sw-grade-btn" aria-expanded="false" aria-controls="sw-grade-slot"><i data-icon="plus"></i>Note geben</button></div>
+        </section>
+        <div id="sw-grade-slot" hidden></div>
+        <section class="sw-card sw-card-att">
           <div class="sw-label">Fehlzeit und Hausaufgabe</div>
           <div class="sw-seg">
             <button type="button" data-action="abwesend" aria-pressed="false" onclick="setSeatingAbsence('abwesend')">Fehlt</button>
@@ -1377,20 +1381,17 @@
             <button type="button" data-action="zuspät" aria-pressed="false" onclick="setSeatingLate()">Zu spät</button>
             <button type="button" data-action="homework" aria-pressed="false" onclick="setSeatingHomework()">HA fehlt</button>
           </div>
-        </div>
-        </div>
-        <div class="sw-col">
-        <div id="sw-grade"><button type="button" id="sw-grade-btn" class="sw-grade-btn"><i data-icon="plus"></i>Note geben</button></div>
+        </section>
         <!-- Notiz zum Schüler (AH10): eintippen sofort, vorhandene nur auf Knopfdruck -->
-        <div class="seating-note-block">
+        <section class="sw-card sw-card-note">
           <div class="sw-label">Notiz</div>
           <div class="lcn-add">
             <input type="text" id="seating-student-note-input" class="entry-input" placeholder="z. B. Heft vergessen" aria-label="Neue Notiz zum Schüler" />
             <button type="button" class="btn-secondary btn-circle seating-note-add" aria-label="Notiz hinzufügen"><i data-icon="plus"></i></button>
           </div>
           <div id="seating-student-notes"></div>
-        </div>
-        </div>
+          <div id="sw-today" class="sw-today"></div>
+        </section>
         <button type="button" id="sw-more-btn" class="sw-more-btn" aria-expanded="false" aria-controls="sw-more"><span id="sw-more-label">Mehr</span><small>Noten, Verlauf, Notizen, Hinweise</small></button>
         <div id="sw-more" hidden>
           <div class="grades-veil sw-veil"><i data-icon="eye-off"></i><span>Noten, Mitarbeit, Notizen und Hinweise sind verborgen, damit am Beamer niemand mitliest.</span><button type="button" id="sw-reveal" class="btn-secondary">Anzeigen</button></div>
@@ -1402,7 +1403,7 @@
             <h3 class="seating-hint-title"><i data-icon="grades"></i>Noten</h3>
             <div class="grades-summary" id="grades-summary"></div>
             <div class="entry-list" id="grades-list"></div>
-            <button type="button" id="sw-grade-form-btn" class="btn-secondary sw-add-btn"><i data-icon="plus"></i>Note mit Formular (anderer Tag, Klassenarbeit …)</button>
+            <button type="button" id="sw-grade-form-btn" class="btn-secondary sw-add-btn"><i data-icon="plus"></i>Note mit Formular eintragen</button>
           </section>
           <section id="sw-sec-participation" class="sw-sec" data-private>
             <h3 class="seating-hint-title"><i data-icon="participation"></i>Mitarbeit</h3>
@@ -1629,13 +1630,13 @@
   </div>
 
   <script src="lib/crypto-js.min.js"></script>
-  <script src="crypto-helper.js?v=404"></script>
+  <script src="crypto-helper.js?v=407"></script>
   <script src="lib/firebase-app-compat.js"></script>
   <script src="lib/firebase-auth-compat.js"></script>
   <script src="lib/firebase-firestore-compat.js"></script>
-  <script src="firebase-config.js?v=404"></script>
-  <script src="sync-manager.js?v=404"></script>
-  <script src="sync-merge.js?v=404"></script>
-  <script src="app.js?v=404"></script>
+  <script src="firebase-config.js?v=407"></script>
+  <script src="sync-manager.js?v=407"></script>
+  <script src="sync-merge.js?v=407"></script>
+  <script src="app.js?v=407"></script>
 </body>
 </html>

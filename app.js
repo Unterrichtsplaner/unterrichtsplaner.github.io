@@ -4404,7 +4404,7 @@ function renderGradesList(s) {
   }
   const list = document.getElementById('grades-list');
   list.innerHTML = '';
-  if (!grades.length) { list.innerHTML='<div style="color:var(--text-muted);font-size:13px;padding:6px 0">Noten erscheinen hier.</div>'; return; }
+  if (!grades.length) { list.innerHTML='<div class="entry-empty">Noten erscheinen hier.</div>'; return; }
   [...grades].sort((a,b)=>(b.date||'').localeCompare(a.date||'')).forEach((g,i) => {
     const color = gradeColor(gradeNumber(g.value), scale);
     const el = document.createElement('div');
@@ -4438,7 +4438,7 @@ function renderStudentNotesList(s) {
   const notes = s.studentNotes||[];
   const list  = document.getElementById('student-notes-list');
   list.innerHTML = '';
-  if (!notes.length) { list.innerHTML='<div style="color:var(--text-muted);font-size:13px;padding:6px 0">Noch keine Anmerkungen.</div>'; return; }
+  if (!notes.length) { list.innerHTML='<div class="entry-empty">Noch keine Anmerkungen.</div>'; return; }
   [...notes].sort((a,b)=>(b.date||'').localeCompare(a.date||'')).forEach(n => {
     list.appendChild(createEntryItem(n.text, n.date, () => deleteStudentNote(n)));
   });
@@ -4475,7 +4475,7 @@ function renderAttendanceList(s) {
   const att  = s.attendance||[];
   const list = document.getElementById('attendance-list');
   list.innerHTML='';
-  if (!att.length) { list.innerHTML='<div style="color:var(--text-muted);font-size:13px;padding:6px 0">Keine Einträge.</div>'; return; }
+  if (!att.length) { list.innerHTML='<div class="entry-empty">Keine Einträge.</div>'; return; }
   // Wie in Tabelle und Auswahl: „Unentschuldigt“, „Entschuldigt“ grün, „Zu spät“ (BUGS U10)
   const typeColors = { abwesend:'var(--danger)', entschuldigt:'var(--success)', 'zuspät':'var(--warning)' };
   const typeNames = { abwesend:'Unentschuldigt', entschuldigt:'Entschuldigt', 'zuspät':'Zu spät' };
@@ -4533,7 +4533,7 @@ function renderStudentParticipationList(s) {
   const list = document.getElementById('participation-list');
   if (!list) return;
   list.innerHTML = '';
-  if (!pList.length) { list.innerHTML = '<div style="color:var(--text-muted);font-size:13px;padding:6px 0">Keine Einträge.</div>'; return; }
+  if (!pList.length) { list.innerHTML = '<div class="entry-empty">Keine Einträge.</div>'; return; }
   // Gesichter wie überall (Sitzplan, Tabelle), statt „Hervorragende/Moderate Mitarbeit“ (AH28)
   const faces = { 'positive':'😊', 'neutral':'😐', 'negative':'☹️' };
   const words = { 'positive':'gut', 'neutral':'mittel', 'negative':'schwach' };
@@ -4544,7 +4544,7 @@ function renderStudentParticipationList(s) {
       <span class="entry-face" role="img" aria-label="${escHtml(words[p.value] || 'Mitarbeit')}">${faces[p.value] || escHtml(p.value)}</span>
       <span class="entry-item-text">${p.label ? escHtml(p.label) : ''}</span>
       <span class="entry-item-date">${p.date ? formatDateShort(p.date) : ''}</span>
-      <button class="entry-item-delete" aria-label="Löschen">×</button>`;
+      <button class="entry-item-delete" aria-label="Löschen">✕</button>`;
     el.querySelector('.entry-item-delete').onclick = () => deleteParticipation(p);
     list.appendChild(el);
   });
@@ -6001,6 +6001,7 @@ function renderSeatingStudentNotes() {
   const s = (db.students[ctx.groupId] || []).find(x => x.id === ctx.studentId);
   if (!s) { box.innerHTML = ''; return; }
   // Oben nur, was eben getippt wurde; alle Notizen stehen unter „Mehr zu …“ (hinter „Anzeigen“, AH28)
+  renderSwToday(s, ctx.dateStr);
   const visible = (s.studentNotes || []).filter(n => seatingNotesFresh.includes(n));
   box.innerHTML = visible.length ? `<ul class="seating-notes">${visible.map(n =>
       `<li><small>${n.date ? escHtml(formatDateShort(n.date)) : ''}</small>${escHtml(n.text)}</li>`).join('')}</ul>` : '';
@@ -7460,7 +7461,23 @@ function revealSeatingStudent() {
 }
 
 // Was heute schon eingetragen ist, ist markiert – ein zweites Tippen nimmt es zurück (BUGS N6)
+// Was an diesem Tag schon eingetragen ist (AH34). Nur Arten und Anzahl, nie Notenwerte oder Notiztexte (Regel 67).
+function renderSwToday(s, dateStr) {
+  const box = document.getElementById('sw-today');
+  if (!box) return;
+  const words = [];
+  if ((s.participation || []).some(p => p.date === dateStr && !p.label)) words.push('Mitarbeit');
+  const absence = { abwesend: 'Fehlt', entschuldigt: 'Entschuldigt', 'zuspät': 'Zu spät' };
+  (s.attendance || []).filter(a => a.date === dateStr && absence[a.type]).forEach(a => words.push(absence[a.type]));
+  if ((s.homework || []).some(h => h.date === dateStr)) words.push('HA fehlt');
+  const count = (n, one, many) => { if (n) words.push(`${n} ${n === 1 ? one : many}`); };
+  count((s.grades || []).filter(g => g.date === dateStr).length, 'Note', 'Noten');
+  count((s.studentNotes || []).filter(n => n.date === dateStr).length, 'Notiz', 'Notizen');
+  const day = dateStr === formatDate(new Date()) ? 'Heute' : `Am ${formatDateDE(parseDate(dateStr))}`;
+  box.textContent = words.length ? `${day}: ${words.join(' · ')}` : `${day} noch nichts eingetragen`;
+}
 function markSeatingStudentState(s, dateStr) {
+  renderSwToday(s, dateStr);
   const set = new Set();
   (s.participation || []).filter(p => p.date === dateStr && !p.label).forEach(p => set.add(p.value)); // wie addParticipationSmiley
   (s.attendance || []).filter(a => a.date === dateStr).forEach(a => set.add(a.type));
@@ -7529,11 +7546,13 @@ function quickGradePadHTML(groupId, withTitle) {
 }
 function openSeatingGradePad(withTitle = false) {
   const ctx = window.currentSeatingStudent;
-  const box = document.getElementById('sw-grade');
+  const box = document.getElementById('sw-grade-slot');
   if (!ctx || !box) return;
   const title = document.getElementById('sw-grade-title');
   const keepTitle = title ? title.value : '';
   box.innerHTML = quickGradePadHTML(ctx.groupId, withTitle);
+  box.hidden = false;
+  document.getElementById('sw-grade-btn').setAttribute('aria-expanded', 'true');
   const pad = box.querySelector('#sw-grade-pad');
   if (withTitle) { const t = pad.querySelector('#sw-grade-title'); t.value = keepTitle; try { t.focus(); } catch (e) { /* egal */ } }
   pad.querySelectorAll('[data-type]').forEach(b => b.addEventListener('click', () => {
@@ -7545,8 +7564,9 @@ function openSeatingGradePad(withTitle = false) {
   pad.querySelector('.sw-pad-cancel').addEventListener('click', closeSeatingGradePad);
 }
 function closeSeatingGradePad() {
-  const box = document.getElementById('sw-grade');
-  if (box) box.innerHTML = `<button type="button" id="sw-grade-btn" class="sw-grade-btn">${icon('plus')}Note geben</button>`;
+  const box = document.getElementById('sw-grade-slot');
+  if (box) { box.innerHTML = ''; box.hidden = true; }
+  document.getElementById('sw-grade-btn')?.setAttribute('aria-expanded', 'false');
 }
 // Knöpfe im Schüler-Fenster per Listener (das Markup wird neu gesetzt; Inline-onclick läuft im Test nicht, Regel 18/19).
 // Am inneren Fenster, nicht am Overlay: .modal stoppt das Hochblubbern (event.stopPropagation).
@@ -7556,7 +7576,7 @@ document.querySelector('#modal-seating-student .modal')?.addEventListener('click
   if (e.target.closest('#sw-menu-btn')) { toggleSeatingMenu(); return; }
   if (item) { closeSeatingMenu(); seatingMenuAction(item.dataset.menu); return; }
   if (menu && !menu.hidden) closeSeatingMenu();   // Tippen woanders im Fenster schließt das Menü
-  if (e.target.closest('#sw-grade-btn')) openSeatingGradePad();
+  if (e.target.closest('#sw-grade-btn')) { if (document.getElementById('sw-grade-pad')) closeSeatingGradePad(); else openSeatingGradePad(); }
   else if (e.target.closest('#sw-more-btn')) toggleSeatingStudentMore();
   else if (e.target.closest('#sw-reveal')) revealSeatingStudent();
   else if (e.target.closest('#sw-grade-form-btn')) openGradeFormForCurrentStudentDetailed();

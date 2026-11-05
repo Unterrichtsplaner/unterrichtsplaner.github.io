@@ -242,13 +242,13 @@ describe('AH31: Hinweis im Kopf neben dem Namen, Text erst nach Antippen (Regel 
   it('Einstellung nennt die Hinweise mit', () => {
     expect(document.querySelector('label[for="settings-class-grades-protect"]').textContent).toMatch(/Hinweise/);
   });
-  it('zwei Spalten: Schnelles links und rechts, „Mehr“ darunter; Hinweise stehen unter „Mehr“ zuerst', () => {
-    const cols = [...document.querySelectorAll('.sw-body > .sw-col')];
-    expect(cols.length).toBe(2);
-    expect(cols[0].querySelector('.sw-faces')).not.toBeNull();
-    expect(cols[0].querySelector('.sw-seg')).not.toBeNull();
-    expect(cols[1].querySelector('#sw-grade')).not.toBeNull();
-    expect(cols[1].querySelector('#seating-student-note-input')).not.toBeNull();
+  it('vier Karten im gemeinsamen Raster: oben Mitarbeit | Note, darunter Fehlzeit | Notiz; „Mehr“ darunter; Hinweise unter „Mehr“ zuerst', () => {
+    const cards = [...document.querySelectorAll('.sw-body > .sw-card')];
+    expect(cards.map(c => c.querySelector('.sw-label').textContent)).toEqual(['Mitarbeit', 'Note', 'Fehlzeit und Hausaufgabe', 'Notiz']);
+    expect(cards[0].querySelector('.sw-faces')).not.toBeNull();
+    expect(cards[1].querySelector('#sw-grade-btn')).not.toBeNull();
+    expect(cards[2].querySelector('.sw-seg')).not.toBeNull();
+    expect(cards[3].querySelector('#seating-student-note-input')).not.toBeNull();
     expect(document.querySelector('#sw-more .sw-sec').id).toBe('sw-sec-hints');
   });
   it('Notiz unter „Mehr“: gebaut wie die anderen (Datum, Text, runder „+“-Knopf)', () => {
@@ -256,5 +256,70 @@ describe('AH31: Hinweis im Kopf neben dem Namen, Text erst nach Antippen (Regel 
     expect(row.firstElementChild.id).toBe('new-student-note-date');
     expect(row.querySelector('button.btn-circle').getAttribute('aria-label')).toMatch(/Notiz/);
     expect(row.querySelector('button').getAttribute('onclick')).toBe('addStudentNote()');
+  });
+});
+
+describe('AH34: Notentafel über die ganze Breite, Knopf bleibt stehen', () => {
+  const slot = () => document.getElementById('sw-grade-slot');
+  afterEach(() => app('closeModal("modal-seating-student")'));
+  it('Knopf öffnet und schließt die Tafel, die Karte daneben verrutscht nicht', () => {
+    openAnna();
+    expect(slot().hidden).toBe(true);
+    q('#sw-grade-btn').click();
+    expect(slot().hidden).toBe(false);
+    expect(slot().querySelector('#sw-grade-pad')).not.toBeNull();
+    expect(q('#sw-grade-btn').getAttribute('aria-expanded')).toBe('true');
+    q('#sw-grade-btn').click();
+    expect(slot().hidden).toBe(true);
+    expect(slot().innerHTML).toBe('');
+    expect(q('#sw-grade-btn').getAttribute('aria-expanded')).toBe('false');
+  });
+  it('nächstes Öffnen: Tafel zu', () => {
+    openAnna();
+    q('#sw-grade-btn').click();
+    app('closeModal("modal-seating-student")');
+    app('openSeatingStudentModal("b", "g1", "2026-11-04")');
+    expect(slot().hidden).toBe(true);
+  });
+});
+
+describe('AH34: Was an diesem Tag schon eingetragen ist', () => {
+  const today = () => document.getElementById('sw-today').textContent;
+  afterEach(() => app('closeModal("modal-seating-student")'));
+  it('leer: sagt das; heutiger Tag heißt „Heute“, anderer Tag mit Datum', () => {
+    app('openSeatingStudentModal("b", "g1", "2026-11-04")');
+    expect(today()).toBe('Heute noch nichts eingetragen');
+    app('closeModal("modal-seating-student"); openSeatingStudentModal("b", "g1", "2026-11-03")');
+    expect(today()).toMatch(/^Am 03\.11\..* noch nichts eingetragen$/);
+  });
+  it('nennt Arten und Anzahl, nie Notenwert oder Notiztext (Regel 67)', () => {
+    app(`Object.assign(db.students.g1[1], {
+      grades: [{ type: 'muendlich', value: '5.0', date: '2026-11-04', note: 'Geheim' }],
+      attendance: [{ id: 'x', date: '2026-11-04', type: 'zuspät', note: 'Grund' }],
+      participation: [{ id: 'p', date: '2026-11-04', value: 'negative' }],
+      homework: [{ id: 'h', date: '2026-11-04', note: '' }],
+      studentNotes: [{ text: 'Privat', date: '2026-11-04' }, { text: 'Privat2', date: '2026-11-04' }] })`);
+    app('openSeatingStudentModal("b", "g1", "2026-11-04")');
+    expect(today()).toBe('Heute: Mitarbeit · Zu spät · HA fehlt · 1 Note · 2 Notizen');
+    expect(today()).not.toMatch(/5,0|5\.0|Geheim|Privat|Grund/);
+  });
+  it('neue Notiz zählt sofort mit', () => {
+    app('openSeatingStudentModal("b", "g1", "2026-11-04")');
+    document.getElementById('seating-student-note-input').value = 'Heft';
+    app('addSeatingStudentNote()');
+    expect(today()).toBe('Heute: 1 Notiz');
+  });
+});
+
+describe('AH34: Abstände im Schüler-Fenster nur aus der festen Reihe', () => {
+  const css = require('fs').readFileSync(require('path').join(__dirname, '..', 'style.css'), 'utf8');
+  const block = css.slice(css.indexOf('/* Schüler-Fenster (AH28, AH31, AH34)'), css.indexOf('/* Ende Schüler-Fenster (AH34) */'));
+  it('Reihe ist definiert', () => {
+    expect(css).toMatch(/--space-1:4px;--space-2:8px;--space-3:12px;--space-4:16px;--space-5:24px;--space-6:32px;/);
+  });
+  it('kein padding, margin oder gap mit eigener Pixelzahl', () => {
+    expect(block.length).toBeGreaterThan(500);
+    const bad = block.match(/(?:^|[;{])\s*(?:padding|margin|gap)[a-z-]*:[^;}]*\d+px[^;}]*/gm) || [];
+    expect(bad).toEqual([]);
   });
 });
