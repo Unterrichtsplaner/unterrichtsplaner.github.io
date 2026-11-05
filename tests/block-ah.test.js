@@ -104,11 +104,11 @@ describe('AH1c: Farben schon vor dem ersten Zeichnen', () => {
 // Seitenleiste Abstand zum Home-Balken; die Leiste im Sitzplan muss denselben Abstand bekommen.
 describe('AH6: Linie der Sitzplan-Leiste = Linie über „Einstellungen“', () => {
   it('ab 601 px: Leiste um den Home-Balken höher, nach den übrigen Regeln', () => {
-    const rule = '.seating-tools-bar{min-height:calc(80px + env(safe-area-inset-bottom));padding-top:8px;padding-bottom:calc(8px + env(safe-area-inset-bottom));}';
+    const rule = '.seating-tools-bar{min-height:calc(80px + env(safe-area-inset-bottom));padding-top:var(--space-2);padding-bottom:calc(var(--space-2) + env(safe-area-inset-bottom));}';
     const i = CSS.indexOf(rule);
     expect(i).toBeGreaterThan(-1);
     expect(CSS.slice(CSS.lastIndexOf('@media', i), i)).toMatch(/@media \(min-width: 601px\)\{\s*$/);
-    expect(i).toBeGreaterThan(CSS.lastIndexOf('.seating-tools-bar { padding: 8px 10px'));
+    expect(i).toBeGreaterThan(CSS.lastIndexOf('.seating-tools-bar { padding:'));
     expect(CSS).toMatch(/\.sidebar-footer\{border-top:1px solid var\(--border\);height:80px;/);
   });
 });
@@ -191,7 +191,7 @@ describe('AH17: was sich markieren lässt', () => {
 describe('AH21: Handy-Menüleiste unten', () => {
   const phone = () => CSS.match(/@media\(max-width:600px\)\{([\s\S]*?)\n\}/)[1];
   it('Leiste unten mit Abstand zum Home-Balken, Rand oben; App selbst ohne Abstand unten', () => {
-    expect(phone()).toMatch(/#sidebar\{[^}]*order:2;[^}]*border-top:1px solid var\(--border\);[^}]*padding-bottom:calc\(8px \+ env\(safe-area-inset-bottom\)\);/);
+    expect(phone()).toMatch(/#sidebar\{[^}]*order:2;[^}]*border-top:1px solid var\(--border\);[^}]*padding-bottom:calc\(var\(--space-2\) \+ env\(safe-area-inset-bottom\)\);/);
     expect(phone()).toMatch(/#app\{[^}]*padding-bottom:0;/);
   });
   it('Einstellungen nicht in der Leiste, sondern als Zahnrad im Dashboard (nur Handy)', () => {

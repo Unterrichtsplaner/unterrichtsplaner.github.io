@@ -272,7 +272,7 @@ describe('Kacheln: Plaketten in einer Reihe', () => {
     const chips = [...rows[0].children];
     expect(chips.map(c => c.textContent)).toEqual(['1 auffällig', 'Buch vergessen']);
     expect(chips.every(c => c.classList.contains('ct-chip') && c.querySelector('svg'))).toBe(true);
-    expect(rule('.ct-chips .cn-chip')).toMatch(/font-size:13px;padding:3px 9px;/);
+    expect(rule('.ct-chips .cn-chip')).toMatch(/font-size:13px;padding:var\(--space-1\) var\(--space-2\);/);
   });
 });
 

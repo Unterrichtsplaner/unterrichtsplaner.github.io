@@ -2253,7 +2253,7 @@ function renderItemList(listId, items, type, incoming, incomingId) {
   list.innerHTML = '';
 
   if (!items.length) {
-    list.innerHTML = `<div style="color:var(--text-muted);font-size:12px;padding:4px 0">Noch keine Einträge.</div>`;
+    list.innerHTML = `<div style="color:var(--text-muted);font-size:12px;padding:var(--space-1) 0">Noch keine Einträge.</div>`;
   } else {
     items.forEach(item => {
       const el = document.createElement('div');
@@ -3231,7 +3231,7 @@ function renderOverviewTable() {
     ? { left: oldWrap.scrollLeft, top: oldWrap.scrollTop, outer: content.scrollTop } : null;
   
   if (!students.length) {
-    content.innerHTML = '<div class="empty-state" style="padding:20px;text-align:center;color:var(--text-muted);">Keine Schüler in dieser Klasse.</div>';
+    content.innerHTML = '<div class="empty-state" style="padding:var(--space-5);text-align:center;color:var(--text-muted);">Keine Schüler in dieser Klasse.</div>';
     return;
   }
 
@@ -3267,7 +3267,7 @@ function renderOverviewTable() {
         const val = grade ? grade.value : '';
         const num = val ? gradeNumber(val) : NaN;
         const weak = !isNaN(num) && gradeIsWeak(num, scale);
-        html += `<td class="ov-grade-cell${weak ? ' ov-grade-weak' : ''}" style="padding:4px;"><input type="text" enterkeyhint="next" class="form-input ov-grade-input" style="width:100%; text-align:center; padding:6px; font-weight:${weak ? 700 : 600}; color:${val ? gradeInk(num, scale) : 'inherit'}" value="${escHtml(gradeText(val))}" placeholder="–" onchange="updateInlineGrade(${jsArg(s.id)}, ${jsArg(ev.date)}, ${jsArg(ev.label)}, this.value, ${jsArg(ev.type)}, ${ev.nth})" /></td>`;
+        html += `<td class="ov-grade-cell${weak ? ' ov-grade-weak' : ''}" style="padding:var(--space-1);"><input type="text" enterkeyhint="next" class="form-input ov-grade-input" style="width:100%; text-align:center; padding:var(--space-2); font-weight:${weak ? 700 : 600}; color:${val ? gradeInk(num, scale) : 'inherit'}" value="${escHtml(gradeText(val))}" placeholder="–" onchange="updateInlineGrade(${jsArg(s.id)}, ${jsArg(ev.date)}, ${jsArg(ev.label)}, this.value, ${jsArg(ev.type)}, ${ev.nth})" /></td>`;
       });
       html += `</tr>`;
     });
@@ -4006,7 +4006,7 @@ function renderStudents() {
       <div class="empty-state-icon">${icon('student')}</div>
       <div class="empty-state-title">Noch keine Schüler</div>
       <div class="empty-state-desc">Einzeln anlegen oder eine Namensliste einfügen (z. B. aus Excel).</div>
-      <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin-top:12px">
+      <div style="display:flex;gap:var(--space-2);flex-wrap:wrap;justify-content:center;margin-top:var(--space-3)">
         <button class="btn-primary" onclick="openAddStudent()">Schüler hinzufügen</button>
         <button class="btn-secondary" onclick="openImportStudentsModal()">Liste einfügen</button>
       </div>
@@ -4042,7 +4042,7 @@ function renderStudents() {
     row.tabIndex = 0;
     row.setAttribute('aria-label', `Schülerakte öffnen: ${studentListName(s)}`);
     row.innerHTML = `
-      ${isStudentEditMode ? `<input type="checkbox" class="student-select-cb" data-id="${escHtml(s.id)}" onclick="event.stopPropagation(); updateMassDeleteBar()" style="margin-right: 12px; width: 18px; height: 18px; cursor: pointer;">` : ''}
+      ${isStudentEditMode ? `<input type="checkbox" class="student-select-cb" data-id="${escHtml(s.id)}" onclick="event.stopPropagation(); updateMassDeleteBar()" style="margin-right: var(--space-3); width: 18px; height: 18px; cursor: pointer;">` : ''}
       <div class="student-info">
         <div class="student-name">${escHtml(studentListName(s))}</div>
         <div class="student-quick-notes">${[grades.length + ' Note' + (grades.length !== 1 ? 'n' : ''),
@@ -4138,7 +4138,7 @@ function toggleStudentEditMode() {
   const btn = document.getElementById('btn-student-actions');
   if (btn) {
     if (isStudentEditMode) {
-      btn.innerHTML = `<span style="font-size:12px; font-weight:600; font-family:inherit; padding:0 4px;">Fertig</span>`;
+      btn.innerHTML = `<span style="font-size:12px; font-weight:600; font-family:inherit; padding:0 var(--space-1);">Fertig</span>`;
       btn.classList.add('btn-primary');
       btn.classList.remove('btn-icon');
       btn.style.width = 'auto';
@@ -4390,7 +4390,7 @@ function renderGradesList(s) {
     });
     const rawAvg = calculateStudentAverage(s, profileGroupId);
     summary.innerHTML = `
-      <div class="grade-summary-item" style="margin-right:16px">
+      <div class="grade-summary-item" style="margin-right:var(--space-4)">
         <div class="grade-avg-display" style="color:${gradeColor(rawAvg, scale)}">${formatGradeAverage(rawAvg)}</div>
         <div class="grade-avg-label">${scale.higherIsBetter ? 'Ø Punkte' : 'Ø Gesamt'}</div>
       </div>
@@ -4579,7 +4579,7 @@ function renderStudentHomeworkList(s) {
   list.innerHTML = sorted.map((h) => {
     return `<div class="entry-item">
       <div class="entry-date-badge">${formatDateLong(h.date)}</div>
-      <div style="flex:1; margin-left:12px;">
+      <div style="flex:1; margin-left:var(--space-3);">
         <div style="font-weight:600; color:var(--warning); font-size:14px;">Hausaufgabe vergessen</div>
         ${h.note ? `<div style="font-size:12px; color:var(--text-secondary); margin-top:2px;">${escHtml(h.note)}</div>` : ''}
       </div>
@@ -6819,7 +6819,7 @@ function renderSeatingPlan() {
     if (participation) {
       const valLabels = { 'positive':'<span style="color:var(--success)">+</span>', 'neutral':'<span style="color:var(--warning)">=</span>', 'negative':'<span style="color:var(--danger)">-</span>' };
       // valLabels ist fertiges HTML; nur ein unbekannter Wert (Import/Sync) stammt aus den Daten und wird escaped
-      partHtml = `<div class="sc-part" style="position:absolute; top:-6px; right:-6px; font-size:16px; font-weight:800; background:var(--bg-elevated); padding:0 6px; border-radius:var(--radius-sm); border:2px solid var(--border); box-shadow:0 2px 6px rgba(0,0,0,0.3); line-height:1.2; z-index:10;">${valLabels[participation.value] || escHtml(participation.value)}</div>`;
+      partHtml = `<div class="sc-part" style="position:absolute; top:-6px; right:-6px; font-size:16px; font-weight:800; background:var(--bg-elevated); padding:0 var(--space-2); border-radius:var(--radius-sm); border:2px solid var(--border); box-shadow:0 2px 6px rgba(0,0,0,0.3); line-height:1.2; z-index:10;">${valLabels[participation.value] || escHtml(participation.value)}</div>`;
     }
 
     const fullName = [s.firstName, s.lastName].filter(Boolean).join(' ');
@@ -7806,7 +7806,7 @@ function openQuickStudentListFromLesson() {
   listContainer.innerHTML = '';
   
   if (!students.length) {
-    listContainer.innerHTML = '<div style="padding:16px;text-align:center;color:var(--text-muted);">Keine Schüler in dieser Klasse.</div>';
+    listContainer.innerHTML = '<div style="padding:var(--space-4);text-align:center;color:var(--text-muted);">Keine Schüler in dieser Klasse.</div>';
   } else {
     const sorted = sortStudents(students);
     sorted.forEach(s => {
@@ -8223,7 +8223,7 @@ function makeCustomFormDropdown(selectEl) {
 
   const svg = document.createElement('div');
   svg.style.flexShrink = '0';
-  svg.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="opacity: 0.6; margin-left: 8px;"><polyline points="6 9 12 15 18 9"></polyline></svg>`;
+  svg.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="opacity: 0.6; margin-left: var(--space-2);"><polyline points="6 9 12 15 18 9"></polyline></svg>`;
 
   trigger.appendChild(label);
   trigger.appendChild(svg);

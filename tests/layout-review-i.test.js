@@ -48,7 +48,7 @@ describe('I1: Dashboard lässt sich scrollen', () => {
     expect(content.getAttribute('style')).toBeNull();
     const r = rulesFor('#dashboard-content');
     expect(r).toMatch(/width:\s*100%/);      // margin:0 auto ohne width schrumpft den Block (H12)
-    expect(r).toMatch(/max-width:\s*800px/);
+    expect(r).not.toMatch(/max-width/);      // AH34: keine zentrierte Spalte, Inhalt bündig mit dem Kopf
   });
 });
 
