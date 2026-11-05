@@ -1755,7 +1755,7 @@ h1,h2,h3,.dash-heading,.subject-heading{text-wrap:balance;}
 .cn-form-row .btn-primary,.cn-form-row .btn-secondary{min-height:40px;}
 
 /* ─── Schnellsuche (AH19) ─── Feld oben in der Seitenleiste, Handy: im Dashboard und in der Klassenübersicht */
-.sidebar-search{display:flex;align-items:center;gap:10px;flex-shrink:0;margin:12px 12px 4px;padding:0 12px;height:44px;border-radius:var(--radius-md);border:1px solid var(--border);background:var(--bg-elevated);color:var(--text-muted);font-family:inherit;font-size:14px;text-align:left;cursor:pointer;}
+.sidebar-search{display:flex;align-items:center;gap:10px;flex-shrink:0;margin:12px 12px 4px;padding:0 12px;height:44px;border-radius:99px;border:1px solid var(--border);background:var(--bg-elevated);color:var(--text-muted);font-family:inherit;font-size:14px;text-align:left;cursor:pointer;}
 .sidebar-search .ico,.dash-search .ico{width:18px;height:18px;margin:0;}
 .sidebar-search-label{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 .search-foot kbd{font-family:inherit;font-size:11px;padding:1px 6px;border:1px solid var(--border);border-radius:var(--radius-xs);color:var(--text-muted);background:var(--bg-card);}
@@ -1763,7 +1763,7 @@ h1,h2,h3,.dash-heading,.subject-heading{text-wrap:balance;}
 @media (hover: hover){.sidebar-search:hover,.dash-search:hover{color:var(--text-secondary);border-color:var(--text-muted);}}
 #sidebar.collapsed .sidebar-search{width:44px;margin:12px auto 4px;padding:0;justify-content:center;}
 #sidebar.collapsed .sidebar-search-label{display:none;}
-.dash-search{display:none;align-items:center;gap:10px;width:calc(100% - 32px);margin:12px 16px 0;padding:0 14px;height:44px;border-radius:var(--radius-md);border:1px solid var(--border);background:var(--bg-elevated);color:var(--text-muted);font-family:inherit;font-size:14px;text-align:left;cursor:pointer;}
+.dash-search{display:none;align-items:center;gap:10px;width:calc(100% - 32px);margin:12px 16px 0;padding:0 14px;height:44px;border-radius:99px;border:1px solid var(--border);background:var(--bg-elevated);color:var(--text-muted);font-family:inherit;font-size:14px;text-align:left;cursor:pointer;}
 #level-subjects .classes-search-btn{display:none;}
 
 #modal-search{align-items:flex-start;padding:10vh 16px 16px;}
