@@ -679,6 +679,9 @@ Geprüft: Cockpit, Fenster „Heute“, Schüler-Hinweis, Schülerliste/Klassen�
 
 - [x] **AH35** 🟠 **Eine Form** (Wunsch 05.11.: „sei dir endlich mal einig“). *Entschieden: überall abgerundete Rechtecke, keine Pillen und Kreise, auch nicht bei Symbol-Knöpfen, Menüpunkten, Suche und Datumsfeldern im Sitzplan. Rund bleiben nur Dinge, die keine Knöpfe sind: Punkte, Fortschrittsbalken, Rollbalken, der Schalter. Test: `tests/knopfhoehe.test.js`. Dazu: Hinweis im Kopf des Schüler-Fensters steht genau in der Mitte.*
 
+- [x] **AH36** 🟠 **Stunden-Fenster wie das Schüler-Fenster** (Wunsch 05.11., Entwurf gefallen). *920 breit, Karten paarweise in Reihen (Heute fehlen | Merkzettel, Thema | Notiz für die Klasse, Inhalt | Notizen, HA | Test), fehlt eine Karte, füllt die andere die Reihe. Kopf: Titel links, nächste Stunden und Knöpfe rechts; Sitzplan, Noten, Bewerten als drei gleiche Knöpfe. Handy einspaltig in der bisherigen Reihenfolge, kurze Knopfnamen. Test: `tests/stunden-fenster.test.js`.*
+- [ ] **AH37** 🟢 **Karten im Stunden-Fenster selbst anordnen** (Wunsch 05.11.). Offen: siehe Rückfrage im Gespräch. Vorschlag: Reihenfolge frei, jede zweite Karte automatisch daneben, gespeichert in `db.settings`, Standard bleibt für alle anderen.
+
 ---
 
 ## Erledigt

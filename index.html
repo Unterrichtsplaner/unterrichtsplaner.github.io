@@ -40,7 +40,7 @@
       }
     })();
   </script>
-  <link rel="stylesheet" href="style.css?v=411" />
+  <link rel="stylesheet" href="style.css?v=413" />
   <script>
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
@@ -394,26 +394,20 @@
   <div class="modal modal-lesson-detail" onclick="event.stopPropagation()">
 
     <div class="modal-header">
-      <div style="flex:1;min-width:0">
-        <div style="display:flex;align-items:center;gap:var(--space-2)">
+      <div class="lesson-head-title">
+        <div class="lesson-head-name">
           <div id="lesson-color-dot" style="width:11px;height:11px;border-radius:50%;flex-shrink:0"></div>
           <h2 id="lesson-modal-title" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis"></h2>
           <span id="lesson-ausfall-badge" class="ausfall-badge hidden">AUSFALL</span>
           <span id="lesson-kind-badge" class="lesson-kind-badge hidden"></span>
         </div>
         <span id="lesson-modal-subtitle" class="modal-subtitle"></span>
-        <div id="lesson-seating-link-container" class="hidden" style="margin-top: var(--space-2);">
-           <button class="btn-secondary" onclick="openSeatingForActiveLesson()">
-             <i data-icon="seating"></i>Sitzplan öffnen
-           </button>
-        </div>
-        <!-- Next lesson info -->
-        <div id="next-lesson-banner" class="next-lesson-banner hidden">
+      </div>
+      <div id="next-lesson-banner" class="next-lesson-banner hidden">
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
           <span id="next-lesson-text"></span>
         </div>
-      </div>
-      <div style="display:flex;gap:var(--space-2);align-items:center;flex-shrink:0">
+      <div class="lesson-head-btns">
         <button class="btn-icon" onclick="openEditLesson()" title="Stunde bearbeiten">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
         </button>
@@ -423,10 +417,11 @@
       </div>
     </div>
 
-    <!-- Quick Access Bar -->
-    <div style="background:var(--bg-secondary); padding:var(--space-2) var(--space-4); border-bottom:1px solid var(--border); display:flex; gap:var(--space-2);">
-      <button id="lesson-btn-overview" class="btn-secondary" style="flex:1; font-size:13px; font-weight:600; padding:var(--space-2);" onclick="openClassOverviewFromLesson()"><i data-icon="overview"></i>Notenübersicht</button>
-      <button id="lesson-btn-students" class="btn-secondary" style="flex:1; font-size:13px; font-weight:600; padding:var(--space-2);" onclick="openQuickStudentListFromLesson()"><i data-icon="student"></i>Schüler bewerten</button>
+    <!-- Die drei Wege aus der Stunde heraus; ohne Klasse gibt es sie nicht (BUGS M8) -->
+    <div class="lesson-quick">
+      <button type="button" id="lesson-seating-link-container" class="btn-secondary" aria-label="Sitzplan öffnen" onclick="openSeatingForActiveLesson()"><i data-icon="seating"></i><span class="lq-short">Sitzplan</span><span class="lq-long">Sitzplan öffnen</span></button>
+      <button type="button" id="lesson-btn-overview" class="btn-secondary" aria-label="Notenübersicht" onclick="openClassOverviewFromLesson()"><i data-icon="overview"></i><span class="lq-short">Noten</span><span class="lq-long">Notenübersicht</span></button>
+      <button type="button" id="lesson-btn-students" class="btn-secondary" aria-label="Schüler bewerten" onclick="openQuickStudentListFromLesson()"><i data-icon="student"></i><span class="lq-short">Bewerten</span><span class="lq-long">Schüler bewerten</span></button>
     </div>
 
     <!-- Ausfall overlay -->
@@ -440,7 +435,8 @@
 
     <!-- Notes form -->
     <div id="lesson-notes-form" class="lesson-notes-form">
-
+      <!-- Karten paarweise in Reihen (AH36): Fehlt eine, füllt die andere die Reihe -->
+      <div class="lc-row">
       <!-- Heute fehlen (BUGS I18: normaler Abschnitt ganz oben statt roter Kasten zwischen HA und Test) -->
       <div id="lesson-absent-container" class="notes-section lesson-absent hidden">
         <div class="notes-section-header">
@@ -449,26 +445,36 @@
         </div>
         <ul id="lesson-absent-list" class="lesson-absent-list"></ul>
       </div>
-
-      <!-- Klassennotizen (AD15) -->
-      <div id="lesson-class-notes" class="notes-section lesson-class-notes hidden"></div>
       <!-- Merkzettel der Klasse (AH18) -->
       <div id="lesson-todos" class="notes-section lesson-todos hidden"></div>
-
+      </div>
+      <div class="lc-row">
       <!-- Geplantes Thema (AD3) -->
       <div id="lesson-plan-box" class="notes-section lesson-plan-box hidden"></div>
-
+      <!-- Klassennotizen (AD15) -->
+      <div id="lesson-class-notes" class="notes-section lesson-class-notes hidden"></div>
+      </div>
+      <div class="lc-row">
       <!-- Unterrichtsinhalt -->
-      <div class="notes-section">
+      <div class="notes-section lc-content">
         <div class="notes-section-header">
           <span class="notes-section-icon"><i data-icon="content"></i></span>
           <span class="notes-section-label">Unterrichtsinhalt</span>
         </div>
-        <textarea id="lesson-done-text" placeholder="Was wurde heute behandelt / durchgenommen …" class="notes-textarea" style="margin-top:var(--space-2)"></textarea>
+        <textarea id="lesson-done-text" placeholder="Was wurde heute behandelt / durchgenommen …" class="notes-textarea"></textarea>
       </div>
-
+      <!-- Notizen & Anmerkungen (merged) -->
+      <div class="notes-section lc-notes">
+        <div class="notes-section-header">
+          <span class="notes-section-icon"><i data-icon="notes"></i></span>
+          <span class="notes-section-label">Notizen & Anmerkungen</span>
+        </div>
+        <textarea id="lesson-notes-text" placeholder="Allgemeine Notizen, Beobachtungen, Besonderes …" class="notes-textarea notes-textarea-sm"></textarea>
+      </div>
+      </div>
+      <div class="lc-row">
       <!-- Hausaufgaben -->
-      <div class="notes-section">
+      <div class="notes-section lc-hw">
         <div class="notes-section-header">
           <span class="notes-section-icon"><i data-icon="homework"></i></span>
           <span class="notes-section-label">Hausaufgaben</span>
@@ -481,9 +487,9 @@
           <!-- Incoming HW (assigned for this date from other lessons) -->
           <div id="hw-incoming-list" class="incoming-list hidden"></div>
           <!-- HW assigned from this lesson to future dates -->
-          <div id="hw-items-list" class="entry-list" style="margin-top:var(--space-2)"></div>
+          <div id="hw-items-list" class="entry-list"></div>
           <div class="upcoming-chips-row" id="hw-date-chips"></div>
-          <div class="add-entry-row" style="margin-top:var(--space-1)">
+          <div class="add-entry-row">
             <input type="text" id="new-hw-text" placeholder="Aufgabe (Buch S. 12, Arbeitsblatt...)" class="entry-input" />
             <input type="date" id="new-hw-date" class="entry-date" />
             <button class="btn-primary btn-circle" onclick="addHWItem()" aria-label="Hausaufgabe hinzufügen">
@@ -492,9 +498,8 @@
           </div>
         </div>
       </div>
-
       <!-- Test / Prüfung -->
-      <div class="notes-section">
+      <div class="notes-section lc-test">
         <div class="notes-section-header">
           <span class="notes-section-icon"><i data-icon="test"></i></span>
           <span class="notes-section-label">Test / Klassenarbeit angekündigt</span>
@@ -505,9 +510,9 @@
         </div>
         <div id="test-section-body" class="notes-section-body hidden">
           <div id="test-incoming-list" class="incoming-list hidden"></div>
-          <div id="test-items-list" class="entry-list" style="margin-top:var(--space-2)"></div>
+          <div id="test-items-list" class="entry-list"></div>
           <div class="upcoming-chips-row" id="test-date-chips"></div>
-          <div class="add-entry-row" style="margin-top:var(--space-1)">
+          <div class="add-entry-row">
             <input type="text" id="new-test-text" placeholder="Stoff, Themen, Art der Prüfung …" class="entry-input" />
             <input type="date" id="new-test-date" class="entry-date" />
             <button class="btn-primary btn-circle" onclick="addTestItem()" aria-label="Test hinzufügen">
@@ -516,19 +521,10 @@
           </div>
         </div>
       </div>
-
-      <!-- Notizen & Anmerkungen (merged) -->
-      <div class="notes-section">
-        <div class="notes-section-header">
-          <span class="notes-section-icon"><i data-icon="notes"></i></span>
-          <span class="notes-section-label">Notizen & Anmerkungen</span>
-        </div>
-        <textarea id="lesson-notes-text" placeholder="Allgemeine Notizen, Beobachtungen, Besonderes …" class="notes-textarea notes-textarea-sm" style="margin-top:var(--space-2)"></textarea>
       </div>
-
     </div><!-- /lesson-notes-form -->
 
-    <div class="modal-footer" style="justify-content: space-between;">
+    <div class="modal-footer">
       <div class="lesson-footer-actions">
         <button class="btn-secondary" id="btn-ausfall-bottom" onclick="toggleAusfall()">Stunde entfällt</button>
         <button class="btn-secondary" id="btn-lesson-substitute" onclick="openSubstituteForLesson()" title="Statt dieser Stunde eine Vertretung eintragen (nur an diesem Tag)">Vertretung</button>
@@ -1630,13 +1626,13 @@
   </div>
 
   <script src="lib/crypto-js.min.js"></script>
-  <script src="crypto-helper.js?v=411"></script>
+  <script src="crypto-helper.js?v=413"></script>
   <script src="lib/firebase-app-compat.js"></script>
   <script src="lib/firebase-auth-compat.js"></script>
   <script src="lib/firebase-firestore-compat.js"></script>
-  <script src="firebase-config.js?v=411"></script>
-  <script src="sync-manager.js?v=411"></script>
-  <script src="sync-merge.js?v=411"></script>
-  <script src="app.js?v=411"></script>
+  <script src="firebase-config.js?v=413"></script>
+  <script src="sync-manager.js?v=413"></script>
+  <script src="sync-merge.js?v=413"></script>
+  <script src="app.js?v=413"></script>
 </body>
 </html>

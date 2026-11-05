@@ -8855,12 +8855,13 @@ function renderLessonPlanBox(slot, dateStr) {
   const a = !doneT && dateStr >= todayStr ? planAssignments(g, todayStr).byKey.get(key) : null;
   const t = doneT || (a && a.topic);
   box.classList.remove('hidden');
+  const head = text => `<div class="notes-section-header"><span class="notes-section-icon">${icon('list')}</span><span class="notes-section-label">${text}</span></div>`;
   if (!t) {
-    box.innerHTML = `<div class="lesson-plan-empty">Kein Thema geplant · <button type="button" class="link-btn" data-act="plan">Planung öffnen</button></div>`;
+    box.innerHTML = `${head('Planung')}<div class="lesson-plan-empty">Kein Thema geplant · <button type="button" class="link-btn" data-act="plan">Planung öffnen</button></div>`;
   } else {
     const unit = doneT ? doneT.doneLessons.indexOf(key) + 1 : a.unit;
-    box.innerHTML = `<div class="lesson-plan-row${doneT ? ' is-done' : ''}">
-      <div class="lesson-plan-text"><small>${doneT ? 'Erledigt' : 'Geplant'}${topicLength(t) > 1 ? ` · Stunde ${unit} von ${topicLength(t)}` : ''}</small><b>${escHtml(t.title)}</b>${t.note ? `<span>${escHtml(t.note)}</span>` : ''}</div>
+    box.innerHTML = `${head(`${doneT ? 'Erledigt' : 'Geplant'}${topicLength(t) > 1 ? ` · Stunde ${unit} von ${topicLength(t)}` : ''}`)}<div class="lesson-plan-row${doneT ? ' is-done' : ''}">
+      <div class="lesson-plan-text"><b>${escHtml(t.title)}</b>${t.note ? `<span>${escHtml(t.note)}</span>` : ''}</div>
       <button type="button" class="${doneT ? 'btn-secondary' : 'btn-primary'} lesson-plan-btn" data-act="toggle">${doneT ? '✓ Erledigt' : 'Erledigt'}</button></div>`;
   }
   const planBtn = box.querySelector('[data-act="plan"]');

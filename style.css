@@ -435,7 +435,6 @@ button.cr-name:focus-visible{outline:2px solid var(--accent);outline-offset:3px;
 #modal-seating-groups .modal {
   min-height: 380px;
 }
-.modal-lesson-detail{width:min(580px,96vw);}
 .modal-settings-modal{width:min(560px,96vw);}
 .modal-header{display:flex;align-items:flex-start;justify-content:space-between;padding:var(--space-4) var(--space-4) var(--space-3);border-bottom:1px solid var(--border);flex-shrink:0;}
 .modal-header h2{font-family:var(--font-display);font-size:20px;font-weight:600;letter-spacing:0;}
@@ -546,8 +545,6 @@ button.cr-name:focus-visible{outline:2px solid var(--accent);outline-offset:3px;
 
 /* ─── Lesson notes form ──────────────── */
 .lesson-notes-form{flex:1;overflow-y:auto;display:flex;flex-direction:column;}
-.notes-section{border-bottom:1px solid var(--border);padding:var(--space-3) var(--space-4);}
-.notes-section:last-child{border-bottom:none;}
 .notes-section-header{display:flex;align-items:center;gap:var(--space-2);}
 .notes-section-icon{font-size:14px;flex-shrink:0;}
 .notes-section-label{font-size:13px;font-weight:600;flex:1;}
@@ -1556,7 +1553,6 @@ button.date-chip{font-family:inherit;padding:0;}
 /* Stunden-Fenster */
 .lesson-plan-row{display:flex;align-items:center;gap:var(--space-3);}
 .lesson-plan-text{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px;}
-.lesson-plan-text small{font-size:11px;color:var(--text-muted);}
 .lesson-plan-text b{font-size:14px;font-weight:600;color:var(--text-primary);}
 .lesson-plan-text span{font-size:12px;color:var(--text-secondary);white-space:pre-wrap;}
 .lesson-plan-row.is-done b{color:var(--text-secondary);}
@@ -1776,6 +1772,64 @@ input.form-input,select.form-input,input.entry-input,input.entry-date,.custom-fo
 .form-input,.entry-input,.entry-date,.custom-form-dropdown-trigger{border-radius:var(--radius-sm);}
 .modal-close{font-size:16px;}
 /* Ende Eine Höhe (AH33) */
+
+/* Stunden-Fenster (AH36): nach dem Muster des Schüler-Fensters. Karten paarweise in Reihen, ab iPad-Breite zwei Spalten. */
+.modal-lesson-detail{width:min(920px,calc(100vw - var(--space-6)));}
+.modal-lesson-detail .modal-header{flex-wrap:wrap;align-items:center;gap:var(--space-2) var(--space-4);padding:var(--space-4);}
+.lesson-head-title{flex:1 1 0;min-width:0;display:flex;flex-direction:column;gap:var(--space-1);}
+.lesson-head-name{display:flex;align-items:center;gap:var(--space-2);min-width:0;}
+.lesson-head-btns{display:flex;align-items:center;gap:var(--space-2);flex-shrink:0;}
+.modal-lesson-detail .next-lesson-banner{order:3;flex:1 1 100%;margin:0;font-size:13px;}
+.lesson-quick{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(0,1fr);gap:var(--space-2);flex-shrink:0;padding:var(--space-3) var(--space-4);background:var(--bg-secondary);border-bottom:1px solid var(--border);}
+.lesson-quick:not(:has(> :not(.hidden))){display:none;}
+.lesson-quick .btn-secondary{display:flex;align-items:center;justify-content:center;gap:var(--space-2);min-width:0;padding:0 var(--space-2);white-space:nowrap;}
+.lesson-quick .btn-secondary.hidden{display:none;}
+.lesson-quick .ico{margin:0;flex-shrink:0;}
+.lq-long{display:none;}
+#lesson-notes-form{display:flex;flex-direction:column;gap:var(--space-3);padding:var(--space-4);}
+.lc-row{display:contents;}
+#lesson-notes-form .notes-section{display:flex;flex-direction:column;gap:var(--space-2);min-width:0;margin:0;padding:var(--space-4);box-sizing:border-box;background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-md);}
+#lesson-notes-form .notes-section.hidden{display:none;}
+#lesson-notes-form .notes-section > *{margin:0;}
+#lesson-notes-form .notes-section-header{min-height:var(--space-5);}
+#lesson-absent-container{order:1;}#lesson-class-notes{order:2;}#lesson-todos{order:3;}#lesson-plan-box{order:4;}
+.lc-content{order:5;}.lc-hw{order:6;}.lc-test{order:7;}.lc-notes{order:8;}
+#lesson-notes-form .notes-textarea{flex:1;box-sizing:border-box;width:100%;min-height:calc(var(--control-h) * 2.5);}
+#lesson-notes-form .notes-section-body{display:flex;flex-direction:column;gap:var(--space-2);margin:0;animation:none;}
+#lesson-notes-form .notes-section-body.hidden{display:none;}
+#lesson-notes-form .notes-section-body > *{margin:0;}
+#lesson-notes-form .upcoming-chips-row{padding:0;}
+#lesson-notes-form .entry-list{gap:0;}
+#lesson-notes-form .entry-list:empty{display:none;}
+#lesson-notes-form .entry-item{min-height:var(--control-h);box-sizing:border-box;padding:var(--space-1) 0;gap:var(--space-2);background:none;border:none;border-bottom:1px solid var(--border);border-radius:0;animation:none;}
+#lesson-notes-form .entry-item:last-child{border-bottom:none;}
+@media (pointer: coarse){#lesson-notes-form .entry-item-delete{margin-right:calc(var(--space-4) * -1);}}
+#lesson-notes-form .add-entry-row{display:grid;grid-template-columns:minmax(0,1fr) var(--control-h);gap:var(--space-2);margin:0;padding:0;background:none;border:none;border-radius:0;}
+#lesson-notes-form .add-entry-row .entry-input{grid-column:1 / 3;width:100%;}
+#lesson-notes-form .add-entry-row .entry-date{width:100%;min-width:0;}
+#lesson-notes-form .lesson-plan-row{gap:var(--space-2);min-height:var(--control-h);}
+#lesson-notes-form .lesson-plan-empty{display:flex;align-items:center;flex-wrap:wrap;gap:var(--space-1);min-height:var(--control-h);}
+/* Unten in der Karte: So liegen Thema, Eingabezeilen und Knöpfe nebeneinander auf einer Linie, auch wenn eine Karte höher ist */
+#lesson-notes-form .notes-section > .lesson-plan-row,#lesson-notes-form .notes-section > .lesson-plan-empty,#lesson-notes-form .notes-section > .lcn-add{margin-top:auto;}
+#lesson-notes-form .notes-section-body{flex:1;}
+#lesson-notes-form .notes-section-body .add-entry-row{margin-top:auto;}
+.modal-lesson-detail .modal-footer{display:grid;grid-template-columns:minmax(0,1fr);gap:var(--space-2);padding:var(--space-3) var(--space-4);}
+.modal-lesson-detail .lesson-footer-actions{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(0,1fr);gap:var(--space-2);}
+.modal-lesson-detail .modal-footer > .btn-primary{width:100%;}
+@media (min-width: 800px){
+  .lq-short{display:none;}
+  .lq-long{display:inline;}
+  .modal-lesson-detail .modal-header{flex-wrap:nowrap;}
+  .lesson-head-title{flex:0 1 auto;}
+  .modal-lesson-detail .next-lesson-banner{order:0;flex:1 1 0;justify-content:flex-end;min-width:0;}
+  .lc-row{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(0,1fr);gap:var(--space-3);flex-shrink:0;}
+  .lc-row:not(:has(> :not(.hidden))){display:none;}
+  #lesson-notes-form .notes-section{order:0;}
+  .modal-lesson-detail .modal-footer{display:flex;justify-content:space-between;}
+  .modal-lesson-detail .lesson-footer-actions{display:flex;}
+  .modal-lesson-detail .modal-footer > .btn-primary{width:auto;}
+}
+/* Ende Stunden-Fenster (AH36) */
 
 /* Sitzplan-Leiste rechts wie die Knöpfe in den anderen Ansichten (AH34) */
 @media (min-width: 601px){.seating-toolbar{position:static;transform:none;margin-left:auto;}}
