@@ -44,3 +44,17 @@ describe('AH35: Eine Form. Abgerundete Rechtecke, keine Pillen und Kreise', () =
     expect(bad).toEqual([]);
   });
 });
+
+describe('AH39: Eingabefelder sehen gleich aus', () => {
+  const felder = css.slice(css.indexOf('/* Eingabefelder (AH39)'), css.indexOf('/* Ende Eingabefelder (AH39) */'));
+  it('gleicher Innenabstand, gleiche Schrift und Rundung für alle Arten', () => {
+    for (const sel of ['.form-input', '.entry-input', '.entry-date', '.block-name-input', '.block-time-input', '.custom-form-dropdown-trigger', '.notes-textarea']) expect(felder, sel).toContain(sel);
+    expect(felder).toMatch(/padding-left:var\(--space-3\);padding-right:var\(--space-3\);font-size:14px;border-radius:var\(--radius-sm\)/);
+  });
+  it('auf dem iPad auch die Auswahlfelder in Feldschrift (16), sonst stehen sie kleiner neben den Textfeldern', () => {
+    expect(felder).toMatch(/@media \(pointer: coarse\)\{\.custom-form-dropdown-trigger\{font-size:16px;\}\}/);
+  });
+  it('Textfelder mit mehreren Zeilen: eine gemeinsame Mindesthöhe', () => {
+    expect(felder).toMatch(/textarea\.form-input,\.notes-textarea\{min-height:calc\(var\(--control-h\) \* 2\.5\);\}/);
+  });
+});

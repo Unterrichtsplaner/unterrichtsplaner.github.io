@@ -1796,7 +1796,7 @@ input.form-input,select.form-input,input.entry-input,input.entry-date,.custom-fo
   #lesson-notes-form.lc-default #lesson-absent-container{order:1;}#lesson-notes-form.lc-default #lesson-class-notes{order:2;}#lesson-notes-form.lc-default #lesson-todos{order:3;}#lesson-notes-form.lc-default #lesson-plan-box{order:4;}
   #lesson-notes-form.lc-default .lc-content{order:5;}#lesson-notes-form.lc-default .lc-hw{order:6;}#lesson-notes-form.lc-default .lc-test{order:7;}#lesson-notes-form.lc-default .lc-notes{order:8;}
 }
-#lesson-notes-form .notes-textarea{flex:1;box-sizing:border-box;width:100%;min-height:calc(var(--control-h) * 2.5);}
+#lesson-notes-form .notes-textarea{flex:1;box-sizing:border-box;width:100%;}
 #lesson-notes-form .notes-section-body{display:flex;flex-direction:column;gap:var(--space-2);margin:0;animation:none;}
 #lesson-notes-form .notes-section-body.hidden{display:none;}
 #lesson-notes-form .notes-section-body > *{margin:0;}
@@ -1857,6 +1857,12 @@ input.form-input,select.form-input,input.entry-input,input.entry-date,.custom-fo
 .footer-left{margin-right:auto;}
 .modal-body > .form-group:last-child,.modal-body > form > .form-group:last-child{margin-bottom:0;}
 
+/* Eingabefelder (AH39): Höhe kommt aus --control-h, hier der Rest. Vorher begann der Text mal bei 8, mal bei 12 px, die Schrift war 12, 13 oder 14. */
+.form-input,.entry-input,.entry-date,.block-row .block-name-input,.block-row .block-time-input,.custom-form-dropdown-trigger,.notes-textarea{padding-left:var(--space-3);padding-right:var(--space-3);font-size:14px;border-radius:var(--radius-sm);}
+@media (pointer: coarse){.custom-form-dropdown-trigger{font-size:16px;}}
+textarea.form-input,.notes-textarea{min-height:calc(var(--control-h) * 2.5);}
+/* Ende Eingabefelder (AH39) */
+
 /* Einstellungen (AH38): Menü links, rechts Karten des gewählten Bereichs; Handy: Menü als Leiste oben */
 .modal-settings-modal{width:min(980px,calc(100vw - var(--space-6)));height:min(760px,calc(100dvh - var(--space-6)));}
 .set-wrap{flex:1;min-height:0;display:flex;flex-direction:column;}
@@ -1878,7 +1884,7 @@ input.form-input,select.form-input,input.entry-input,input.entry-date,.custom-fo
 .set-card .settings-section-header{margin:0;gap:var(--space-2);}
 .set-pane[data-pane="about"] .settings-section > :last-child{margin-top:auto;}
 .block-row{margin:0 0 var(--space-2);}
-.block-row .block-name-input,.block-row .block-time-input{min-height:var(--control-h);box-sizing:border-box;padding-top:0;padding-bottom:0;border-radius:var(--radius-sm);font-size:13px;}
+.block-row .block-name-input,.block-row .block-time-input{min-height:var(--control-h);box-sizing:border-box;padding-top:0;padding-bottom:0;}
 .block-row .block-delete-btn{width:var(--control-h);height:var(--control-h);border-radius:var(--radius-sm);flex-shrink:0;}
 @media (min-width: 800px){
   .set-wrap{flex-direction:row;}
