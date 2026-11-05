@@ -1843,7 +1843,7 @@ button.sw-hint-text{cursor:pointer;}
 .sw-sec .add-entry-row .entry-date{flex:0 0 auto;}
 @media (min-width: 800px){
   .modal.sw-modal{width:760px;max-width:calc(100vw - 32px);}
-  .sw-modal .modal-header{flex-wrap:nowrap;}
+  .sw-modal .modal-header{flex-wrap:nowrap;align-items:center;}
   .sw-modal .sw-title{flex:0 1 auto;max-width:240px;}
   .sw-head-hint{order:0;flex:1 1 0;}
   .sw-head-btns{margin-left:auto;}
