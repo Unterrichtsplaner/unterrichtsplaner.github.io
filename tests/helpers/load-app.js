@@ -15,6 +15,7 @@ function loadScript(relPath) {
 }
 
 function loadApp() {
+  loadScript('sync-merge.js');
   loadScript('app.js');
 }
 

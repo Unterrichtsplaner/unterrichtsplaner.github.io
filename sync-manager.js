@@ -379,7 +379,7 @@ const SyncManager = {
       // Eigener Upload, dessen Antwort verloren ging: Das ist kein fremder Stand (BUGS T4)
       let recovered = null;
       if (hasCloud && cloudTimestamp !== lastSyncedCloudTimestamp && ownUpload && await ownUpload.matches(cloudData)) {
-        recovered = { cloudTimestamp, localModified: ownUpload.localModified };
+        recovered = { cloudTimestamp, localModified: ownUpload.localModified, data: cloudData };
         lastSyncedCloudTimestamp = cloudTimestamp;
         localChanged = ownUpload.localChangedSince;
       }

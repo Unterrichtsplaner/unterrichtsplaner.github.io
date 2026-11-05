@@ -213,7 +213,7 @@ describe('K10: Speicher voll', () => {
 describe('K11: Konflikt-Fenster', () => {
   const modal = () => document.getElementById('modal-sync-conflict');
   it('Hauptknopf ist der sichere Weg (Sicherung, dann Cloud laden)', () => {
-    const primary = modal().querySelectorAll('.btn-primary');
+    const primary = document.querySelectorAll('#conflict-whole .btn-primary');
     expect(primary).toHaveLength(1);
     expect(primary[0].getAttribute('onclick')).toBe("resolveConflict('backup')");
   });

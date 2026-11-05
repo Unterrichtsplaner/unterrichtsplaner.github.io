@@ -28,7 +28,7 @@ Gehostet auf GitHub Pages (`unterrichtsplaner.github.io`). Was auf `main` liegt,
 Kein Framework, kein Build-Schritt. `index.html` lädt die Skripte in dieser Reihenfolge, alle teilen sich den globalen Scope:
 
 ```
-lib/crypto-js.min.js → crypto-helper.js → lib/firebase-*-compat.js → firebase-config.js → sync-manager.js → app.js
+lib/crypto-js.min.js → crypto-helper.js → lib/firebase-*-compat.js → firebase-config.js → sync-manager.js → sync-merge.js → app.js
 ```
 
 | Datei | Inhalt |
@@ -36,6 +36,7 @@ lib/crypto-js.min.js → crypto-helper.js → lib/firebase-*-compat.js → fireb
 | `app.js` (~8300 Z.) | Fast die ganze App: State, Rendering (HTML-Strings per `innerHTML`), alle Event-Handler (inline `onclick` in index.html → globale Funktionen) |
 | `index.html` | Gesamtes Markup inkl. aller Modals (`modal-*`) und Views (`view-dashboard/timetable/classes/students/seating`) |
 | `sync-manager.js` | Firebase-Auth + Firestore, Sync-Entscheidung (`decideSync`), Passwort-Probe, Upload per Transaktion |
+| `sync-merge.js` | Drei-Wege-Abgleich als reine Funktionen (`mergeDB`, `finishMerge`, `describeDifferences`), ohne Zugriff auf die App |
 | `crypto-helper.js` | E2EE: verschlüsselt die komplette DB mit dem Master-Passwort, bevor sie in die Cloud geht |
 | `sw.js` | Service Worker: die Seite (index.html) network-first mit Cache-Fallback, alle anderen eigenen Dateien cache-first. Cache-Liste `ASSETS` muss exakt zu den URLs in index.html passen |
 | `firestore.rules` | Kopie der Firestore-Sicherheitsregeln (jeder Nutzer nur sein eigenes Dokument). Änderungen hier **und** in der Firebase-Konsole machen |
@@ -88,6 +89,7 @@ db = {
 - Cloud-Format steht im Dokument (`format`): fehlt = v1 (CryptoJS, nur noch lesen), `2` = gzip + AES-GCM, PBKDF2-Schlüssel (`salt`, `iv`, `iterations`, `compression`). Ver-/Entschlüsselung ist **async** (`CryptoHelper.encryptPayload`/`decryptPayload`). Ein neues Format braucht eine neue Nummer; alte Versionen melden dann „neuere App-Version“ statt „falsches Passwort“.
 - Firestore-Limit: 1 MiB pro Dokument, die ganze DB liegt in einem Dokument. `_buildDoc()` prüft die Größe vor jedem Schreiben (`CLOUD_MAX_BYTES`), ab `CLOUD_WARN_BYTES` wird gewarnt.
 - Ist ein Stand beidseitig „geändert“, aber inhaltlich gleich (`cloudMatchesLocal`), gibt es keinen Konflikt.
+- Ist ein Stand beidseitig „geändert“ und verschieden, führt `handleSyncConflict` ihn zusammen (AH4): Basis (letzter gemeinsamer Stand, IndexedDB über `syncStore`, Schlüssel `base_<uid>`, gilt nur bei gleicher Versionskennung) + Gerät + Cloud → `mergeDB`. Ohne Widerspruch still mit kurzem Hinweis, sonst `showMergeQuestions`. Fehlt die Basis oder scheitert etwas: Fenster mit dem ganzen Stand (`showSyncConflict`). Danach gilt `db` als „auf dieser Cloud-Version, lokal geändert“ und geht über den normalen Upload hoch. Vorher liegen beide Stände im Sicherheitsnetz (`merge_backups`, letzte 3, Einstellungen → „Stand vor dem letzten Zusammenführen“).
 - In app.js läuft immer nur ein Sync gleichzeitig (`syncRunning`/`syncQueued`). Ist ein Konflikt offen (`window.currentConflict`), pausiert der Auto-Sync.
 - Sync läuft nach jeder Eingabe (3 s später), beim Login, beim Zurückkehren in die App (`visibilitychange`) und bei `online`.
 - Das Master-Passwort liegt dauerhaft im `localStorage` (`sync_master_password`, bewusst: die Daten liegen dort ohnehin im Klartext). Nur über `storeMasterPassword()` setzen/löschen; Abmelden und falsches Passwort löschen es.
@@ -209,6 +211,7 @@ Datumswerte sind Strings `YYYY-MM-DD` in **lokaler** Zeit (`formatDate()`). Nie 
 80. **Es gibt ein Schüler-Fenster** (`modal-seating-student`, AH28): Sitzplan, Stunde, Klassenansicht, Suche, Dashboard und Profil öffnen dasselbe Fenster (`openSeatingStudentModal(id, gruppe, datum, { more, focus, keep })`; `openStudentDetail` = mit „Mehr zu …“ offen, `switchStudentTab` springt zum Abschnitt `sw-sec-…`). Profil-Funktionen arbeiten mit `profileGroupId`, nie mit `currentGroupId` (die Klassenansicht dahinter kann eine andere Klasse zeigen); Bearbeiten über `editingStudentGroupId`. Private Abschnitte (`data-private`: Noten, Mitarbeit, Notizen, Hinweise) erst nach einem „Anzeigen“ (`swShown`, nie gespeichert). Neue Inhalte im Fenster: privat oder nicht entscheiden (Regel 16, 67).
 81. **Noten schnell geben nur über `giveQuickGrade` (Fenster) bzw. `giveRoundGrade` (Notenrunde)**: Werte aus `quickGradeValues(scale)`, gespeichert über `parseGradeInput`, Art aus `QUICK_GRADE_TYPES` (je Klasse auf dem Gerät gemerkt, nie in `db`), Datum = Tag des Fensters/Sitzplans, danach `refreshGradeViews` und „Rückgängig“ per Referenz. Die Notenrunde (`gradeRound`) ist nie gespeichert und endet bei „Fertig“, Ansichts- und Klassenwechsel.
 82. **Neue Formular-Fenster in `FORM_GUARDS` und `MODAL_CLOSE_ACTIONS` eintragen** (`leaveGuardedForm`, W2): Der Stand beim Öffnen merkt sich `openModal`, also alle Felder vorher füllen. ✕ und Abbrechen rufen `closeModalLikeButton`, Speichern `closeModal`. Werte außerhalb von Feldern (Farben) gehören in die Funktion bei `FORM_GUARDS`. Hinweise zur Datensicherheit nur leise im Dashboard über `safetyNoteHTML` (höchstens einer, nie ein Dialog, Wegdrücken nur auf dem Gerät, Y4/Y5).
+83. **Neue Daten in `db` brauchen einen Eintrag in `MERGE_SPEC` (`sync-merge.js`)**, sonst fragt der Abgleich mit dem rohen Feldnamen oder bricht bei Listen ab (dann Fenster mit dem ganzen Stand, kein Datenverlust). Listen brauchen einen stabilen Schlüssel: `id` oder einen fachlichen wie bei Noten; freier Text `MERGE_TEXT` (beide behalten), Darstellung `MERGE_LOCAL`, Echtes `atomic: 'ask'`. Wer Stände in die Cloud schreibt und danach `markSynced` ruft, ruft auch `saveSyncBase` mit genau dem geschriebenen Text. `tests/sync-merge.test.js` hat einen Zufallstest: Neues darf nie verloren gehen.
 
 ## Arbeitsablauf
 

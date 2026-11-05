@@ -40,7 +40,7 @@
       }
     })();
   </script>
-  <link rel="stylesheet" href="style.css?v=394" />
+  <link rel="stylesheet" href="style.css?v=397" />
   <script>
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
@@ -957,6 +957,9 @@
           <button class="btn-danger-outline" onclick="clearAllData()"><i data-icon="trash"></i>Alles löschen</button>
           <button class="btn-danger-outline hidden" id="btn-clear-everywhere" onclick="clearAllDataEverywhere()"><i data-icon="trash"></i>Alles löschen, auch in der Cloud</button>
         </div>
+        <div id="merge-restore-row" class="merge-restore hidden">
+          <button class="btn-secondary" onclick="restoreMergeBackup()"><i data-icon="undo"></i>Stand vor dem letzten Zusammenführen</button>
+        </div>
         <input type="file" id="import-file-input" accept=".json" style="display:none" onchange="importData(event)" />
       </div>
 
@@ -1161,6 +1164,7 @@
       <h3>Auf diesem Gerät</h3>
       <ul>
         <li>Die Daten liegen unverschlüsselt im Browser-Speicher (<code>localStorage</code>). Wer das Gerät entsperrt benutzen kann, kann sie sehen. Sperre das Gerät deshalb mit Code, Fingerabdruck oder Gesicht und nutze die App nicht in einem geteilten Benutzerkonto.</li>
+        <li>Für den Abgleich hebt die App auf diesem Gerät den letzten gemeinsamen Stand und die letzten drei Stände vor einem Zusammenführen auf, ebenfalls unverschlüsselt im Browser-Speicher. „Alles löschen“ entfernt auch sie.</li>
         <li>Wenn du den Cloud-Sync nutzt, ist auch dein Master-Passwort auf diesem Gerät gespeichert, damit der Abgleich ohne erneute Eingabe läuft. Beim Abmelden wird es gelöscht.</li>
         <li>Exportierte Dateien (Sicherung, Klassen-Bericht als PDF/Excel, Notenexport als CSV) sind <strong>nicht</strong> verschlüsselt. Bewahre sie so sicher auf wie die Notenliste auf Papier und verschicke sie nicht über private Mail-Konten.</li>
         <li>Löschen: Einstellungen → Datenverwaltung → „Alles löschen“. Beim Abmelden fragt die App außerdem, ob die Daten auf dem Gerät bleiben sollen.</li>
@@ -1557,40 +1561,38 @@
   </div>
 
   <div id="modal-sync-conflict" class="modal-overlay hidden" onclick="event.stopPropagation()">
-    <div class="modal modal-medium" onclick="event.stopPropagation()" style="max-width: 480px;">
+    <div class="modal modal-medium" onclick="event.stopPropagation()" style="max-width: 520px;">
       <div class="modal-header">
-        <h2 style="color: var(--danger); display: flex; align-items: center; gap: 8px;"><i data-icon="alert"></i>Konflikt erkannt</h2>
+        <h2 id="conflict-title" class="conflict-title"><i data-icon="alert"></i><span id="conflict-title-text">Zwei Stände</span></h2>
       </div>
-      <div class="modal-body" style="padding: 20px;">
-        <p style="margin-bottom: 16px; font-size: 13px; line-height: 1.5; color: var(--text-secondary);">
-          Sowohl auf diesem Gerät als auch in der Cloud wurden seit der letzten Synchronisation Änderungen vorgenommen. 
-          Da die Daten Ende-zu-Ende-verschlüsselt sind, kann die App sie nicht automatisch mergen.
-        </p>
-        
-        <div style="background: var(--bg-card); padding: 12px; border-radius: var(--radius-md); border: 1px solid var(--border); margin-bottom: 20px; font-size: 13px;">
-          <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
-            <strong>Lokale Version auf diesem Gerät:</strong>
-            <span id="conflict-local-time" style="color: var(--accent); font-weight: bold;">Unbekannt</span>
-          </div>
-          <div style="display: flex; justify-content: space-between;">
-            <strong>Version in der Cloud:</strong>
-            <span id="conflict-cloud-time" style="color: var(--success); font-weight: bold;">Unbekannt</span>
-          </div>
+      <!-- Drei-Wege-Abgleich (AH4): Alles andere ist schon zusammengeführt, hier stehen nur echte Widersprüche -->
+      <div id="conflict-questions" class="modal-body conflict-body hidden">
+        <p class="conflict-text">Alles andere ist schon zusammengeführt. Nur hier passen die Änderungen nicht zusammen:</p>
+        <div id="conflict-question-list" class="conflict-list"></div>
+        <div class="conflict-all">
+          <button type="button" id="conflict-all-local" class="btn-secondary">Alle: dieses Gerät</button>
+          <button type="button" id="conflict-all-cloud" class="btn-secondary">Alle: Cloud</button>
         </div>
-        
-        <p style="font-weight: 600; margin-bottom: 12px; font-size: 13px;">Wie möchtest du vorgehen?</p>
+        <button type="button" id="conflict-apply" class="btn-primary conflict-apply" disabled>Übernehmen</button>
+        <button type="button" id="conflict-whole-link" class="btn-secondary conflict-apply">Stattdessen einen ganzen Stand wählen</button>
       </div>
-      <div class="modal-footer" style="flex-direction: column; gap: 10px; align-items: stretch; display: flex; padding: 16px;">
-        <!-- Sicherer Weg zuerst und als einziger Hauptknopf: nichts geht verloren (BUGS K11) -->
-        <button class="btn-primary" style="width: 100%;" onclick="resolveConflict('backup')">
-          <i data-icon="save"></i>Sicherheitskopie dieses Geräts speichern, dann Cloud laden
-        </button>
-        <button class="btn-secondary" style="width: 100%;" onclick="resolveConflict('pull')">
-          <i data-icon="cloud-down"></i>Cloud-Version laden (Änderungen auf diesem Gerät verwerfen)
-        </button>
-        <button class="btn-secondary" style="width: 100%;" onclick="resolveConflict('push')">
-          <i data-icon="cloud-up"></i>Dieses Gerät hochladen (Cloud-Version überschreiben)
-        </button>
+      <!-- Rückfall: Zusammenführen ging nicht (z. B. einmal direkt nach dem Update), dann entscheidet man für den ganzen Stand -->
+      <div id="conflict-whole" class="conflict-whole">
+        <div class="modal-body conflict-body">
+          <p class="conflict-text">Auf diesem Gerät und in der Cloud wurde seit dem letzten Abgleich etwas geändert. Das konnte nicht automatisch zusammengeführt werden.</p>
+          <div id="conflict-differences" class="conflict-differences hidden"></div>
+          <div class="conflict-times">
+            <div><strong>Dieses Gerät:</strong> <span id="conflict-local-time">Unbekannt</span></div>
+            <div><strong>Cloud:</strong> <span id="conflict-cloud-time">Unbekannt</span></div>
+          </div>
+          <p class="conflict-text"><strong>Welcher Stand soll gelten?</strong></p>
+        </div>
+        <div class="modal-footer conflict-actions">
+          <!-- Sicherer Weg zuerst und als einziger Hauptknopf: nichts geht verloren (BUGS K11) -->
+          <button class="btn-primary" onclick="resolveConflict('backup')"><i data-icon="save"></i>Sicherheitskopie dieses Geräts speichern, dann Cloud laden</button>
+          <button class="btn-secondary" onclick="resolveConflict('pull')"><i data-icon="cloud-down"></i>Cloud-Version laden (Änderungen auf diesem Gerät verwerfen)</button>
+          <button class="btn-secondary" onclick="resolveConflict('push')"><i data-icon="cloud-up"></i>Dieses Gerät hochladen (Cloud-Version überschreiben)</button>
+        </div>
       </div>
     </div>
   </div>
@@ -1626,12 +1628,13 @@
   </div>
 
   <script src="lib/crypto-js.min.js"></script>
-  <script src="crypto-helper.js?v=394"></script>
+  <script src="crypto-helper.js?v=397"></script>
   <script src="lib/firebase-app-compat.js"></script>
   <script src="lib/firebase-auth-compat.js"></script>
   <script src="lib/firebase-firestore-compat.js"></script>
-  <script src="firebase-config.js?v=394"></script>
-  <script src="sync-manager.js?v=394"></script>
-  <script src="app.js?v=394"></script>
+  <script src="firebase-config.js?v=397"></script>
+  <script src="sync-manager.js?v=397"></script>
+  <script src="sync-merge.js?v=397"></script>
+  <script src="app.js?v=397"></script>
 </body>
 </html>

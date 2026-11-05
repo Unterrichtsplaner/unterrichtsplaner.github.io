@@ -4785,6 +4785,7 @@ function openSettings() {
 }
 // Felder und Blöcke-Entwurf aus db füllen – beim Öffnen und nach einer Cloud-Übernahme (BUGS P2)
 function fillSettingsForm() {
+  refreshMergeRestoreButton();   // AH4
   document.getElementById('settings-teacher-name').value = db.settings.teacherName||'';
   document.getElementById('settings-school').value       = db.settings.school||'';
   document.getElementById('settings-seating-buffer').value = db.settings.seatingBufferMins !== undefined ? db.settings.seatingBufferMins : 5;
@@ -5410,6 +5411,9 @@ function wipeLocalData() {
   markDBWritten(); // andere Fenster sollen den gelöschten Stand übernehmen, nicht ihren alten zurückschreiben
   // Auch Rettungskopien unlesbarer Stände (G12) enthalten Schülerdaten (BUGS K15)
   rescueCopyKeys().forEach(k => localStorage.removeItem(k));
+  // Gemeinsamer Stand und Stände vor dem Zusammenführen enthalten ebenfalls Schülerdaten (AH4)
+  syncBaseSaved = null;
+  try { Promise.resolve(syncStore.clear()).catch(() => {}); } catch (e) { /* kein Speicher: nichts zu löschen */ }
   replaceDB(loadDB());
 }
 
@@ -6487,8 +6491,9 @@ function giveRoundGrade(studentId, val) {
   refreshGradeViews(s, groupId);
   const typeName = (QUICK_GRADE_TYPES.find(([k]) => k === type) || [])[1] || gradeTypeName(type);
   showUndoToast(`${studentListName(s)}: ${gradeText(entry.value)} (${typeName})`, () => {
-    const i = (s.grades || []).indexOf(entry);
-    if (i === -1) return;
+    // Inzwischen ersetzte DB (Abgleich): Das Objekt gehört zum alten Stand, ein Löschen dort täte nichts (Regel 32)
+    const i = (db.students[groupId] || []).includes(s) ? (s.grades || []).indexOf(entry) : -1;
+    if (i === -1) { showToast('Nicht mehr möglich: Die Daten wurden inzwischen ersetzt', 'error'); return; }
     s.grades.splice(i, 1);
     if (gradeRound === round) {
       round.count--;
@@ -7566,8 +7571,9 @@ function giveQuickGrade(val) {
   closeModal('modal-seating-student');
   const typeName = (QUICK_GRADE_TYPES.find(([k]) => k === type) || [])[1] || gradeTypeName(type);
   showUndoToast(`${studentListName(s)}: ${gradeText(entry.value)} (${entry.note || typeName})`, () => {
-    const i = (s.grades || []).indexOf(entry);
-    if (i === -1) return;
+    // Inzwischen ersetzte DB (Abgleich): Das Objekt gehört zum alten Stand, ein Löschen dort täte nichts (Regel 32)
+    const i = (db.students[groupId] || []).includes(s) ? (s.grades || []).indexOf(entry) : -1;
+    if (i === -1) { showToast('Nicht mehr möglich: Die Daten wurden inzwischen ersetzt', 'error'); return; }
     s.grades.splice(i, 1);
     saveDB();
     refreshGradeViews(s, groupId);
@@ -10449,6 +10455,7 @@ function applyCloudData(dataString, cloudTimestamp) {
   const newDB = migrateDB(parsed);
   db = newDB;
   markSynced(cloudTimestamp, db.settings.lastModified);
+  saveSyncBase(cloudTimestamp, dataString);
   replaceDB(newDB);
 }
 
@@ -10541,9 +10548,200 @@ function showSyncConflict(conflictInfo) {
   const fmt = ts => ts ? new Date(ts).toLocaleString('de-DE') : 'Unbekannt';
   document.getElementById('conflict-local-time').textContent = 'geändert ' + fmt(db.settings.lastModified);
   document.getElementById('conflict-cloud-time').textContent = 'geändert ' + fmt(conflictInfo.cloudTimestamp);
+  document.getElementById('conflict-title-text').textContent = 'Zwei Stände';
+  document.getElementById('conflict-questions').classList.add('hidden');
+  document.getElementById('conflict-whole').classList.remove('hidden');
+  fillConflictDifferences(conflictInfo);
   // Solange der Konflikt offen ist, pausiert der automatische Sync (siehe triggerSyncInternal)
   window.currentConflict = conflictInfo;
   openModal('modal-sync-conflict');
+}
+// Was sich unterscheidet, ohne Namen und Werte (Y10). Klappt es nicht, bleibt das Fenster ohne Liste benutzbar.
+function fillConflictDifferences(conflictInfo) {
+  const box = document.getElementById('conflict-differences');
+  let lines = [];
+  try { lines = describeDifferences(db, migrateDB(JSON.parse(conflictInfo.cloudData))); } catch (e) { lines = []; }
+  box.classList.toggle('hidden', !lines.length);
+  box.innerHTML = lines.length ? `<strong>Das unterscheidet sich:</strong><ul>${lines.map(l => `<li>${escHtml(l)}</li>`).join('')}</ul>` : '';
+}
+
+// ─── Drei-Wege-Abgleich: Speicher und Ablauf (AH4) ───────────────────────────
+// Der letzte gemeinsame Stand („Basis“) und die Stände vor einem Zusammenführen liegen in IndexedDB: nicht in db, nicht in
+// der Cloud, und localStorage wäre dafür zu knapp. Fehlt etwas oder passt die Basis nicht zur Versionskennung, gibt es
+// einfach das Fenster mit dem ganzen Stand; darum darf jeder Schritt hier scheitern, ohne Daten zu gefährden.
+function idbRequest(mode, run) {
+  return new Promise((resolve, reject) => {
+    if (typeof indexedDB === 'undefined') { reject(new Error('IndexedDB fehlt')); return; }
+    const open = indexedDB.open('lehrerapp_sync', 1);
+    open.onupgradeneeded = () => open.result.createObjectStore('kv');
+    open.onerror = () => reject(open.error);
+    open.onsuccess = () => {
+      const idb = open.result;
+      const tx = idb.transaction('kv', mode);
+      const req = run(tx.objectStore('kv'));
+      tx.oncomplete = () => { idb.close(); resolve(req && req.result); };
+      tx.onerror = tx.onabort = () => { idb.close(); reject(tx.error); };
+    };
+  });
+}
+let syncStore = {
+  get: key => idbRequest('readonly', st => st.get(key)),
+  put: (key, value) => idbRequest('readwrite', st => st.put(value, key)),
+  clear: () => idbRequest('readwrite', st => st.clear()),
+};
+const MERGE_BACKUPS_KEY = 'merge_backups', MERGE_BACKUPS_MAX = 3;
+let syncBaseSaved = null;   // zuletzt gespeicherte Kennung: Ein Abgleich ohne Änderung schreibt nicht jedes Mal Megabytes
+async function saveSyncBase(cloudTimestamp, dataString) {
+  const uid = SyncManager.currentUser && SyncManager.currentUser.uid;
+  if (!uid || !dataString) return;
+  const mark = `${uid}|${cloudTimestamp}`;
+  if (syncBaseSaved === mark) return;
+  try {
+    await syncStore.put(`base_${uid}`, { cloudTimestamp, data: dataString });
+    syncBaseSaved = mark;
+  } catch (e) { syncBaseSaved = null; console.warn('Gemeinsamer Stand nicht gespeichert:', e.message); }
+}
+async function readSyncBase(cloudTimestamp) {
+  const uid = SyncManager.currentUser && SyncManager.currentUser.uid;
+  const rec = uid ? await syncStore.get(`base_${uid}`) : null;
+  return rec && rec.cloudTimestamp === cloudTimestamp ? rec.data : null;
+}
+async function keepMergeBackup(localDataString, cloudDataString) {
+  const list = (await syncStore.get(MERGE_BACKUPS_KEY)) || [];
+  list.unshift({ time: Date.now(), local: localDataString, cloud: cloudDataString });
+  await syncStore.put(MERGE_BACKUPS_KEY, list.slice(0, MERGE_BACKUPS_MAX));
+}
+// Zusammenführen vorbereiten. Liefert { merged, conflicts } oder null = Fenster mit dem ganzen Stand.
+async function prepareMerge(conflictInfo, localDataString, lastSynced) {
+  try {
+    const baseString = await readSyncBase(lastSynced);
+    if (!baseString) return null;
+    const parse = str => {
+      const d = JSON.parse(str);
+      if (!d || !d.settings || !d.groups || !d.students) throw new Error('Unerwartetes Format');
+      return migrateDB(d);
+    };
+    const out = mergeDB(parse(baseString), parse(localDataString), parse(conflictInfo.cloudData));
+    await keepMergeBackup(localDataString, conflictInfo.cloudData);   // ohne Sicherheitsnetz kein Zusammenführen
+    return out;
+  } catch (e) {
+    console.warn('Zusammenführen nicht möglich:', e.message);
+    return null;
+  }
+}
+// Ergebnis übernehmen: Es gilt als „auf dem Stand der Cloud, lokal geändert“. Der nächste Sync lädt es also auf dem normalen
+// Weg hoch (Transaktion, verlorene Antwort); war die Cloud inzwischen weiter, wird von dort aus neu zusammengeführt.
+async function applyMergedDB(merged, conflictInfo) {
+  finishMerge(merged);
+  const fresh = migrateDB(merged);
+  fresh.syncSettings = { ...(db.syncSettings || {}), lastSyncedCloudTimestamp: conflictInfo.cloudTimestamp };
+  delete fresh.syncSettings.pendingUpload;
+  if (SyncManager.currentUser) fresh.syncSettings.uid = SyncManager.currentUser.uid;
+  fresh.settings.lastModified = Math.max(Date.now(), (db.settings.lastModified || 0) + 1);
+  // Erst tauschen, dann auf den Speicher warten: Ein await davor ließe eine Lücke, in der Getipptes verloren ginge (Regel 32).
+  // Geht das Speichern schief, passt die Basis nicht zur Kennung, und es bleibt beim Fenster mit dem ganzen Stand.
+  const saved = saveSyncBase(conflictInfo.cloudTimestamp, conflictInfo.cloudData);
+  db = fresh;
+  persistDB();
+  replaceDB(fresh);
+  SyncManager.updateStatus('synced');
+  await saved;
+}
+const MERGE_DONE_TEXT = 'Änderungen von diesem Gerät und aus der Cloud zusammengeführt';
+async function handleSyncConflict(conflictInfo, at) {
+  const out = await prepareMerge(conflictInfo, at.localDataString, at.lastSynced);
+  if (db !== at.dbAtStart || db.settings.lastModified !== at.localModified) { syncQueued = true; return; }   // Regel 32
+  if (!out) { showSyncConflict(conflictInfo); return; }
+  if (!out.conflicts.length) {
+    await applyMergedDB(out.merged, conflictInfo);
+    syncQueued = true;
+    showToast(MERGE_DONE_TEXT);
+    return;
+  }
+  showMergeQuestions(conflictInfo, out, at);
+}
+// Einzelne Fragen statt eines ganzen Stands. Gelöscht gegen geändert steht auf „Behalten“, bis man anders entscheidet.
+function showMergeQuestions(conflictInfo, out, at) {
+  const answers = out.conflicts.map(q => (q.kind === 'delete' ? 'keep' : null));
+  const list = document.getElementById('conflict-question-list');
+  list.innerHTML = out.conflicts.map((q, i) => {
+    const [a, b] = q.kind === 'delete' ? ['Behalten', 'Löschen'] : [`Dieses Gerät: ${q.localText}`, `Cloud: ${q.cloudText}`];
+    const note = q.kind === 'delete' ? (q.deletedOn === 'cloud' ? 'In der Cloud gelöscht, auf diesem Gerät geändert' : 'Auf diesem Gerät gelöscht, in der Cloud geändert') : q.what;
+    return `<div class="conflict-q" data-i="${i}"><div class="conflict-q-head"><b>${escHtml(q.title)}</b>${note ? `<span>${escHtml(note)}</span>` : ''}</div>
+      <div class="conflict-q-choice" role="group" aria-label="${escHtml(q.title)}"><button type="button" class="btn-secondary" data-side="a" aria-pressed="false">${escHtml(a)}</button><button type="button" class="btn-secondary" data-side="b" aria-pressed="false">${escHtml(b)}</button></div></div>`;
+  }).join('');
+  const applyBtn = document.getElementById('conflict-apply');
+  const show = () => {
+    list.querySelectorAll('.conflict-q').forEach(row => {
+      const i = Number(row.dataset.i), q = out.conflicts[i];
+      const on = answers[i] === null ? null : (answers[i] === 'keep' || answers[i] === 'local') ? 'a' : 'b';
+      row.querySelectorAll('button').forEach(btn => {
+        btn.classList.toggle('is-chosen', btn.dataset.side === on);
+        btn.setAttribute('aria-pressed', btn.dataset.side === on ? 'true' : 'false');
+      });
+      row.dataset.kind = q.kind;
+    });
+    applyBtn.disabled = answers.some(x => x === null);
+  };
+  list.querySelectorAll('.conflict-q').forEach(row => {
+    const i = Number(row.dataset.i), del = out.conflicts[i].kind === 'delete';
+    row.querySelectorAll('button').forEach(btn => btn.addEventListener('click', () => {
+      answers[i] = btn.dataset.side === 'a' ? (del ? 'keep' : 'local') : (del ? 'delete' : 'cloud');
+      show();
+    }));
+  });
+  // „Alle“ gilt nur für Werte. Löschen entscheidet man einzeln, es bleibt beim Behalten, bis man anders wählt.
+  const setAll = side => { out.conflicts.forEach((q, i) => { if (q.kind === 'value') answers[i] = side; }); show(); };
+  document.getElementById('conflict-all-local').onclick = () => setAll('local');
+  document.getElementById('conflict-all-cloud').onclick = () => setAll('cloud');
+  document.getElementById('conflict-whole-link').onclick = () => showSyncConflict(conflictInfo);
+  applyBtn.onclick = () => confirmMergeAnswers(conflictInfo, out, answers, at);
+  document.getElementById('conflict-title-text').textContent = out.conflicts.length === 1 ? 'Eine Frage zum Abgleich' : `${out.conflicts.length} Fragen zum Abgleich`;
+  document.getElementById('conflict-whole').classList.add('hidden');
+  document.getElementById('conflict-questions').classList.remove('hidden');
+  show();
+  window.currentConflict = conflictInfo;
+  openModal('modal-sync-conflict');
+}
+async function confirmMergeAnswers(conflictInfo, out, answers, at) {
+  if (window.currentConflict !== conflictInfo) return;
+  if (syncRunning) { showToast('Gerade läuft ein Sync. Bitte gleich noch einmal versuchen', 'error'); return; }
+  closeModal('modal-sync-conflict');
+  window.currentConflict = null;
+  // Inzwischen anderer Stand (anderes Fenster, ersetzte DB): Die Antworten gehören zum alten, also neu prüfen (Regel 32)
+  if (db === at.dbAtStart && db.settings.lastModified === at.localModified) {
+    out.conflicts.forEach((q, i) => q.apply(answers[i]));
+    await applyMergedDB(out.merged, conflictInfo);
+    showToast(MERGE_DONE_TEXT);
+  }
+  triggerSyncInternal();
+}
+// Einstellungen: Stand vor dem letzten Zusammenführen zurückholen. Zählt wie das Laden einer Sicherung (BUGS K9).
+async function refreshMergeRestoreButton() {
+  const row = document.getElementById('merge-restore-row');
+  if (!row) return;
+  let list = null;
+  try { list = await syncStore.get(MERGE_BACKUPS_KEY); } catch (e) { list = null; }
+  row.classList.toggle('hidden', !(list && list.length));
+}
+async function restoreMergeBackup() {
+  let list = null;
+  try { list = await syncStore.get(MERGE_BACKUPS_KEY); } catch (e) { list = null; }
+  const last = list && list[0];
+  if (!last) { showToast('Es gibt keinen früheren Stand', 'error'); return; }
+  const when = new Date(last.time).toLocaleString('de-DE');
+  const side = await askChoice('Stand vor dem Zusammenführen', `Vom ${when}. Der gewählte Stand ersetzt alle Daten auf diesem Gerät und danach auch in der Cloud.`,
+    [{ label: 'Stand dieses Geräts', value: 'local', primary: true }, { label: 'Stand aus der Cloud', value: 'cloud' }]);
+  if (!side) return;
+  const parsed = JSON.parse(last[side]);
+  const syncSettings = db.syncSettings;
+  delete parsed.syncSettings;
+  db = migrateDB(parsed);
+  if (syncSettings) db.syncSettings = syncSettings;
+  saveDB();
+  replaceDB(db);
+  closeModal('modal-settings');
+  showToast('Früherer Stand wiederhergestellt ✓');
 }
 
 // Führt den eigentlichen Sync im Hintergrund durch
@@ -10584,7 +10782,10 @@ async function triggerSyncInternal({ manual = false } = {}) {
         persistDB();
       },
     }));
-    if (result.recovered && db === dbAtStart) markSynced(result.recovered.cloudTimestamp, result.recovered.localModified);
+    if (result.recovered && db === dbAtStart) {
+      markSynced(result.recovered.cloudTimestamp, result.recovered.localModified);
+      saveSyncBase(result.recovered.cloudTimestamp, result.recovered.data);
+    }
     if (['uploaded', 'pulled', 'no_change'].includes(result.status)) syncErrorShown = false;
 
     if (db !== dbAtStart) {
@@ -10598,7 +10799,7 @@ async function triggerSyncInternal({ manual = false } = {}) {
       syncAfterModalClose = true;
       if (manual) showToast('Neuer Stand in der Cloud. Wird übernommen, sobald das Fenster geschlossen ist.');
     } else if (result.status === 'conflict') {
-      showSyncConflict(result);
+      await handleSyncConflict(result, { dbAtStart, localDataString, localModified, lastSynced: baseline ? baseline.lastSyncedCloudTimestamp : undefined });
     } else if (result.status === 'pulled') {
       if (db.settings.lastModified !== localModified) {
         // Während des Downloads wurde lokal etwas eingetragen – nicht überschreiben!
@@ -10612,12 +10813,16 @@ async function triggerSyncInternal({ manual = false } = {}) {
       // Nur den hochgeladenen Stand als synchron markieren; Eingaben während des Uploads
       // bleiben „geändert“ und gehen mit dem nächsten Sync hoch.
       markSynced(result.cloudTimestamp, localModified);
+      saveSyncBase(result.cloudTimestamp, localDataString);
       if (manual) showToast('In die Cloud hochgeladen ✓');
       warnIfCloudNearlyFull();
       updateSyncUI();
     } else if (result.status === 'no_change') {
       // Beide Seiten inhaltsgleich – auch wenn die Kennungen abweichen (siehe cloudMatchesLocal)
-      if (db.settings.lastModified === localModified) markSynced(result.cloudTimestamp, localModified);
+      if (db.settings.lastModified === localModified) {
+        markSynced(result.cloudTimestamp, localModified);
+        saveSyncBase(result.cloudTimestamp, localDataString);
+      }
       if (manual) showToast('Daten bereits auf dem neuesten Stand.');
       updateSyncUI();
     } else if (result.status === 'offline') {
@@ -10711,8 +10916,12 @@ async function resolveConflict(decision) {
       try {
         const dbAtStart = db;
         const localModified = db.settings.lastModified;
-        const newTimestamp = await SyncManager.saveToCloud(JSON.stringify(db), conflict.cloudTimestamp);
-        if (db === dbAtStart) markSynced(newTimestamp, localModified); // sonst: DB inzwischen ersetzt (BUGS K1)
+        const uploaded = JSON.stringify(db);
+        const newTimestamp = await SyncManager.saveToCloud(uploaded, conflict.cloudTimestamp);
+        if (db === dbAtStart) {
+          markSynced(newTimestamp, localModified); // sonst: DB inzwischen ersetzt (BUGS K1)
+          saveSyncBase(newTimestamp, uploaded);
+        }
       } finally {
         syncRunning = false;
       }
