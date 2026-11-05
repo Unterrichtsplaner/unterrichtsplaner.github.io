@@ -693,7 +693,7 @@ function renderTimetableWeek(grid) {
   // Woche über Neujahr: beide Jahre nennen (BUGS M12)
   const y0 = dates[0].getFullYear(), y4 = dates[4].getFullYear();
   document.getElementById('week-label').innerHTML = `<span class="week-label-kw">KW ${weekNo}  ·  </span>` + (y0 === y4
-    ? `${formatDateDE(dates[0])} – ${formatDateDE(dates[4])} ${y4}`
+    ? `${formatDateDE(dates[0])} – ${formatDateDE(dates[4])}<span class="week-label-kw"> ${y4}</span>`
     : `${formatDateDE(dates[0])}${y0} – ${formatDateDE(dates[4])}${y4}`);
 
   // "Heute" button + week-label only glow on the current week

@@ -950,7 +950,7 @@ select option{background:var(--bg-secondary);}
 .dash-badge.test{background:rgba(239,68,68,.18);color:var(--danger);}
 .dash-badge.note{background:rgba(100,116,139,.2);color:var(--text-muted);}
 .dash-lesson-status{flex:none;font-size:12px;font-weight:600;color:var(--text-secondary);white-space:nowrap;}
-.dash-lesson.past{min-height:var(--control-h);padding-top:0;padding-bottom:0;background:transparent;border-left-color:color-mix(in srgb,var(--lesson-color) 40%,transparent);}
+.dash-lesson.past{min-height:var(--control-h);padding-top:0;padding-bottom:0;background:transparent;border-radius:var(--radius-sm) 0 0 var(--radius-sm);border-left-color:color-mix(in srgb,var(--lesson-color) 40%,transparent);}
 .dash-lesson.past .dash-lesson-time,.dash-lesson.past .dash-lesson-title,.dash-lesson.past .dash-lesson-title span{color:var(--text-muted);font-weight:400;}
 .dash-lesson.past .dash-lesson-time small,.dash-lesson.past .dash-lesson-cnotes,.dash-lesson.past .dash-lesson-badges,.dash-lesson.past .dash-lesson-status,.dash-lesson.past .dash-lesson-room{display:none;}
 .dash-lesson.ausfall{opacity:.4;text-decoration:line-through;}
