@@ -40,7 +40,7 @@
       }
     })();
   </script>
-  <link rel="stylesheet" href="style.css?v=407" />
+  <link rel="stylesheet" href="style.css?v=408" />
   <script>
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
@@ -271,7 +271,7 @@
         <div class="seating-toolbar">
           <!-- Klassen-Auswahl -->
           <div class="custom-dropdown" style="position:relative; display:inline-block; flex-shrink:0;">
-            <button id="seating-group-trigger" class="btn-secondary" style="font-size:13px; padding:4px 12px; min-width:80px; max-width:160px; font-weight:600; border-radius:99px; display:flex; align-items:center; justify-content:center; gap:6px; cursor:pointer;" onclick="toggleCustomGroupDropdown(event)">
+            <button id="seating-group-trigger" class="btn-secondary" style="font-size:13px; padding:4px 12px; min-width:80px; max-width:160px; font-weight:600; border-radius:var(--radius-sm); display:flex; align-items:center; justify-content:center; gap:6px; cursor:pointer;" onclick="toggleCustomGroupDropdown(event)">
               <span id="seating-group-current-label">Klasse</span>
               <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" style="opacity: 0.7;"><polyline points="6 9 12 15 18 9"></polyline></svg>
             </button>
@@ -605,7 +605,7 @@
       </div>
       <div class="form-group" id="lesson-part-group" style="margin-top:12px;">
         <span class="group-label" id="lesson-part-label">Dauer / Position im Block</span>
-        <div id="lesson-part-options" role="radiogroup" aria-labelledby="lesson-part-label" style="display:flex; background:var(--bg-elevated); border:1px solid var(--border); border-radius:99px; overflow:hidden;">
+        <div id="lesson-part-options" role="radiogroup" aria-labelledby="lesson-part-label" style="display:flex; background:var(--bg-elevated); border:1px solid var(--border); border-radius:var(--radius-sm); overflow:hidden;">
           <label style="flex:1; position:relative; cursor:pointer; margin:0;">
             <input type="radio" name="new-lesson-part" value="full" checked style="position:absolute; opacity:0; pointer-events:none;" />
             <div class="duration-btn">Ganzer Block</div>
@@ -1630,13 +1630,13 @@
   </div>
 
   <script src="lib/crypto-js.min.js"></script>
-  <script src="crypto-helper.js?v=407"></script>
+  <script src="crypto-helper.js?v=408"></script>
   <script src="lib/firebase-app-compat.js"></script>
   <script src="lib/firebase-auth-compat.js"></script>
   <script src="lib/firebase-firestore-compat.js"></script>
-  <script src="firebase-config.js?v=407"></script>
-  <script src="sync-manager.js?v=407"></script>
-  <script src="sync-merge.js?v=407"></script>
-  <script src="app.js?v=407"></script>
+  <script src="firebase-config.js?v=408"></script>
+  <script src="sync-manager.js?v=408"></script>
+  <script src="sync-merge.js?v=408"></script>
+  <script src="app.js?v=408"></script>
 </body>
 </html>

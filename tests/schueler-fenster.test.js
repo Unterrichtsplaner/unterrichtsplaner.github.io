@@ -323,3 +323,12 @@ describe('AH34: Abstände im Schüler-Fenster nur aus der festen Reihe', () => {
     expect(bad).toEqual([]);
   });
 });
+
+describe('AH35: Hinweis im Kopf steht in der Mitte', () => {
+  const css = require('fs').readFileSync(require('path').join(__dirname, '..', 'style.css'), 'utf8');
+  it('Kopf ab iPad-Breite als dreiteiliges Raster mit gleich breiten Außenspalten', () => {
+    const wide = css.slice(css.indexOf('/* Schüler-Fenster (AH28, AH31, AH34)'), css.indexOf('/* Ende Schüler-Fenster (AH34) */'));
+    expect(wide).toMatch(/\.sw-modal \.modal-header\{display:grid;grid-template-columns:minmax\(max-content,1fr\) minmax\(0,auto\) minmax\(max-content,1fr\);/);
+    expect(wide).toMatch(/\.sw-head-hint\{[^}]*justify-content:center/);
+  });
+});

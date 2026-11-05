@@ -677,6 +677,8 @@ Geprüft: Cockpit, Fenster „Heute“, Schüler-Hinweis, Schülerliste/Klassen�
 
 - [ ] **AH34** 🔴 **Nichts ist bündig und gleichmäßig** (Wunsch 05.11.): Abstände folgen keiner Regel, Knöpfe sitzen mal dicht, mal weit an anderem, nebeneinander Stehendes ist verschieden hoch, die App wirkt hingepflickt. Auch das neue Schüler-Fenster: Spalten mit verschieden hohen Reihen, wirkt spartanisch. Gezählt: 27 verschiedene Abstandswerte, 375 von 815 Stellen außerhalb eines Rasters, 115 weitere direkt im Code. Plan: feste Reihe `--space-1` … `--space-6` (4, 8, 12, 16, 24, 32), Ansicht für Ansicht umstellen, zuletzt ein Test für alles. *Schritt 1, Muster: Schüler-Fenster fertig (v407): vier Karten in einem Raster, jede Reihe auf den Pixel bündig, Notentafel über die ganze Breite, neu „Heute: …“ (nur Arten und Anzahl, nie Werte oder Texte, Regel 67), Eingabezeilen unter „Mehr“ unten bündig. Wartet auf die Rückmeldung des Nutzers, danach Fenster, Dashboard, Klassen, Klassenansicht, Stundenplan, Sitzplan, Einstellungen.*
 
+- [x] **AH35** 🟠 **Eine Form** (Wunsch 05.11.: „sei dir endlich mal einig“). *Entschieden: überall abgerundete Rechtecke, keine Pillen und Kreise, auch nicht bei Symbol-Knöpfen, Menüpunkten, Suche und Datumsfeldern im Sitzplan. Rund bleiben nur Dinge, die keine Knöpfe sind: Punkte, Fortschrittsbalken, Rollbalken, der Schalter. Test: `tests/knopfhoehe.test.js`. Dazu: Hinweis im Kopf des Schüler-Fensters steht genau in der Mitte.*
+
 ---
 
 ## Erledigt

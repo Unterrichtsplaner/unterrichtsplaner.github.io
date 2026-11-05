@@ -25,3 +25,22 @@ describe('Eine Höhe für alles Bedienbare', () => {
     expect(block).toMatch(/\.btn-circle \.ico[^{]*\{[^}]*margin:0/);
   });
 });
+
+describe('AH35: Eine Form. Abgerundete Rechtecke, keine Pillen und Kreise', () => {
+  // Rund bleiben nur Dinge, die keine Knöpfe sind: Punkte, Fortschrittsbalken, Rollbalken und der Schalter
+  const ROUND_OK = /needs-attention::after|indicator-dot|toggle-slider|scrollbar-thumb|cockpit-progress|sc-trend i|sc-mark/;
+  const plain = css.replace(/\/\*[\s\S]*?\*\//g, '');
+  it('style.css: keine Pille und kein Kreis außerhalb der Ausnahmen', () => {
+    const bad = [];
+    for (const m of plain.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
+      if (/border-radius:\s*(\d{2,}px|50%)/.test(m[2]) && !ROUND_OK.test(m[1])) bad.push(m[1].trim());
+    }
+    expect(bad).toEqual([]);
+  });
+  it('auch nicht als Inline-Stil an Bedienelementen', () => {
+    const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+    const bad = [...html.matchAll(/<(button|div)[^>]*style="[^"]*border-radius:\s*(\d{2,}px|50%)[^"]*"[^>]*>/g)].map(m => m[0].slice(0, 80))
+      .filter(t => !t.includes('lesson-color-dot'));
+    expect(bad).toEqual([]);
+  });
+});
