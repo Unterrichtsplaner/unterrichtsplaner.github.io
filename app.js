@@ -9660,9 +9660,15 @@ async function requestPersistentStorage() {
 function renderDashboard() {
   const container = document.getElementById('dashboard-content');
   if (!container) return;
-  container.innerHTML = safetyNoteHTML() + renderDashboardToday() + '<div id="dash-todos-slot"></div>' + renderDashboardWarnings();
+  // Zwei Spalten (AH41): links der Tag und „Auffällig“, rechts „Als Nächstes“ und Merkzettel
+  const coming = renderDashboardNext();
+  container.innerHTML = safetyNoteHTML()
+    + `<div class="dash-grid"><div class="dash-col dash-col-left">${renderDashboardToday()}${renderDashboardWarnings()}</div>`
+    + `<div class="dash-col dash-col-right">${coming}<div id="dash-todos-slot"></div></div></div>`;
   wireSafetyNote(container);
-  fillDashboardTodos(document.getElementById('dash-todos-slot'));   // Merkzettel (AH18)
+  const todosSlot = document.getElementById('dash-todos-slot');
+  fillDashboardTodos(todosSlot);   // Merkzettel (AH18)
+  container.querySelector('.dash-grid').classList.toggle('dash-grid-single', !coming && !todosSlot.children.length);   // keine leere Hälfte
   container.querySelectorAll('details.dash-warn-group').forEach(el => {
     el.addEventListener('toggle', () => {
       if (el.open) {
@@ -9684,7 +9690,7 @@ function renderDashboardToday() {
   const next = findNextLesson(now);
   const dayLabel = dayDate.toLocaleDateString('de-DE', { weekday: 'long', day: '2-digit', month: '2-digit' });
 
-  let html = `<section class="dash-section">
+  let html = `<section class="dash-section dash-today">
     <h2 class="dash-heading">${isTodayShown ? 'Heute' : 'Nächster Schultag'} <span class="dash-heading-sub">${escHtml(dayLabel)}</span></h2>`;
   // Ferien zwischen heute und dem gezeigten Schultag (Y8)
   const hol = !isTodayShown && (Array.isArray(db.settings.holidays) ? db.settings.holidays : []).find(h => h && typeof h.from === 'string' && typeof h.until === 'string'
@@ -9731,8 +9737,7 @@ function renderDashboardToday() {
                     onclick="openLessonDetail(${jsArg(l.slot.id)},${jsArg(dayStr)})">
           <div class="dash-lesson-time">${l.range ? minsToTime(l.range.start) : ''}<small>${escHtml(l.block.label)}</small></div>
           <div class="dash-lesson-main">
-            <div class="dash-lesson-title">${escHtml(t.main)}${t.sub ? ` <span>${escHtml(t.sub)}</span>` : ''}</div>
-            ${l.slot.room ? `<div class="dash-lesson-room">${escHtml(l.slot.room)}</div>` : ''}
+            <div class="dash-lesson-title">${escHtml(t.main)}${t.sub ? ` <span>${escHtml(t.sub)}</span>` : ''}${l.slot.room ? ` <span>· ${escHtml(l.slot.room)}</span>` : ''}</div>
             ${cNotes.length ? classNotesInlineHTML(cNotes, 'dash-lesson-cnotes') : ''}
           </div>
           <div class="dash-lesson-badges">${badges.join('')}</div>
@@ -9742,30 +9747,35 @@ function renderDashboardToday() {
     html += supRows(null);
     html += `</div>`;
   }
-  html += `</section>`;
+  return html + `</section>`;
+}
 
-  if (next) {
-    const t = lessonTitle(next.slot);
-    const data = db.lessonData[next.slot.id + '_' + next.dateStr] || {};
-    const due = dueItemsFor(next.slot.id, next.dateStr);
-    const when = next.dateStr === todayStr
-      ? minsToTime(next.range.start)
-      : parseDate(next.dateStr).toLocaleDateString('de-DE', { weekday: 'short', day: '2-digit', month: '2-digit' }) + (next.range ? ', ' + minsToTime(next.range.start) : '');
-    const itemList = (label, cls, items) => items.length ? `<div class="dash-next-items ${cls}"><strong>${label}</strong><ul>${
-      items.map(i => `<li>${escHtml(i.text)}</li>`).join('')}</ul></div>` : '';
-    const nextNotes = next.slot.groupId ? activeClassNotes(db.groups.find(g => g.id === next.slot.groupId), next.dateStr) : [];
-    const body = (nextNotes.length ? classNotesInlineHTML(nextNotes, 'dash-next-cnotes') : '')
-      + (data.notes ? `<div class="dash-next-notes">${escHtml(data.notes)}</div>` : '')
-      + itemList('Hausaufgaben fällig', 'hw', due.hw) + itemList('Test', 'test', due.tests);
-    html += `<section class="dash-section">
-      <div class="dash-next" data-slot="${escHtml(next.slot.id)}" style="--lesson-color:${escHtml(next.slot.color || '#6366f1')}" onclick="openLessonDetail(${jsArg(next.slot.id)},${jsArg(next.dateStr)})">
-        <div class="dash-next-label">Nächste Stunde · ${escHtml(when)} · ${escHtml(next.block.label)}</div>
-        <div class="dash-next-title">${escHtml(t.main)}${t.sub ? ` <span>${escHtml(t.sub)}</span>` : ''}${next.slot.room ? ` <span>· ${escHtml(next.slot.room)}</span>` : ''}</div>
-        ${body || '<div class="dash-empty">Keine Notizen, nichts fällig.</div>'}
-      </div>
-    </section>`;
-  }
-  return html;
+// „Als Nächstes“: die nächste Stunde mit Notizen und Fälligem (AH41); leer, wenn keine mehr kommt
+function renderDashboardNext() {
+  const now = new Date();
+  const todayStr = formatDate(now);
+  const next = findNextLesson(now);
+  if (!next) return '';
+  const t = lessonTitle(next.slot);
+  const data = db.lessonData[next.slot.id + '_' + next.dateStr] || {};
+  const due = dueItemsFor(next.slot.id, next.dateStr);
+  const when = next.dateStr === todayStr
+    ? minsToTime(next.range.start)
+    : parseDate(next.dateStr).toLocaleDateString('de-DE', { weekday: 'short', day: '2-digit', month: '2-digit' }) + (next.range ? ', ' + minsToTime(next.range.start) : '');
+  const itemList = (label, cls, items) => items.length ? `<div class="dash-next-items ${cls}"><strong>${label}</strong><ul>${
+    items.map(i => `<li>${escHtml(i.text)}</li>`).join('')}</ul></div>` : '';
+  const nextNotes = next.slot.groupId ? activeClassNotes(db.groups.find(g => g.id === next.slot.groupId), next.dateStr) : [];
+  const body = (nextNotes.length ? classNotesInlineHTML(nextNotes, 'dash-next-cnotes') : '')
+    + (data.notes ? `<div class="dash-next-notes">${escHtml(data.notes)}</div>` : '')
+    + itemList('Hausaufgaben fällig', 'hw', due.hw) + itemList('Test', 'test', due.tests);
+  return `<section class="dash-section dash-coming">
+    <h2 class="dash-heading">Als Nächstes</h2>
+    <div class="dash-next" data-slot="${escHtml(next.slot.id)}" style="--lesson-color:${escHtml(next.slot.color || '#6366f1')}" onclick="openLessonDetail(${jsArg(next.slot.id)},${jsArg(next.dateStr)})">
+      <div class="dash-next-title">${escHtml(t.main)}${t.sub ? ` <span>${escHtml(t.sub)}</span>` : ''}${next.slot.room ? ` <span>· ${escHtml(next.slot.room)}</span>` : ''}</div>
+      <div class="dash-next-label">${escHtml(when)} · ${escHtml(next.block.label)}</div>
+      ${body || '<div class="dash-empty">Keine Notizen, nichts fällig.</div>'}
+    </div>
+  </section>`;
 }
 
 // Geburtstage am gezeigten Schultag (AD6); dieselbe Person in zwei Fächern derselben Klasse nur einmal
@@ -9894,13 +9904,14 @@ function cancelSupervision() {
 
 function renderDashboardWarnings() {
   const warnings = collectWarnings();
-  let html = `<section class="dash-section"><h2 class="dash-heading">Warnungen${warnings.length ? ` <span class="dash-heading-sub">${warnings.length}</span>` : ''}</h2>`;
+  let html = `<section class="dash-section dash-warnings"><h2 class="dash-heading">Auffällig${warnings.length ? ` <span class="dash-heading-sub">${warnings.length}</span>` : ''}</h2>`;
   if (!warnings.length) {
-    return html + `<div class="dash-empty">Keine offenen Warnungen.</div></section>`;
+    return html + `<div class="dash-empty">Niemand auffällig.</div></section>`;
   }
   const icons = { absences: icon('absences'), grade: icon('trend-down'), homework: icon('homework') };
   const colors = { absences: 'var(--danger)', grade: 'var(--danger)', homework: 'var(--warning)' };
   const seen = warnSeenSet(warnings);   // „neu“ wie in der Klassenübersicht (AH24 f)
+  html += '<div class="dash-warn-box">';
   db.groups.forEach(group => {
     const list = warnings.filter(w => w.group === group);
     if (!list.length) return;
@@ -9919,7 +9930,7 @@ function renderDashboardWarnings() {
     });
     html += `</div></details>`;
   });
-  return html + `</section>`;
+  return html + `</div></section>`;
 }
 
 window.acknowledgeWarning = function(studentId, type, count) {

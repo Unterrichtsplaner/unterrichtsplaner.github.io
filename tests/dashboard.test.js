@@ -176,7 +176,7 @@ describe('H3: Warnungen nach Klasse gruppiert', () => {
     app('db.settings.warnAbsences = 0; db.settings.warnHomework = 0');
     render();
     expect(groups()).toHaveLength(0);
-    expect(content().textContent).toContain('Keine offenen Warnungen');
+    expect(content().textContent).toContain('Niemand auffällig.');
     expect(todayRows()).toHaveLength(3);
   });
 });

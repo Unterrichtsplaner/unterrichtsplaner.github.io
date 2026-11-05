@@ -70,7 +70,7 @@ beforeEach(() => {
 describe('M1: Dashboard bleibt aktuell', () => {
   it('„Stunde entfällt“ im Stunden-Fenster: Dashboard zeigt sie nicht mehr als nächste Stunde', () => {
     app('switchView("dashboard")');
-    expect(document.getElementById('dashboard-content').textContent).toContain('Nächste Stunde');
+    expect(document.getElementById('dashboard-content').textContent).toContain('Als Nächstes');
     app(`openLessonDetail('fr', '2026-09-25')`);
     app('toggleAusfall()');
     app('saveLessonDataAndClose()');
