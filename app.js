@@ -771,7 +771,7 @@ function renderTimetableDay(grid) {
   const today = formatDate(d) === formatDate(todaySchoolDay());
 
   const weekLabel = document.getElementById('week-label');
-  weekLabel.textContent = `${DAY_SHORT[dayIdx]} ${formatDateDE(d)}  ·  KW ${getWeekNumber(d)}`;
+  weekLabel.innerHTML = `${DAY_SHORT[dayIdx]} ${formatDateDE(d)}<span class="week-label-kw">  ·  KW ${getWeekNumber(d)}</span>`;   // Handy: KW fällt weg, sonst ist das Datum abgeschnitten
   weekLabel.classList.toggle('active', today);
   const heuteBtn = document.querySelector('button[onclick="goToCurrentWeek()"]');
   if (heuteBtn) heuteBtn.classList.toggle('active', today);
@@ -5912,12 +5912,34 @@ function participationTrendHTML(s) {
 
 // Hinweis im Schüler-Fenster (s.notes, AD2). Gesundheitsangaben u. Ä. → wie Noten erst nach „Anzeigen“,
 // außer die Noten sind im Sitzplan ohnehin eingeblendet (Lehrkraft hat „privat“ signalisiert).
+// Kopf des Schüler-Fensters (AH31): Text erst nach Antippen, nie gespeichert. Ohne Beamer-Schutz (Einstellungen) sofort.
+let swHintShown = false;
+function renderSwHeadHint(s) {
+  const box = document.getElementById('sw-head-hint');
+  if (!box) return;
+  const text = (s.notes || '').trim(), important = (s.importantNote || '').trim();
+  box.hidden = !text && !important;
+  box.innerHTML = '';
+  if (box.hidden) return;
+  const cls = important ? ' is-important' : '';
+  const open = !classGradesProtected() || swShown;
+  if (open || swHintShown) {
+    const lines = `${important ? `<b>${escHtml(important)}</b>` : ''}${text ? `<span>${escHtml(text)}</span>` : ''}`;
+    box.innerHTML = open ? `<div class="sw-hint-text${cls}">${lines}</div>`
+      : `<button type="button" class="sw-hint-text${cls}" aria-label="Hinweis wieder verbergen">${lines}</button>`;
+  } else {
+    box.innerHTML = `<button type="button" class="sw-hint-chip${cls}">${icon(important ? 'alert' : 'info')}${important ? 'Wichtiger Hinweis' : 'Hinweis'} · Anzeigen</button>`;
+  }
+  const btn = box.querySelector('button');
+  if (btn) btn.addEventListener('click', () => { swHintShown = !swHintShown; renderSwHeadHint(s); });
+}
 function renderSeatingStudentHint(show) {
   const box = document.getElementById('seating-student-hint');
   const ctx = window.currentSeatingStudent;
   if (!box || !ctx) return;
   const s = (db.students[ctx.groupId] || []).find(x => x.id === ctx.studentId);
   if (!s) return;
+  renderSwHeadHint(s);
   const text = (s.notes || '').trim();
   const important = (s.importantNote || '').trim();   // AD17
   if ((text || important) && !show) {
@@ -5965,6 +5987,7 @@ function commitSeatingStudentHint() {
   setImportantNote(s, impValue);
   saveDB();
   refreshStudentViews(ctx.groupId);
+  renderSwHeadHint(s);
 }
 
 // Notiz zum Schüler direkt im Sitzplan (AH10), landet bei den Anmerkungen im Profil (studentNotes). Vorhandene
@@ -7394,7 +7417,7 @@ function openSeatingStudentModal(studentId, groupId, dateStr, opts = {}) {
   currentStudentId = studentId;
   // Beamer: aus dem Sitzplan nur, wenn dort die Noten eingeblendet sind; aus der Klassenansicht wie dort (AH24 c)
   const fromClassView = document.getElementById('view-students').classList.contains('active') && currentGroupId === groupId;
-  if (!same) swShown = fromClassView ? classGradesShown : seatingShowGrades;
+  if (!same) { swShown = fromClassView ? classGradesShown : seatingShowGrades; swHintShown = false; }
 
   const partPos = (s.participation||[]).filter(p => p.value==='positive').length;
   const partNeutral = (s.participation||[]).filter(p => p.value==='neutral').length;
@@ -7431,6 +7454,9 @@ function setSeatingStudentVeil() {
 function revealSeatingStudent() {
   swShown = true;
   setSeatingStudentVeil();
+  const ctx = window.currentSeatingStudent;
+  const s = ctx && (db.students[ctx.groupId] || []).find(x => x.id === ctx.studentId);
+  if (s) renderSwHeadHint(s);
 }
 
 // Was heute schon eingetragen ist, ist markiert – ein zweites Tippen nimmt es zurück (BUGS N6)

@@ -40,7 +40,7 @@
       }
     })();
   </script>
-  <link rel="stylesheet" href="style.css?v=399" />
+  <link rel="stylesheet" href="style.css?v=403" />
   <script>
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
@@ -895,7 +895,7 @@
       </div>
       <div class="settings-section">
         <h3 style="margin-bottom:12px;font-size:14px;">Klassenansicht</h3>
-        <label class="print-check" for="settings-class-grades-protect"><input type="checkbox" id="settings-class-grades-protect" /> Noten und Mitarbeit erst auf Knopfdruck zeigen (Beamer-Schutz)</label>
+        <label class="print-check" for="settings-class-grades-protect"><input type="checkbox" id="settings-class-grades-protect" /> Noten, Mitarbeit und Hinweise erst auf Knopfdruck zeigen (Beamer-Schutz)</label>
         <p class="field-hint-muted">Aus: Schnitte, Noten und Mitarbeit sind beim Öffnen einer Klasse sofort zu sehen. Der Sitzplan zeigt Noten weiter nur auf Knopfdruck.</p>
       </div>
       <div class="settings-section">
@@ -1348,6 +1348,7 @@
     <div class="modal modal-small sw-modal" onclick="event.stopPropagation()">
       <div class="modal-header">
         <div class="sw-title"><h2 id="seating-student-title">Schüler</h2><span id="seating-student-sub" class="modal-subtitle"></span></div>
+        <div id="sw-head-hint" class="sw-head-hint" hidden></div>
         <div class="sw-head-btns">
           <button type="button" id="sw-menu-btn" class="btn-icon sw-menu-btn" aria-label="Weitere Aktionen" aria-haspopup="menu" aria-expanded="false"><i data-icon="more"></i></button>
           <div id="sw-menu" class="sw-menu" role="menu" hidden>
@@ -1359,6 +1360,7 @@
         </div>
       </div>
       <div class="modal-body sw-body">
+        <div class="sw-col">
         <div class="seating-part-block">
           <div class="sw-label">Mitarbeit</div>
           <div class="sw-faces">
@@ -1376,6 +1378,8 @@
             <button type="button" data-action="homework" aria-pressed="false" onclick="setSeatingHomework()">HA fehlt</button>
           </div>
         </div>
+        </div>
+        <div class="sw-col">
         <div id="sw-grade"><button type="button" id="sw-grade-btn" class="sw-grade-btn"><i data-icon="plus"></i>Note geben</button></div>
         <!-- Notiz zum Schüler (AH10): eintippen sofort, vorhandene nur auf Knopfdruck -->
         <div class="seating-note-block">
@@ -1386,9 +1390,14 @@
           </div>
           <div id="seating-student-notes"></div>
         </div>
+        </div>
         <button type="button" id="sw-more-btn" class="sw-more-btn" aria-expanded="false" aria-controls="sw-more"><span id="sw-more-label">Mehr</span><small>Noten, Verlauf, Notizen, Hinweise</small></button>
         <div id="sw-more" hidden>
           <div class="grades-veil sw-veil"><i data-icon="eye-off"></i><span>Noten, Mitarbeit, Notizen und Hinweise sind verborgen, damit am Beamer niemand mitliest.</span><button type="button" id="sw-reveal" class="btn-secondary">Anzeigen</button></div>
+          <section id="sw-sec-hints" class="sw-sec seating-hint-block" data-private>
+            <h3 class="seating-hint-title"><i data-icon="info"></i>Hinweise</h3>
+            <div id="seating-student-hint"></div>
+          </section>
           <section id="sw-sec-grades" class="sw-sec" data-private>
             <h3 class="seating-hint-title"><i data-icon="grades"></i>Noten</h3>
             <div class="grades-summary" id="grades-summary"></div>
@@ -1411,9 +1420,7 @@
             <option value="zuspät">Zu spät</option>
           </select>
           <input type="text" id="new-att-note" placeholder="Grund …" class="entry-input" style="flex:1" />
-          <button class="btn-secondary btn-circle" onclick="addAttendanceEntry()" aria-label="Fehlzeit eintragen">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
-          </button>
+          <button class="btn-secondary btn-circle" onclick="addAttendanceEntry()" aria-label="Fehlzeit eintragen"><i data-icon="plus"></i></button>
         </div>
           </section>
           <section id="sw-sec-homework" class="sw-sec">
@@ -1423,23 +1430,17 @@
           <input type="date" id="new-hw-student-date" class="entry-date" />
           <input type="text" id="new-hw-student-note" placeholder="Spalte (optional)" list="hw-column-titles" class="entry-input" style="flex:1" aria-label="Spalte in der HA-Tabelle (optional)" />
           <datalist id="hw-column-titles"></datalist>
-          <button class="btn-secondary btn-circle" onclick="addStudentHomework()" aria-label="Vergessene Hausaufgabe eintragen">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
-          </button>
+          <button class="btn-secondary btn-circle" onclick="addStudentHomework()" aria-label="Vergessene Hausaufgabe eintragen"><i data-icon="plus"></i></button>
         </div>
           </section>
           <section id="sw-sec-notes" class="sw-sec" data-private>
             <h3 class="seating-hint-title"><i data-icon="notes"></i>Notizen</h3>
             <div class="entry-list" id="student-notes-list"></div>
             <div class="add-entry-row">
-          <input type="text" id="new-student-note-text" placeholder="Neue Anmerkung …" class="entry-input" />
           <input type="date" id="new-student-note-date" class="entry-date" />
-          <button class="btn-secondary" onclick="addStudentNote()">Hinzufügen</button>
+          <input type="text" id="new-student-note-text" placeholder="Neue Notiz …" class="entry-input" aria-label="Neue Notiz" />
+          <button class="btn-secondary btn-circle" onclick="addStudentNote()" aria-label="Notiz eintragen"><i data-icon="plus"></i></button>
         </div>
-          </section>
-          <section id="sw-sec-hints" class="sw-sec seating-hint-block" data-private>
-            <h3 class="seating-hint-title"><i data-icon="info"></i>Hinweise</h3>
-            <div id="seating-student-hint"></div>
           </section>
         </div>
       </div>
@@ -1628,13 +1629,13 @@
   </div>
 
   <script src="lib/crypto-js.min.js"></script>
-  <script src="crypto-helper.js?v=399"></script>
+  <script src="crypto-helper.js?v=403"></script>
   <script src="lib/firebase-app-compat.js"></script>
   <script src="lib/firebase-auth-compat.js"></script>
   <script src="lib/firebase-firestore-compat.js"></script>
-  <script src="firebase-config.js?v=399"></script>
-  <script src="sync-manager.js?v=399"></script>
-  <script src="sync-merge.js?v=399"></script>
-  <script src="app.js?v=399"></script>
+  <script src="firebase-config.js?v=403"></script>
+  <script src="sync-manager.js?v=403"></script>
+  <script src="sync-merge.js?v=403"></script>
+  <script src="app.js?v=403"></script>
 </body>
 </html>

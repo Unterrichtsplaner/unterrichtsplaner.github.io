@@ -135,8 +135,8 @@ describe('AH28 Schritt 2: „Mehr zu …“ ersetzt das Profil', () => {
   it('Abschnitte untereinander, ohne Reiter; Noten, Mitarbeit, Notizen, Hinweise privat; ein „Anzeigen“', () => {
     openAnna();
     const secs = [...document.querySelectorAll('#sw-more .sw-sec')].map(s => s.id.replace('sw-sec-', ''));
-    expect(secs).toEqual(['grades', 'participation', 'attendance', 'homework', 'notes', 'hints']);
-    expect([...document.querySelectorAll('#sw-more [data-private]')].map(s => s.id.replace('sw-sec-', ''))).toEqual(['grades', 'participation', 'notes', 'hints']);
+    expect(secs).toEqual(['hints', 'grades', 'participation', 'attendance', 'homework', 'notes']);
+    expect([...document.querySelectorAll('#sw-more [data-private]')].map(s => s.id.replace('sw-sec-', ''))).toEqual(['hints', 'grades', 'participation', 'notes']);
     expect(M().querySelectorAll('.tab-btn').length).toBe(0);
     expect(M().querySelectorAll('#sw-reveal').length).toBe(1);
     q('#sw-more-btn').click();
@@ -171,5 +171,90 @@ describe('AH28 Schritt 2: „Mehr zu …“ ersetzt das Profil', () => {
     expect(document.getElementById('sw-more').hidden).toBe(false);
     expect(document.getElementById('sw-more').classList.contains('is-veiled')).toBe(false);
     app('closeModal("modal-seating-student")');
+  });
+});
+
+describe('AH31: Hinweis im Kopf neben dem Namen, Text erst nach Antippen (Regel 67)', () => {
+  const head = () => document.getElementById('sw-head-hint');
+  const withHints = () => app('db.students.g1[0].notes = "mag Fußball"; db.students.g1[0].importantNote = "Allergie: Nüsse"');
+  afterEach(() => { app('delete db.settings.classGradesProtect; seatingShowGrades = false; closeModal("modal-seating-student")'); });
+
+  it('Schüler ohne Hinweis: nichts im Kopf', () => {
+    app('openSeatingStudentModal("b", "g1", "2026-11-04")');
+    expect(head().hidden).toBe(true);
+    expect(head().textContent).toBe('');
+  });
+  it('wichtiger Hinweis: rote Schaltfläche, Text steht nirgends im Kopf; Antippen zeigt ihn, zweites Tippen verbirgt ihn', () => {
+    withHints();
+    openAnna();
+    const chip = head().querySelector('button');
+    expect(chip.classList.contains('is-important')).toBe(true);
+    expect(chip.textContent).toMatch(/Wichtiger Hinweis · Anzeigen/);
+    expect(head().textContent).not.toMatch(/Nüsse|Fußball/);
+    chip.click();
+    expect(head().textContent).toMatch(/Allergie: Nüsse/);
+    expect(head().textContent).toMatch(/mag Fußball/);
+    head().querySelector('button').click();
+    expect(head().textContent).not.toMatch(/Nüsse/);
+  });
+  it('nur Sonstiges: ruhige Schaltfläche „Hinweis · Anzeigen“', () => {
+    openAnna();
+    const chip = head().querySelector('button');
+    expect(chip.classList.contains('is-important')).toBe(false);
+    expect(chip.textContent).toMatch(/^Hinweis · Anzeigen/);
+  });
+  it('nächster Schüler und neu öffnen: wieder verborgen; Antippen zeigt keine Noten', () => {
+    withHints();
+    openAnna();
+    head().querySelector('button').click();
+    expect(document.getElementById('sw-more').classList.contains('is-veiled')).toBe(true);
+    app('closeModal("modal-seating-student")');
+    openAnna();
+    expect(head().textContent).not.toMatch(/Nüsse/);
+  });
+  it('Beamer-Schutz in den Einstellungen aus: Text sofort da, nichts zu tippen; Noten im Sitzplan bleiben verborgen', () => {
+    withHints();
+    app('db.settings.classGradesProtect = false');
+    openAnna();
+    expect(head().textContent).toMatch(/Allergie: Nüsse/);
+    expect(head().querySelector('button')).toBeNull();
+    expect(document.getElementById('sw-more').classList.contains('is-veiled')).toBe(true);
+  });
+  it('„Anzeigen“ unter „Mehr“ gilt auch für den Kopf; Hinweis ändern zeigt sich sofort', () => {
+    withHints();
+    openAnna();
+    q('#sw-more-btn').click();
+    q('#sw-reveal').click();
+    expect(head().textContent).toMatch(/Allergie: Nüsse/);
+    expect(head().querySelector('button')).toBeNull();
+    app('renderSeatingStudentHint(true)');
+    const ta = document.getElementById('seating-student-important-input');
+    ta.value = 'Neu: Diabetes';
+    ta.dispatchEvent(new Event('change'));
+    expect(head().textContent).toMatch(/Neu: Diabetes/);
+  });
+  it('Texte mit HTML landen als Text im Kopf (Regel 3)', () => {
+    app(`db.students.g1[0].importantNote = '<img src=x onerror=window.__xss=1>'; db.settings.classGradesProtect = false`);
+    openAnna();
+    expect(head().querySelector('img')).toBeNull();
+    expect(head().textContent).toContain('<img src=x');
+  });
+  it('Einstellung nennt die Hinweise mit', () => {
+    expect(document.querySelector('label[for="settings-class-grades-protect"]').textContent).toMatch(/Hinweise/);
+  });
+  it('zwei Spalten: Schnelles links und rechts, „Mehr“ darunter; Hinweise stehen unter „Mehr“ zuerst', () => {
+    const cols = [...document.querySelectorAll('.sw-body > .sw-col')];
+    expect(cols.length).toBe(2);
+    expect(cols[0].querySelector('.sw-faces')).not.toBeNull();
+    expect(cols[0].querySelector('.sw-seg')).not.toBeNull();
+    expect(cols[1].querySelector('#sw-grade')).not.toBeNull();
+    expect(cols[1].querySelector('#seating-student-note-input')).not.toBeNull();
+    expect(document.querySelector('#sw-more .sw-sec').id).toBe('sw-sec-hints');
+  });
+  it('Notiz unter „Mehr“: gebaut wie die anderen (Datum, Text, runder „+“-Knopf)', () => {
+    const row = document.querySelector('#sw-sec-notes .add-entry-row');
+    expect(row.firstElementChild.id).toBe('new-student-note-date');
+    expect(row.querySelector('button.btn-circle').getAttribute('aria-label')).toMatch(/Notiz/);
+    expect(row.querySelector('button').getAttribute('onclick')).toBe('addStudentNote()');
   });
 });
