@@ -4785,8 +4785,22 @@ function selectThemeBg(el, bg, mode, card) {
 // ─── Settings ─────────────────────────────────────────────────────────────
 function openSettings() {
   fillSettingsForm();
+  showSettingsPane('general');
   openModal('modal-settings');
 }
+// Einstellungen in Bereichen (AH38): Das Fenster behält seine Größe, nur der Inhalt rechts wechselt
+function showSettingsPane(name) {
+  document.querySelectorAll('#modal-settings .set-pane').forEach(p => p.classList.toggle('on', p.dataset.pane === name));
+  document.querySelectorAll('#modal-settings .set-rail button').forEach(b => {
+    const on = b.dataset.pane === name;
+    b.classList.toggle('on', on);
+    b.setAttribute('aria-current', on ? 'true' : 'false');
+    if (on) b.scrollIntoView?.({ inline: 'nearest', block: 'nearest' });   // Handy: Menüleiste scrollt mit
+  });
+  const body = document.querySelector('#modal-settings .set-body');
+  if (body) body.scrollTop = 0;
+}
+document.querySelectorAll('#modal-settings .set-rail button').forEach(b => b.addEventListener('click', () => showSettingsPane(b.dataset.pane)));
 // Felder und Blöcke-Entwurf aus db füllen – beim Öffnen und nach einer Cloud-Übernahme (BUGS P2)
 function fillSettingsForm() {
   refreshMergeRestoreButton();   // AH4
@@ -10545,6 +10559,7 @@ function updateSyncAttention() {
     ? 'Cloud-Sync wartet: Master-Passwort in den Einstellungen bitte noch einmal eingeben'
     : needs ? 'Cloud-Sync pausiert: Master-Passwort in den Einstellungen eingeben' : '';
   // Menüpunkt (iPad/Laptop) und Zahnrad im Dashboard (Handy, AH21)
+  document.querySelector('#modal-settings .set-rail [data-pane="data"]')?.classList.toggle('needs-attention', needs);
   ['nav-settings', 'btn-settings-dashboard'].forEach(id => {
     const btn = document.getElementById(id);
     if (!btn) return;

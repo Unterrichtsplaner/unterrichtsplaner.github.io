@@ -428,15 +428,14 @@ button.cr-name:focus-visible{outline:2px solid var(--accent);outline-offset:3px;
 @keyframes fadeIn{from{opacity:0}to{opacity:1}}
 .modal{background:var(--bg-secondary);border-radius:var(--radius-xl);border:1px solid var(--border);box-shadow:var(--shadow-lg);display:flex;flex-direction:column;animation:slideUp .16s ease-out;max-height:92vh;overflow:hidden;}
 @keyframes slideUp{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
-.modal-small{width:min(470px,95vw);}
+.modal-small{width:min(520px,calc(100vw - var(--space-6)));}
 #modal-add-column .modal {
   min-height: 400px;
 }
 #modal-seating-groups .modal {
   min-height: 380px;
 }
-.modal-settings-modal{width:min(560px,96vw);}
-.modal-header{display:flex;align-items:flex-start;justify-content:space-between;padding:var(--space-4) var(--space-4) var(--space-3);border-bottom:1px solid var(--border);flex-shrink:0;}
+.modal-header{display:flex;align-items:center;justify-content:space-between;padding:var(--space-4);border-bottom:1px solid var(--border);flex-shrink:0;}
 .modal-header h2{font-family:var(--font-display);font-size:20px;font-weight:600;letter-spacing:0;}
 .modal-subtitle{font-size:11px;color:var(--text-secondary);display:block;margin-top:2px;}
 .modal-close{width:34px;height:34px;border-radius:var(--radius-sm);background:var(--bg-elevated);border:1px solid var(--border);color:var(--text-secondary);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:14px;transition:background-color var(--transition),color var(--transition),border-color var(--transition),box-shadow var(--transition),opacity var(--transition),transform var(--transition);flex-shrink:0;}
@@ -536,8 +535,8 @@ button.cr-name:focus-visible{outline:2px solid var(--accent);outline-offset:3px;
   .ov-name-text { max-width: 110px; overflow: hidden; text-overflow: ellipsis; }
 }
 
-.modal-body{flex:1;overflow-y:auto;padding:var(--space-3) var(--space-4);min-height:0;}
-.modal-footer{display:flex;justify-content:flex-end;flex-wrap:wrap;gap:var(--space-2);padding:var(--space-3) var(--space-4);border-top:1px solid var(--border);flex-shrink:0;}
+.modal-body{flex:1;overflow-y:auto;padding:var(--space-4);min-height:0;}
+.modal-footer{display:flex;justify-content:flex-end;align-items:center;flex-wrap:wrap;gap:var(--space-2);padding:var(--space-3) var(--space-4);border-top:1px solid var(--border);flex-shrink:0;}
 .whats-new-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:var(--space-3);}
 .whats-new-list li{display:flex;gap:var(--space-3);align-items:flex-start;font-size:13px;line-height:1.5;color:var(--text-secondary);}
 .whats-new-list li .ico{width:18px;height:18px;flex-shrink:0;margin-top:1px;color:var(--text-accent);}
@@ -634,7 +633,7 @@ input[name="new-lesson-part"]:checked + .duration-btn {
 .add-entry-row{display:flex;gap:var(--space-2);align-items:center;flex-wrap:wrap;padding:var(--space-2);background:var(--bg-card);border-radius:var(--radius-md);border:1px solid var(--border);}
 
 /* ─── Form ───────────────────────────── */
-.form-group{display:flex;flex-direction:column;gap:var(--space-1);margin-bottom:var(--space-3);}
+.form-group{display:flex;flex-direction:column;gap:var(--space-2);margin-bottom:var(--space-4);}
 .form-group label{font-size:12px;font-weight:600;color:var(--text-secondary);}
 /* Hinweis unter einem Feld, z. B. an welchem Tag eine einmalige Stunde liegt (BUGS R13) */
 .form-hint{font-size:12px;color:var(--text-secondary);margin-top:2px;}
@@ -735,7 +734,7 @@ input[name="new-lesson-part"]:checked + .duration-btn {
 .color-picker{display:flex;gap:var(--space-2);flex-wrap:wrap;padding:var(--space-1) 0;}
 /* 14 Klassenfarben in zwei gleich langen Reihen statt 13 + 1 (BUGS I23) */
 #lesson-color-picker,#group-color-picker{display:grid;grid-template-columns:repeat(7,26px);gap:var(--space-2) var(--space-3);}
-.settings-footer-hint{font-size:12px;color:var(--text-muted);}
+.settings-footer-hint{margin-right:auto;font-size:12px;color:var(--text-muted);}
 .color-swatch{width:26px;height:26px;border-radius:var(--radius-sm);cursor:pointer;border:2.5px solid transparent;transition:background-color var(--transition),color var(--transition),border-color var(--transition),box-shadow var(--transition),opacity var(--transition),transform var(--transition);position:relative;}
 @media (hover: hover){.color-swatch:hover{box-shadow:0 0 0 2px var(--border-active);}}
 .color-swatch.selected{border-color:white !important;box-shadow:0 0 0 2px var(--swatch-color);}
@@ -1525,7 +1524,6 @@ button.date-chip{font-family:inherit;padding:0;}
 /* ─── Unterrichtsplanung (AD3) und Klassen-Ansicht im Stundenplan (AD4) ─── */
 .form-row-2{display:grid;grid-template-columns:1fr 1fr;gap:var(--space-3);}
 .link-btn{font:inherit;color:var(--text-accent);background:none;border:none;padding:0;cursor:pointer;text-decoration:underline;text-underline-offset:2px;}
-.plan-view{max-width:900px;}
 .plan-summary{font-size:13px;color:var(--text-secondary);margin:0 0 var(--space-2);line-height:1.5;}
 .plan-summary b{color:var(--text-primary);}
 .plan-summary small{color:var(--text-muted);}
@@ -1570,7 +1568,7 @@ button.date-chip{font-family:inherit;padding:0;}
 @media (pointer: coarse){.tt-mode button{min-height:44px;}}
 /* Klassen-Ansicht: „Heute“, Pfeile und Datum ergeben in der Liste keinen Sinn (Rückmeldung 02.11.) */
 #view-timetable.tt-class-mode .header-actions:not(.tt-header-tools),#view-timetable.tt-class-mode #btn-tt-edit{display:none !important;}
-.tt-class-list{display:flex !important;flex-direction:column;max-width:900px;width:100%;padding:var(--space-1) 0 var(--space-4);}
+.tt-class-list{display:flex !important;flex-direction:column;width:100%;padding:var(--space-1) 0 var(--space-4);}
 .ttc-head{display:flex;align-items:center;gap:var(--space-3);flex-wrap:wrap;padding:var(--space-1) var(--space-1) var(--space-3);}
 .ttc-select{width:auto;min-width:160px;}
 .ttc-counts{flex:1;font-size:13px;color:var(--text-secondary);min-width:180px;}
@@ -1854,6 +1852,41 @@ input.form-input,select.form-input,input.entry-input,input.entry-date,.custom-fo
 .lc-modal .modal-footer{display:flex;justify-content:space-between;gap:var(--space-2);padding:var(--space-3) var(--space-4);}
 @media (max-width: 500px){.lc-tiles{grid-template-columns:minmax(0,1fr);gap:var(--space-2);}}   /* sonst werden die Namen abgeschnitten */
 /* Ende Karten anordnen (AH37) */
+
+/* Fenster allgemein (AH38): gefährliche Knöpfe unten links, der Rest rechts mit dem Hauptknopf ganz außen */
+.footer-left{margin-right:auto;}
+.modal-body > .form-group:last-child,.modal-body > form > .form-group:last-child{margin-bottom:0;}
+
+/* Einstellungen (AH38): Menü links, rechts Karten des gewählten Bereichs; Handy: Menü als Leiste oben */
+.modal-settings-modal{width:min(980px,calc(100vw - var(--space-6)));height:min(760px,calc(100dvh - var(--space-6)));}
+.set-wrap{flex:1;min-height:0;display:flex;flex-direction:column;}
+.set-rail{display:flex;flex-shrink:0;gap:var(--space-1);overflow-x:auto;padding:var(--space-2) var(--space-4);border-bottom:1px solid var(--border);}
+.set-rail button{position:relative;display:flex;align-items:center;gap:var(--space-2);flex-shrink:0;min-height:var(--control-h);padding:0 var(--space-3);border:1px solid transparent;border-radius:var(--radius-sm);background:none;font-family:inherit;font-size:14px;color:var(--text-secondary);text-align:left;cursor:pointer;}
+.set-rail button .ico{width:18px;height:18px;margin:0;flex-shrink:0;}
+.set-rail button.on{background:var(--bg-card);border-color:var(--border);color:var(--text-primary);font-weight:600;}
+.set-rail button.needs-attention::after{content:'';width:var(--space-2);height:var(--space-2);margin-left:auto;border-radius:50%;background:var(--danger);}
+.set-body{flex:1;min-width:0;min-height:0;}
+.set-pane{display:none;}
+.set-pane.on{display:grid;grid-template-columns:minmax(0,1fr);gap:var(--space-3);align-content:start;}
+.set-card{display:flex;flex-direction:column;gap:var(--space-3);min-width:0;padding:var(--space-4);box-sizing:border-box;background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-md);}
+.set-card > .settings-section{display:flex;flex-direction:column;flex:1;gap:var(--space-3);margin:0;padding:0;border:none;}
+.set-card .settings-section > *{margin-top:0;margin-bottom:0;}
+.set-card .form-group{margin:0;}
+.set-card .form-row,.set-card .form-row-2{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:var(--space-3);margin:0;}
+.set-card .form-row > *,.set-card .form-row input,.set-card .form-row-2 > *,.set-card .form-row-2 input{min-width:0;width:100%;}
+@media (max-width: 500px){.set-card .form-row,.set-card .form-row-2{grid-template-columns:minmax(0,1fr);}}
+.set-card .settings-section-header{margin:0;gap:var(--space-2);}
+.set-pane[data-pane="about"] .settings-section > :last-child{margin-top:auto;}
+.block-row{margin:0 0 var(--space-2);}
+.block-row .block-name-input,.block-row .block-time-input{min-height:var(--control-h);box-sizing:border-box;padding-top:0;padding-bottom:0;border-radius:var(--radius-sm);font-size:13px;}
+.block-row .block-delete-btn{width:var(--control-h);height:var(--control-h);border-radius:var(--radius-sm);flex-shrink:0;}
+@media (min-width: 800px){
+  .set-wrap{flex-direction:row;}
+  .set-rail{flex-direction:column;flex:0 0 208px;overflow:hidden auto;padding:var(--space-4) var(--space-3);border-bottom:none;border-right:1px solid var(--border);}
+  .set-rail button{flex-shrink:0;width:100%;}
+  .set-pane[data-pane="about"].on{grid-template-columns:minmax(0,1fr) minmax(0,1fr);}
+}
+/* Ende Einstellungen (AH38) */
 
 /* Sitzplan-Leiste rechts wie die Knöpfe in den anderen Ansichten (AH34) */
 @media (min-width: 601px){.seating-toolbar{position:static;transform:none;margin-left:auto;}}

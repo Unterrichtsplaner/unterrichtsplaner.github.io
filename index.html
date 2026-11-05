@@ -40,7 +40,7 @@
       }
     })();
   </script>
-  <link rel="stylesheet" href="style.css?v=416" />
+  <link rel="stylesheet" href="style.css?v=420" />
   <script>
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
@@ -238,13 +238,13 @@
             </div>
           </div>
           <div class="header-actions">
-            <button id="btn-add-overview-col" class="btn-primary hidden" onclick="addOverviewColumn()" aria-label="Neue Spalte">+<span class="btn-label"> Neue Spalte</span></button>
             <button id="btn-add-overview-other" class="btn-secondary hidden" onclick="openAddColumnModal()" aria-label="Andere Spalte anlegen" title="Spalte für einen anderen Tag oder mit Titel"><i data-icon="calendar"></i><span class="btn-label">Andere Spalte …</span></button>
             <button id="btn-class-grades" class="btn-secondary btn-grades-toggle hidden" onclick="toggleClassGrades()" aria-pressed="false" aria-label="Noten anzeigen" title="Noten anzeigen"><i data-icon="eye"></i><span class="btn-label">Noten zeigen</span></button>
             <button class="btn-secondary btn-seating" onclick="openSeatingForGroup(currentGroupId)" aria-label="Zum Sitzplan"><i data-icon="seating"></i><span class="btn-label">Zum Sitzplan</span></button>
             <button id="btn-student-actions" class="btn-icon" title="Schüler hinzufügen, importieren …" aria-label="Schüler hinzufügen, importieren und mehr" onclick="openStudentActionsModal()">
               <i data-icon="list"></i>
             </button>
+            <button id="btn-add-overview-col" class="btn-primary hidden" onclick="addOverviewColumn()" aria-label="Neue Spalte">+<span class="btn-label"> Neue Spalte</span></button>
           </div>
         </div>
         <div class="modal-tabs class-tabs">
@@ -641,7 +641,7 @@
         </div>
     </div>
     <div class="modal-footer">
-      <button class="btn-danger-outline hidden" id="btn-delete-lesson" onclick="deleteLessonSlotFromEdit()">Löschen</button>
+      <button class="btn-danger-outline hidden footer-left" id="btn-delete-lesson" onclick="deleteLessonSlotFromEdit()">Löschen</button>
       <button class="btn-secondary" onclick="closeModalLikeButton('modal-add-lesson')">Abbrechen</button>
       <button class="btn-primary" onclick="saveLessonSlot()">Speichern</button>
     </div>
@@ -683,8 +683,8 @@
         <div class="form-hint">Noten mit gleichem Datum, Titel und Art stehen in der Notentabelle in einer Spalte.</div>
       </div>
     </div>
-    <div class="modal-footer" style="display:flex; justify-content:space-between; align-items:center;">
-      <button id="gf-btn-delete" class="btn-secondary" style="color:var(--danger); border-color:var(--danger-soft);" onclick="deleteGradeFromForm()">Löschen</button>
+    <div class="modal-footer">
+      <button id="gf-btn-delete" class="btn-secondary footer-left" style="color:var(--danger); border-color:var(--danger-soft);" onclick="deleteGradeFromForm()">Löschen</button>
       <div>
         <button class="btn-secondary" onclick="cancelGradeForm()">Abbrechen</button>
         <button class="btn-primary" onclick="saveGradeFromForm()">Speichern</button>
@@ -730,8 +730,8 @@
         <p style="font-size:12px; color:var(--text-muted); margin-top:var(--space-1); line-height:1.4;">Gilt nur für diese Klasse. Bei Punkten ist mehr besser.</p>
       </div>
     </div>
-    <div class="modal-footer" style="justify-content: space-between;">
-      <button id="btn-delete-group" class="btn-secondary" style="color:var(--danger); border-color:var(--danger); display:none;">Löschen</button>
+    <div class="modal-footer">
+      <button id="btn-delete-group" class="btn-secondary footer-left" style="color:var(--danger); border-color:var(--danger); display:none;">Löschen</button>
       <div style="display:flex; gap:var(--space-2);">
         <button class="btn-secondary" onclick="closeModalLikeButton('modal-add-group')">Abbrechen</button>
         <button class="btn-primary" id="btn-save-group" onclick="saveSubjectGroup()">Speichern</button>
@@ -848,7 +848,7 @@
       </div>
     </div>
     <div class="modal-footer">
-      <button class="btn-danger-outline hidden" id="btn-delete-column" onclick="deleteOverviewColumn()">Spalte löschen</button>
+      <button class="btn-danger-outline hidden footer-left" id="btn-delete-column" onclick="deleteOverviewColumn()">Spalte löschen</button>
       <button class="btn-secondary" onclick="closeModalLikeButton('modal-add-column')">Abbrechen</button>
       <button class="btn-primary" onclick="saveOverviewColumn()">Speichern</button>
     </div>
@@ -863,11 +863,39 @@
       <h2>Einstellungen</h2>
       <button class="modal-close" aria-label="Schließen" onclick="closeModalLikeButton('modal-settings')">✕</button>
     </div>
-    <div class="modal-body">
-      <div class="form-group"><label for="settings-teacher-name">Lehrername</label><input type="text" id="settings-teacher-name" class="form-input" placeholder="Dein Name" /></div>
-      <div class="form-group"><label for="settings-school">Schule</label><input type="text" id="settings-school" class="form-input" placeholder="Schulname" /></div>
-      <div class="settings-section" style="margin-top:var(--space-4);">
-        <h3 style="margin-bottom:var(--space-3);font-size:14px;">Warnungs-Schwellenwerte (Dashboard)</h3>
+    <div class="set-wrap">
+    <nav class="set-rail" aria-label="Bereiche der Einstellungen">
+      <button type="button" data-pane="general" aria-current="true" class="on"><i data-icon="settings"></i>Allgemein</button>
+      <button type="button" data-pane="lessons" aria-current="false"><i data-icon="seating"></i>Unterricht</button>
+      <button type="button" data-pane="times" aria-current="false"><i data-icon="calendar"></i>Stundenzeiten</button>
+      <button type="button" data-pane="holidays" aria-current="false"><i data-icon="calendar-x"></i>Ferien</button>
+      <button type="button" data-pane="look" aria-current="false"><i data-icon="eye"></i>Darstellung</button>
+      <button type="button" data-pane="data" aria-current="false"><i data-icon="cloud"></i>Daten & Cloud</button>
+      <button type="button" data-pane="about" aria-current="false"><i data-icon="info"></i>Über die App</button>
+    </nav>
+    <div class="modal-body set-body">
+      <div class="set-pane on" data-pane="general">
+<section class="set-card">
+<div class="form-row">
+<div class="form-group"><label for="settings-teacher-name">Lehrername</label><input type="text" id="settings-teacher-name" class="form-input" placeholder="Dein Name" /></div>
+<div class="form-group"><label for="settings-school">Schule</label><input type="text" id="settings-school" class="form-input" placeholder="Schulname" /></div>
+</div>
+</section>
+<section class="set-card">
+<div class="settings-section">
+        <h3 style="margin-bottom:var(--space-3);font-size:14px;">Anzeige</h3>
+        <div class="form-group">
+          <label for="settings-sort-order">Schüler sortieren nach</label>
+          <select id="settings-sort-order" class="form-input">
+            <option value="firstName">Vorname (Max Müller)</option>
+            <option value="lastName">Nachname (Müller, Max)</option>
+          </select>
+        </div>
+      </div>
+</section>
+<section class="set-card">
+<div class="settings-section">
+        <h3>Warnungs-Schwellenwerte (Dashboard)</h3>
         <div class="form-row">
           <div class="form-group">
             <label for="settings-warn-absences">Unentsch. Fehlzeiten (0 = aus)</label>
@@ -889,7 +917,11 @@
           </div>
         </div>
       </div>
-      <div class="settings-section">
+</section>
+      </div>
+      <div class="set-pane" data-pane="lessons">
+<section class="set-card">
+<div class="settings-section">
         <h3 style="margin-bottom:var(--space-3);font-size:14px;">Sitzplan</h3>
         <div class="form-group">
           <label for="settings-seating-buffer">Klasse der nächsten Stunde zeigen ab</label>
@@ -902,12 +934,74 @@
         <label class="print-check" for="settings-seating-start"><input type="checkbox" id="settings-seating-start" /> Während des Unterrichts direkt im Sitzplan starten</label>
         <label class="print-check" for="settings-seating-autoswitch" style="margin-top:var(--space-2);"><input type="checkbox" id="settings-seating-autoswitch" /> Offener Sitzplan wechselt von selbst zur nächsten Klasse</label>
       </div>
-      <div class="settings-section">
+</section>
+<section class="set-card">
+<div class="settings-section">
         <h3 style="margin-bottom:var(--space-3);font-size:14px;">Klassenansicht</h3>
         <label class="print-check" for="settings-class-grades-protect"><input type="checkbox" id="settings-class-grades-protect" /> Noten, Mitarbeit und Hinweise erst auf Knopfdruck zeigen (Beamer-Schutz)</label>
         <p class="field-hint-muted">Aus: Schnitte, Noten und Mitarbeit sind beim Öffnen einer Klasse sofort zu sehen. Der Sitzplan zeigt Noten weiter nur auf Knopfdruck.</p>
       </div>
+</section>
+      </div>
+      <div class="set-pane" data-pane="times">
+<section class="set-card">
+<!-- Block Times Editor -->
       <div class="settings-section">
+        <div class="settings-section-header">
+          <h3>Stundenzeiten (Blöcke)</h3>
+          <div style="display:flex;gap:var(--space-1)">
+            <button class="btn-secondary" style="font-size:12px;padding:var(--space-1) var(--space-3)" onclick="chooseBlockTemplate()">Vorlage …</button>
+            <button class="btn-secondary" style="font-size:12px;padding:var(--space-1) var(--space-3)" onclick="addBlockRow()">+ Block</button>
+          </div>
+        </div>
+        <p style="font-size:12px;color:var(--text-muted);margin:var(--space-1) 0 var(--space-3)">Diese Zeiten erscheinen links im Stundenplan und als Auswahloptionen beim Hinzufügen.</p>
+        <div id="blocks-editor"></div>
+      </div>
+</section>
+      </div>
+      <div class="set-pane" data-pane="holidays">
+<section class="set-card">
+<div class="settings-section">
+        <div class="settings-section-header">
+          <h3>Ferien &amp; freie Tage</h3>
+          <button class="btn-secondary" style="font-size:12px;padding:var(--space-1) var(--space-3)" onclick="addHolidayRow()">+ Zeitraum</button>
+        </div>
+        <p style="font-size:12px;color:var(--text-muted);margin:var(--space-1) 0 var(--space-3)">An diesen Tagen finden deine regelmäßigen Stunden nicht statt; Hausaufgaben sind erst danach fällig. Einzelne Feiertage: gleicher Tag bei „von“ und „bis“.</p>
+        <div class="holiday-load-row">
+          <select id="settings-federal-state" class="form-input" aria-label="Bundesland">
+            <option value="">Bundesland wählen …</option>
+            <option value="DE-BW">Baden-Württemberg</option>
+            <option value="DE-BY">Bayern</option>
+            <option value="DE-BE">Berlin</option>
+            <option value="DE-BB">Brandenburg</option>
+            <option value="DE-HB">Bremen</option>
+            <option value="DE-HH">Hamburg</option>
+            <option value="DE-HE">Hessen</option>
+            <option value="DE-MV">Mecklenburg-Vorpommern</option>
+            <option value="DE-NI">Niedersachsen</option>
+            <option value="DE-NW">Nordrhein-Westfalen</option>
+            <option value="DE-RP">Rheinland-Pfalz</option>
+            <option value="DE-SL">Saarland</option>
+            <option value="DE-SN">Sachsen</option>
+            <option value="DE-ST">Sachsen-Anhalt</option>
+            <option value="DE-SH">Schleswig-Holstein</option>
+            <option value="DE-TH">Thüringen</option>
+          </select>
+          <button class="btn-secondary" id="btn-load-holidays" onclick="loadHolidaysFromApi()"><i data-icon="download"></i>Ferien laden</button>
+        </div>
+        <p class="holiday-load-hint">Holt Schulferien und Feiertage für dieses und nächstes Schuljahr (OpenHolidays API). Bewegliche Ferientage deiner Schule bitte selbst ergänzen.</p>
+        <div id="holidays-editor"></div>
+        <div class="form-row-2">
+          <div class="form-group"><label for="settings-half-year">Halbjahr endet am</label><input type="date" id="settings-half-year" class="form-input" /></div>
+          <div class="form-group"><label for="settings-year-end">Letzter Schultag</label><input type="date" id="settings-year-end" class="form-input" /></div>
+        </div>
+        <p class="field-hint-muted">Für „noch … Stunden bis zum Halbjahr / Schuljahresende“ in der Planung. Ohne letzten Schultag nimmt die App den Tag vor den Sommerferien.</p>
+      </div>
+</section>
+      </div>
+      <div class="set-pane" data-pane="look">
+<section class="set-card">
+<div class="settings-section">
         <h3 style="margin-bottom:var(--space-3);font-size:14px;">Darstellung</h3>
         <div class="form-group">
           <span class="group-label" id="settings-bg-label">Hintergrundfarbe</span>
@@ -944,18 +1038,11 @@
           <input type="range" id="settings-radius" min="0" max="12" value="8" style="width:100%" oninput="document.getElementById('settings-radius-val').textContent=this.value+'px'; applyThemePreview()" />
         </div>
       </div>
-      <div class="settings-section">
-        <h3 style="margin-bottom:var(--space-3);font-size:14px;">Anzeige</h3>
-        <div class="form-group">
-          <label for="settings-sort-order">Schüler sortieren nach</label>
-          <select id="settings-sort-order" class="form-input">
-            <option value="firstName">Vorname (Max Müller)</option>
-            <option value="lastName">Nachname (Müller, Max)</option>
-          </select>
-        </div>
+</section>
       </div>
-
-      <!-- Cloud-Synchronisierung (E2EE) -->
+      <div class="set-pane" data-pane="data">
+<section class="set-card">
+<!-- Cloud-Synchronisierung (E2EE) -->
       <div class="settings-section">
         <h3>Datenverwaltung</h3>
         <p style="font-size:12px;color:var(--text-muted);margin:var(--space-1) 0 0">Regelmäßig exportieren: Die Datei ist deine Sicherung.</p>
@@ -971,8 +1058,9 @@
         </div>
         <input type="file" id="import-file-input" accept=".json" style="display:none" onchange="importData(event)" />
       </div>
-
-      <div class="settings-section">
+</section>
+<section class="set-card">
+<div class="settings-section">
         <h3><i data-icon="cloud"></i>Cloud-Synchronisierung (E2EE)</h3>
         <p style="font-size:12px;color:var(--text-muted);margin:var(--space-1) 0 var(--space-3)">
           Synchronisiere deine Unterrichtsdaten sicher und Ende-zu-Ende-verschlüsselt (E2EE) mit unserem zentralen Firebase-Server.
@@ -1066,70 +1154,25 @@
           </div>
         </div>
       </div>
-
-      <!-- Block Times Editor -->
-      <div class="settings-section">
-        <div class="settings-section-header">
-          <h3>Stundenzeiten (Blöcke)</h3>
-          <div style="display:flex;gap:var(--space-1)">
-            <button class="btn-secondary" style="font-size:12px;padding:var(--space-1) var(--space-3)" onclick="chooseBlockTemplate()">Vorlage …</button>
-            <button class="btn-secondary" style="font-size:12px;padding:var(--space-1) var(--space-3)" onclick="addBlockRow()">+ Block</button>
-          </div>
-        </div>
-        <p style="font-size:12px;color:var(--text-muted);margin:var(--space-1) 0 var(--space-3)">Diese Zeiten erscheinen links im Stundenplan und als Auswahloptionen beim Hinzufügen.</p>
-        <div id="blocks-editor"></div>
+</section>
       </div>
-
-      <div class="settings-section">
-        <div class="settings-section-header">
-          <h3>Ferien &amp; freie Tage</h3>
-          <button class="btn-secondary" style="font-size:12px;padding:var(--space-1) var(--space-3)" onclick="addHolidayRow()">+ Zeitraum</button>
-        </div>
-        <p style="font-size:12px;color:var(--text-muted);margin:var(--space-1) 0 var(--space-3)">An diesen Tagen finden deine regelmäßigen Stunden nicht statt; Hausaufgaben sind erst danach fällig. Einzelne Feiertage: gleicher Tag bei „von“ und „bis“.</p>
-        <div class="holiday-load-row">
-          <select id="settings-federal-state" class="form-input" aria-label="Bundesland">
-            <option value="">Bundesland wählen …</option>
-            <option value="DE-BW">Baden-Württemberg</option>
-            <option value="DE-BY">Bayern</option>
-            <option value="DE-BE">Berlin</option>
-            <option value="DE-BB">Brandenburg</option>
-            <option value="DE-HB">Bremen</option>
-            <option value="DE-HH">Hamburg</option>
-            <option value="DE-HE">Hessen</option>
-            <option value="DE-MV">Mecklenburg-Vorpommern</option>
-            <option value="DE-NI">Niedersachsen</option>
-            <option value="DE-NW">Nordrhein-Westfalen</option>
-            <option value="DE-RP">Rheinland-Pfalz</option>
-            <option value="DE-SL">Saarland</option>
-            <option value="DE-SN">Sachsen</option>
-            <option value="DE-ST">Sachsen-Anhalt</option>
-            <option value="DE-SH">Schleswig-Holstein</option>
-            <option value="DE-TH">Thüringen</option>
-          </select>
-          <button class="btn-secondary" id="btn-load-holidays" onclick="loadHolidaysFromApi()"><i data-icon="download"></i>Ferien laden</button>
-        </div>
-        <p class="holiday-load-hint">Holt Schulferien und Feiertage für dieses und nächstes Schuljahr (OpenHolidays API). Bewegliche Ferientage deiner Schule bitte selbst ergänzen.</p>
-        <div id="holidays-editor"></div>
-        <div class="form-row-2" style="margin-top:var(--space-3);">
-          <div class="form-group"><label for="settings-half-year">Halbjahr endet am</label><input type="date" id="settings-half-year" class="form-input" /></div>
-          <div class="form-group"><label for="settings-year-end">Letzter Schultag</label><input type="date" id="settings-year-end" class="form-input" /></div>
-        </div>
-        <p class="field-hint-muted">Für „noch … Stunden bis zum Halbjahr / Schuljahresende“ in der Planung. Ohne letzten Schultag nimmt die App den Tag vor den Sommerferien.</p>
-      </div>
-
-      <div class="settings-section">
+      <div class="set-pane" data-pane="about">
+<section class="set-card">
+<div class="settings-section">
         <h3>App-Version</h3>
         <p style="font-size:12px;color:var(--text-muted);margin:var(--space-1) 0 var(--space-3)"><span id="app-version-label"></span> · Die App funktioniert auch offline. Neue Versionen lädt sie beim Öffnen von selbst; hier kannst du von Hand nachsehen.</p>
         <button class="btn-primary" onclick="forceAppUpdate()"><i data-icon="refresh"></i>App jetzt aktualisieren</button>
       </div>
-
-      <div class="settings-section">
+</section>
+<section class="set-card">
+<div class="settings-section">
         <h3>Datenschutz</h3>
         <p style="font-size:12px;color:var(--text-muted);margin:var(--space-1) 0 var(--space-3)">Was wo gespeichert wird und wer es lesen kann, auch zum Vorlegen bei der Schulleitung.</p>
         <button class="btn-secondary" onclick="openPrivacyNotice()"><i data-icon="lock"></i>Datenschutzhinweise</button>
       </div>
-
-      <div class="settings-section">
+</section>
+<section class="set-card">
+<div class="settings-section">
         <h3>Über & Kontakt</h3>
         <p style="font-size:12px;color:var(--text-muted);margin:var(--space-1) 0 var(--space-3)">Hast du Fragen, Probleme oder Wünsche für neue Funktionen?</p>
         <div style="display:flex; gap:var(--space-2); flex-wrap:wrap; margin-top:var(--space-2);">
@@ -1137,17 +1180,20 @@
           <button class="btn-secondary" style="display:inline-flex; align-items:center;" onclick="navigator.clipboard.writeText('ericwinderlich@gmail.com').then(() => showToast('E-Mail-Adresse kopiert!'))"><i data-icon="copy"></i>Adresse kopieren</button>
         </div>
       </div>
-
-      <div class="settings-section">
+</section>
+<section class="set-card">
+<div class="settings-section">
         <h3>Open Source & Mitmachen</h3>
         <p style="font-size:12px;color:var(--text-muted);margin:var(--space-1) 0 var(--space-3)">Der Unterrichtsplaner ist quelloffen! Du kannst die Applikation frei anpassen, neue Funktionen wie „Sportzeug vergessen“ hinzufügen oder das Layout ändern.</p>
         <div style="display:flex; gap:var(--space-2); flex-wrap:wrap; margin-top:var(--space-2);">
           <a href="https://github.com/Unterrichtsplaner/unterrichtsplaner.github.io" target="_blank" class="btn-secondary" style="text-decoration:none; display:inline-flex; align-items:center;"><i data-icon="code"></i>Quellcode auf GitHub ansehen</a>
         </div>
       </div>
-
+</section>
+      </div>
     </div>
-    <div class="modal-footer" style="justify-content:space-between; gap:var(--space-3);">
+    </div>
+    <div class="modal-footer">
       <span class="settings-footer-hint">Namen, Warnschwellen, Darstellung und Stundenzeiten gelten erst mit „Speichern“.</span>
       <button class="btn-primary" onclick="saveSettings()">Speichern</button>
     </div>
@@ -1246,8 +1292,8 @@
         <input type="text" id="sup-place" class="form-input" placeholder="z. B. Hof, Mensa, Bushaltestelle" />
       </div>
     </div>
-    <div class="modal-footer" style="justify-content: space-between;">
-      <button id="btn-delete-supervision" class="btn-secondary hidden" style="color:var(--danger); border-color:var(--danger);" onclick="deleteSupervision()">Löschen</button>
+    <div class="modal-footer">
+      <button id="btn-delete-supervision" class="btn-secondary hidden footer-left" style="color:var(--danger); border-color:var(--danger);" onclick="deleteSupervision()">Löschen</button>
       <div style="display:flex; gap:var(--space-2); margin-left:auto;">
         <button class="btn-secondary" onclick="cancelSupervision()">Abbrechen</button>
         <button class="btn-primary" onclick="saveSupervision()">Speichern</button>
@@ -1314,8 +1360,8 @@
           </select>
         </div>
       </div>
-      <div class="modal-footer" style="display:flex; justify-content:space-between; align-items:center;">
-        <button class="btn-secondary" style="color:var(--danger); border-color:var(--danger-soft);" onclick="clearSeatingGroups()">Gruppen aufheben</button>
+      <div class="modal-footer">
+        <button class="btn-secondary footer-left" style="color:var(--danger); border-color:var(--danger-soft);" onclick="clearSeatingGroups()">Gruppen aufheben</button>
         <div style="display:flex; gap:var(--space-2);">
           <button class="btn-secondary" onclick="closeModal('modal-seating-groups')">Abbrechen</button>
           <button class="btn-primary" onclick="generateSeatingGroups()">Generieren</button>
@@ -1495,7 +1541,7 @@
         </div>
       </div>
       <div class="modal-footer">
-        <button class="btn-danger-outline hidden" id="btn-plan-topic-delete" onclick="deletePlanTopicFromForm()">Löschen</button>
+        <button class="btn-danger-outline hidden footer-left" id="btn-plan-topic-delete" onclick="deletePlanTopicFromForm()">Löschen</button>
         <button class="btn-secondary hidden" id="btn-plan-topic-done" onclick="togglePlanTopicDoneFromForm()">Als erledigt markieren</button>
         <button class="btn-secondary" onclick="closeModalLikeButton('modal-plan-topic')">Abbrechen</button>
         <button class="btn-primary" onclick="savePlanTopic()">Speichern</button>
@@ -1639,13 +1685,13 @@
   </div>
 
   <script src="lib/crypto-js.min.js"></script>
-  <script src="crypto-helper.js?v=416"></script>
+  <script src="crypto-helper.js?v=420"></script>
   <script src="lib/firebase-app-compat.js"></script>
   <script src="lib/firebase-auth-compat.js"></script>
   <script src="lib/firebase-firestore-compat.js"></script>
-  <script src="firebase-config.js?v=416"></script>
-  <script src="sync-manager.js?v=416"></script>
-  <script src="sync-merge.js?v=416"></script>
-  <script src="app.js?v=416"></script>
+  <script src="firebase-config.js?v=420"></script>
+  <script src="sync-manager.js?v=420"></script>
+  <script src="sync-merge.js?v=420"></script>
+  <script src="app.js?v=420"></script>
 </body>
 </html>

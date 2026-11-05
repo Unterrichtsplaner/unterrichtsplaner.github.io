@@ -469,9 +469,9 @@ describe('Paket 5c: Knöpfe, Einstellungen, Formular', () => {
     app('closeModal("modal-settings")');
   });
 
-  it('I22: Datenverwaltung (Backup) steht oben, direkt nach „Anzeige“', () => {
-    const heads = [...document.querySelectorAll('#modal-settings .settings-section h3')].map(h => h.textContent.trim());
-    expect(heads.indexOf('Datenverwaltung')).toBe(heads.indexOf('Anzeige') + 1);
+  it('I22: Datenverwaltung (Backup) steht im Bereich „Daten & Cloud“ ganz oben (AH38)', () => {
+    const pane = document.querySelector('#modal-settings .set-pane[data-pane="data"]');
+    expect(pane.querySelector('.settings-section h3').textContent).toMatch(/Datenverwaltung/);
   });
 
   it('I22: Beschriftungen einheitlich auf Deutsch, Hinweis zu „Speichern“', () => {
