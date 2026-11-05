@@ -50,6 +50,16 @@ function mergeShow(v) {
   if (typeof v === 'object') return 'geändert';
   return String(mergeShortDate(v));
 }
+// Uhrzeiten: nur was sich unterscheidet, sonst stünde auf beiden Seiten dasselbe
+function mergeBlocksText(v, ctx, other) {
+  if (!Array.isArray(v)) return 'Standardzeiten';
+  const diff = v.filter(x => !(Array.isArray(other) ? other : []).some(o => mergeEqual(x, o)));
+  const shown = (diff.length ? diff : v).slice(0, 3).map(x => `${x.start}–${x.end}`).join(', ');
+  return `${v.length} Stunden, u. a. ${shown}`;
+}
+const MERGE_WEEKDAYS = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'];
+const MERGE_PARTS = { first: ' (1. Hälfte)', second: ' (2. Hälfte)' };
+const mergeSlotPlace = p => `${p.specificDate ? `${mergeShortDate(p.specificDate)}, ` : `${MERGE_WEEKDAYS[p.day] || ''}, `}${p.block}. Stunde${MERGE_PARTS[p.part] || ''}`;
 const MERGE_ATTENDANCE_WORDS = { abwesend: 'Fehlt', entschuldigt: 'Entschuldigt', 'zuspät': 'Zu spät' };
 const MERGE_DAY_TYPES = Object.keys(MERGE_ATTENDANCE_WORDS);
 const MERGE_FACE_WORDS = { positive: '😊 gut', neutral: '😐 mittel', negative: '☹️ schwach' };
@@ -67,7 +77,7 @@ const MERGE_SPEC = {
       fields: {
         lastModified: { skip: true },
         lastBackupTimestamp: { atomic: 'max' },
-        blocks: { atomic: 'ask', what: 'Uhrzeiten der Stunden', title: () => 'Einstellungen', show: () => 'eigene Uhrzeiten' },
+        blocks: { atomic: 'ask', what: 'Uhrzeiten der Stunden', title: () => 'Einstellungen', show: mergeBlocksText },
         holidays: { list: h => h.id, item: { other: MERGE_LOCAL }, onDelete: 'keep' },
       },
       other: MERGE_LOCAL,   // Darstellung und Vorlieben: keine Frage wert
@@ -76,7 +86,14 @@ const MERGE_SPEC = {
     lessonSlots: {
       list: s => s.id, onDelete: 'ask', ignore: [],
       title: s => `Stunde ${s.subject || ''}`.trim(),
-      item: { fields: { color: MERGE_LOCAL, startWeek: MERGE_LOCAL } },
+      item: {
+        together: [{ fields: ['day', 'block', 'part', 'specificDate'], what: 'Platz im Stundenplan', show: mergeSlotPlace }],
+        fields: {
+          color: MERGE_LOCAL, startWeek: MERGE_LOCAL,
+          recurring: { atomic: 'ask', show: v => ({ weekly: 'jede Woche', biweekly: 'alle zwei Wochen' }[v] || (v === true ? 'jede Woche' : 'einmalig')) },
+          groupId: { atomic: 'ask', show: (v, ctx) => (ctx.groupName && ctx.groupName(v)) || 'keine Klasse' },
+        },
+      },
     },
     lessonData: {
       map: {
@@ -112,10 +129,11 @@ const MERGE_SPEC = {
         title: s => `${s.firstName || ''} ${s.lastName || ''}`.trim(),
         scope: 'student',
         item: {
+          together: [{ fields: ['gridX', 'gridY'], atomic: 'local' }],   // Sitzplatz als Paar, Regel 44; beide umgeordnet: dieses Gerät
           fields: {
             notes: MERGE_TEXT, importantNote: MERGE_TEXT,
             grades: {
-              list: g => `${g.date || ''}|${g.type || ''}|${g.note || ''}`, ignore: ['id'], onDelete: 'ask',
+              list: g => `${g.date || ''}|${g.type || ''}|${g.note || ''}`, ignore: ['id'], onDelete: 'ask', keepBoth: g => !g.note,   // ohne Titel gibt es mehrere am Tag; mit Titel ist es eine Spalte, also ein echter Widerspruch
               what: g => `${g.note || 'Note'}${g.date ? ` (${mergeShortDate(g.date)})` : ''}`,
               item: { fields: { value: { atomic: 'ask', show: v => mergeShow(v).replace('.', ',') } } },
             },
@@ -181,15 +199,36 @@ function mergeValue(parent, key, b, l, c, spec, ctx) {
     title: (spec.title && spec.title()) || ctx.title || 'Einstellungen',
     what: spec.what || [ctx.what, ctx.what ? null : MERGE_FIELD_NAMES[key] || key].filter(Boolean).join(' · '),
     field: MERGE_FIELD_NAMES[key] || key,
-    localText: show(l),
-    cloudText: show(c),
+    localText: show(l, ctx, c),
+    cloudText: show(c, ctx, l),
     apply: choice => { if (choice === 'cloud') set(c); else set(l); },
   });
 }
 
+// Felder, die nur zusammen Sinn ergeben (Platz einer Stunde): eine Frage, und nie ein Platz, den niemand gewählt hat
+function mergeTogether(target, b, l, c, group, ctx) {
+  const pick = o => Object.fromEntries(group.fields.map(f => [f, o[f]]));
+  const pb = pick(b), pl = pick(l), pc = pick(c);
+  const setAll = src => group.fields.forEach(f => { if (src[f] === undefined) delete target[f]; else target[f] = mergeClone(src[f]); });
+  if (mergeEqual(pl, pc) || mergeEqual(pb, pc)) return;
+  if (mergeEqual(pb, pl)) { setAll(pc); return; }
+  if (group.atomic === 'local') return;
+  ctx.conflicts.push({
+    kind: 'value', title: ctx.title || 'Einstellungen', what: group.what, field: group.what,
+    localText: group.show(pl), cloudText: group.show(pc),
+    apply: choice => setAll(choice === 'cloud' ? pc : pl),
+  });
+}
+
 function mergeObject(target, b, l, c, spec, ctx) {
+  const together = new Set();
+  (spec.together || []).forEach(group => {
+    group.fields.forEach(f => together.add(f));
+    mergeTogether(target, b, l, c, group, ctx);
+  });
   const keys = [...new Set([...Object.keys(l), ...Object.keys(c), ...Object.keys(b)])];
   keys.forEach(k => {
+    if (together.has(k)) return;
     const fieldSpec = (spec.fields && spec.fields[k]) || spec.map || spec.other;
     if (fieldSpec && fieldSpec.skip) return;
     const inL = !mergeIsEmpty(l[k]), inC = !mergeIsEmpty(c[k]);
@@ -251,6 +290,12 @@ function mergeList(b, l, c, spec, ctx) {
     const bi = ib.get(key), li = il.get(key), ci = ic.get(key);
     if (li !== undefined && ci !== undefined) {
       if (spec.item === undefined && !mergeIsObject(li)) { entries.set(key, li); return; }
+      // Auf beiden Seiten neu und verschieden (zwei Noten am selben Tag): zwei Einträge, nicht einer gegen den anderen
+      if (spec.keepBoth && spec.keepBoth(li) && bi === undefined && !mergeEqual(li, ci, spec.ignore)) {
+        entries.set(key, mergeClone(li));
+        entries.set(`${key}|cloud`, mergeClone(ci));
+        return;
+      }
       const holder = { v: mergeClone(li) };
       entries.set(key, holder);
       const inner = spec.item || {};
@@ -282,6 +327,114 @@ function mergeList(b, l, c, spec, ctx) {
   return result;
 }
 
+function mergeAddDays(dateStr, days) {
+  const d = new Date(`${dateStr}T12:00:00`);
+  d.setDate(d.getDate() + days);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+const mergeKeySlot = key => String(key).slice(0, String(key).lastIndexOf('_'));
+const mergeKeyDate = key => String(key).slice(String(key).lastIndexOf('_') + 1);
+// Einträge einer Stunde umziehen, alle auf einmal (wie moveLessonData: verschieben sich gemeinsam, also keine Kollision)
+function mergeRekey(d, slotId, rename) {
+  const data = d.lessonData;
+  if (!data) return;
+  const moved = Object.keys(data).filter(k => mergeKeySlot(k) === slotId).map(k => [k, rename(mergeKeyDate(k))]).filter(([k, to]) => to && to !== k);
+  const values = moved.map(([k]) => data[k]);
+  moved.forEach(([k]) => delete data[k]);
+  moved.forEach(([, to], i) => { data[to] = values[i]; });
+}
+// Verlegen ändert die Schlüssel der Stundendaten (Regel 13). Das andere Gerät kennt nur die alten; seine Einträge lägen danach
+// unter einem Termin, den es nicht mehr gibt. Darum zieht es hier jede Verlegung auch in Basis und anderem Gerät nach.
+// Geht das nicht eindeutig (beide verlegen verschieden), wird nicht geraten: Abbruch, Fenster mit dem ganzen Stand.
+function mergeNormalizeMoves(b, l, c) {
+  const inBase = id => (b.lessonSlots || []).some(s => s.id === id);
+  const find = (d, id) => (d.lessonSlots || []).find(s => s.id === id);
+  (b.lessonSlots || []).forEach(s => {
+    const sl = find(l, s.id), sc = find(c, s.id);
+    if (!sl || !sc) return;
+    if (s.specificDate) {
+      const movedL = sl.specificDate && sl.specificDate !== s.specificDate, movedC = sc.specificDate && sc.specificDate !== s.specificDate;
+      if (movedL && movedC && sl.specificDate !== sc.specificDate) throw new MergeUnsupportedError('Stunde auf beiden Geräten verschieden verlegt');
+      const to = movedL ? sl.specificDate : movedC ? sc.specificDate : null;
+      if (to) [b, l, c].forEach(d => mergeRekey(d, s.id, date => (date === s.specificDate ? `${s.id}_${to}` : null)));
+      return;
+    }
+    const movedL = sl.day !== s.day, movedC = sc.day !== s.day;
+    if (movedL && movedC && sl.day !== sc.day) throw new MergeUnsupportedError('Stunde auf beiden Geräten verschieden verlegt');
+    if (!movedL && !movedC) return;
+    const shift = (movedL ? sl.day : sc.day) - s.day;
+    [b, ...(movedL && movedC ? [] : [movedL ? c : l])].forEach(d => mergeRekey(d, s.id, date => `${s.id}_${mergeAddDays(date, shift)}`));
+  });
+  [[l, c], [c, l]].forEach(([mover, other]) => {
+    (mover.lessonSlots || []).filter(n => !inBase(n.id)).forEach(n => {
+      // Stundenplanwechsel (splitSlotFrom): alte Stunde endet am Vortag, Einträge ab dem Wechsel gehören zur neuen
+      if (n.validFrom) {
+        const end = mergeAddDays(n.validFrom, -1);
+        const old = (b.lessonSlots || []).find(s => s.validUntil !== end && (find(mover, s.id) || {}).validUntil === end && (find(mover, s.id) || {}).groupId === n.groupId);
+        if (old) {
+          const theirs = find(other, old.id);
+          if (theirs && theirs.validUntil !== old.validUntil) throw new MergeUnsupportedError('Stundenplanwechsel auf beiden Geräten');
+          const shift = n.day - old.day;
+          [b, other].forEach(d => mergeRekey(d, old.id, date => {
+            if (date < n.validFrom) return null;
+            let to = mergeAddDays(date, shift);
+            while (to < n.validFrom) to = mergeAddDays(to, 7);
+            return `${n.id}_${to}`;
+          }));
+        }
+      }
+      // „Nur an diesem Tag“ (moveOccurrenceOnce): Der Ursprung bleibt nur Verweis, Einträge gehören zur verlegten Stunde
+      if (n.movedFrom) {
+        const { slotId, date } = n.movedFrom;
+        if ((other.lessonSlots || []).some(x => !inBase(x.id) && x.movedFrom && x.movedFrom.slotId === slotId && x.movedFrom.date === date)) {
+          throw new MergeUnsupportedError('Dieselbe Stunde auf beiden Geräten verlegt');
+        }
+        [b, other].forEach(d => mergeRekey(d, slotId, day => (day === date ? `${n.id}_${n.specificDate}` : null)));
+      }
+    });
+  });
+}
+// Findet die Stunde nach dem Abgleich an diesem Datum noch statt? (Ferien und A/B-Woche spielen hier keine Rolle)
+function mergeSlotFits(s, date) {
+  if ((s.validUntil && date > s.validUntil) || (s.validFrom && date < s.validFrom)) return false;
+  if (s.specificDate) return date === s.specificDate;
+  return (new Date(`${date}T12:00:00`).getDay() + 6) % 7 === s.day;
+}
+// Was eine Seite eingetragen hat, muss erreichbar bleiben. Liegt es nach dem Abgleich auf keinem Termin mehr, nicht still wegräumen
+function mergeCheckReachable(b, l, c, merged) {
+  [l, c].forEach(side => Object.keys(side.lessonData || {}).forEach(k => {
+    if (mergeEqual(side.lessonData[k], (b.lessonData || {})[k]) || mergeIsEmpty((merged.lessonData || {})[k])) return;
+    const id = mergeKeySlot(k), date = mergeKeyDate(k);
+    const own = (side.lessonSlots || []).find(s => s.id === id), now = (merged.lessonSlots || []).find(s => s.id === id);
+    if (own && now && mergeSlotFits(own, date) && !mergeSlotFits(now, date)) throw new MergeUnsupportedError('Eintrag läge auf einem Termin, den es nicht mehr gibt');
+  }));
+}
+// HA/Test ausgeschaltet, die andere Seite hat eine neue ergänzt: Sonst wäre die neue still nirgends fällig
+function mergeKeepNewItemsOn(b, l, c, merged) {
+  [['hwItems', 'hwEnabled'], ['testItems', 'testEnabled']].forEach(([items, flag]) => {
+    Object.keys(merged.lessonData || {}).forEach(k => {
+      const m = merged.lessonData[k];
+      if (!m || !Array.isArray(m[items]) || m[flag] !== false) return;
+      const was = ((b.lessonData || {})[k] || {})[items] || [];
+      const addedOn = side => {
+        const d = (side.lessonData || {})[k];
+        return d && d[flag] !== false && (d[items] || []).some(i => !was.some(x => x.id === i.id) && m[items].some(x => x.id === i.id));
+      };
+      if (addedOn(l) || addedOn(c)) m[flag] = true;
+    });
+  });
+}
+// Einträge je Schüler: Fehlt im Ergebnis auffällig viel, hat vermutlich ein alter Stand die Cloud ersetzt. Dann nicht still anwenden.
+function mergeCountEntries(d) {
+  let n = 0;
+  Object.values(d.students || {}).forEach(list => (list || []).forEach(s => {
+    n += 1;
+    ['grades', 'attendance', 'participation', 'homework', 'studentNotes'].forEach(f => { n += (s[f] || []).length; });
+  }));
+  return n;
+}
+const MERGE_MAX_SILENT_LOSS = 30;
+
 const mergeSlotDataKeys = (d, slotId) => Object.keys(d.lessonData || {}).filter(k => k.startsWith(`${slotId}_`));
 const mergeSlotDataOf = (d, slotId) => Object.fromEntries(mergeSlotDataKeys(d, slotId).map(k => [k, d.lessonData[k]]));
 
@@ -299,7 +452,9 @@ function mergeRestoreDeleted(b, l, c, pending) {
     const dataOf = d => Object.assign({}, ...slotsOf(b, g.id).concat(slotsOf(keep, g.id)).map(s => mergeSlotDataOf(d, s.id)));
     const changed = !mergeEqual(g, survivor) || !sameList((b.students || {})[g.id], (keep.students || {})[g.id])
       || !sameList(slotsOf(b, g.id), slotsOf(keep, g.id)) || !mergeEqual(dataOf(b), dataOf(keep));
-    if (!changed) return;   // nur gelöscht: normale Zusammenführung reicht
+    // Hier gelöscht: Das hat man eben selbst getan. In der Cloud gelöscht, hier unverändert: lieber einmal nachfragen,
+    // eine alte Sicherung oder ein altes Gerät könnte die Klasse weggenommen haben.
+    if (!changed && (deletedOn === 'local' || !((keep.students || {})[g.id] || []).length)) return;
     gone.groups = [...(gone.groups || []), mergeClone(survivor)];
     gone.students = { ...(gone.students || {}), [g.id]: mergeClone((keep.students || {})[g.id] || []) };
     gone.lessonSlots = [...(gone.lessonSlots || []), ...mergeClone(slotsOf(keep, g.id))];
@@ -320,7 +475,15 @@ function mergeRestoreDeleted(b, l, c, pending) {
 }
 
 // Was gelöscht wurde, zieht Abhängiges nach. Läuft nach allen Antworten (Regel 10, 73).
-function finishMerge(merged) {
+function finishMerge(merged, blockPool = []) {
+  // Block weg, aber eine Stunde darin (Regel 12): Die Stunde wäre unsichtbar, der Block bleibt also
+  const blocks = merged.settings && merged.settings.blocks;
+  if (Array.isArray(blocks)) {
+    new Set((merged.lessonSlots || []).map(s => s.block)).forEach(num => {
+      const lost = !blocks.some(x => x.num === num) && blockPool.find(x => x.num === num);
+      if (lost) blocks.push(mergeClone(lost));
+    });
+  }
   const groupIds = new Set((merged.groups || []).map(g => g.id));
   // Nur leere Listen: Einträge ohne Klasse (Altdaten) räumt der Abgleich nie still weg
   Object.keys(merged.students || {}).forEach(gid => {
@@ -367,6 +530,9 @@ function mergeVerify(b, l, c, merged) {
 
 function mergeDB(base, local, cloud) {
   const b = mergeClone(base), l = mergeClone(local), c = mergeClone(cloud);
+  // Cloud komplett leer (auf einem anderen Gerät geleert): kein Abgleich, sondern eine bewusste Entscheidung
+  if ((b.groups || []).length && (l.groups || []).length && !(c.groups || []).length) throw new MergeUnsupportedError('Die Cloud ist leer');
+  mergeNormalizeMoves(b, l, c);
   const pending = [];
   mergeRestoreDeleted(b, l, c, pending);
   const merged = mergeClone(l);
@@ -375,10 +541,9 @@ function mergeDB(base, local, cloud) {
     const slot = [...(l.lessonSlots || []), ...(c.lessonSlots || [])].find(s => s.id === String(key).slice(0, String(key).lastIndexOf('_')));
     return slot ? `Stunde ${slot.subject || ''}`.trim() : 'Stunde';
   };
-  const ctx = { conflicts: [], title: '', what: '', slotName };
-
   // Klassenname vor die Schüler-Fragen: students ist nach Klasse aufgeteilt
   const groupName = gid => ((l.groups || []).concat(c.groups || []).find(g => g.id === gid) || {}).className || '';
+  const ctx = { conflicts: [], title: '', what: '', slotName, groupName };
   const specs = MERGE_SPEC.fields;
   [...new Set([...Object.keys(l), ...Object.keys(c), ...Object.keys(b)])].forEach(k => {
     if (specs[k] && specs[k].skip) return;
@@ -407,8 +572,13 @@ function mergeDB(base, local, cloud) {
       },
     });
   });
+  mergeKeepNewItemsOn(b, l, c, merged);
   mergeVerify(b, l, c, merged);
-  return { merged, conflicts: ctx.conflicts };
+  mergeCheckReachable(b, l, c, merged);
+  const lost = mergeCountEntries(l) - mergeCountEntries(merged);
+  if (lost > MERGE_MAX_SILENT_LOSS && lost > mergeCountEntries(l) * 0.1) throw new MergeUnsupportedError(`Viele Einträge fehlen in der Cloud (${lost})`);
+  const blockPool = [l, c, b].flatMap(d => ((d.settings || {}).blocks) || []);
+  return { merged, conflicts: ctx.conflicts, blockPool };
 }
 
 // Zusammenfassung ohne Namen und Werte, für das Fenster, in dem man einen ganzen Stand wählt (Y10)

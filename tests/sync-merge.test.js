@@ -113,7 +113,7 @@ describe('echte Widersprüche werden zur Frage', () => {
     b.conflicts[0].apply('local');
     expect(anna(b.merged).grades[0].value).toBe('2.5');
   });
-  it('dieselbe neue Note in derselben Spalte verschieden: Frage', () => {
+  it('dieselbe neue Note in derselben Spalte (mit Titel) verschieden: Frage', () => {
     const add = v => d => anna(d).grades.push({ type: 'test', value: v, date: '2026-11-03', note: 'T' });
     const r = merge(add('1.0'), add('2.0'));
     expect(r.conflicts.length).toBe(1);

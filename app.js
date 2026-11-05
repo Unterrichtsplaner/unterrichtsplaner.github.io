@@ -5338,7 +5338,7 @@ function dataSummary(data) {
 
 // „Alles löschen“ leert nur das Gerät, und das holt beim nächsten Sync alles zurück (ein leeres Gerät lädt nie hoch).
 // Hier wird ein leerer Stand als neueste Cloud-Version hochgeladen – das Dokument bleibt. Andere Geräte übernehmen
-// ihn wie jede Änderung; wer dort noch nicht übertragene Eingaben hat, bekommt den Konflikt-Dialog (BUGS Z1).
+// ihn wie jede Änderung; wer dort noch nicht übertragene Eingaben hat, bekommt das Fenster mit dem ganzen Stand (mergeDB, BUGS Z1).
 async function clearAllDataEverywhere() {
   if (!SyncManager.currentUser) return;
   if (!SyncManager.masterPassword) { alert('Bitte zuerst das Master-Passwort eingeben.'); return; }
@@ -10569,19 +10569,27 @@ function fillConflictDifferences(conflictInfo) {
 // Der letzte gemeinsame Stand („Basis“) und die Stände vor einem Zusammenführen liegen in IndexedDB: nicht in db, nicht in
 // der Cloud, und localStorage wäre dafür zu knapp. Fehlt etwas oder passt die Basis nicht zur Versionskennung, gibt es
 // einfach das Fenster mit dem ganzen Stand; darum darf jeder Schritt hier scheitern, ohne Daten zu gefährden.
+const IDB_TIMEOUT_MS = 10000;
 function idbRequest(mode, run) {
   return new Promise((resolve, reject) => {
     if (typeof indexedDB === 'undefined') { reject(new Error('IndexedDB fehlt')); return; }
-    const open = indexedDB.open('lehrerapp_sync', 1);
-    open.onupgradeneeded = () => open.result.createObjectStore('kv');
-    open.onerror = () => reject(open.error);
-    open.onsuccess = () => {
-      const idb = open.result;
-      const tx = idb.transaction('kv', mode);
-      const req = run(tx.objectStore('kv'));
-      tx.oncomplete = () => { idb.close(); resolve(req && req.result); };
-      tx.onerror = tx.onabort = () => { idb.close(); reject(tx.error); };
-    };
+    // Der Speicher kann hängen (ältere iPads). Ohne Zeitgrenze bliebe der ganze Sync bis zum Neuladen stehen.
+    const timer = setTimeout(() => reject(new Error('Speicher antwortet nicht')), IDB_TIMEOUT_MS);
+    const finish = (fn, value) => { clearTimeout(timer); fn(value); };
+    try {
+      const open = indexedDB.open('lehrerapp_sync', 1);
+      open.onupgradeneeded = () => open.result.createObjectStore('kv');
+      open.onerror = () => finish(reject, open.error);
+      open.onsuccess = () => {
+        try {
+          const idb = open.result;
+          const tx = idb.transaction('kv', mode);
+          const req = run(tx.objectStore('kv'));
+          tx.oncomplete = () => { idb.close(); finish(resolve, req && req.result); };
+          tx.onerror = tx.onabort = () => { idb.close(); finish(reject, tx.error); };
+        } catch (e) { finish(reject, e); }
+      };
+    } catch (e) { finish(reject, e); }
   });
 }
 let syncStore = {
@@ -10608,11 +10616,25 @@ async function readSyncBase(cloudTimestamp) {
 }
 async function keepMergeBackup(localDataString, cloudDataString) {
   const list = (await syncStore.get(MERGE_BACKUPS_KEY)) || [];
-  list.unshift({ time: Date.now(), local: localDataString, cloud: cloudDataString });
+  // Dieselben Stände nur einmal, sonst schieben wiederholte offene Fragen ältere aus der Liste
+  if (list[0] && list[0].local === localDataString && list[0].cloud === cloudDataString) return;
+  const uid = SyncManager.currentUser && SyncManager.currentUser.uid;
+  list.unshift({ time: Date.now(), uid, local: localDataString, cloud: cloudDataString });
   await syncStore.put(MERGE_BACKUPS_KEY, list.slice(0, MERGE_BACKUPS_MAX));
+}
+// Nur Stände dieses Kontos anbieten (Abmelden und anderes Konto: Regel 15 gilt auch hier)
+async function mergeBackupsOfAccount() {
+  const uid = SyncManager.currentUser && SyncManager.currentUser.uid;
+  let list = null;
+  try { list = await syncStore.get(MERGE_BACKUPS_KEY); } catch (e) { list = null; }
+  return (list || []).filter(x => !x.uid || x.uid === uid);
 }
 // Zusammenführen vorbereiten. Liefert { merged, conflicts } oder null = Fenster mit dem ganzen Stand.
 async function prepareMerge(conflictInfo, localDataString, lastSynced) {
+  // Auch für das Fenster mit dem ganzen Stand: Dort verwirft man eine Seite
+  let backedUp = false;
+  try { await keepMergeBackup(localDataString, conflictInfo.cloudData); backedUp = true; } catch (e) { console.warn('Sicherheitsnetz nicht gespeichert:', e.message); }
+  if (!backedUp) return null;   // ohne Sicherheitsnetz kein Zusammenführen
   try {
     const baseString = await readSyncBase(lastSynced);
     if (!baseString) return null;
@@ -10621,9 +10643,7 @@ async function prepareMerge(conflictInfo, localDataString, lastSynced) {
       if (!d || !d.settings || !d.groups || !d.students) throw new Error('Unerwartetes Format');
       return migrateDB(d);
     };
-    const out = mergeDB(parse(baseString), parse(localDataString), parse(conflictInfo.cloudData));
-    await keepMergeBackup(localDataString, conflictInfo.cloudData);   // ohne Sicherheitsnetz kein Zusammenführen
-    return out;
+    return mergeDB(parse(baseString), parse(localDataString), parse(conflictInfo.cloudData));
   } catch (e) {
     console.warn('Zusammenführen nicht möglich:', e.message);
     return null;
@@ -10631,29 +10651,35 @@ async function prepareMerge(conflictInfo, localDataString, lastSynced) {
 }
 // Ergebnis übernehmen: Es gilt als „auf dem Stand der Cloud, lokal geändert“. Der nächste Sync lädt es also auf dem normalen
 // Weg hoch (Transaktion, verlorene Antwort); war die Cloud inzwischen weiter, wird von dort aus neu zusammengeführt.
-async function applyMergedDB(merged, conflictInfo) {
-  finishMerge(merged);
+// false: nicht gespeichert (Meldung kam von persistDB), der Stand bleibt wie er war.
+async function applyMergedDB(out, conflictInfo) {
+  const merged = out.merged;
+  finishMerge(merged, out.blockPool);
   const fresh = migrateDB(merged);
   fresh.syncSettings = { ...(db.syncSettings || {}), lastSyncedCloudTimestamp: conflictInfo.cloudTimestamp };
   delete fresh.syncSettings.pendingUpload;
   if (SyncManager.currentUser) fresh.syncSettings.uid = SyncManager.currentUser.uid;
   fresh.settings.lastModified = Math.max(Date.now(), (db.settings.lastModified || 0) + 1);
   // Erst tauschen, dann auf den Speicher warten: Ein await davor ließe eine Lücke, in der Getipptes verloren ginge (Regel 32).
-  // Geht das Speichern schief, passt die Basis nicht zur Kennung, und es bleibt beim Fenster mit dem ganzen Stand.
-  const saved = saveSyncBase(conflictInfo.cloudTimestamp, conflictInfo.cloudData);
+  // Geht das Speichern der Basis schief, passt sie nicht zur Kennung, und es bleibt beim Fenster mit dem ganzen Stand.
+  const previous = db;
   db = fresh;
-  persistDB();
+  if (!persistDB()) { db = previous; return false; }   // sonst käme hoch, was das Gerät selbst nicht gespeichert hat
+  const saved = saveSyncBase(conflictInfo.cloudTimestamp, conflictInfo.cloudData);
   replaceDB(fresh);
   SyncManager.updateStatus('synced');
   await saved;
+  return true;
 }
 const MERGE_DONE_TEXT = 'Änderungen von diesem Gerät und aus der Cloud zusammengeführt';
 async function handleSyncConflict(conflictInfo, at) {
   const out = await prepareMerge(conflictInfo, at.localDataString, at.lastSynced);
   if (db !== at.dbAtStart || db.settings.lastModified !== at.localModified) { syncQueued = true; return; }   // Regel 32
+  // Während des Wartens ging ein Eingabefenster auf: Es zeigt den alten Stand und schriebe ihn beim Schließen zurück (P1)
+  if (inputModalOpen()) { syncAfterModalClose = true; return; }
   if (!out) { showSyncConflict(conflictInfo); return; }
   if (!out.conflicts.length) {
-    await applyMergedDB(out.merged, conflictInfo);
+    if (!await applyMergedDB(out, conflictInfo)) return;
     syncQueued = true;
     showToast(MERGE_DONE_TEXT);
     return;
@@ -10709,9 +10735,10 @@ async function confirmMergeAnswers(conflictInfo, out, answers, at) {
   closeModal('modal-sync-conflict');
   window.currentConflict = null;
   // Inzwischen anderer Stand (anderes Fenster, ersetzte DB): Die Antworten gehören zum alten, also neu prüfen (Regel 32)
+  if (inputModalOpen()) { syncAfterModalClose = true; return; }   // neu prüfen, sobald es zu ist (P1)
   if (db === at.dbAtStart && db.settings.lastModified === at.localModified) {
     out.conflicts.forEach((q, i) => q.apply(answers[i]));
-    await applyMergedDB(out.merged, conflictInfo);
+    if (!await applyMergedDB(out, conflictInfo)) return;
     showToast(MERGE_DONE_TEXT);
   }
   triggerSyncInternal();
@@ -10720,17 +10747,17 @@ async function confirmMergeAnswers(conflictInfo, out, answers, at) {
 async function refreshMergeRestoreButton() {
   const row = document.getElementById('merge-restore-row');
   if (!row) return;
-  let list = null;
-  try { list = await syncStore.get(MERGE_BACKUPS_KEY); } catch (e) { list = null; }
-  row.classList.toggle('hidden', !(list && list.length));
+  row.classList.toggle('hidden', !(await mergeBackupsOfAccount()).length);
 }
 async function restoreMergeBackup() {
-  let list = null;
-  try { list = await syncStore.get(MERGE_BACKUPS_KEY); } catch (e) { list = null; }
-  const last = list && list[0];
-  if (!last) { showToast('Es gibt keinen früheren Stand', 'error'); return; }
-  const when = new Date(last.time).toLocaleString('de-DE');
-  const side = await askChoice('Stand vor dem Zusammenführen', `Vom ${when}. Der gewählte Stand ersetzt alle Daten auf diesem Gerät und danach auch in der Cloud.`,
+  const list = await mergeBackupsOfAccount();
+  if (!list.length) { showToast('Es gibt keinen früheren Stand', 'error'); return; }
+  const whenOf = x => new Date(x.time).toLocaleString('de-DE');
+  // Ein Fehler fällt oft erst nach dem nächsten Abgleich auf: darum auch die älteren Stände
+  const last = list.length === 1 ? list[0] : await askChoice('Stand vor dem Zusammenführen', 'Welchen Zeitpunkt möchtest du zurückholen?',
+    list.map((x, i) => ({ label: whenOf(x), value: x, primary: i === 0 })));
+  if (!last) return;
+  const side = await askChoice('Stand vor dem Zusammenführen', `Vom ${whenOf(last)}. Der gewählte Stand ersetzt alle Daten auf diesem Gerät und danach auch in der Cloud.`,
     [{ label: 'Stand dieses Geräts', value: 'local', primary: true }, { label: 'Stand aus der Cloud', value: 'cloud' }]);
   if (!side) return;
   const parsed = JSON.parse(last[side]);
