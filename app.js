@@ -1324,11 +1324,11 @@ function buildTimetableCell(d, dayIdx, block, clock = timetableClock()) {
     const running = !isAusfall && dateStr === clock.todayStr && range &&
       range.start <= clock.nowMins && clock.nowMins < range.end;
     const isNext = !running && clock.next && clock.next.slot.id === lesson.id && clock.next.dateStr === dateStr;
-    const badge = running ? `<span class="tt-lesson-badge" title="läuft noch ${range.end - clock.nowMins} min">noch ${range.end - clock.nowMins} min</span>`
+    const badge = running ? `<span class="tt-lesson-badge" title="läuft noch ${range.end - clock.nowMins} min"><span class="tt-noch">noch </span>${range.end - clock.nowMins} min</span>`
                 : isNext ? `<span class="tt-lesson-badge">als Nächstes</span>` : '';
 
     return `<div class="tt-lesson${isAusfall?' ausfall-lesson':''}${running?' running':''}${isNext?' next':''}"
-           style="background:${hexToRgba(lesson.color,0.15)};--lesson-color:${escHtml(safeColor(lesson.color))}"
+           style="--lesson-color:${escHtml(safeColor(lesson.color))}"
            data-slot="${escHtml(lesson.id)}" data-date="${escHtml(dateStr)}"
            onclick="${timetableEditMode ? 'openEditLessonFor' : 'openLessonDetail'}(${jsArg(lesson.id)},${jsArg(dateStr)})">
         <div class="tt-lesson-head">

@@ -230,7 +230,7 @@ describe('I4: heller Modus hat genug Kontrast', () => {
   });
 
   it('Klassenfarbe als Text wird im hellen Modus abgedunkelt (Kachel, Klassenkarte)', () => {
-    expect(lightRules('.tt-lesson')).toMatch(/color:\s*color-mix\(in srgb,\s*var\(--lesson-color\)\s*50%,\s*#000\)/);
+    expect(rulesFor('.tt-lesson')).toMatch(/color:\s*var\(--text-primary\)/);   // AH42: Kachel-Schrift einheitlich dunkel
     expect(lightRules('.cr-name')).toMatch(/color:\s*color-mix\(in srgb,\s*var\(--card-color[^)]*\)\)\s*50%,\s*#000\)/);
     expect(lightRules('.tt-lesson-subject')).toMatch(/opacity:\s*1/);   // Transparenz kostete weiteren Kontrast
   });
@@ -240,7 +240,7 @@ describe('I4: heller Modus hat genug Kontrast', () => {
       .querySelector('.tt-lesson');
     expect(el.getAttribute('style')).not.toMatch(/(^|;)\s*color:/);
     expect(el.style.getPropertyValue('--lesson-color')).toBe('#6366f1');
-    expect(rulesFor('.tt-lesson')).toMatch(/color:\s*var\(--lesson-color\)/);
+    expect(rulesFor('.tt-lesson')).toMatch(/background:\s*color-mix\(in srgb,\s*var\(--lesson-color\)/);
   });
 });
 
@@ -248,7 +248,7 @@ describe('I5: gestrichelt heißt nur noch „hier anlegen“', () => {
   it('nächste Stunde: durchgezogener, dezenter Rahmen statt gestrichelt', () => {
     const r = rulesFor('.tt-lesson.next');
     expect(r).not.toMatch(/dashed/);
-    expect(r).toMatch(/outline:[^;]*solid/);
+    expect(r).toMatch(/box-shadow:\s*inset 0 0 0 1px/);
   });
 
   it('Dashboard „Nächste Stunde“: Farbbalken links wie bei den anderen Stunden, nicht als Warnbalken oben', () => {
@@ -510,7 +510,7 @@ describe('Block J', () => {
   });
 
   it('J2: keine fest eingetragenen Status-Farben mehr, alles über Variablen', () => {
-    for (const sel of ['.tt-status-hw', '.tt-status-test', '.dash-badge.hw', '.dash-badge.test', '.dash-badge.note',
+    for (const sel of ['.dash-badge.hw', '.dash-badge.test', '.dash-badge.note',
                        '.dash-next-items.hw strong', '.dash-next-items.test strong']) {
       expect(rulesFor(sel), sel).not.toMatch(/#(f59e0b|ef4444|94a3b8)/i);
       expect(rulesFor(sel), sel).toMatch(/var\(--(warning|danger|text-muted)\)/);

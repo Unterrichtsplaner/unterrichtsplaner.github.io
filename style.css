@@ -149,7 +149,7 @@ input[type="date"] { min-height: 1.2em; } /* Fix iOS Safari date input collapse 
 
 /* ─── Timetable ──────────────────────── */
 .timetable-grid-wrapper{flex:1;overflow:auto;padding:var(--space-4) var(--page-x);display:flex;flex-direction:column;}
-.timetable-grid{display:grid;gap:var(--space-3);flex:1;}
+.timetable-grid{display:grid;gap:var(--space-2);flex:1;}
 .timetable-grid.day-view{min-width:0;align-content:start;}
 .timetable-grid.day-view .tt-day-header{font-size:16px;text-align:left;padding:var(--space-1) 2px var(--space-2);}
 .timetable-grid.day-view .tt-time-label{padding:0 var(--space-1) 0 0;}
@@ -172,14 +172,13 @@ input[type="date"] { min-height: 1.2em; } /* Fix iOS Safari date input collapse 
   #view-timetable .week-label{min-width:0;white-space:nowrap;padding:var(--space-2) var(--space-3);}
   .timetable-grid-wrapper{padding:var(--space-3) var(--page-x);}
 }
-.tt-day-header{padding:var(--space-3) var(--space-2);text-align:center;font-size:13px;font-weight:700;color:var(--text-secondary);letter-spacing:.4px;text-transform:uppercase;}
+.tt-day-header{padding:var(--space-3) var(--space-2);text-align:center;font-size:13px;font-weight:700;color:var(--text-secondary);text-transform:uppercase;}
 .tt-day-header.today{color:var(--accent);}
 .tt-time-label{display:flex;flex-direction:column;align-items:flex-end;justify-content:center;padding:0 var(--space-4) 0 0;text-align:right;}
 .tt-time-block-name{font-size:12px;font-weight:700;color:var(--text-secondary);}
 .tt-time-block-range{font-size:11px;color:var(--text-muted);margin-top:var(--space-1);line-height:1.5;}
-.tt-cell{border-radius:var(--radius-md);background:var(--bg-card);border:1px solid var(--border);padding:var(--space-1);position:relative;}
-.tt-lesson{color:var(--lesson-color);border-radius:var(--radius-sm);padding:var(--space-2) var(--space-3);min-width:0;cursor:pointer;transition:background-color var(--transition),color var(--transition),border-color var(--transition),box-shadow var(--transition),opacity var(--transition),transform var(--transition);height:100%;display:flex;flex-direction:column;justify-content:space-between;position:relative;overflow:hidden;}
-.tt-lesson::before{content:'';position:absolute;left:0;top:0;bottom:0;width:4px;border-radius:var(--radius-xs) 0 0 4px;background:currentColor;opacity:.8;}
+.tt-cell{border-radius:var(--radius-sm);background:none;border:none;padding:0;position:relative;}
+.tt-lesson{--tile-edge:color-mix(in srgb,var(--lesson-color) 70%,#fff);background:color-mix(in srgb,var(--lesson-color) 24%,var(--bg-card));color:var(--text-primary);border-radius:var(--radius-sm);padding:var(--space-2) var(--space-3);min-width:0;cursor:pointer;transition:background-color var(--transition),color var(--transition),border-color var(--transition),box-shadow var(--transition),opacity var(--transition),transform var(--transition);height:100%;display:flex;flex-direction:column;justify-content:space-between;position:relative;overflow:hidden;}
 @media (hover: hover){.tt-lesson:hover{transform:translateY(-1px);box-shadow:var(--shadow-md);filter:brightness(1.1);}}
 .tt-lesson:active{transform:scale(.98);}
 .tt-lesson.ausfall-lesson{opacity:.38;text-decoration:line-through;}
@@ -187,28 +186,22 @@ input[type="date"] { min-height: 1.2em; } /* Fix iOS Safari date input collapse 
 /* ─── Timetable cell lesson display (BUGS H4) ─── */
 .tt-lesson-head{min-width:0;padding-left:var(--space-2);}
 .tt-lesson-class{font-size:20px;font-weight:800;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-.tt-lesson-subject{font-size:13px;font-weight:600;opacity:.8;margin-top:var(--space-1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.tt-lesson-subject{font-size:13px;font-weight:400;color:var(--text-secondary);margin-top:var(--space-1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .tt-lesson-subject > span{display:block;overflow:hidden;text-overflow:ellipsis;}  /* Raum eigene Zeile statt als Erstes abgeschnitten (BUGS I6) */
 .tt-lesson-foot{display:flex;flex-wrap:wrap;align-items:center;gap:var(--space-1) var(--space-1);padding-left:var(--space-2);margin-top:var(--space-1);min-width:0;}
 .tt-lesson-badge{font-size:11px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;}
 .tt-status-row{display:flex;gap:var(--space-1);margin-left:auto;flex-shrink:0;}
-.tt-status{display:inline-flex;width:15px;height:15px;opacity:.85;}
+.tt-status{display:inline-flex;width:14px;height:14px;color:var(--text-secondary);}
 .tt-status svg{width:100%;height:100%;}
-.tt-status-hw{color:var(--warning);}
-.tt-status-test{color:var(--danger);}
-.tt-status-notiz{color:var(--text-muted);}
+.tt-status-hw,.tt-status-test,.tt-status-notiz,.tt-status-inhalt{color:var(--text-secondary);}
 /* Laufende Stunde: kräftig; nächste Stunde: dezent */
-.tt-lesson.running{box-shadow:0 0 0 2px currentColor,var(--shadow-md);}
-.tt-lesson.running .tt-lesson-badge{background:color-mix(in srgb, var(--lesson-color) 50%, #000);color:#fff;border-radius:var(--radius-xs);padding:2px var(--space-2);}
+.tt-lesson.running{box-shadow:inset 0 0 0 2px var(--tile-edge);}
+.tt-lesson.running .tt-lesson-badge{font-size:12px;font-weight:600;color:var(--text-primary);}
 /* Nächste Stunde: dezent und durchgezogen. Gestrichelt heißt „hier Stunde anlegen“ (BUGS I5) */
-.tt-lesson.next{outline:1.5px solid currentColor;outline-offset:-1.5px;}
-@supports (color: color-mix(in srgb, red 50%, transparent)) {
-  .tt-lesson.next{outline-color:color-mix(in srgb, currentColor 50%, transparent);}
-}
-.tt-lesson.next .tt-lesson-badge{opacity:.75;font-weight:600;}
+.tt-lesson.next{box-shadow:inset 0 0 0 1px var(--tile-edge);}
+.tt-lesson.next .tt-lesson-badge{display:none;}
 /* iPad hochkant: schmale Spalten, weniger Rand */
 @media(min-width:700px) and (max-width:1000px){
-  .tt-cell{padding:var(--space-1);}
   .tt-lesson{padding:var(--space-2) var(--space-2);}
   .tt-lesson-head,.tt-lesson-foot{padding-left:var(--space-1);}
   .tt-lesson-class{font-size:16px;}
@@ -244,7 +237,7 @@ input[type="date"] { min-height: 1.2em; } /* Fix iOS Safari date input collapse 
 }
 .tt-split-half .tt-lesson {
   border-radius: var(--radius-sm);
-  padding: var(--space-1) var(--space-3);
+  padding: var(--space-1) var(--space-2);
 }
 .tt-split-half .tt-empty-cell {
   border-radius: var(--radius-sm);
@@ -252,7 +245,7 @@ input[type="date"] { min-height: 1.2em; } /* Fix iOS Safari date input collapse 
 }
 .tt-split-half .tt-lesson-head,
 .tt-split-half .tt-lesson-foot {
-  padding-left: var(--space-1);
+  padding-left: 0;
 }
 .tt-split-half .tt-lesson-class {
   font-size: 14px;
@@ -854,7 +847,7 @@ select option{background:var(--bg-secondary);}
 }
 /* Klassenfarben als Text: im hellen Modus zur Hälfte mit Schwarz gemischt, sonst z. B. Gelb auf Salbeigrün 1,4:1.
    Mit 50 % mindestens 4,8:1 für alle 14 Klassenfarben auf allen hellen Hintergründen (BUGS I4). */
-:root[data-theme="light"] .tt-lesson{color:color-mix(in srgb, var(--lesson-color) 50%, #000);}
+:root[data-theme="light"] .tt-lesson{--tile-edge:color-mix(in srgb,var(--lesson-color) 60%,#000);}
 :root[data-theme="light"] .tt-lesson-subject{opacity:1;}
 :root[data-theme="light"] .dash-lesson.running .dash-lesson-status{color:color-mix(in srgb, var(--lesson-color) 50%, #000);}  /* helle Klassenfarben auf Weiß (BUGS AA6) */
 :root[data-theme="light"] .cr-name{color:color-mix(in srgb, var(--card-color, var(--accent)) 50%, #000);}
@@ -1401,9 +1394,9 @@ button.date-chip{font-family:inherit;padding:0;}
 .holiday-row .holiday-from-input,.holiday-row .holiday-until-input{flex:1 1 0;min-width:0;width:auto;}
 .holiday-empty{font-size:12px;color:var(--text-muted);}
 /* Pausenaufsicht (BUGS AA4) */
-.tt-break-label .tt-time-block-name{color:var(--warning);}
+.tt-break-label .tt-time-block-name{color:var(--text-muted);font-weight:500;}
 .tt-break-cell{display:flex;flex-direction:column;gap:var(--space-1);min-width:0;}
-.tt-supervision{display:flex;flex-direction:column;padding:var(--space-1) var(--space-2);border-radius:var(--radius-sm);background:var(--warning-soft);color:var(--warning);border-left:3px solid var(--warning);font-size:12px;font-weight:700;cursor:pointer;min-width:0;}
+.tt-supervision{display:flex;flex-direction:column;padding:var(--space-1) var(--space-2);border-radius:var(--radius-sm);color:var(--text-secondary);border:1px solid var(--border);font-size:12px;font-weight:700;cursor:pointer;min-width:0;}
 .tt-supervision .tt-sup-title{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .tt-supervision .tt-sup-time{font-weight:500;font-size:11px;opacity:.85;}
 .tt-corner{display:flex;align-items:center;justify-content:center;}
@@ -1415,7 +1408,6 @@ button.date-chip{font-family:inherit;padding:0;}
 @media (hover: hover){.tt-add-supervision:hover{border-color:var(--warning);color:var(--warning);}}
 /* Einzelstunden (≤ 50 min, BUGS AA2): kompakte Kachel wie bei halben Blöcken – Klasse und Fach · Raum
    nebeneinander, damit die Zeile etwa halb so hoch sein kann wie ein Doppelblock */
-.tt-cell.tt-short{padding:var(--space-1);}
 .tt-cell.tt-short .tt-lesson{padding:var(--space-1) var(--space-2);justify-content:center;gap:2px;}
 .tt-cell.tt-short .tt-lesson-head{display:flex;align-items:baseline;flex-wrap:wrap;column-gap:var(--space-1);row-gap:0;}
 .tt-cell.tt-short .tt-lesson-class{font-size:14px;}
@@ -1431,12 +1423,12 @@ button.date-chip{font-family:inherit;padding:0;}
 .tt-cell.tt-short .tt-lesson{padding:var(--space-1) var(--space-2);}
 /* Einzelstunden: Zahl groß links, Uhrzeiten rechts daneben (Rückmeldung: „1. Stunde“ ist überflüssig) */
 .tt-time-label.short.numbered{flex-direction:row;align-items:center;justify-content:flex-end;gap:var(--space-2);}
-.tt-time-num{font-size:16px;font-weight:700;color:var(--text-secondary);line-height:1;}
+.tt-time-num{font-size:14px;font-weight:700;color:var(--text-secondary);line-height:1;}
 .tt-time-label.short.numbered .tt-time-block-range{margin-top:0;text-align:right;}
 /* Halbe Einzelstunde: beide Hälften einzeilig, sonst wird die Zeile fast doppelt so hoch */
 .tt-cell.tt-short .tt-split-container{gap:var(--space-1);}
 .tt-cell.tt-short .tt-split-half .tt-lesson{padding:2px var(--space-2);justify-content:center;}
-.tt-cell.tt-short .tt-split-half .tt-lesson-head{flex-wrap:nowrap;overflow:hidden;padding-left:var(--space-1);}
+.tt-cell.tt-short .tt-split-half .tt-lesson-head{flex-wrap:nowrap;overflow:hidden;padding-left:0;}
 .tt-cell.tt-short .tt-split-half .tt-lesson-class{font-size:13px;flex-shrink:0;}
 .tt-cell.tt-short .tt-split-half .tt-lesson-subject{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;}
 .tt-cell.tt-short .tt-split-half .tt-lesson-foot,
@@ -1908,6 +1900,28 @@ textarea.form-input,.notes-textarea{min-height:calc(var(--control-h) * 2.5);}
 @container (max-width: 720px){
   #view-timetable .week-label-kw{display:none;}
   #view-timetable .header-actions{min-width:0;gap:var(--space-2) !important;}
+}
+/* Stundenplan ruhig (AH42): jede Stunde gleich gebaut, oben Klasse und Fach, unten Raum, Symbole unten rechts.
+   Nur direkte Kinder der Zelle: halbe Stunden haben zu wenig Höhe und bleiben einzeilig. */
+.tt-empty-cell{background:color-mix(in srgb,var(--bg-card) 30%,transparent);border-radius:var(--radius-sm);}
+.tt-cell > .tt-lesson,.tt-cell.tt-short > .tt-lesson{padding:var(--space-1) var(--space-2);}
+.tt-cell > .tt-lesson{justify-content:flex-start;}
+.tt-cell.tt-short > .tt-lesson{justify-content:center;}
+.tt-cell > .tt-lesson .tt-lesson-head,.tt-cell.tt-short > .tt-lesson .tt-lesson-head{display:grid;grid-template-columns:auto minmax(0,1fr) auto;column-gap:var(--space-1);row-gap:0;align-items:baseline;padding:0;}
+.tt-cell > .tt-lesson .tt-lesson-class,.tt-cell.tt-short > .tt-lesson .tt-lesson-class{grid-column:1;grid-row:1;font-size:14px;font-weight:700;line-height:18px;}
+.tt-cell > .tt-lesson .tt-lesson-subject,.tt-cell.tt-short > .tt-lesson .tt-lesson-subject{display:contents;}
+.tt-cell > .tt-lesson .tt-lesson-subject > span,.tt-cell.tt-short > .tt-lesson .tt-lesson-subject > span{display:block;grid-column:2;grid-row:1;font-size:12px;font-weight:400;line-height:18px;color:var(--text-secondary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.tt-cell > .tt-lesson .tt-lesson-subject > .tt-lesson-room,.tt-cell.tt-short > .tt-lesson .tt-lesson-subject > .tt-lesson-room{grid-column:1 / -1;grid-row:2;line-height:16px;}
+.tt-cell.tt-short > .tt-lesson .tt-lesson-subject > span + .tt-lesson-room::before{content:none;}
+.tt-cell > .tt-lesson .tt-lesson-kind,.tt-cell.tt-short > .tt-lesson .tt-lesson-kind{grid-column:3;grid-row:1;justify-self:end;margin:0;padding:0;border:none;background:none;color:var(--text-secondary);opacity:1;font-weight:600;}
+.tt-cell > .tt-lesson .tt-lesson-foot,.tt-cell.tt-short > .tt-lesson .tt-lesson-foot{position:absolute;right:var(--space-2);bottom:var(--space-1);margin:0;padding:0 0 0 var(--space-1);height:16px;flex-wrap:nowrap;align-items:center;background:inherit;}   /* deckt einen langen Raumnamen ab, statt darauf zu liegen */
+.tt-cell.tt-short > .tt-lesson .tt-lesson-foot{top:calc(50% + 1px);bottom:auto;}   /* Höhe der Raum-Zeile */
+.tt-status-row{margin:0;}
+@media (min-width: 700px){
+  .timetable-grid.day-view .tt-cell.tt-short > .tt-lesson .tt-lesson-foot{position:static;height:auto;background:none;}
+}
+@container (max-width: 900px){
+  .timetable-grid:not(.day-view) .tt-noch{display:none;}
 }
 /* Weitere Stellen mit eigener Größe */
 .classes-sort select{font-size:14px;}

@@ -170,15 +170,6 @@ describe('AA6: genug Farben für viele Klassen (Musik: 1 Stunde pro Klasse, bis 
       '#a16207', '#84cc16', '#22c55e', '#14b8a6', '#06b6d4', '#3b82f6', '#64748b']);
   });
 
-  it('neue Farben: Klassenname auf der Kachel lesbar, dunkel wie hell', () => {
-    // Kachel: Schrift in der Klassenfarbe auf 15 % Farbton (dunkel), hell mit 50 % Schwarz gemischt (style.css .tt-lesson)
-    app('APP_COLORS').slice(14).forEach(c => {
-      const x = rgb(c);
-      expect(contrast(x, mix(rgb('#1a1d27'), x, 0.15)), c + ' dunkel').toBeGreaterThanOrEqual(3);
-      expect(contrast(mix(x, [0, 0, 0], 0.5), mix(rgb('#f1f5f9'), x, 0.15)), c + ' hell').toBeGreaterThanOrEqual(4);
-    });
-  });
-
   it('26 neue Klassen bekommen 26 verschiedene Farben', () => {
     app('db.groups = []; db.students = {}');
     app('openAddSubjectGroup()');
@@ -201,7 +192,6 @@ describe('AA6: genug Farben für viele Klassen (Musik: 1 Stunde pro Klasse, bis 
   });
 
   it('weiße Schrift auf Klassenfarbe nur abgedunkelt (Abzeichen „noch … min“), Status im hellen Modus abgedunkelt', () => {
-    expect(CSS).toMatch(/\.tt-lesson\.running \.tt-lesson-badge\{[^}]*background:color-mix\(in srgb, var\(--lesson-color\) 50%, #000\)/);
     expect(CSS).toMatch(/:root\[data-theme="light"\] \.dash-lesson\.running \.dash-lesson-status\{[^}]*color-mix\(in srgb, var\(--lesson-color\) 50%, #000\)/);
   });
 });
