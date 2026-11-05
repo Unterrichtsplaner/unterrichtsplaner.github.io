@@ -61,7 +61,7 @@ describe('AH39: Eingabefelder sehen gleich aus', () => {
   it('Seitenleiste: Menüpunkte und Menü-Knopf wie alles andere, Suche bündig mit den Punkten; unten auf dem Handy eigene Höhe', () => {
     expect(felder).toMatch(/@media \(min-width: 601px\)\{\s*\.nav-item\{min-height:var\(--control-h\);box-sizing:border-box;padding-top:0;padding-bottom:0;\}\s*\}/);
     expect(felder).toMatch(/\.sidebar-toggle-btn,#sidebar\.collapsed \.sidebar-toggle-btn\{width:var\(--control-h\);height:var\(--control-h\);\}/);
-    expect(felder).toMatch(/\.sidebar-search\{margin-left:var\(--space-2\);margin-right:var\(--space-2\);\}/);
+    expect(felder).toMatch(/\.sidebar-search\{margin-left:var\(--space-2\);margin-right:var\(--space-2\);padding-left:calc\(var\(--space-3\) - 1px\);\}/);
   });
   it('Textfelder mit mehreren Zeilen: eine gemeinsame Mindesthöhe', () => {
     expect(felder).toMatch(/textarea\.form-input,\.notes-textarea\{min-height:calc\(var\(--control-h\) \* 2\.5\);\}/);

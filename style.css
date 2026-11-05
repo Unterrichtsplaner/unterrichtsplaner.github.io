@@ -1930,7 +1930,7 @@ textarea.form-input,.notes-textarea{min-height:calc(var(--control-h) * 2.5);}
   .nav-item{min-height:var(--control-h);box-sizing:border-box;padding-top:0;padding-bottom:0;}
 }
 .sidebar-toggle-btn,#sidebar.collapsed .sidebar-toggle-btn{width:var(--control-h);height:var(--control-h);}
-.sidebar-search{margin-left:var(--space-2);margin-right:var(--space-2);}
+.sidebar-search{margin-left:var(--space-2);margin-right:var(--space-2);padding-left:calc(var(--space-3) - 1px);}   /* minus Rahmen: Symbol und Schrift genau über denen der Menüpunkte */
 .sidebar-search .ico{width:20px;height:20px;}   /* wie die Menüpunkte: Symbole und Schrift stehen genau untereinander */
 /* Weitere Stellen mit eigener Größe */
 .classes-sort select{font-size:14px;}
