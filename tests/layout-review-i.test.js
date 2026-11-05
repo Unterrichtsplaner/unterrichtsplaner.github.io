@@ -334,7 +334,7 @@ describe('Paket 4: Klassenansicht und Fenster', () => {
     const box = document.getElementById('lesson-absent-container');
     expect(box.classList.contains('hidden')).toBe(false);
     expect(box.classList.contains('notes-section')).toBe(true);
-    expect(box.getAttribute('style')).toBeNull();
+    expect(box.getAttribute('style') || '').toMatch(/^(--lc-order: \d+;)?$/);   // nur die Anordnung (AH37), sonst nichts inline
     const sections = [...box.parentElement.querySelectorAll(':scope > .notes-section')];
     expect(sections[0]).toBe(box);
     expect(box.textContent).toContain('Heute fehlen');

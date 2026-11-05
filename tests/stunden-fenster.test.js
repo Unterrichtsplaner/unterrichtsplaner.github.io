@@ -16,8 +16,7 @@ function sampleDB() {
   };
 }
 const DATE = '2026-11-04';
-const rows = () => [...document.querySelectorAll('#lesson-notes-form > .lc-row')];
-const ids = row => [...row.children].map(c => c.id || [...c.classList].find(x => x.startsWith('lc-')));
+const cards = () => [...document.querySelectorAll('#lesson-notes-form > .notes-section')].map(c => c.id || [...c.classList].find(x => x.startsWith('lc-')));
 
 beforeAll(() => { localStorage.setItem('lehrerapp_v3', JSON.stringify(sampleDB())); loadApp(); });
 beforeEach(() => {
@@ -29,13 +28,8 @@ beforeEach(() => {
 afterEach(() => vi.useRealTimers());
 
 describe('Aufbau', () => {
-  it('vier Reihen mit festen Paaren', () => {
-    expect(rows().map(ids)).toEqual([
-      ['lesson-absent-container', 'lesson-todos'],
-      ['lesson-plan-box', 'lesson-class-notes'],
-      ['lc-content', 'lc-notes'],
-      ['lc-hw', 'lc-test'],
-    ]);
+  it('alle Karten direkt im Raster; Anordnung macht layoutLessonCards (AH37)', () => {
+    expect(cards().sort()).toEqual(['lc-content', 'lc-hw', 'lc-notes', 'lc-test', 'lesson-absent-container', 'lesson-class-notes', 'lesson-plan-box', 'lesson-todos'].sort());
   });
   it('Kopf: Titel, nächste Stunden und Knöpfe nebeneinander; drei gleiche Knöpfe in einer Leiste', () => {
     const head = document.querySelector('.modal-lesson-detail .modal-header');
@@ -76,23 +70,19 @@ describe('Inhalt', () => {
 });
 
 describe('Regeln im Stylesheet', () => {
-  it('fehlt eine Karte, füllt die andere die Reihe: Spalten entstehen aus den sichtbaren Karten', () => {
-    expect(block).toMatch(/\.lc-row\{[^}]*display:grid;[^}]*grid-auto-flow:column;[^}]*grid-auto-columns:minmax\(0,1fr\)/);
+  it('zwei Spalten ab iPad-Breite; einzelne Karte über die ganze Breite', () => {
+    expect(block).toMatch(/#lesson-notes-form\{display:grid;grid-template-columns:minmax\(0,1fr\) minmax\(0,1fr\);/);
+    expect(block).toMatch(/\.notes-section\.lc-wide\{grid-column:1 \/ -1;\}/);
   });
-  it('leere Reihe und leere Knopfleiste nehmen keinen Platz', () => {
-    expect(block).toMatch(/\.lc-row:not\(:has\(> :not\(\.hidden\)\)\)\{display:none;\}/);
+  it('leere Knopfleiste nimmt keinen Platz', () => {
     expect(block).toMatch(/\.lesson-quick:not\(:has\(> :not\(\.hidden\)\)\)\{display:none;\}/);
   });
-  it('Handy: eine Spalte in der bisherigen Reihenfolge, HA und Test vor den Notizen', () => {
-    expect(block).toMatch(/\.lc-row\{display:contents;\}/);
-    const order = id => Number((block.match(new RegExp(`${id}\\{order:(\\d+);`)) || [])[1]);
+  it('Reihenfolge kommt aus --lc-order; Handy zeigt ungeändert die gewohnte Reihenfolge, HA und Test vor den Notizen', () => {
+    expect(block).toMatch(/\.notes-section\{order:var\(--lc-order,0\);/);
+    const order = id => Number((block.match(new RegExp(`lc-default ${id}\\{order:(\\d+);`)) || [])[1]);
     expect(order('\\.lc-hw')).toBeLessThan(order('\\.lc-notes'));
     expect(order('\\.lc-test')).toBeLessThan(order('\\.lc-notes'));
     expect(order('\\.lc-content')).toBeLessThan(order('\\.lc-hw'));
-  });
-  it('ab iPad-Breite gilt die Reihenfolge der Reihen, nicht die des Handys', () => {
-    const wide = block.slice(block.indexOf('@media (min-width: 800px)'));
-    expect(wide).toMatch(/#lesson-notes-form \.notes-section\{order:0;\}/);
   });
   it('Eingabezeilen und Thema stehen unten in der Karte, damit sie nebeneinander auf einer Linie liegen', () => {
     expect(block).toMatch(/#lesson-notes-form \.notes-section > \.lesson-plan-row,[^{]*\{[^}]*margin-top:auto/);

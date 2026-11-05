@@ -40,7 +40,8 @@ const ICONS = {
   homework:     '<path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/>',
   test:         '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><polyline points="9 15 11 17 15 13"/>',
   notes:        '<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>',
-  seating:      '<rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="21" x2="9" y2="9"/>',
+cards: '<rect x="3" y="3" width="8" height="8" rx="1"/><rect x="13" y="3" width="8" height="8" rx="1"/><rect x="3" y="13" width="8" height="8" rx="1"/><path d="M17 13v8M13 17h8"/>',
+    seating:      '<rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="21" x2="9" y2="9"/>',
   'x-circle':   '<circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/>',
   'check-circle':'<path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/>',
   late:         '<circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>',
@@ -2172,11 +2173,13 @@ function openLessonDetail(slotId, dateStr) {
 
   // Angezeigt wird der Schalter auch wegen einer fälligen HA eingeschaltet; nur wer ihn umlegt, ändert etwas
   lessonTogglesShown = { hwEnabled, testEnabled };
+  layoutLessonCards();   // erst jetzt stehen alle Felder fest (AH37)
   openModal('modal-lesson');
 }
 
 // „Heute fehlen“ im Stunden-Fenster; auch nach Einträgen über „Schüler bewerten“ neu (BUGS M10)
-function renderLessonAbsent(slot, dateStr) {
+function renderLessonAbsent(slot, dateStr) { fillLessonAbsent(slot, dateStr); layoutLessonCards(); }
+function fillLessonAbsent(slot, dateStr) {
   const absentContainer = document.getElementById('lesson-absent-container');
   const absentList = document.getElementById('lesson-absent-list');
   absentContainer.classList.add('hidden');
@@ -2206,6 +2209,7 @@ function toggleSection(type) {
   const cb   = document.getElementById(type + '-toggle');
   const body = document.getElementById(type + '-section-body');
   body.classList.toggle('hidden', !cb.checked);
+  layoutLessonCards();   // eingeschaltet ist die Karte groß, sie bekommt einen anderen Partner (AH37)
 }
 
 // ─── Populate date chips (next upcoming lessons) ───────────────────────────
@@ -6168,7 +6172,8 @@ function fillDashboardTodos(slot) {
   slot.querySelector('.dash-todos-all').addEventListener('click', () => switchView('todos'));
 }
 // Stunden-Fenster: offene Punkte dieser Klasse
-function renderLessonTodos(slot) {
+function renderLessonTodos(slot) { fillLessonTodos(slot); layoutLessonCards(); }
+function fillLessonTodos(slot) {
   const box = document.getElementById('lesson-todos');
   if (!box) return;
   const open = slot && slot.groupId ? sortOpenTodos(todosOf().filter(t => !t.done && t.groupId === slot.groupId)) : [];
@@ -8556,7 +8561,8 @@ function refreshClassNoteViews() {
 }
 // Klassennotizen im Stunden-Fenster: lesen und gleich eintragen (AH9), Ändern/Löschen/„gilt bis“ im Fenster „Notizen“.
 // Wird auch bei offenem Fenster neu gezeichnet (refreshClassNoteViews): Eingetipptes bleibt stehen.
-function renderLessonClassNotes(slot, dateStr, keepTyped = false) {
+function renderLessonClassNotes(slot, dateStr, keepTyped = false) { fillLessonClassNotes(slot, dateStr, keepTyped); layoutLessonCards(); }
+function fillLessonClassNotes(slot, dateStr, keepTyped) {
   const box = document.getElementById('lesson-class-notes');
   if (!box) return;
   const g = slot.groupId && db.groups.find(x => x.id === slot.groupId);
@@ -8844,7 +8850,8 @@ function openPlanForGroup(groupId) {
 }
 
 // ── Im Stunden-Fenster: „Geplant: …“ mit Haken ──
-function renderLessonPlanBox(slot, dateStr) {
+function renderLessonPlanBox(slot, dateStr) { fillLessonPlanBox(slot, dateStr); layoutLessonCards(); }
+function fillLessonPlanBox(slot, dateStr) {
   const box = document.getElementById('lesson-plan-box');
   if (!box) return;
   const g = slot.groupId && db.groups.find(x => x.id === slot.groupId);
@@ -8869,6 +8876,159 @@ function renderLessonPlanBox(slot, dateStr) {
   const tBtn = box.querySelector('[data-act="toggle"]');
   if (tBtn) tBtn.addEventListener('click', () => toggleLessonTopicDone(slot, dateStr, t));
 }
+// ─── Karten im Stunden-Fenster (AH37) ───────────────────────────────────────
+// Reihenfolge und Ausblenden in db.settings.lessonCards ({ order, hidden }); der Standard wird nie gespeichert.
+// Keine Löcher: Nur gleich große Karten stehen nebeneinander (pairLessonCards), wer keinen Partner findet, nimmt die Zeile.
+// Die Karten bleiben im DOM, wo sie sind, nur CSS-order und .lc-wide ändern sich: Sonst ginge beim Tippen der Fokus verloren.
+const LESSON_CARDS = [
+  { key: 'absent', sel: '#lesson-absent-container', label: 'Wer fehlt', icon: 'attendance', always: true },
+  { key: 'todos', sel: '#lesson-todos', label: 'Merkzettel', icon: 'todo', always: true },
+  { key: 'plan', sel: '#lesson-plan-box', label: 'Thema', icon: 'list' },
+  { key: 'classnotes', sel: '#lesson-class-notes', label: 'Notiz für die Klasse', icon: 'pin' },
+  { key: 'content', sel: '.lc-content', label: 'Unterrichtsinhalt', icon: 'content' },
+  { key: 'notes', sel: '.lc-notes', label: 'Notizen & Anmerkungen', icon: 'notes' },
+  { key: 'hw', sel: '.lc-hw', label: 'Hausaufgaben', icon: 'homework' },
+  { key: 'test', sel: '.lc-test', label: 'Test / Klassenarbeit', icon: 'test' },
+];
+// Gespeichertes lesen und dabei reparieren: Unbekanntes fällt weg, Fehlendes kommt hinten dazu (auch aus anderen App-Versionen)
+function lessonCardSetup() {
+  const saved = db.settings.lessonCards;
+  const keys = LESSON_CARDS.map(c => c.key);
+  const given = saved && Array.isArray(saved.order) ? saved.order.filter(k => keys.includes(k)) : [];
+  const order = [...new Set(given), ...keys.filter(k => !given.includes(k))];
+  const hidden = saved && Array.isArray(saved.hidden) ? [...new Set(saved.hidden.filter(k => keys.includes(k) && !LESSON_CARDS.find(c => c.key === k).always))] : [];
+  return { order, hidden };
+}
+const lessonCardsAreDefault = order => order.every((k, i) => k === LESSON_CARDS[i].key);
+function setLessonCards(order, hidden) {
+  if (lessonCardsAreDefault(order) && !hidden.length) delete db.settings.lessonCards;
+  else db.settings.lessonCards = { order: [...order], hidden: [...hidden] };
+  saveDB();
+  layoutLessonCards();
+}
+// S = nur Kopfzeile, M = Kopfzeile und eine Reihe, L = hoch genug für ein Textfeld daneben
+function lessonCardSize(key) {
+  const el = document.querySelector(LESSON_CARDS.find(c => c.key === key).sel);
+  if (key === 'hw' || key === 'test') return document.getElementById(`${key}-toggle`).checked ? 'L' : 'S';
+  if (key === 'content' || key === 'notes') return 'L';
+  if (key === 'classnotes') return el.querySelector('.cn-chip') ? 'L' : 'M';
+  if (key === 'absent') return el.querySelectorAll('li').length > 3 ? 'L' : 'M';
+  if (key === 'todos') return el.querySelectorAll('.todo-row').length > 2 ? 'L' : 'M';
+  return 'M';
+}
+// Steht in dieser Stunde etwas in der Karte? Dann erscheint sie auch ausgeblendet, sonst wäre es still weg
+function lessonCardHasContent(key) {
+  const el = document.querySelector(LESSON_CARDS.find(c => c.key === key).sel);
+  if (LESSON_CARDS.find(c => c.key === key).always) return true;
+  if (key === 'plan') return !!el.querySelector('.lesson-plan-row.is-done');
+  if (key === 'classnotes') return !!el.querySelector('.cn-chip');
+  if (key === 'content' || key === 'notes') return !!el.querySelector('textarea').value.trim();
+  const incoming = document.getElementById(`${key}-incoming-list`);
+  return document.getElementById(`${key}-toggle`).checked || !!document.querySelector(`#${key}-items-list .entry-item`)
+    || !!(incoming && !incoming.classList.contains('hidden') && incoming.children.length);
+}
+function pairLessonCards(cards) {
+  const rest = [...cards], rows = [];
+  while (rest.length) {
+    const first = rest.shift();
+    const i = rest.findIndex(c => c.size === first.size);
+    rows.push(i === -1 ? [first] : [first, rest.splice(i, 1)[0]]);
+  }
+  return rows;
+}
+function layoutLessonCards() {
+  const form = document.getElementById('lesson-notes-form');
+  if (!form) return;
+  const { order, hidden } = lessonCardSetup();
+  form.classList.toggle('lc-default', lessonCardsAreDefault(order));
+  const cards = [];
+  order.forEach(key => {
+    const el = form.querySelector(LESSON_CARDS.find(c => c.key === key).sel);
+    el.classList.toggle('lc-off', hidden.includes(key) && !lessonCardHasContent(key));
+    if (!el.classList.contains('hidden') && !el.classList.contains('lc-off')) cards.push({ key, el, size: lessonCardSize(key) });
+  });
+  let n = 0;
+  pairLessonCards(cards).forEach(row => row.forEach(c => {
+    c.el.style.setProperty('--lc-order', n++);
+    c.el.classList.toggle('lc-wide', row.length === 1);
+  }));
+  ['hw', 'test'].forEach(key => {
+    const hint = form.querySelector(`.lc-${key} .lc-off-hint`);
+    if (hint) hint.hidden = document.getElementById(`${key}-toggle`).checked;
+  });
+}
+// Fenster zum Anordnen: alle Karten gleich groß, auch die, die in dieser Stunde gerade leer sind
+function renderLessonCardTiles() {
+  const box = document.getElementById('lc-tiles');
+  const { order, hidden } = lessonCardSetup();
+  box.innerHTML = LESSON_CARDS.map(c => {
+    const off = hidden.includes(c.key);
+    return `<div class="lc-tile${off ? ' is-off' : ''}" data-key="${c.key}" style="order:${order.indexOf(c.key)}">${icon(c.icon)}<span class="lc-tile-name">${c.label}</span>
+      <button type="button" class="lc-move" data-move="-1" aria-label="${c.label} nach vorn">‹</button><button type="button" class="lc-move" data-move="1" aria-label="${c.label} nach hinten">›</button>
+      ${c.always ? '' : `<button type="button" class="btn-icon lc-eye" data-eye aria-pressed="${off ? 'false' : 'true'}" aria-label="${c.label} ${off ? 'einblenden' : 'ausblenden'}">${icon(off ? 'eye-off' : 'eye')}</button>`}</div>`;
+  }).join('');
+  box.querySelectorAll('.lc-tile').forEach(wireLessonCardTile);
+}
+function swapLessonCards(a, b) {
+  const { order, hidden } = lessonCardSetup();
+  const i = order.indexOf(a), j = order.indexOf(b);
+  if (i === -1 || j === -1 || i === j) return;
+  order[i] = b; order[j] = a;
+  setLessonCards(order, hidden);
+  document.querySelectorAll('#lc-tiles .lc-tile').forEach(t => { t.style.order = order.indexOf(t.dataset.key); });
+}
+function wireLessonCardTile(tile) {
+  const key = tile.dataset.key;
+  tile.querySelectorAll('[data-move]').forEach(btn => btn.addEventListener('click', () => {
+    const { order } = lessonCardSetup();
+    const other = order[order.indexOf(key) + Number(btn.dataset.move)];
+    if (other) swapLessonCards(key, other);
+  }));
+  tile.querySelector('[data-eye]')?.addEventListener('click', () => {
+    const { order, hidden } = lessonCardSetup();
+    setLessonCards(order, hidden.includes(key) ? hidden.filter(k => k !== key) : [...hidden, key]);
+    renderLessonCardTiles();
+  });
+  // Ziehen: Die Karte folgt dem Finger, beim Loslassen tauscht sie mit der Karte darunter. Nur diese zwei ändern den Platz.
+  let start = null;
+  const targetAt = e => (document.elementsFromPoint ? document.elementsFromPoint(e.clientX, e.clientY) : [])
+    .map(el => el.closest && el.closest('.lc-tile')).find(t => t && t !== tile) || null;
+  const markTarget = t => document.querySelectorAll('#lc-tiles .is-target').forEach(x => x.classList.toggle('is-target', x === t)) || (t && t.classList.add('is-target'));
+  const finish = () => {
+    start = null;
+    tile.classList.remove('is-dragging');
+    tile.style.transform = '';
+    markTarget(null);
+  };
+  tile.addEventListener('pointerdown', e => {
+    if (e.target.closest('button')) return;
+    e.preventDefault();
+    if (tile.setPointerCapture && e.pointerId !== undefined) { try { tile.setPointerCapture(e.pointerId); } catch (err) { /* egal */ } }
+    start = { x: e.clientX, y: e.clientY };
+    tile.classList.add('is-dragging');
+  });
+  tile.addEventListener('pointermove', e => {
+    if (!start) return;
+    tile.style.transform = `translate(${e.clientX - start.x}px, ${e.clientY - start.y}px)`;
+    markTarget(targetAt(e));
+  });
+  tile.addEventListener('pointerup', e => {
+    if (!start) return;
+    const over = targetAt(e);
+    finish();
+    if (over) swapLessonCards(key, over.dataset.key);
+  });
+  tile.addEventListener('pointercancel', finish);
+}
+function openLessonCardsModal() {
+  renderLessonCardTiles();
+  openModal('modal-lesson-cards');
+}
+document.getElementById('lc-reset')?.addEventListener('click', () => {
+  setLessonCards(LESSON_CARDS.map(c => c.key), []);
+  renderLessonCardTiles();
+  showToast('Standard wiederhergestellt');
+});
 // Haken in der Stunde: Thema (bzw. eine seiner Stunden) erledigt. Schreibt den Titel ins Feld „Unterrichtsinhalt“
 // des offenen Fensters (wird mit ihm gespeichert) – nie direkt in lessonData, sonst überschriebe das Fenster es.
 function toggleLessonTopicDone(slot, dateStr, t) {
