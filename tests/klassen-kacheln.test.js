@@ -26,7 +26,7 @@ describe('AH8: Klassen als Kacheln', () => {
   it('Kachel in Klassenfarbe (Grundfarbe als Variable, Ton per color-mix), Name groß', () => {
     const tile = [...document.querySelectorAll('.class-tile')].find(t => t.querySelector('.cr-name').textContent === '7b');
     expect(tile.style.getPropertyValue('--card-color')).toBe('#3b82f6');
-    expect(rule('.class-tile')).toMatch(/background:color-mix\(in srgb, var\(--card-color\) 15%, transparent\)/);
+    expect(rule('.class-tile')).toMatch(/background:color-mix\(in srgb,var\(--card-color\) 24%,var\(--bg-card\)\)/);   // dieselbe Fläche wie im Stundenplan (AH44)
     expect(rule('.class-tile .cr-name')).toMatch(/font-size:26px/);
     expect(rule('.class-tile')).not.toMatch(/overflow:\s*hidden|aspect-ratio|[^-]height:/);   // wächst mit dem Inhalt (Regel 31)
   });

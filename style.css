@@ -280,8 +280,8 @@ input[type="date"] { min-height: 1.2em; } /* Fix iOS Safari date input collapse 
 .subject-heading{display:flex;align-items:baseline;justify-content:space-between;gap:var(--space-3);font-size:16px;font-weight:600;color:var(--text-primary);padding-bottom:var(--space-2);border-bottom:1px solid var(--border);margin:0;}
 .subject-heading span{font-size:12px;font-weight:400;color:var(--text-muted);}
 .class-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:var(--space-3);padding-top:var(--space-3);}
-.class-tile{display:flex;flex-direction:column;gap:var(--space-2);min-width:0;padding:var(--space-3) var(--space-3) var(--space-3) var(--space-4);border-radius:var(--radius-md);background:color-mix(in srgb, var(--card-color) 15%, transparent);border:1px solid color-mix(in srgb, var(--card-color) 30%, transparent);cursor:pointer;transition:background-color var(--transition);}
-@media (hover: hover){.class-tile:hover{background:color-mix(in srgb, var(--card-color) 24%, transparent);}}
+.class-tile{display:flex;flex-direction:column;gap:var(--space-2);min-width:0;padding:var(--space-3) var(--space-3) var(--space-3) var(--space-4);border-radius:var(--radius-md);background:color-mix(in srgb,var(--card-color) 24%,var(--bg-card));border:1px solid color-mix(in srgb, var(--card-color) 30%, transparent);cursor:pointer;transition:background-color var(--transition);}
+@media (hover: hover){.class-tile:hover{background:color-mix(in srgb,var(--card-color) 32%,var(--bg-card));}}
 .class-tile .cr-head{display:flex;align-items:flex-start;gap:2px;}
 .class-tile .cr-name{flex:1;min-width:0;font-size:26px;font-weight:700;line-height:1.15;color:var(--card-color);overflow-wrap:anywhere;}
 .class-tile .cr-head .btn-icon{flex-shrink:0;margin-top:calc(var(--space-1) * -1);}
@@ -2104,7 +2104,7 @@ input, textarea, [contenteditable="true"]{-webkit-user-select:text;user-select:t
 .todo-text{font-size:14px;color:var(--text-primary);overflow-wrap:anywhere;}
 .todo-row.is-done .todo-text{color:var(--text-secondary);text-decoration:line-through;}
 .todo-meta{display:flex;flex-wrap:wrap;gap:var(--space-1);align-items:center;font-size:12px;color:var(--text-secondary);}
-.todo-class{font-weight:600;padding:1px var(--space-2);border-radius:var(--radius-xs);color:var(--text-primary);background:color-mix(in srgb, var(--card-color) 22%, transparent);}
+.todo-class{font-weight:600;padding:1px var(--space-2);border-radius:var(--radius-xs);color:var(--text-primary);background:color-mix(in srgb,var(--card-color) 24%,var(--bg-card));}
 .todo-due.is-today{color:var(--text-primary);font-weight:600;}
 .todo-due.is-late{color:var(--danger);font-weight:600;}
 .todo-row .btn-icon{flex-shrink:0;}

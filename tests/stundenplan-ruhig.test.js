@@ -74,6 +74,26 @@ describe('Laufend und nächste', () => {
   });
 });
 
+describe('AH44: Klassenkarten in denselben Farben wie der Stundenplan', () => {
+  it('dieselbe Fläche, auch die Klasse am Merkzettel-Punkt', () => {
+    expect(rule('.class-tile')).toMatch(/background:color-mix\(in srgb,var\(--card-color\) 24%,var\(--bg-card\)\)/);
+    expect(rule('.todo-class')).toMatch(/background:color-mix\(in srgb,var\(--card-color\) 24%,var\(--bg-card\)\)/);
+  });
+  it('Schrift auf den Karten bleibt lesbar: Klassenname und Nebentext', () => {
+    const light = [['Eisblau', '#dbeafe'], ['Papier', '#fffdf8']];
+    app('APP_COLORS').forEach(c => {
+      light.forEach(([n, card]) => {
+        const bg = mix(rgb(c), rgb(card), 0.24);
+        expect(contrast(mix(rgb(c), [0, 0, 0], 0.5), bg), `${c} ${n} Name`).toBeGreaterThanOrEqual(3);
+        expect(contrast(rgb('#544c41'), bg), `${c} ${n} Nebentext`).toBeGreaterThanOrEqual(3);
+      });
+      const bg = mix(rgb(c), rgb('#211e19'), 0.24);
+      expect(contrast(mix(rgb(c), [255, 255, 255], 0.75), bg), `${c} dunkel Name`).toBeGreaterThanOrEqual(3);
+      expect(contrast(rgb('#c4bcae'), bg), `${c} dunkel Nebentext`).toBeGreaterThanOrEqual(4);
+    });
+  });
+});
+
 describe('Lesbarkeit', () => {
   it('Schrift bleibt auf jeder Klassenfarbe lesbar: Eisblau, Papier, dunkel', () => {
     const themes = [['Eisblau', '#dbeafe', '#27221b', '#544c41'], ['Papier', '#fffdf8', '#27221b', '#544c41'], ['Dunkel', '#211e19', '#efe9de', '#a59d90']];

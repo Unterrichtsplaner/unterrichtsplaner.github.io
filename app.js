@@ -1408,12 +1408,6 @@ function isLightColor(hex) {
   const [r, g, b] = [1, 3, 5].map(i => lin(parseInt(safeColor(hex).slice(i, i + 2), 16)));
   return 0.2126 * r + 0.7152 * g + 0.0722 * b > 0.3;
 }
-function hexToRgba(hex, alpha) {
-  hex = safeColor(hex);
-  const r=parseInt(hex.slice(1,3),16), g=parseInt(hex.slice(3,5),16), b=parseInt(hex.slice(5,7),16);
-  return `rgba(${r},${g},${b},${alpha})`;
-}
-
 // ─── Get all recurring slots linked to a group ────────────────────────
 function getGroupSlots(groupId) {
   return db.lessonSlots.filter(s => s.groupId === groupId);

@@ -689,6 +689,7 @@ Geprüft: Cockpit, Fenster „Heute“, Schüler-Hinweis, Schülerliste/Klassen�
 - [x] **AH41** 🟠 **Dashboard in zwei Spalten** (Vorschlag 05.11., Entwurf freigegeben): Der Tag links, was vorbei ist kleiner; rechts nächste Stunde, Merkzettel, Auffälliges. Handy eine Spalte, nächste Stunde oben. „Warnungen“ heißt „Auffällig“, Zahlen neutral. Merkzettel-Zeilen in Ansicht und Dashboard gleich, Kästchen kleiner. Test: `tests/dashboard-aufbau.test.js`.
 - [x] **AH42** 🟠 **Stundenplan wirkt unruhig** (Wunsch 05.11.: „irgendwie zu unruhig“; Entwurf freigegeben). *Eine Kachel statt Kasten in Kasten, Farbe nur als Fläche, Schrift einheitlich, jede Kachel gleich aufgebaut, Symbole in einer Farbe unten rechts, leere Felder nur helle Fläche, nächste Stunde dünner Rahmen. Test: `tests/stundenplan-ruhig.test.js`.*
 - [x] **AH43** 🟢 **Aufsicht: der Ort zuerst** (Wunsch 05.11.: „ich will auf einen Blick sehen, wo“). *Im Stundenplan und im Druck steht nur noch der Ort (ohne Ort „Aufsicht“), im Dashboard der Ort zuerst, „Aufsicht“ leise dahinter. Wird es eng, fällt die Uhrzeit weg, nicht der Ort. VoiceOver liest weiter „Aufsicht“.*
+- [x] **AH44** 🟢 **Klassen & Fächer in denselben Farben wie der Stundenplan** (Wunsch 05.11.). *Karten und die Klasse am Merkzettel-Punkt mischen die Klassenfarbe jetzt genauso wie die Stunden-Kachel (24 % auf der Kartenfarbe), statt durchscheinend auf dem Hintergrund.*
 
 ---
 
