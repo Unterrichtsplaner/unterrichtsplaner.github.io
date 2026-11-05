@@ -4466,7 +4466,7 @@ function addStudentNote() {
   const s = getCurrentStudent(); if (!s) return;
   if (!s.studentNotes) s.studentNotes=[];
   s.studentNotes.push({ text, date: date||formatDate(new Date()) });
-  saveDB(); renderStudentNotesList(s); renderStudents();
+  saveDB(); renderStudentNotesList(s); refreshStudentViews(profileGroupId);
   document.getElementById('new-student-note-text').value='';
   document.getElementById('new-student-note-date').value=profileDefaultDate();
 }
@@ -5966,7 +5966,7 @@ function commitSeatingStudentHint() {
 // Notiz zum Schüler direkt im Sitzplan (AH10), landet bei den Anmerkungen im Profil (studentNotes). Vorhandene
 // Notizen nur auf Knopfdruck (Beamer, Regel 67); was man eben selbst getippt hat, bleibt sichtbar. Nie gespeichert.
 let seatingNotesFresh = [];
-function commitSeatingStudentForm() { addSeatingStudentNote(); commitSeatingStudentHint(); }
+function commitSeatingStudentForm() { addSeatingStudentNote(); addStudentNote(); commitSeatingStudentHint(); }
 function renderSeatingStudentNotes() {
   const box = document.getElementById('seating-student-notes');
   const ctx = window.currentSeatingStudent;
@@ -7181,8 +7181,8 @@ function setSeatingAbsence(type) {
     removeAbsenceNote(groupId, dateStr, s);
   }
   // Fehlen und „zu spät“ schließen sich am selben Tag aus. Ein vorhandener Eintrag wird umgestellt,
-  // damit sein Grund („Arztattest“) bleibt (BUGS Q11).
-  const keep = s.attendance.find(a => a.date === dateStr && (a.type === 'abwesend' || a.type === 'entschuldigt'));
+  // damit sein Grund („Arztattest“, „Bus“) bleibt (Regel 50, BUGS Q11, W3).
+  const keep = s.attendance.find(a => a.date === dateStr && DAY_ATTENDANCE_TYPES.includes(a.type));
   s.attendance = s.attendance.filter(a => a === keep || a.date !== dateStr || !DAY_ATTENDANCE_TYPES.includes(a.type));
   
   if (keep) keep.type = type;
@@ -7219,8 +7219,11 @@ function setSeatingLate() {
   if (s.attendance.some(a => a.date === dateStr && a.type === 'abwesend')) {
     removeAbsenceNote(groupId, dateStr, s);
   }
-  s.attendance = s.attendance.filter(a => a.date !== dateStr || (a.type !== 'abwesend' && a.type !== 'entschuldigt'));
-  s.attendance.push({ id: uid(), date: dateStr, type: 'zuspät', note: '' });
+  // Vorhandenen Eintrag umstellen, damit sein Grund bleibt (Regel 50, W3)
+  const keep = s.attendance.find(a => a.date === dateStr && DAY_ATTENDANCE_TYPES.includes(a.type));
+  s.attendance = s.attendance.filter(a => a === keep || a.date !== dateStr || !DAY_ATTENDANCE_TYPES.includes(a.type));
+  if (keep) keep.type = 'zuspät';
+  else s.attendance.push({ id: uid(), date: dateStr, type: 'zuspät', note: '' });
   saveDB();
   refreshStudentViews(groupId);
   closeModal('modal-seating-student');
@@ -7402,7 +7405,11 @@ function openSeatingStudentModal(studentId, groupId, dateStr, opts = {}) {
   renderStudentDetailLists(s);
   resetProfileDates();
   renderSeatingStudentHint('view');
-  if (!same) seatingNotesFresh = [];
+  if (!same) {
+    seatingNotesFresh = [];
+    // Angefangenes darf nie beim nächsten Schüler landen (W2)
+    ['new-att-note', 'new-hw-student-note', 'new-student-note-text'].forEach(id => { document.getElementById(id).value = ''; });
+  }
   document.getElementById('seating-student-note-input').value = '';
   renderSeatingStudentNotes();
   markSeatingStudentState(s, dateStr);
@@ -7815,6 +7822,7 @@ function openModal(id) {
   const wasHidden = m.classList.contains('hidden');
   m.classList.remove('hidden');
   if (!wasHidden) return;
+  if (id in FORM_GUARDS) formSnapshots[id] = guardedFormState(id);   // Stand beim Öffnen (W2)
   const active = document.activeElement;
   modalReturnFocus[id] = active && active !== document.body && !m.contains(active) ? active : null;
   const dialog = m.querySelector('.modal');
@@ -8064,7 +8072,37 @@ const MODAL_CLOSE_ACTIONS = {
   'modal-whats-new': () => closeWhatsNew(),          // Wegdrücken zählt als gelesen
   'modal-plan-topic': () => cancelPlanTopic(),       // bei Änderungen fragen (Regel 55)
   'modal-class-notes': () => closeClassNotes(),      // Eingetipptes übernehmen, nicht verwerfen (AD15)
+  'modal-add-student': () => leaveGuardedForm('modal-add-student'),         // bei Änderungen fragen (W2)
+  'modal-import-students': () => leaveGuardedForm('modal-import-students'),
+  'modal-add-group': () => leaveGuardedForm('modal-add-group'),
+  'modal-add-lesson': () => leaveGuardedForm('modal-add-lesson'),
+  'modal-add-column': () => leaveGuardedForm('modal-add-column'),
+  'modal-seating-student': () => leaveSeatingStudentWindow(),               // angefangene Einträge nicht still verwerfen (W2)
 };
+// Formulare, die beim Schließen ohne Speichern fragen, wenn etwas geändert wurde (W2). Stand beim Öffnen (openModal);
+// Farben stehen in keinem Feld und zählen über FORM_GUARDS. Speichern geht direkt über closeModal und fragt nicht.
+const FORM_GUARDS = {
+  'modal-add-student': () => '', 'modal-import-students': () => '', 'modal-add-column': () => '',
+  'modal-add-group': () => selectedGroupColor, 'modal-add-lesson': () => selectedLessonColor,
+};
+const formSnapshots = {};
+function guardedFormState(id) {
+  const values = [...document.querySelectorAll(`#${id} input, #${id} select, #${id} textarea`)]
+    .map(el => (el.type === 'checkbox' || el.type === 'radio') ? el.checked : el.value);
+  return [...values, FORM_GUARDS[id]()].join('\u0000');
+}
+function leaveGuardedForm(id) {
+  if (formSnapshots[id] !== undefined && guardedFormState(id) !== formSnapshots[id]
+      && !confirm('Deine Eingaben sind noch nicht gespeichert.\n\nVerwerfen?')) return;
+  closeModal(id);
+}
+// Notizen übernimmt das Schließen (commitSeatingStudentForm). Ein angefangener Grund oder eine HA-Spalte wäre ein neuer
+// Eintrag, den man noch nicht bestätigt hat: fragen statt raten.
+function leaveSeatingStudentWindow() {
+  const draft = ['new-att-note', 'new-hw-student-note'].some(id => document.getElementById(id)?.value.trim());
+  if (draft && !confirm('Du hast eine Fehlzeit oder Hausaufgabe angefangen, aber noch nicht eingetragen.\n\nVerwerfen?')) return;
+  closeModal('modal-seating-student');
+}
 function closeModalLikeButton(id) {
   const action = id in MODAL_CLOSE_ACTIONS ? MODAL_CLOSE_ACTIONS[id] : () => closeModal(id);
   if (action) action();
@@ -9130,6 +9168,7 @@ if (typeof process === 'undefined' || process.env.NODE_ENV !== 'test') {
   initAllCustomDropdowns();
   if (shouldStartInSeating()) switchView('seating'); // im Unterricht gleich der Sitzplan der laufenden Klasse
   setTimeout(() => showWhatsNewIfDue(), 800); // nach dem ersten Zeichnen, damit die App dahinter schon steht
+  if (!isLocalDBEmpty()) requestPersistentStorage();   // Y5
 }
 
 
@@ -9305,10 +9344,73 @@ function collectWarnings() {
   return warnings;
 }
 
+// ─── Daten schützen (Y4, Y5) ─────────────────────────────────────────────────
+// Ohne Cloud liegen die Daten nur auf diesem Gerät. Höchstens ein leiser Hinweis im Dashboard, nie ein Dialog
+// (andere Lehrkräfte bekommen Updates ohne Anleitung). Was weggedrückt wurde, merkt sich nur das Gerät, nie db.
+const BACKUP_REMIND_DAYS = 30;
+const BACKUP_SNOOZE_KEY = 'backup_hint_snoozed', HOME_HINT_KEY = 'home_hint_dismissed';
+function deviceHint(key) { try { return localStorage.getItem(key); } catch (e) { return null; } }
+function setDeviceHint(key, value) { try { localStorage.setItem(key, value); } catch (e) { /* gesperrt: dann eben wieder */ } }
+// Auch vor der fertigen Anmeldung: Das Master-Passwort liegt dauerhaft auf dem Gerät, sonst blitzt der Hinweis beim Start auf
+function cloudConfigured() {
+  return !!((typeof SyncManager !== 'undefined' && SyncManager.currentUser) || deviceHint(MASTER_PASSWORD_KEY));
+}
+function backupNoteInfo(now = Date.now()) {
+  if (cloudConfigured() || !Object.values(db.students || {}).some(l => l && l.length)) return null;
+  const snoozed = Number(deviceHint(BACKUP_SNOOZE_KEY));
+  if (snoozed && now - snoozed < BACKUP_REMIND_DAYS * 86400000) return null;
+  const last = db.settings.lastBackupTimestamp;
+  if (!last) return { days: null };
+  const days = Math.floor((now - last) / 86400000);
+  return days >= BACKUP_REMIND_DAYS ? { days } : null;
+}
+function isIOSBrowserTab() {
+  const ua = navigator.userAgent || '';
+  const ios = /iP(hone|ad|od)/.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1);
+  const standalone = navigator.standalone === true || !!(window.matchMedia && window.matchMedia('(display-mode: standalone)').matches);
+  return ios && !standalone;
+}
+function homeNoteDue() {
+  return isIOSBrowserTab() && !cloudConfigured() && !deviceHint(HOME_HINT_KEY)
+    && Object.values(db.students || {}).some(l => l && l.length);
+}
+function safetyNoteHTML() {
+  const backup = backupNoteInfo();
+  if (backup) {
+    const when = backup.days === null ? 'Noch keine Sicherung.' : `Letzte Sicherung vor ${backup.days} Tagen.`;
+    return `<div id="dash-safety-note" class="dash-safety" role="status">${icon('save')}<span>${when} Ohne Cloud liegen deine Daten nur auf diesem Gerät. Die Sicherungsdatei ist unverschlüsselt.</span>
+      <button type="button" class="btn-secondary dash-safety-do">Jetzt sichern</button><button type="button" class="btn-secondary dash-safety-later" data-hint="backup">Später</button></div>`;
+  }
+  if (homeNoteDue()) {
+    return `<div id="dash-safety-note" class="dash-safety" role="status">${icon('info')}<span>Tipp: Lege die App auf den Home-Bildschirm (Teilen → Zum Home-Bildschirm). Sonst kann Safari die Daten nach 7 Tagen ohne Nutzung löschen.</span>
+      <button type="button" class="btn-secondary dash-safety-later" data-hint="home">Verstanden</button></div>`;
+  }
+  return '';
+}
+function wireSafetyNote(container) {
+  container.querySelector('.dash-safety-do')?.addEventListener('click', () => { exportData(); renderDashboard(); });
+  container.querySelector('.dash-safety-later')?.addEventListener('click', e => {
+    if (e.currentTarget.dataset.hint === 'backup') setDeviceHint(BACKUP_SNOOZE_KEY, String(Date.now()));
+    else setDeviceHint(HOME_HINT_KEY, '1');
+    renderDashboard();
+  });
+}
+// Browser bitten, die Daten nicht von selbst zu löschen (Y5). Chrome und Safari antworten still; Firefox zeigt dafür
+// einen eigenen Dialog, und Updates sollen keine unerwarteten Dialoge bringen: dort nicht fragen.
+async function requestPersistentStorage() {
+  try {
+    const st = navigator.storage;
+    if (!st || !st.persist || !st.persisted || /Firefox/i.test(navigator.userAgent || '')) return false;
+    if (await st.persisted()) return true;
+    return await st.persist();
+  } catch (e) { return false; }
+}
+
 function renderDashboard() {
   const container = document.getElementById('dashboard-content');
   if (!container) return;
-  container.innerHTML = renderDashboardToday() + '<div id="dash-todos-slot"></div>' + renderDashboardWarnings();
+  container.innerHTML = safetyNoteHTML() + renderDashboardToday() + '<div id="dash-todos-slot"></div>' + renderDashboardWarnings();
+  wireSafetyNote(container);
   fillDashboardTodos(document.getElementById('dash-todos-slot'));   // Merkzettel (AH18)
   container.querySelectorAll('details.dash-warn-group').forEach(el => {
     el.addEventListener('toggle', () => {

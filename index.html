@@ -40,7 +40,7 @@
       }
     })();
   </script>
-  <link rel="stylesheet" href="style.css?v=393" />
+  <link rel="stylesheet" href="style.css?v=394" />
   <script>
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
@@ -543,7 +543,7 @@
   <div class="modal modal-small" onclick="event.stopPropagation()">
     <div class="modal-header">
       <h2 id="add-lesson-title">Stunde hinzufügen</h2>
-      <button class="modal-close" aria-label="Schließen" onclick="closeModal('modal-add-lesson')">✕</button>
+      <button class="modal-close" aria-label="Schließen" onclick="closeModalLikeButton('modal-add-lesson')">✕</button>
     </div>
     <div class="modal-body">
       <div class="form-group hidden" id="lesson-scope-group">
@@ -633,7 +633,7 @@
     </div>
     <div class="modal-footer">
       <button class="btn-danger-outline hidden" id="btn-delete-lesson" onclick="deleteLessonSlotFromEdit()">Löschen</button>
-      <button class="btn-secondary" onclick="closeModal('modal-add-lesson')">Abbrechen</button>
+      <button class="btn-secondary" onclick="closeModalLikeButton('modal-add-lesson')">Abbrechen</button>
       <button class="btn-primary" onclick="saveLessonSlot()">Speichern</button>
     </div>
   </div>
@@ -689,7 +689,7 @@
   <div class="modal modal-small" onclick="event.stopPropagation()">
     <div class="modal-header">
       <h2 id="group-modal-title">Klasse + Fach hinzufügen</h2>
-      <button class="modal-close" aria-label="Schließen" onclick="closeModal('modal-add-group')">✕</button>
+      <button class="modal-close" aria-label="Schließen" onclick="closeModalLikeButton('modal-add-group')">✕</button>
     </div>
     <div class="modal-body">
       <div class="form-group">
@@ -724,7 +724,7 @@
     <div class="modal-footer" style="justify-content: space-between;">
       <button id="btn-delete-group" class="btn-secondary" style="color:var(--danger); border-color:var(--danger); display:none;">Löschen</button>
       <div style="display:flex; gap:8px;">
-        <button class="btn-secondary" onclick="closeModal('modal-add-group')">Abbrechen</button>
+        <button class="btn-secondary" onclick="closeModalLikeButton('modal-add-group')">Abbrechen</button>
         <button class="btn-primary" id="btn-save-group" onclick="saveSubjectGroup()">Speichern</button>
       </div>
     </div>
@@ -736,7 +736,7 @@
   <div class="modal modal-small" onclick="event.stopPropagation()">
     <div class="modal-header">
       <h2 id="student-modal-title">Schüler hinzufügen</h2>
-      <button class="modal-close" aria-label="Schließen" onclick="closeModal('modal-add-student')">✕</button>
+      <button class="modal-close" aria-label="Schließen" onclick="closeModalLikeButton('modal-add-student')">✕</button>
     </div>
     <div class="modal-body">
       <div class="form-row">
@@ -749,7 +749,7 @@
       <div class="form-group"><label for="new-student-birthday">Geburtstag (optional)</label><input type="date" id="new-student-birthday" class="form-input" /></div>
     </div>
     <div class="modal-footer">
-      <button class="btn-secondary" onclick="closeModal('modal-add-student')">Abbrechen</button>
+      <button class="btn-secondary" onclick="closeModalLikeButton('modal-add-student')">Abbrechen</button>
       <button class="btn-primary" onclick="saveStudent()">Speichern</button>
     </div>
   </div>
@@ -760,7 +760,7 @@
   <div class="modal modal-small" onclick="event.stopPropagation()">
     <div class="modal-header">
       <h2>Mehrere Schüler hinzufügen</h2>
-      <button class="modal-close" aria-label="Schließen" onclick="closeModal('modal-import-students')">✕</button>
+      <button class="modal-close" aria-label="Schließen" onclick="closeModalLikeButton('modal-import-students')">✕</button>
     </div>
     <div class="modal-body">
       <div class="form-group">
@@ -819,7 +819,7 @@
   <div class="modal modal-small" onclick="event.stopPropagation()">
     <div class="modal-header">
       <h2 id="column-modal-title">Neue Spalte</h2>
-      <button class="modal-close" aria-label="Schließen" onclick="closeModal('modal-add-column')">×</button>
+      <button class="modal-close" aria-label="Schließen" onclick="closeModalLikeButton('modal-add-column')">×</button>
     </div>
     <div class="modal-body">
       <div class="form-group">
@@ -840,7 +840,7 @@
     </div>
     <div class="modal-footer">
       <button class="btn-danger-outline hidden" id="btn-delete-column" onclick="deleteOverviewColumn()">Spalte löschen</button>
-      <button class="btn-secondary" onclick="closeModal('modal-add-column')">Abbrechen</button>
+      <button class="btn-secondary" onclick="closeModalLikeButton('modal-add-column')">Abbrechen</button>
       <button class="btn-primary" onclick="saveOverviewColumn()">Speichern</button>
     </div>
   </div>
@@ -1351,7 +1351,7 @@
             <button type="button" role="menuitem" data-menu="export"><i data-icon="download"></i>Daten exportieren</button>
             <button type="button" role="menuitem" data-menu="delete" class="is-danger"><i data-icon="trash"></i>Schüler löschen …</button>
           </div>
-          <button class="modal-close" aria-label="Schließen" onclick="closeModal('modal-seating-student')">✕</button>
+          <button class="modal-close" aria-label="Schließen" onclick="closeModalLikeButton('modal-seating-student')">✕</button>
         </div>
       </div>
       <div class="modal-body sw-body">
@@ -1626,12 +1626,12 @@
   </div>
 
   <script src="lib/crypto-js.min.js"></script>
-  <script src="crypto-helper.js?v=393"></script>
+  <script src="crypto-helper.js?v=394"></script>
   <script src="lib/firebase-app-compat.js"></script>
   <script src="lib/firebase-auth-compat.js"></script>
   <script src="lib/firebase-firestore-compat.js"></script>
-  <script src="firebase-config.js?v=393"></script>
-  <script src="sync-manager.js?v=393"></script>
-  <script src="app.js?v=393"></script>
+  <script src="firebase-config.js?v=394"></script>
+  <script src="sync-manager.js?v=394"></script>
+  <script src="app.js?v=394"></script>
 </body>
 </html>

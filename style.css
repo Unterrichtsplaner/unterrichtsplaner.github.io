@@ -1397,6 +1397,12 @@ button.date-chip{font-family:inherit;padding:0;}
 .timetable-grid.day-view .tt-holiday-label{display:inline;font-size:12px;margin-left:6px;}
 .tt-holiday-label{font-size:10px;font-weight:600;text-transform:none;letter-spacing:0;color:var(--success);margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .tt-cell.tt-holiday{background:repeating-linear-gradient(135deg, transparent 0 8px, var(--success-soft) 8px 10px);border-radius:var(--radius-sm);}
+/* Daten schützen (Y4, Y5): leiser Hinweis, kein Dialog */
+.dash-safety{display:flex;align-items:center;flex-wrap:wrap;gap:8px 12px;margin:0 0 12px;padding:10px 12px;border:1px solid var(--border);border-radius:var(--radius-md);background:var(--bg-card);font-size:13px;color:var(--text-secondary);}
+.dash-safety span{flex:1 1 240px;min-width:0;}
+.dash-safety .ico{width:16px;height:16px;flex-shrink:0;}
+.dash-safety button{min-height:36px;}
+@media (pointer: coarse){.dash-safety button{min-height:44px;}}
 .dash-holiday{margin:0 0 12px;padding:10px 14px;border-radius:var(--radius-sm);background:var(--success-soft);color:var(--success);font-weight:600;font-size:13px;}
 .holiday-row{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:8px;}
 .holiday-row .holiday-name-input{flex:1 1 100%;min-width:0;padding:6px 10px;font-size:13px;}
