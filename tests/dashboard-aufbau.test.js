@@ -124,3 +124,17 @@ describe('Merkzettel', () => {
     expect(CSS).toMatch(/\.dash-todos \.todo-row,\.todo-view \.todo-row\{[^}]*min-height:calc\(var\(--control-h\) \+ var\(--space-3\)\)/);
   });
 });
+
+describe('AH5: Stundenplan-Kopf auf schmalen iPads', () => {
+  it('Ansicht misst sich selbst; schmal fällt der Titel weg, noch schmaler die Kalenderwoche', () => {
+    expect(rule('#view-timetable')).toMatch(/container-type:inline-size/);
+    expect(CSS).toMatch(/@container \(max-width: 920px\)\{\s*#view-timetable \.view-header h1\{display:none;\}/);
+    expect(CSS).toMatch(/@container \(max-width: 720px\)\{\s*#view-timetable \.week-label-kw\{display:none;\}/);
+  });
+  it('die Kalenderwoche im Kopf ist ein eigener Teil, der Text bleibt vollständig', () => {
+    app('switchView("timetable")');
+    const label = document.getElementById('week-label');
+    expect(label.querySelector('.week-label-kw').textContent).toMatch(/KW \d+/);
+    expect(label.textContent).toMatch(/KW \d+\s+·\s+\d\d\.\d\d\.\s*–\s*\d\d\.\d\d\.\s*\d{4}/);
+  });
+});

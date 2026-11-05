@@ -1899,6 +1899,16 @@ textarea.form-input,.notes-textarea{min-height:calc(var(--control-h) * 2.5);}
   .class-view-header .btn-label{display:none;}
   .class-view-header .btn-seating,#btn-add-overview-col,#btn-class-grades{width:var(--control-h);padding:0;justify-content:center;}
 }
+/* Stundenplan-Kopf (AH5): schmal erst der Titel weg (die Seitenleiste zeigt ihn), dann die Kalenderwoche; misst die Ansicht, nicht den Bildschirm */
+#view-timetable{container-type:inline-size;}
+@container (max-width: 920px){
+  #view-timetable .view-header h1{display:none;}
+  #view-timetable .header-actions:not(.tt-header-tools){margin-left:0 !important;}
+}
+@container (max-width: 720px){
+  #view-timetable .week-label-kw{display:none;}
+  #view-timetable .header-actions{min-width:0;gap:var(--space-2) !important;}
+}
 /* Weitere Stellen mit eigener Größe */
 .classes-sort select{font-size:14px;}
 @media (pointer: coarse){.classes-sort select{font-size:16px;}}
