@@ -209,12 +209,12 @@ describe('AH21: Handy-Menüleiste unten', () => {
   });
 });
 
-// AH25: „Das ist neu“ für das Update mit Merkzettel, Suche, Beamer-Schutz, Klassenübersicht und Handy-Leiste
-describe('AH25: Das ist neu (Nov. 2026, zweite Runde)', () => {
-  it('neue Kennung, 5 Punkte zu den sichtbaren Änderungen', () => {
+// AH46: „Das ist neu“ für die Designüberarbeitung
+describe('AH46: Das ist neu (Nov. 2026, dritte Runde)', () => {
+  it('neue Kennung, 5 Punkte zu den sichtbaren Änderungen, alle Symbole vorhanden', () => {
     const w = app('WHATS_NEW');
-    expect(w.id).toBe('2026-11-2');
-    expect(w.items.map(i => i.title)).toEqual(['Merkzettel', 'Suche', 'Noten erst auf Knopfdruck', 'Note mit drei Tipps', 'Handy: Menü unten']);
-    expect(w.items[2].text).toMatch(/Einstellungen → Klassenansicht/);
+    expect(w.id).toBe('2026-11-3');
+    expect(w.items.map(i => i.title)).toEqual(['Stunden-Fenster', 'Schüler antippen', 'Einstellungen', 'Dashboard', 'Stundenplan und Tabellen']);
+    w.items.forEach(i => expect(app('ICONS')[i.icon], i.icon).toBeTruthy());
   });
 });

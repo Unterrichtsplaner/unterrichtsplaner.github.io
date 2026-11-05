@@ -8366,13 +8366,13 @@ function initAllCustomDropdowns() {
 // Für das nächste große Update: `id` ändern und die Punkte ersetzen. Gemerkt wird nur auf diesem Gerät
 // (nicht in `db`, nicht synchronisiert). Neue Nutzer ohne Daten sehen es nie.
 const WHATS_NEW = {
-  id: '2026-11-2',
+  id: '2026-11-3',
   items: [
-    { icon: 'todo',     title: 'Merkzettel', text: 'Neuer Menüpunkt: schnell aufschreiben, woran du denken willst, wahlweise mit Klasse und Frist. Offene Punkte stehen im Dashboard und im Fenster der passenden Stunde.' },
-    { icon: 'search',   title: 'Suche', text: 'Oben in der Seitenleiste (Handy: im Dashboard) Klasse, Schüler, Notiz oder Thema eintippen und direkt öffnen. Am Laptop auch mit ⌘K.' },
-    { icon: 'eye-off',  title: 'Noten erst auf Knopfdruck', text: 'In einer Klasse erscheinen Schnitte, Noten und Mitarbeit erst nach „Anzeigen“, damit am Beamer niemand mitliest. Abschalten: Einstellungen → Klassenansicht.' },
-    { icon: 'grades',   title: 'Note mit drei Tipps', text: 'Schüler antippen → „Note geben“ → Note antippen. Für ganze Abfragen im Sitzplan: Werkzeug „Noten geben“. Alles Weitere zum Schüler steht im selben Fenster unter „Mehr zu …“.' },
-    { icon: 'settings', title: 'Handy: Menü unten', text: 'Auf dem Handy liegt das Menü jetzt unten, mit dem Daumen erreichbar. Die Einstellungen öffnet das Zahnrad oben im Dashboard.' },
+    { icon: 'cards',    title: 'Stunden-Fenster', text: 'Breiter und mit Karten. Über das Karten-Symbol oben im Fenster legst du selbst fest, was wo steht und was ausgeblendet ist.' },
+    { icon: 'student',  title: 'Schüler antippen', text: 'Das Fenster ist breiter, der Hinweis steht oben und erscheint erst nach Antippen, damit am Beamer niemand mitliest.' },
+    { icon: 'settings', title: 'Einstellungen', text: 'Jetzt mit Menü statt langem Scrollen.' },
+    { icon: 'overview', title: 'Dashboard', text: 'Übersichtlicher: der Tag, „Auffällig“ (bisher „Warnungen“), „Als Nächstes“ und der Merkzettel.' },
+    { icon: 'calendar', title: 'Stundenplan und Tabellen', text: 'Ruhiger und bündig. Aufsichten zeigen zuerst den Ort.' },
   ],
 };
 const WHATS_NEW_SEEN_KEY = 'whats_new_seen';
