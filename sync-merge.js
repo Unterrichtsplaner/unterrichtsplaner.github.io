@@ -35,7 +35,7 @@ function mergeText(base, local, cloud) {
 }
 
 const MERGE_FIELD_NAMES = {
-  subject: 'Fach', className: 'Klassenname', year: 'Schuljahr', schularbeitWeight: 'Gewichtung', gradeScale: 'Notenskala',
+  subject: 'Fach', className: 'Klassenname', classTeacher: 'Klassenlehrer/in', year: 'Schuljahr', schularbeitWeight: 'Gewichtung', gradeScale: 'Notenskala',
   room: 'Raum', day: 'Tag', block: 'Stunde', part: 'Teil der Stunde', recurring: 'Wiederholung', groupId: 'Klasse',
   firstName: 'Vorname', lastName: 'Nachname', birthday: 'Geburtstag', title: 'Thema', lessons: 'Dauer', pinned: 'Fester Termin',
   until: 'Gilt bis', due: 'Frist', text: 'Text', date: 'Datum', ausfall: 'Stunde fällt aus', movedTo: 'Verlegung', movedFrom: 'Verlegung',

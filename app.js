@@ -2127,7 +2127,8 @@ function openLessonDetail(slotId, dateStr) {
   document.getElementById('lesson-modal-title').textContent = t.main;
   document.getElementById('lesson-modal-subtitle').textContent = [t.sub, DAYS[slot.day],
     block ? block.label + ' (' + block.start + '–' + block.end + ')' : '',
-    d.toLocaleDateString('de-DE',{day:'2-digit',month:'long',year:'numeric'}), slot.room].filter(Boolean).join(' · ');
+    d.toLocaleDateString('de-DE',{day:'2-digit',month:'long',year:'numeric'}), slot.room,
+    classTeacherText(db.groups.find(x => x.id === slot.groupId))].filter(Boolean).join(' · ');
 
   // Ohne Klasse gibt es weder Sitzplan noch Noten oder Schüler (BUGS M8)
   ['lesson-seating-link-container', 'lesson-btn-overview', 'lesson-btn-students'].forEach(id =>
@@ -2770,7 +2771,7 @@ function renderSubjectGroups() {
       const notesBtn = `<button class="btn-icon cr-notes-btn" title="Notizen" aria-label="Notizen ${escHtml(g.className)}" onclick="event.stopPropagation();openClassNotes(${jsArg(g.id)})">${icon('pin')}</button>`;
       const editBtn = `<button class="btn-icon" title="Bearbeiten" aria-label="${escHtml(g.className)} bearbeiten" onclick="event.stopPropagation();openEditGroup(${jsArg(g.id)})">${icon('edit')}</button>`;
       const seatingBtn = `<button class="btn-secondary cr-seating-btn" title="Sitzplan" aria-label="Sitzplan ${escHtml(g.className)}" onclick="event.stopPropagation();openSeatingForGroup(${jsArg(g.id)})">${icon('seating')}<span>Sitzplan</span></button>`;
-      const metaHTML = `<div class="cr-meta"><b>${escHtml([g.subject, g.year].filter(Boolean).join(' · '))}</b><small>${meta}${classesView === 'list' && warnCount(g) ? ' ' + watchChip(g) : ''}</small></div>`;
+      const metaHTML = `<div class="cr-meta"><b>${escHtml([g.subject, g.year].filter(Boolean).join(' · '))}</b><small>${meta}${classTeacherText(g) ? ` · ${escHtml(classTeacherText(g))}` : ''}${classesView === 'list' && warnCount(g) ? ' ' + watchChip(g) : ''}</small></div>`;
       const numsHTML = `<div class="cr-nums">
             <span><em>${students.length}</em> Schüler</span>
             <span><em class="cr-avg" style="--grade:${gradeColor(groupAvg, scale)}">${formatGradeAverage(groupAvg)}</em> ${scale.higherIsBetter ? 'Pkt.' : 'Ø'}</span>
@@ -2787,7 +2788,7 @@ function renderSubjectGroups() {
         row.className = 'class-row class-tile is-large' + (cNotes.length ? ' has-notes' : '');
         row.innerHTML = `
         <div class="cr-head">${nameBtn}${notesBtn}${editBtn}</div>
-        <div class="cr-meta"><small>${escHtml(g.subject || '')}${g.subject && days ? ' · ' : ''}${escHtml(days)}</small></div>${notesHTML}
+        <div class="cr-meta"><small>${escHtml([g.subject, days, classTeacherText(g)].filter(Boolean).join(' · '))}</small></div>${notesHTML}
         ${classTileDetailsHTML(g, now, watchChip(g))}
         <div class="cr-foot"><div class="ct-score"><span>${students.length} Schüler</span><span><b>${avgHTML}</b> ${scale.higherIsBetter ? 'Pkt.' : 'Ø'}</span></div>${seatingBtn}</div>`;
       } else {
@@ -2821,6 +2822,7 @@ function openAddSubjectGroup() {
   document.getElementById('new-group-class').value = '';
   document.getElementById('new-group-subject').value = last ? last.subject || '' : '';
   document.getElementById('new-group-year').value = last ? last.year || '' : '';
+  document.getElementById('new-group-teacher').value = '';
   document.getElementById('weight-schularbeit').value = '50';
   document.getElementById('new-group-scale').value = '1-6';
   selectedGroupColor = nextGroupColors(1)[0];
@@ -2883,6 +2885,7 @@ function openEditGroup(id) {
   document.getElementById('new-group-class').value = g.className;
   document.getElementById('new-group-subject').value = g.subject;
   document.getElementById('new-group-year').value = g.year || '';
+  document.getElementById('new-group-teacher').value = g.classTeacher || '';
   
   document.getElementById('weight-schularbeit').value = g.schularbeitWeight !== undefined ? g.schularbeitWeight : 50;
   document.getElementById('new-group-scale').value = gradeScale(g).id;
@@ -2906,12 +2909,24 @@ function openEditGroup(id) {
 
 function editCurrentGroup() { if (currentGroupId) openEditGroup(currentGroupId); }
 
+// Klassenlehrer/in (AH51): nur der Name. „7b Mathe“ und „7b Physik“ sind getrennte Einträge derselben Klasse,
+// darum reicht einmal Eintragen: Wer im selben Schuljahr noch keinen Namen hat, bekommt ihn mit; Vorhandenes bleibt.
+const classTeacherText = g => (g && g.classTeacher ? `KL ${g.classTeacher}` : '');
+function sameClassGroups(className, year) {
+  const name = String(className || '').trim().toLowerCase();
+  return db.groups.filter(g => String(g.className || '').trim().toLowerCase() === name && (g.year || '') === (year || ''));
+}
+function setClassTeacher(g, name) {
+  if (name) g.classTeacher = name; else delete g.classTeacher;
+  if (name) sameClassGroups(g.className, g.year).forEach(o => { if (!o.classTeacher) o.classTeacher = name; });
+}
 function saveSubjectGroup() {
   const className = document.getElementById('new-group-class').value.trim();
   // Beim Bearbeiten nie aufteilen: „Ethik 7a-d“ ist ein Name (R1)
   const classNames = editingGroupId ? [className] : parseClassNames(className);
   const subject   = document.getElementById('new-group-subject').value.trim();
   const year      = document.getElementById('new-group-year').value.trim();
+  const teacher   = document.getElementById('new-group-teacher').value.trim();
   
   const weightInput = document.getElementById('weight-schularbeit').value.trim();
   const finalSchularbeitWeight = weightInput === '' ? 50 : Number(weightInput.replace(',', '.'));
@@ -2933,6 +2948,7 @@ function saveSubjectGroup() {
       }
       Object.assign(g, { className, subject, year, color: selectedGroupColor, schularbeitWeight: finalSchularbeitWeight });
       if (gradeScaleId !== gradeScale(g).id) g.gradeScale = gradeScaleId;
+      setClassTeacher(g, teacher);
       // Farbe und Fach auf alle verknüpften Stunden übertragen
       db.lessonSlots.filter(s => s.groupId === g.id).forEach(s => {
         s.color = selectedGroupColor;
@@ -2952,7 +2968,10 @@ function saveSubjectGroup() {
     const colors = nextGroupColors(fresh.length, selectedGroupColor);
     fresh.forEach((c, i) => {
       const id = uid();
-      db.groups.push({ id, className: c, subject, year, color: colors[i], schularbeitWeight: finalSchularbeitWeight, gradeScale: gradeScaleId });
+      const known = sameClassGroups(c, year).find(o => o.classTeacher);   // vor dem Anlegen: neues Fach in bekannter Klasse
+      const group = { id, className: c, subject, year, color: colors[i], schularbeitWeight: finalSchularbeitWeight, gradeScale: gradeScaleId };
+      db.groups.push(group);
+      setClassTeacher(group, teacher || (known ? known.classTeacher : ''));
       db.students[id] = [];
     });
     addedGroupsMessage = (fresh.length > 1 ? `${fresh.length} Klassen hinzugefügt ✓` : 'Klasse hinzugefügt ✓')
@@ -3991,7 +4010,7 @@ function openGroupStudents(groupId, initialTab = 'students') {
 // Klasse groß, Fach klein wie in Stundenplan und Klassenkarten (BUGS I13); auch nach dem Bearbeiten (L7)
 function setClassViewHeader(g) {
   document.getElementById('student-view-title').textContent = g.className;
-  document.getElementById('student-view-subtitle').textContent = `${g.subject}${g.year ? ' · ' + g.year : ''}`;
+  document.getElementById('student-view-subtitle').textContent = [g.subject, g.year, classTeacherText(g)].filter(Boolean).join(' · ');
 }
 
 // Nach dem Austausch der ganzen DB (Import, „Alle Daten löschen“, Cloud-Übernahme): gemerkte Klassen

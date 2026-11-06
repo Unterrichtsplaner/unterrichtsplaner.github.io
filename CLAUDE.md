@@ -63,7 +63,7 @@ db = {
   lessonData: { '<slotId>_<YYYY-MM-DD>': { done, notes, ausfall, movedTo /*{ slotId, date }*/, hwEnabled, testEnabled, … } },
   groups: [{ id, subject, className, year, color, schularbeitWeight /*0–100*/,
              plan /*[{ id, title, lessons?, pinned?, note?, doneLessons?: [lessonData-Schlüssel], done? }] Unterrichtsplanung (AD3)*/,
-             classNotes /*[{ id, text, date, until? }] Klassennotizen (AD15)*/, gradeScale /*'1-6' (Standard, fehlt bei Altdaten) | '0-15'*/,
+             classTeacher? /*Name, nur Anzeige (AH51)*/, classNotes /*[{ id, text, date, until? }] Klassennotizen (AD15)*/, gradeScale /*'1-6' (Standard, fehlt bei Altdaten) | '0-15'*/,
              seatingRows, seatingCols, teacherDeskX, teacherDeskY, seatingPlan: [{ studentId, … }],
              gradeEvents, attendanceEvents, participationEvents, homeworkEvents }],
   students: { '<groupId>': [{ id, firstName, lastName, notes /*Hinweis, im Sitzplan als Symbol (AD2)*/, importantNote? /*wichtiger Hinweis, rotes Symbol (AD17)*/, birthday? /*YYYY-MM-DD (AD6)*/,
