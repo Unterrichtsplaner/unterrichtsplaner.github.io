@@ -81,12 +81,7 @@ input[type="date"] { min-height: 1.2em; } /* Fix iOS Safari date input collapse 
 
 /* ─── Sidebar ────────────────────────── */
 #sidebar{width:var(--sidebar-width);background:var(--sidebar-bg);border-right:1px solid var(--border);display:flex;flex-direction:column;padding:0;flex-shrink:0;z-index:100;position:sticky;left:0;transition:width var(--transition), padding var(--transition);overflow:hidden;}
-.sidebar-header{height:68px;box-sizing:border-box;padding:0 var(--space-3);border-bottom:1px solid var(--border);margin-bottom:var(--space-4);display:flex;justify-content:space-between;align-items:center;}
-.sidebar-toggle-btn{width:36px;height:36px;border-radius:var(--radius-md);background:transparent;border:none;color:var(--text-secondary);cursor:pointer;display:flex;align-items:center;justify-content:center;transition:background-color var(--transition),color var(--transition),border-color var(--transition),box-shadow var(--transition),opacity var(--transition),transform var(--transition);}
-@media (hover: hover){.sidebar-toggle-btn:hover{background:var(--bg-card-hover);color:var(--text-primary);}}
-.app-logo{display:flex;align-items:center;gap:var(--space-2);}
-.app-logo-block{font-family:var(--font-display);font-weight:600;font-size:20px;letter-spacing:0;color:var(--text-primary);display:flex;align-items:center;justify-content:center;height:40px;box-sizing:border-box;}
-.app-logo-block .logo-short{display:none;}
+.sidebar-header{height:68px;box-sizing:border-box;padding:0 var(--space-2);border-bottom:1px solid var(--border);margin-bottom:var(--space-4);display:flex;align-items:center;}
 .nav-items{display:flex;flex-direction:column;gap:var(--space-1);flex:1;padding:0 var(--space-2);}
 .nav-item{display:flex;align-items:center;gap:var(--space-2);padding:var(--space-2) var(--space-3);border-radius:var(--radius-sm);background:transparent;border:none;color:var(--text-secondary);cursor:pointer;font-family:inherit;font-size:14px;font-weight:500;transition:background-color var(--transition),color var(--transition),border-color var(--transition),box-shadow var(--transition),opacity var(--transition),transform var(--transition);width:100%;text-align:left;}
 @media (hover: hover){.nav-item:hover{background:var(--bg-elevated);color:var(--text-primary);}}
@@ -99,6 +94,8 @@ input[type="date"] { min-height: 1.2em; } /* Fix iOS Safari date input collapse 
 .dash-settings-btn.needs-attention::after{content:'';position:absolute;top:4px;right:4px;width:9px;height:9px;border-radius:50%;background:var(--danger);}
 .nav-item svg{flex-shrink:0;transition:margin var(--transition);}
 .sidebar-footer{border-top:1px solid var(--border);height:80px;box-sizing:border-box;display:flex;align-items:center;padding:0 var(--space-2);}
+#btn-sidebar-toggle{margin-top:auto;margin-bottom:var(--space-2);}   /* unten, über der Linie; die Linie bleibt auf Höhe der Sitzplan-Leiste (AH6) */
+#btn-sidebar-toggle .ico{width:20px;height:20px;margin:0;flex-shrink:0;}
 
 #sidebar.collapsed { width: 88px; padding: 0; }
 /* Mit Seitenleiste (iPad, Laptop): Die Ansichten reichen bis unten an den Rand, nur die Leiste hält Abstand zum
@@ -108,13 +105,8 @@ input[type="date"] { min-height: 1.2em; } /* Fix iOS Safari date input collapse 
   #sidebar,#sidebar.collapsed{padding-bottom:env(safe-area-inset-bottom);}
 }
 #sidebar.collapsed .nav-item span { display: none; }
-#sidebar.collapsed .app-logo-block { padding: 0; width: 36px; height: 36px; }
-#sidebar.collapsed .app-logo-block .logo-full { display: none; }
-#sidebar.collapsed .app-logo-block .logo-short { display: block; }
-#sidebar.collapsed .sidebar-header { padding: 0 var(--space-2); flex-direction: row; height: 68px; border-bottom: 1px solid var(--border); margin-bottom: var(--space-4); justify-content: space-between; align-items: center; }
 #sidebar.collapsed .nav-item { justify-content: center; padding: var(--space-3); }
 #sidebar.collapsed .nav-item svg { margin: 0; }
-#sidebar.collapsed .app-logo { gap: 0; }
 
 /* ─── Main / Views ───────────────────── */
 #main-content{flex:1;min-width:800px;overflow:hidden;position:relative;}
@@ -803,7 +795,7 @@ select option{background:var(--bg-secondary);}
 @media(max-width:600px){
   #app{flex-direction:column;min-height:0;padding-bottom:0;}   /* Handy quer: nicht höher als der Bildschirm; Abstand zum Home-Balken hält die Leiste unten */
   #sidebar{order:2;width:100%;flex-direction:row;padding:var(--space-2) var(--space-3);border-right:none;border-top:1px solid var(--border);padding-bottom:calc(var(--space-2) + env(safe-area-inset-bottom));}   /* Leiste unten, mit dem Daumen erreichbar (AH21) */
-  .sidebar-header{display:none;}   /* Logo + ☰ haben auf dem Handy keinen Zweck (BUGS I19) */
+  .sidebar-header{display:none;}   /* Suche als Lupe im Dashboard und in der Klassenübersicht (BUGS I19, AH47) */
   .nav-items{flex-direction:row;align-items:center;}
   .nav-item span{display:none;}
   .sidebar-footer{border-top:none;padding:0;height:auto;}   /* 80 px zogen die ganze Leiste und die aktive Pille hoch */
@@ -869,7 +861,6 @@ select option{background:var(--bg-secondary);}
 
 .nav-item span { line-height: 1.2; }
 
-#sidebar.collapsed .sidebar-toggle-btn { width: 36px; height: 36px; padding: 0; }
 
 /* Seating Plan Live Features */
 .random-highlight {
@@ -1717,15 +1708,15 @@ h1,h2,h3,.dash-heading,.subject-heading{text-wrap:balance;}
 .cn-form-row .btn-primary,.cn-form-row .btn-secondary{min-height:40px;}
 
 /* ─── Schnellsuche (AH19) ─── Feld oben in der Seitenleiste, Handy: im Dashboard und in der Klassenübersicht */
-.sidebar-search{display:flex;align-items:center;gap:var(--space-2);flex-shrink:0;margin:var(--space-3) var(--space-3) var(--space-1);padding:0 var(--space-3);height:44px;border-radius:var(--radius-sm);border:1px solid var(--border);background:var(--bg-elevated);color:var(--text-muted);font-family:inherit;font-size:14px;text-align:left;cursor:pointer;}
-.sidebar-search .ico,.dash-search .ico{width:18px;height:18px;margin:0;}
+.sidebar-search{display:flex;align-items:center;gap:var(--space-2);flex:1;min-width:0;height:var(--control-h);box-sizing:border-box;margin:0;padding:0 var(--space-3);border:none;border-radius:var(--radius-sm);background:transparent;color:var(--text-secondary);font-family:inherit;font-size:14px;font-weight:500;text-align:left;cursor:pointer;}   /* sieht aus wie ein Menüpunkt: Sie öffnet ja nur ein Fenster (AH47) */
+.sidebar-search .ico{width:20px;height:20px;margin:0;flex-shrink:0;}
 .sidebar-search-label{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 .search-foot kbd{font-family:inherit;font-size:11px;padding:1px var(--space-2);border:1px solid var(--border);border-radius:var(--radius-xs);color:var(--text-muted);background:var(--bg-card);}
 @media not ((hover:hover) and (pointer:fine)){.search-foot{display:none !important;}}   /* Tastenkürzel nur mit Maus/Trackpad */
-@media (hover: hover){.sidebar-search:hover,.dash-search:hover{color:var(--text-secondary);border-color:var(--text-muted);}}
-#sidebar.collapsed .sidebar-search{width:44px;margin:var(--space-3) auto var(--space-1);padding:0;justify-content:center;}
+@media (hover: hover){.sidebar-search:hover{background:var(--bg-elevated);color:var(--text-primary);}}
+#sidebar.collapsed .sidebar-search{justify-content:center;padding:0;}
 #sidebar.collapsed .sidebar-search-label{display:none;}
-.dash-search{display:none;align-items:center;gap:var(--space-2);width:calc(100% - 32px);margin:var(--space-3) var(--space-4) 0;padding:0 var(--space-4);height:44px;border-radius:var(--radius-sm);border:1px solid var(--border);background:var(--bg-elevated);color:var(--text-muted);font-family:inherit;font-size:14px;text-align:left;cursor:pointer;}
+.dash-search-btn{display:none;}
 #level-subjects .classes-search-btn{display:none;}
 
 #modal-search{align-items:flex-start;padding:10vh var(--space-4) var(--space-4);}
@@ -1757,8 +1748,9 @@ h1,h2,h3,.dash-heading,.subject-heading{text-wrap:balance;}
 .search-empty small{font-size:13px;color:var(--text-muted);}
 .search-foot{display:flex;gap:var(--space-4);flex-shrink:0;padding:var(--space-2) var(--space-4);border-top:1px solid var(--border);font-size:12px;color:var(--text-muted);}
 @media(max-width:600px){
-  .sidebar-search{display:none;}
-  .dash-search{display:flex;}
+  #btn-sidebar-toggle{display:none;}   /* Handy: Leiste unten mit 5 Punkten (AH21) */
+  .dash-search-btn{display:inline-flex;margin-left:auto;width:44px;height:44px;}
+  .dash-search-btn + .dash-settings-btn{margin-left:var(--space-2);}
   #level-subjects .classes-search-btn{display:inline-flex;width:44px;height:44px;}   /* erste Zeile neben „Nach Fach“, + Fach/Klasse bleibt in Zeile 2 */
   #modal-search{padding:0;background:var(--bg-secondary);backdrop-filter:none;}   /* ganze Seite: unter Tastatur und Statusleiste Farbe der Suche statt grauer Abdunklung */
   .search-palette{width:100%;height:var(--search-vh, 100%);max-height:none;border:none;border-radius:0;}
@@ -1878,12 +1870,10 @@ input.form-input,select.form-input,input.entry-input,input.entry-date,.custom-fo
 .form-input,.entry-input,.entry-date,.block-row .block-name-input,.block-row .block-time-input,.custom-form-dropdown-trigger,.notes-textarea{padding-left:var(--space-3);padding-right:var(--space-3);font-size:14px;border-radius:var(--radius-sm);}
 @media (pointer: coarse){.custom-form-dropdown-trigger{font-size:16px;}}
 textarea.form-input,.notes-textarea{min-height:calc(var(--control-h) * 2.5);}
-/* Suche: Knopf und Feld sehen aus wie alle anderen Felder */
-.sidebar-search,.dash-search{height:var(--control-h);padding-left:var(--space-3);padding-right:var(--space-3);border-radius:var(--radius-sm);font-size:14px;}
+/* Suchfenster: Das Feld sieht aus wie alle anderen Felder */
 .search-field{gap:var(--space-2);padding:var(--space-3) var(--space-4);}
 .search-input{height:var(--control-h);box-sizing:border-box;padding:0 var(--space-3);border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--bg-input);font-size:14px;}
 .search-input:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 2px var(--accent-glow);}
-#sidebar.collapsed .sidebar-search{width:var(--control-h);padding:0;}
 /* Tabellen (AH40): Vier Knöpfe passen auf schmalen iPads nicht in den Kopf, die Tabelle spränge sonst nur auf diesem Reiter */
 @media (max-width: 800px){
   #btn-add-overview-other .btn-label{display:none;}
@@ -1925,13 +1915,10 @@ textarea.form-input,.notes-textarea{min-height:calc(var(--control-h) * 2.5);}
 @container (max-width: 900px){
   .timetable-grid:not(.day-view) .tt-noch{display:none;}
 }
-/* Seitenleiste: gleiche Höhe wie der Rest der App, Suche bündig mit den Menüpunkten */
+/* Seitenleiste: gleiche Höhe wie der Rest der App */
 @media (min-width: 601px){
   .nav-item{min-height:var(--control-h);box-sizing:border-box;padding-top:0;padding-bottom:0;}
 }
-.sidebar-toggle-btn,#sidebar.collapsed .sidebar-toggle-btn{width:var(--control-h);height:var(--control-h);}
-.sidebar-search{margin-left:var(--space-2);margin-right:var(--space-2);padding-left:calc(var(--space-3) - 1px);}   /* minus Rahmen: Symbol und Schrift genau über denen der Menüpunkte */
-.sidebar-search .ico{width:20px;height:20px;}   /* wie die Menüpunkte: Symbole und Schrift stehen genau untereinander */
 /* Weitere Stellen mit eigener Größe */
 .classes-sort select{font-size:14px;}
 @media (pointer: coarse){.classes-sort select{font-size:16px;}}

@@ -56,6 +56,7 @@ cards: '<rect x="3" y="3" width="8" height="8" rx="1"/><rect x="13" y="3" width=
   check:        '<polyline points="20 6 9 17 4 12"/>',
   settings:     '<circle cx="12" cy="12" r="3"/> <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>',
   search:       '<circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.5" y2="16.5"/>',
+  panel:        '<rect x="3" y="4" width="18" height="16" rx="2"/><line x1="9" y1="4" x2="9" y2="20"/>',
   todo:         '<path d="m3 17 2 2 4-4"/><path d="m3 7 2 2 4-4"/><path d="M13 6h8"/><path d="M13 12h8"/><path d="M13 18h8"/>',
   trash:        '<polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/>',
   refresh:      '<polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>',
@@ -4765,14 +4766,23 @@ function toggleSidebar(e) {
   if (e) e.stopPropagation();
   const sidebar = document.getElementById('sidebar');
   sidebar.classList.toggle('collapsed');
+  updateSidebarToggle();
+}
+// Der Knopf sagt, was er als Nächstes tut; eingeklappt ist nur das Symbol zu sehen
+function updateSidebarToggle() {
+  const label = document.getElementById('sidebar').classList.contains('collapsed') ? 'Leiste ausklappen' : 'Leiste einklappen';
+  const btn = document.getElementById('btn-sidebar-toggle');
+  btn.setAttribute('aria-label', label);
+  btn.title = label;
 }
 
-// Die Leiste wird nur über ☰ umgeschaltet (BUGS I3: früher klappte jeder Klick in den Inhalt sie zu,
+// Die Leiste wird nur über „Einklappen“ umgeschaltet (BUGS I3: früher klappte jeder Klick in den Inhalt sie zu,
 // und der Inhalt sprang unter dem Finger nach links). Auf schmalen Bildschirmen (iPad hochkant) startet
 // sie zugeklappt; unter 601 px ist sie ohnehin eine Leiste oben.
 function applyInitialSidebar() {
   const w = window.innerWidth;
   document.getElementById('sidebar').classList.toggle('collapsed', w > 600 && w < 1024);
+  updateSidebarToggle();
 }
 applyInitialSidebar();
 

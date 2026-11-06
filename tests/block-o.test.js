@@ -114,16 +114,6 @@ describe('O5: Einstellungen prüfen', () => {
   });
 });
 
-describe('O6: Logo', () => {
-  it('lädt die Seite nicht neu, sondern öffnet das Dashboard', () => {
-    const logo = document.querySelector('.app-logo');
-    expect(logo.getAttribute('onclick')).not.toContain('reload');
-    app('switchView("timetable")');
-    app(logo.getAttribute('onclick'));
-    expect(document.getElementById('view-dashboard').classList.contains('active')).toBe(true);
-  });
-});
-
 describe('O8: Fenster für Screenreader und Tastatur', () => {
   it('alle Fenster sind als Dialog ausgezeichnet und benannt', () => {
     document.querySelectorAll('.modal-overlay > .modal').forEach(m => {

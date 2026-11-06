@@ -692,7 +692,7 @@ Geprüft: Cockpit, Fenster „Heute“, Schüler-Hinweis, Schülerliste/Klassen�
 - [x] **AH44** 🟢 **Klassen & Fächer in denselben Farben wie der Stundenplan** (Wunsch 05.11.). *Karten und die Klasse am Merkzettel-Punkt mischen die Klassenfarbe jetzt genauso wie die Stunden-Kachel (24 % auf der Kartenfarbe), statt durchscheinend auf dem Hintergrund.*
 - [x] **AH45** 🟢 **Menüpunkte links zu klein** (Frage 05.11.). *Gemessen: iPad quer 36 statt 44 wie der Rest der App. Jetzt `--control-h`, auch der Menü-Knopf; Suche bündig mit den Punkten.*
 - [x] **AH46** 🟢 **„Das ist neu“ für die Designüberarbeitung** (05.11.). *Neue Kennung `2026-11-3`, fünf Punkte: Stunden-Fenster, Schüler-Fenster, Einstellungen, Dashboard, Stundenplan und Tabellen.*
-- [ ] **AH47** 🟠 **Leiste links** (Wunsch 06.11., erst Entwurf): „Planer“ und Burger-Menü überdenken; Suche sieht aus wie ein Eingabefeld, ist aber ein Knopf; unter den Menüpunkten viel ungenutzter Platz.
+- [ ] **AH47** 🟠 **Leiste links** (Wunsch 06.11.). *Erledigt: Version A. „Planer“ und ☰ sind weg, die oberste Zeile ist die Suche, die wie ein Menüpunkt aussieht; „Einklappen“ steht unten; auf dem Handy Lupe neben dem Zahnrad. Test: `tests/leiste-links.test.js`.* **Offen, noch zu besprechen:** eine Verwendung für den freien Platz unter den Menüpunkten (Jetzt-Karte ist abgelehnt) und die Größe der Menüpunkte.
 
 ---
 

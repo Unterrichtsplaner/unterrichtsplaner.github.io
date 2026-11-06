@@ -87,7 +87,7 @@ describe('I3: Seitenleiste nur per ☰', () => {
     expect(sidebar().classList.contains('collapsed')).toBe(false);
   });
 
-  it('☰ schaltet weiterhin um', () => {
+  it('„Einklappen“ schaltet weiterhin um', () => {
     app('toggleSidebar()');
     expect(sidebar().classList.contains('collapsed')).toBe(true);
     app('toggleSidebar()');

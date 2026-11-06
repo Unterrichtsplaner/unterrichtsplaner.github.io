@@ -40,7 +40,7 @@
       }
     })();
   </script>
-  <link rel="stylesheet" href="style.css?v=441" />
+  <link rel="stylesheet" href="style.css?v=443" />
   <script>
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
@@ -56,23 +56,10 @@
   <!-- ─── Sidebar ─────────────────────────────────────── -->
   <nav id="sidebar">
     <div class="sidebar-header">
-      <div class="app-logo" style="cursor:pointer;" onclick="switchView('dashboard')" title="Zum Dashboard">
-        <div class="app-logo-block">
-          <span class="logo-full">Planer</span>
-          <span class="logo-short">P</span>
-        </div>
-      </div>
-      <button class="sidebar-toggle-btn" onclick="toggleSidebar(event)" title="Seitenleiste umschalten">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <line x1="3" y1="12" x2="21" y2="12"></line>
-          <line x1="3" y1="6" x2="21" y2="6"></line>
-          <line x1="3" y1="18" x2="21" y2="18"></line>
-        </svg>
+      <button type="button" class="sidebar-search" id="btn-search" onclick="openSearch()" aria-label="Suchen" title="Suchen (⌘K)">
+        <i data-icon="search"></i><span class="sidebar-search-label">Suchen</span>
       </button>
     </div>
-    <button type="button" class="sidebar-search" id="btn-search" onclick="openSearch()" aria-label="Suchen" title="Suchen (⌘K)">
-      <i data-icon="search"></i><span class="sidebar-search-label">Suchen</span>
-    </button>
     <div class="nav-items">
       <button class="nav-item" data-view="dashboard" id="nav-dashboard">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -110,6 +97,10 @@
         </svg>
         <span>Merkzettel</span>
       </button>
+      <button type="button" class="nav-item" id="btn-sidebar-toggle" onclick="toggleSidebar(event)" aria-label="Leiste einklappen">
+        <i data-icon="panel"></i>
+        <span>Einklappen</span>
+      </button>
     </div>
     <div class="sidebar-footer">
       <button class="nav-item" id="nav-settings" onclick="openSettings()" aria-label="Einstellungen">
@@ -129,10 +120,10 @@
     <div id="view-dashboard" class="view">
       <div class="view-header">
         <h1>Dashboard</h1>
+        <button type="button" class="btn-icon dash-search-btn" id="btn-search-dashboard" onclick="openSearch()" aria-label="Suchen"><i data-icon="search"></i></button>
         <button type="button" class="btn-icon dash-settings-btn" id="btn-settings-dashboard" onclick="openSettings()" aria-label="Einstellungen"><i data-icon="settings"></i></button>
       </div>
       <div class="dashboard-scroll">
-        <button type="button" class="dash-search" id="btn-search-dashboard" onclick="openSearch()" aria-label="Suchen"><i data-icon="search"></i><span>Klasse, Schüler, Notiz suchen …</span></button>
         <div class="view-content" id="dashboard-content">
           <!-- Dashboard Content will be injected here -->
         </div>
@@ -1685,13 +1676,13 @@
   </div>
 
   <script src="lib/crypto-js.min.js"></script>
-  <script src="crypto-helper.js?v=441"></script>
+  <script src="crypto-helper.js?v=443"></script>
   <script src="lib/firebase-app-compat.js"></script>
   <script src="lib/firebase-auth-compat.js"></script>
   <script src="lib/firebase-firestore-compat.js"></script>
-  <script src="firebase-config.js?v=441"></script>
-  <script src="sync-manager.js?v=441"></script>
-  <script src="sync-merge.js?v=441"></script>
-  <script src="app.js?v=441"></script>
+  <script src="firebase-config.js?v=443"></script>
+  <script src="sync-manager.js?v=443"></script>
+  <script src="sync-merge.js?v=443"></script>
+  <script src="app.js?v=443"></script>
 </body>
 </html>

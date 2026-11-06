@@ -54,14 +54,11 @@ describe('AH39: Eingabefelder sehen gleich aus', () => {
   it('auf dem iPad auch die Auswahlfelder in Feldschrift (16), sonst stehen sie kleiner neben den Textfeldern', () => {
     expect(felder).toMatch(/@media \(pointer: coarse\)\{\.custom-form-dropdown-trigger\{font-size:16px;\}\}/);
   });
-  it('Suche wie alle Felder: Knopf in der Seitenleiste und im Dashboard sowie das Feld im Suchfenster nutzen die gemeinsame Höhe', () => {
-    expect(felder).toMatch(/\.sidebar-search,\.dash-search\{height:var\(--control-h\);/);
+  it('Das Feld im Suchfenster nutzt die gemeinsame Höhe', () => {
     expect(felder).toMatch(/\.search-input\{[^}]*height:var\(--control-h\);[^}]*border:1px solid var\(--border\);[^}]*background:var\(--bg-input\);/);
   });
-  it('Seitenleiste: Menüpunkte und Menü-Knopf wie alles andere, Suche bündig mit den Punkten; unten auf dem Handy eigene Höhe', () => {
+  it('Seitenleiste: Menüpunkte wie alles andere; unten auf dem Handy eigene Höhe', () => {
     expect(felder).toMatch(/@media \(min-width: 601px\)\{\s*\.nav-item\{min-height:var\(--control-h\);box-sizing:border-box;padding-top:0;padding-bottom:0;\}\s*\}/);
-    expect(felder).toMatch(/\.sidebar-toggle-btn,#sidebar\.collapsed \.sidebar-toggle-btn\{width:var\(--control-h\);height:var\(--control-h\);\}/);
-    expect(felder).toMatch(/\.sidebar-search\{margin-left:var\(--space-2\);margin-right:var\(--space-2\);padding-left:calc\(var\(--space-3\) - 1px\);\}/);
   });
   it('Textfelder mit mehreren Zeilen: eine gemeinsame Mindesthöhe', () => {
     expect(felder).toMatch(/textarea\.form-input,\.notes-textarea\{min-height:calc\(var\(--control-h\) \* 2\.5\);\}/);
