@@ -693,6 +693,10 @@ Geprüft: Cockpit, Fenster „Heute“, Schüler-Hinweis, Schülerliste/Klassen�
 - [x] **AH45** 🟢 **Menüpunkte links zu klein** (Frage 05.11.). *Gemessen: iPad quer 36 statt 44 wie der Rest der App. Jetzt `--control-h`, auch der Menü-Knopf; Suche bündig mit den Punkten.*
 - [x] **AH46** 🟢 **„Das ist neu“ für die Designüberarbeitung** (05.11.). *Neue Kennung `2026-11-3`, fünf Punkte: Stunden-Fenster, Schüler-Fenster, Einstellungen, Dashboard, Stundenplan und Tabellen.*
 - [ ] **AH47** 🟠 **Leiste links** (Wunsch 06.11.). *Erledigt: Version A. „Planer“ und ☰ sind weg, die oberste Zeile ist die Suche, die wie ein Menüpunkt aussieht; „Einklappen“ steht unten; auf dem Handy Lupe neben dem Zahnrad. Test: `tests/leiste-links.test.js`.* **Offen, noch zu besprechen:** eine Verwendung für den freien Platz unter den Menüpunkten (Jetzt-Karte ist abgelehnt) und die Größe der Menüpunkte.
+- [ ] **AH48** 🟢 **Leiste selbst anordnen, Schnellzugriff auf Klassen** (Wunsch 06.11., Konzept): Reihenfolge der Menüpunkte selbst wählen, beliebige Klassen als Schnellzugriff darunter.
+- [ ] **AH49** 🟠 **Dateien an einer Klasse** (Wunsch 06.11., Konzept): z. B. PDF der Elternliste hinterlegen. Heikel: ganze DB liegt in einem Cloud-Dokument (1 MB), Elternliste sind sensible Daten.
+- [ ] **AH50** 🟠 **Sitzplan überarbeiten** (Wunsch 06.11., Konzept): Aussehen, und warum die Leiste oben (Cockpit) nur während der Stunde erscheint.
+- [ ] **AH51** 🟢 **Klassenlehrer als Dauerinfo** (Wunsch 06.11., Konzept).
 
 ---
 
