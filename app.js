@@ -5720,6 +5720,26 @@ function getSuggestedSeatingGroupId(now = new Date()) {
   return hit ? hit.slot.groupId : null;
 }
 
+// Klasse der nächsten Stunde überhaupt (laufende zählt mit), über alle Klassen; ohne Stundenplan null (AH59)
+function nextLessonGroupId(now = new Date()) {
+  const todayStr = formatDate(now), nowMins = now.getHours() * 60 + now.getMinutes();
+  const known = new Set(db.groups.map(g => g.id));
+  let d = parseDate(todayStr);
+  for (let i = 0; i < 70; i++, d = addDays(d, 1)) {   // über die Sommerferien (Regel 17)
+    if (!isSchoolDay(d)) continue;
+    const ds = formatDate(d);
+    const hit = lessonsOnDate(ds).find(l => known.has(l.slot.groupId) && !l.ausfall && (ds !== todayStr || (l.range && l.range.end > nowMins)));
+    if (hit) return hit.slot.groupId;
+  }
+  return null;
+}
+// Oberste Klasse der Klassenauswahl (Fach, dann Klasse), statt der zuerst angelegten
+function firstSeatingGroupId() {
+  const cmp = (a, b) => a.localeCompare(b, undefined, { numeric: true });
+  const sorted = [...db.groups].sort((a, b) => cmp(a.subject || 'Ohne Fach', b.subject || 'Ohne Fach') || cmp(a.className || '', b.className || ''));
+  return sorted.length ? sorted[0].id : '';
+}
+
 function initSeatingPlan() {
   const request = seatingRequest;
   seatingRequest = null;
@@ -5733,6 +5753,9 @@ function initSeatingPlan() {
   const suggestedGroupId = request ? request.groupId : getSuggestedSeatingGroupId();
   if (suggestedGroupId) {
     currentSeatingGroupId = suggestedGroupId;
+  } else if (!db.groups.some(g => g.id === currentSeatingGroupId)) {
+    // Noch keine Wahl (nach dem Neuladen): die Klasse, die als Nächstes dran ist (AH59)
+    currentSeatingGroupId = nextLessonGroupId() || firstSeatingGroupId();
   }
   seatingAutoLast = getSuggestedSeatingGroupId(); // ab hier nur bei einem Wechsel der Stunde automatisch umschalten
   
@@ -5748,7 +5771,7 @@ function renderSeatingGroupSelect() {
   menu.innerHTML = '';
 
   if (!currentSeatingGroupId && db.groups.length > 0) {
-    currentSeatingGroupId = db.groups[0].id;
+    currentSeatingGroupId = firstSeatingGroupId();
   }
 
   // Klasse als Überschrift, das Fach klein daneben (AH50; ersetzt „7b Mathe“ bei Zwillingen, BUGS N9)
