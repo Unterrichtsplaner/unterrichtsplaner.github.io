@@ -50,7 +50,7 @@ Eine einzige globale Variable `db`, gespeichert als JSON in `localStorage['lehre
 
 ```js
 db = {
-  settings: { teacherName, school, blocks, lastModified, halfYearEnd?, schoolYearEnd? /*YYYY-MM-DD, AD4*/, classesView? /*'list'|'large', fehlt = Kacheln*/, classesSort? /*'next'|'class'|'warnings', fehlt = Fach (AH13)*/, classGradesProtect? /*false = Beamer-Schutz der Klassenansicht aus, fehlt = an (AH25)*/, theme*, warnAbsences, warnGrade, warnPoints, warnHomework,
+  settings: { teacherName, school, blocks, lastModified, halfYearEnd?, schoolYearEnd? /*YYYY-MM-DD, AD4*/, classesView? /*'list'|'large', fehlt = Kacheln*/, classesSort? /*'next'|'class'|'warnings', fehlt = Fach (AH13)*/, classGradesProtect? /*false = Beamer-Schutz der Klassenansicht aus, fehlt = an (AH25)*/, navOrder? /*['seating','dashboard',…] Reihenfolge der Menüpunkte, fehlt = Standard (AH48)*/, quickLinks? /*[{ id, groupId, target: 'seating'|'students' }] Schnellzugriff, höchstens 8*/, theme*, warnAbsences, warnGrade, warnPoints, warnHomework,
               studentSortOrder, seatingBufferMins, lastBackupTimestamp,
               holidays: [{ id, label, from, until /*YYYY-MM-DD inkl.*/, source? /*'DE-BY': geladen, fehlt = selbst eingetragen*/ }] /*Ferien, Y8*/, federalState /*'DE-BY' … für „Ferien laden“*/, … },
   lessonSlots: [{ id, day /*0=Mo…4=Fr*/, block /*=blocks[].num, feste Kennung*/, part /*'first'|'second'|'full'*/,
@@ -221,6 +221,8 @@ Datumswerte sind Strings `YYYY-MM-DD` in **lokaler** Zeit (`formatDate()`). Nie 
 90. **Dashboard: zwei Spalten über `.dash-col-left`/`.dash-col-right`** (AH41). Neue Abschnitte gehören in eine Spalte und brauchen für die schmale Ansicht ein `order` (dort löst `display:contents` die Spalten auf). Ist rechts nichts zu zeigen, gilt `dash-grid-single`. Die Zeile einer Stunde hat eine feste Mindesthöhe; Zusätze dürfen nicht umbrechen.
 91. **Stunden-Kacheln nur im Block „Stundenplan ruhig (AH42)“ in `style.css` gestalten:** Farbe über `--lesson-color` als Fläche, Schrift einheitlich, Symbole in einer Farbe an festem Platz. Halbe Stunden sind keine direkten Kinder der Zelle und bleiben einzeilig. Regel 61 gilt weiter.
 92. **Die Suche ist ein Knopf und sieht aus wie ein Menüpunkt** (AH47), nie wie ein Eingabefeld, denn sie öffnet nur das Suchfenster. Oben in der Leiste gibt es keinen Schriftzug; Einklappen ist der Menüpunkt `btn-sidebar-toggle` unten in `.nav-items` (auf dem Handy ausgeblendet, Regel 75), sein Name kommt aus `updateSidebarToggle`. Die Linie über „Einstellungen“ bleibt auf Höhe der Sitzplan-Leiste (AH6), darum gehört nichts Weiteres in `.sidebar-footer`.
+
+93. **Menüpunkte nur über `navOrder()`/`renderNav()` anordnen, Schnellzugriffe nur über `quickLinksOf()`** (überspringt kaputte Einträge und gelöschte Klassen, AH48). Welcher Punkt markiert ist, entscheidet `markNavActive()` (läuft am Ende von `switchView` und beim Klassenwechsel im Sitzplan): ein passender Schnellzugriff statt des Menüpunkts, nie beide. Ein neuer Menüpunkt gehört in `NAV_VIEWS`/`NAV_NAMES`; gespeicherte Reihenfolgen bekommen ihn von selbst hinten dran. Wer eine Klasse löscht, entfernt ihre Schnellzugriffe.
 
 ## Arbeitsablauf
 

@@ -12,18 +12,18 @@ beforeAll(() => { localStorage.setItem('lehrerapp_v3', JSON.stringify({ settings
 afterEach(() => { app('closeModal("modal-settings")'); });
 
 describe('Menü und Bereiche', () => {
-  it('sieben Bereiche, jeder mit Knopf; beim Öffnen immer „Allgemein“', () => {
-    expect(rail().map(b => b.textContent.trim())).toEqual(['Allgemein', 'Unterricht', 'Stundenzeiten', 'Ferien', 'Darstellung', 'Daten & Cloud', 'Über die App']);
-    expect(panes().length).toBe(7);
+  it('acht Bereiche (seit AH48 „Leiste“), jeder mit Knopf; beim Öffnen immer „Allgemein“', () => {
+    expect(rail().map(b => b.textContent.trim())).toEqual(['Allgemein', 'Unterricht', 'Stundenzeiten', 'Ferien', 'Darstellung', 'Leiste', 'Daten & Cloud', 'Über die App']);
+    expect(panes().length).toBe(8);
     app('openSettings()');
     expect(onPane()).toEqual(['general']);
     expect(rail()[0].getAttribute('aria-current')).toBe('true');
   });
   it('Antippen wechselt den Bereich, und nächstes Öffnen beginnt wieder oben', () => {
     app('openSettings()');
-    rail()[5].click();
+    rail()[6].click();
     expect(onPane()).toEqual(['data']);
-    expect(rail()[5].getAttribute('aria-current')).toBe('true');
+    expect(rail()[6].getAttribute('aria-current')).toBe('true');
     expect(rail()[0].getAttribute('aria-current')).toBe('false');
     app('closeModal("modal-settings"); openSettings()');
     expect(onPane()).toEqual(['general']);

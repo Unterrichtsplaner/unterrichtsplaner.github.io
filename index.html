@@ -40,7 +40,7 @@
       }
     })();
   </script>
-  <link rel="stylesheet" href="style.css?v=445" />
+  <link rel="stylesheet" href="style.css?v=448" />
   <script>
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
@@ -97,6 +97,8 @@
         </svg>
         <span>Merkzettel</span>
       </button>
+      <!-- Schnellzugriff auf Klassen (AH48), renderNav -->
+      <div id="nav-quick" class="nav-quick" role="group" aria-label="Schnellzugriff"></div>
       <button type="button" class="nav-item" id="btn-sidebar-toggle" onclick="toggleSidebar(event)" aria-label="Leiste einklappen">
         <i data-icon="panel"></i>
         <span>Einklappen</span>
@@ -854,6 +856,7 @@
       <button type="button" data-pane="times" aria-current="false"><i data-icon="calendar"></i>Stundenzeiten</button>
       <button type="button" data-pane="holidays" aria-current="false"><i data-icon="calendar-x"></i>Ferien</button>
       <button type="button" data-pane="look" aria-current="false"><i data-icon="eye"></i>Darstellung</button>
+      <button type="button" data-pane="nav" aria-current="false"><i data-icon="panel"></i>Leiste</button>
       <button type="button" data-pane="data" aria-current="false"><i data-icon="cloud"></i>Daten & Cloud</button>
       <button type="button" data-pane="about" aria-current="false"><i data-icon="info"></i>Über die App</button>
     </nav>
@@ -1021,6 +1024,24 @@
           <label for="settings-radius">Kanten-Radius: <span id="settings-radius-val">8px</span></label>
           <input type="range" id="settings-radius" min="0" max="12" value="8" style="width:100%" oninput="document.getElementById('settings-radius-val').textContent=this.value+'px'; applyThemePreview()" />
         </div>
+      </div>
+</section>
+      </div>
+      <div class="set-pane" data-pane="nav">
+<section class="set-card">
+      <div class="settings-section">
+        <h3 class="set-card-title">Reihenfolge</h3>
+        <p class="field-hint-muted">So stehen die Menüpunkte in der Leiste links und auf dem Handy unten.</p>
+        <div id="settings-nav-order" class="nav-order-list"></div>
+      </div>
+</section>
+<section class="set-card">
+      <div class="settings-section">
+        <h3 class="set-card-title">Schnellzugriff</h3>
+        <p class="field-hint-muted">Klassen, die in der Leiste unter den Menüpunkten stehen. Für jede wählst du, ob sie den Sitzplan oder die Klassenansicht öffnet. Auf dem Handy ist dafür kein Platz.</p>
+        <div id="settings-quick-list" class="nav-order-list"></div>
+        <select id="settings-quick-add" class="form-input settings-quick-add" aria-label="Klasse zum Schnellzugriff hinzufügen"></select>
+        <p id="settings-quick-hint" class="field-hint-muted hidden">Höchstens 8 Klassen, sonst wird die Leiste zu lang.</p>
       </div>
 </section>
       </div>
@@ -1669,13 +1690,13 @@
   </div>
 
   <script src="lib/crypto-js.min.js"></script>
-  <script src="crypto-helper.js?v=445"></script>
+  <script src="crypto-helper.js?v=448"></script>
   <script src="lib/firebase-app-compat.js"></script>
   <script src="lib/firebase-auth-compat.js"></script>
   <script src="lib/firebase-firestore-compat.js"></script>
-  <script src="firebase-config.js?v=445"></script>
-  <script src="sync-manager.js?v=445"></script>
-  <script src="sync-merge.js?v=445"></script>
-  <script src="app.js?v=445"></script>
+  <script src="firebase-config.js?v=448"></script>
+  <script src="sync-manager.js?v=448"></script>
+  <script src="sync-merge.js?v=448"></script>
+  <script src="app.js?v=448"></script>
 </body>
 </html>

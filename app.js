@@ -80,6 +80,8 @@ cards: '<rect x="3" y="3" width="8" height="8" rx="1"/><rect x="13" y="3" width=
   clock:        '<circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 14"/>',
   stopwatch:    '<circle cx="12" cy="13" r="8"/><line x1="12" y1="13" x2="15" y2="10"/><line x1="10" y1="2" x2="14" y2="2"/>',
   grid:         '<rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="3" x2="9" y2="21"/><line x1="15" y1="3" x2="15" y2="21"/>',
+  'arrow-up':   '<line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/>',
+  'arrow-down': '<line x1="12" y1="5" x2="12" y2="19"/><polyline points="19 12 12 19 5 12"/>',
   pin:          '<line x1="12" y1="17" x2="12" y2="22"/><path d="M5 17h14v-1.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V6h1a2 2 0 0 0 0-4H8a2 2 0 0 0 0 4h1v4.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24Z"/>',
   'calendar-x': '<rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><line x1="10" y1="14" x2="14" y2="18"/><line x1="14" y1="14" x2="10" y2="18"/>',
 };
@@ -317,6 +319,7 @@ function replaceDB(newDB) {
   renderTimetable();
   renderSubjectGroups();
   resetViewSelection();
+  renderNav();   // Reihenfolge und Schnellzugriff aus dem neuen Stand (AH48)
   if (typeof updateSyncUI === 'function') updateSyncUI();
 }
 
@@ -416,6 +419,7 @@ function switchView(name) {
   if (name === 'classes') renderSubjectGroups();
   if (name === 'timetable') renderTimetable();
   if (name === 'todos') renderTodos();   // Merkzettel (AH18)
+  markNavActive();   // Schnellzugriff statt Menüpunkt markieren, wenn er passt (AH48)
 }
 document.querySelectorAll('.nav-item[data-view]').forEach(btn => {
   btn.addEventListener('click', () => switchView(btn.dataset.view));
@@ -3056,6 +3060,10 @@ function deleteGroup(id) {
     if (slotIds.has(key.slice(0, key.lastIndexOf('_')))) delete db.lessonData[key];
   });
   todosOf().forEach(t => { if (t.groupId === id) delete t.groupId; });   // Merkzettel bleibt, nur ohne Klasse (AH18)
+  if (Array.isArray(db.settings.quickLinks)) {   // Schnellzugriff der Klasse mit weg (AH48)
+    db.settings.quickLinks = db.settings.quickLinks.filter(l => !(l && l.groupId === id));
+    if (!db.settings.quickLinks.length) delete db.settings.quickLinks;
+  }
   saveDB();
   if (currentSeatingGroupId === id) currentSeatingGroupId = '';
   if (currentGroupId === id || currentOverviewGroupId === id) {
@@ -3065,6 +3073,7 @@ function deleteGroup(id) {
     renderSubjectGroups();
   }
   renderTimetable();
+  renderNav();
   showToast('Klasse gelöscht');
 }
 
@@ -4785,6 +4794,159 @@ function exportCurrentStudent() {
   showToast('Schülerakte wurde heruntergeladen ✓');
 }
 
+// ─── Leiste anordnen und Schnellzugriff (AH48) ─────────────────────────────
+// db.settings.navOrder: Reihenfolge der Menüpunkte (fehlt = Standard), db.settings.quickLinks: [{ id, groupId,
+// target: 'seating'|'students' }] Klassen unter den Menüpunkten. Beides gehört zu den Vorlieben (Abgleich: Gerät gewinnt).
+const NAV_VIEWS = ['dashboard', 'timetable', 'classes', 'seating', 'todos'];
+const NAV_NAMES = { dashboard: 'Dashboard', timetable: 'Stundenplan', classes: 'Klassen', seating: 'Sitzplan', todos: 'Merkzettel' };
+const NAV_ICONS = { dashboard: 'cards', timetable: 'calendar', classes: 'classes', seating: 'seating', todos: 'todo' };
+const QUICK_MAX = 8;
+const QUICK_TARGETS = { seating: 'Sitzplan', students: 'Klassenansicht' };
+const QUICK_SHORT = { seating: 'Sitzplan', students: 'Klasse' };   // in der Leiste ist „Klassenansicht“ zu lang
+// Unbekannte Punkte fallen weg, fehlende (z. B. neue einer späteren Version) kommen hinten dran
+function navOrder(order = db.settings.navOrder) {
+  const saved = Array.isArray(order) ? order.filter(v => NAV_VIEWS.includes(v)) : [];
+  return [...new Set([...saved, ...NAV_VIEWS])];
+}
+// Nur gültige Einträge, deren Klasse es noch gibt (Sync, alte Daten); legt nichts an
+function quickLinksOf(list = db.settings.quickLinks) {
+  return (Array.isArray(list) ? list : [])
+    .filter(l => l && typeof l === 'object' && db.groups.some(g => g.id === l.groupId))
+    .map(l => ({ id: l.id || uid(), groupId: l.groupId, target: l.target === 'seating' ? 'seating' : 'students' }))
+    .slice(0, QUICK_MAX);
+}
+// „7b Mathe“; das Fach nur, wenn es die Klasse mehrfach gibt (wie im Sitzplan-Menü)
+function quickGroupName(g, always = false) {
+  const twin = db.groups.some(x => x !== g && x.className === g.className);
+  return { name: g.className, subject: (always || twin) ? (g.subject || '') : '' };
+}
+function renderNav() {
+  const box = document.querySelector('#sidebar .nav-items');
+  const quick = document.getElementById('nav-quick');
+  if (!box || !quick) return;
+  navOrder().forEach(v => { const el = document.getElementById('nav-' + v); if (el) box.insertBefore(el, quick); });
+  const links = quickLinksOf();
+  quick.innerHTML = '';
+  links.forEach(link => {
+    const g = db.groups.find(x => x.id === link.groupId);
+    const { subject } = quickGroupName(g);
+    const label = `${[g.className, g.subject].filter(Boolean).join(' ')}: ${QUICK_TARGETS[link.target]}`;
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'nav-item nav-quick-item';
+    b.dataset.group = g.id;
+    b.dataset.target = link.target;
+    b.setAttribute('aria-label', label);
+    b.title = label;
+    b.innerHTML = `<span class="nq-chip" style="--card-color:${escHtml(safeColor(g.color))}">${escHtml(g.className)}</span>`
+      + `<span class="nq-label">${QUICK_SHORT[link.target]}${subject ? ` <small>${escHtml(subject)}</small>` : ''}</span>`
+      + icon(link.target === 'seating' ? 'seating' : 'classes').replace('class="ico"', 'class="ico nq-kind"');   // eingeklappt: wohin der Knopf führt
+    b.onclick = () => openQuickLink(link);
+    quick.appendChild(b);
+  });
+  if (!links.length && db.groups.length) {
+    quick.innerHTML = `<button type="button" class="nav-item nav-quick-add" aria-label="Klasse in der Leiste anheften" title="Klasse in der Leiste anheften">${icon('plus')}<span>Klasse anheften</span></button>`;
+    quick.querySelector('button').onclick = () => openNavSettings();
+  }
+  markNavActive();
+}
+function openQuickLink(link) {
+  if (!db.groups.some(g => g.id === link.groupId)) { showToast('Diese Klasse gibt es nicht mehr', 'error'); renderNav(); return; }
+  if (link.target === 'seating') openSeatingForGroup(link.groupId);
+  else { leaveLessonModal(); openGroupStudents(link.groupId); }
+}
+function openNavSettings() {
+  openSettings();
+  showSettingsPane('nav');
+}
+// Markiert ist genau ein Punkt: der Schnellzugriff, wenn er zur offenen Klasse passt, sonst der Menüpunkt
+function markNavActive() {
+  const view = (document.querySelector('.view.active')?.id || '').replace('view-', '');
+  const gid = view === 'seating' ? currentSeatingGroupId : view === 'students' ? currentGroupId : '';
+  const target = view === 'seating' ? 'seating' : 'students';
+  let hit = null;
+  document.querySelectorAll('#nav-quick .nav-quick-item').forEach(b => {
+    const on = !hit && !!gid && b.dataset.group === gid && b.dataset.target === target;
+    if (on) hit = b;
+    b.classList.toggle('active', on);
+    if (on) b.setAttribute('aria-current', 'page'); else b.removeAttribute('aria-current');
+  });
+  const navView = view === 'students' ? 'classes' : view;
+  document.querySelectorAll('.nav-item[data-view]').forEach(n => n.classList.toggle('active', !hit && n.dataset.view === navView));
+}
+
+// Einstellungen „Leiste“: Arbeitskopie wie bei Blöcken und Ferien, erst „Speichern“ übernimmt sie
+let navDraft = { order: [], links: [] };
+function fillNavEditor() {
+  navDraft = { order: navOrder(), links: quickLinksOf().map(l => ({ ...l })) };
+  renderNavEditor();
+}
+function moveButtons(name, i, len) {
+  return `<button type="button" class="btn-icon" data-move="-1" aria-label="${escHtml(name)} nach oben"${i === 0 ? ' disabled' : ''}>${icon('arrow-up')}</button>`
+    + `<button type="button" class="btn-icon" data-move="1" aria-label="${escHtml(name)} nach unten"${i === len - 1 ? ' disabled' : ''}>${icon('arrow-down')}</button>`;
+}
+function moveInList(list, i, dir) {
+  const j = i + dir;
+  if (j < 0 || j >= list.length) return;
+  [list[i], list[j]] = [list[j], list[i]];
+  renderNavEditor();
+}
+function renderNavEditor() {
+  const order = document.getElementById('settings-nav-order');
+  const quick = document.getElementById('settings-quick-list');
+  const add = document.getElementById('settings-quick-add');
+  if (!order || !quick || !add) return;
+  order.innerHTML = '';
+  navDraft.order.forEach((v, i) => {
+    const row = document.createElement('div');
+    row.className = 'nav-order-row';
+    row.dataset.view = v;
+    const navSvg = document.querySelector(`#nav-${v} svg`);   // dasselbe Symbol wie in der Leiste
+    row.innerHTML = `${navSvg ? navSvg.outerHTML.replace('<svg', '<svg class="ico" aria-hidden="true"') : icon(NAV_ICONS[v])}<span class="quick-name">${NAV_NAMES[v]}</span>${moveButtons(NAV_NAMES[v], i, navDraft.order.length)}`;
+    row.querySelectorAll('[data-move]').forEach(b => { b.onclick = () => moveInList(navDraft.order, navDraft.order.indexOf(v), +b.dataset.move); });
+    order.appendChild(row);
+  });
+  quick.innerHTML = '';
+  navDraft.links.forEach((link, i) => {
+    const g = db.groups.find(x => x.id === link.groupId);
+    if (!g) return;
+    const name = [g.className, g.subject].filter(Boolean).join(' ');
+    const row = document.createElement('div');
+    row.className = 'nav-order-row quick-row';
+    row.innerHTML = `<span class="nq-chip" style="--card-color:${escHtml(safeColor(g.color))}">${escHtml(g.className)}</span>`
+      + `<span class="quick-name">${escHtml(name)}</span>`
+      + `<select class="form-input quick-target" aria-label="${escHtml(name)} öffnet">${Object.entries(QUICK_TARGETS).map(([k, t]) =>
+        `<option value="${k}"${k === link.target ? ' selected' : ''}>${t}</option>`).join('')}</select>`
+      + moveButtons(name, i, navDraft.links.length)
+      + `<button type="button" class="btn-icon quick-remove" aria-label="${escHtml(name)} aus dem Schnellzugriff entfernen">${icon('x-circle')}</button>`;
+    row.querySelector('select').onchange = e => { link.target = e.target.value === 'seating' ? 'seating' : 'students'; };
+    row.querySelectorAll('[data-move]').forEach(b => { b.onclick = () => moveInList(navDraft.links, navDraft.links.indexOf(link), +b.dataset.move); });
+    row.querySelector('.quick-remove').onclick = () => { const k = navDraft.links.indexOf(link); if (k >= 0) { navDraft.links.splice(k, 1); renderNavEditor(); } };
+    quick.appendChild(row);
+  });
+  const full = navDraft.links.length >= QUICK_MAX;
+  const sorted = [...db.groups].sort((a, b) => a.className.localeCompare(b.className, undefined, { numeric: true }) || (a.subject || '').localeCompare(b.subject || ''));
+  add.innerHTML = `<option value="">Klasse hinzufügen …</option>` + sorted.map(g =>
+    `<option value="${escHtml(g.id)}">${escHtml([g.className, g.subject].filter(Boolean).join(' '))}</option>`).join('');
+  add.value = '';
+  add.disabled = full;
+  add.onchange = () => addQuickLinkDraft(add);   // per Eigenschaft, damit der Test sie auslösen kann (Regel 18)
+  document.getElementById('settings-quick-hint')?.classList.toggle('hidden', !full);
+}
+function addQuickLinkDraft(sel) {
+  const g = db.groups.find(x => x.id === sel.value);
+  sel.value = '';
+  if (!g || navDraft.links.length >= QUICK_MAX) return;
+  navDraft.links.push({ id: uid(), groupId: g.id, target: 'seating' });   // meist will man in der Stunde in den Sitzplan
+  renderNavEditor();
+}
+function saveNavSettings() {
+  const order = navOrder(navDraft.order);
+  if (order.join() === NAV_VIEWS.join()) delete db.settings.navOrder; else db.settings.navOrder = order;   // Standard nicht speichern
+  const links = navDraft.links.filter(l => db.groups.some(g => g.id === l.groupId)).map(l => ({ id: l.id, groupId: l.groupId, target: l.target }));
+  if (links.length) db.settings.quickLinks = links; else delete db.settings.quickLinks;
+}
+
 function toggleSidebar(e) {
   if (e) e.stopPropagation();
   const sidebar = document.getElementById('sidebar');
@@ -4876,6 +5038,7 @@ function fillSettingsForm() {
   renderBlocksEditor();
   holidaysDraft = (Array.isArray(db.settings.holidays) ? db.settings.holidays : []).filter(h => h && typeof h === 'object').map(h => ({ ...h }));
   renderHolidaysEditor();
+  fillNavEditor();   // Leiste (AH48)
   document.getElementById('settings-federal-state').value = FEDERAL_STATES[db.settings.federalState] ? db.settings.federalState : '';
   settingsSnapshot = settingsFormState(); // Vergleich für „Änderungen verwerfen?“ (BUGS S7)
 }
@@ -5298,9 +5461,11 @@ function saveSettings() {
   else delete db.settings.holidays;
   const state = document.getElementById('settings-federal-state').value;
   if (FEDERAL_STATES[state]) db.settings.federalState = state; else delete db.settings.federalState;
+  saveNavSettings();
 
   saveDB();
   closeModal('modal-settings');
+  renderNav();
   // Offene Ansicht mit den neuen Einstellungen zeichnen (Warnschwellen, Sortierung, Namensformat; BUGS M1/O4)
   renderScheduleViews();
   if (document.getElementById('view-students')?.classList.contains('active') && currentGroupId) refreshStudentViews(currentGroupId);
@@ -5569,6 +5734,7 @@ function renderSeatingGroupSelect() {
 
   // Klasse als Überschrift, das Fach klein daneben (AH50; ersetzt „7b Mathe“ bei Zwillingen, BUGS N9)
   const activeGroup = db.groups.find(g => g.id === currentSeatingGroupId);
+  if (document.getElementById('view-seating')?.classList.contains('active')) markNavActive();   // Schnellzugriff (AH48)
   const subject = document.getElementById('seating-group-subject');
   label.textContent = activeGroup ? activeGroup.className : 'Klasse';
   if (subject) subject.textContent = activeGroup ? (activeGroup.subject || '') : '';
@@ -9457,6 +9623,7 @@ if (typeof process === 'undefined' || process.env.NODE_ENV !== 'test') {
   updateAppliedThemeFromDB();
   renderTimetable();
   renderSubjectGroups();
+  renderNav();   // Reihenfolge und Schnellzugriff (AH48)
   initAllCustomDropdowns();
   if (shouldStartInSeating()) switchView('seating'); // im Unterricht gleich der Sitzplan der laufenden Klasse
   setTimeout(() => showWhatsNewIfDue(), 800); // nach dem ersten Zeichnen, damit die App dahinter schon steht
@@ -11387,7 +11554,7 @@ function settingsFormState() {
   const fields = [...document.querySelectorAll('#modal-settings input, #modal-settings select')]
     .filter(el => el.id && !el.id.startsWith('sync-') && el.type !== 'file')
     .map(el => el.id + '=' + (el.type === 'checkbox' ? el.checked : el.value));
-  return JSON.stringify([fields, blocksDraft, holidaysDraft, currentThemeBg, currentThemeAccent, currentThemeMode]);
+  return JSON.stringify([fields, blocksDraft, holidaysDraft, currentThemeBg, currentThemeAccent, currentThemeMode, navDraft]);
 }
 
 // Starte Sync-Initialisierung beim Laden
