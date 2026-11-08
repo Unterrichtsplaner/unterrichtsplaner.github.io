@@ -1,10 +1,10 @@
 // H10: Einheitliche Linien-Icons statt Emojis in Knöpfen, Reitern und Überschriften.
-// Ausnahme: 😊😐☹️ bei der Mitarbeit – dort sind die Smileys die Information selbst.
+// Mitarbeit zeigt seit AH52 Zeichen (++ + − −−) statt Smileys.
 const { loadApp, app, showGradesOnOpen } = require('./helpers/load-app');
 
-// Erlaubt: Mitarbeit-Smileys (+ Variantenzeichen), „kein Wert“ ➖, Schließen-Kreuz ✕, Häkchen ✓, Stift ✎
+// Erlaubt: „kein Wert“ ➖, Schließen-Kreuz ✕, Häkchen ✓, Stift ✎ (Smileys nur noch in Texten wie „Das ist neu“)
 const EMOJI = /\p{Extended_Pictographic}/u;
-const ALLOWED = new Set(['😊', '😐', '☹', '➖', '✕', '✓', '✎']);
+const ALLOWED = new Set(['➖', '✕', '✓', '✎']);
 function emojisIn(text) {
   return [...text].filter(ch => EMOJI.test(ch) && !ALLOWED.has(ch));
 }
@@ -38,13 +38,13 @@ beforeAll(() => {
 });
 
 describe('H10: Linien-Icons statt Emojis', () => {
-  it('statisches Markup (Reiter, Knöpfe, Überschriften) enthält keine Emojis außer der Mitarbeit', () => {
+  it('statisches Markup (Reiter, Knöpfe, Überschriften) enthält keine Emojis', () => {
     expect(offenders(document.body)).toEqual([]);
   });
 
-  it('die Mitarbeit-Smileys im Sitzplan bleiben', () => {
-    const smileys = [...document.querySelectorAll('#modal-seating-student button')].map(b => b.textContent.trim());
-    expect(smileys).toEqual(expect.arrayContaining(['😊', '😐', '☹️']));
+  it('Mitarbeit im Sitzplan als Zeichen mit Wort (AH52)', () => {
+    const signs = [...document.querySelectorAll('#modal-seating-student .sw-faces .part-sign')].map(b => b.textContent.trim());
+    expect(signs).toEqual(['++', '+', '−', '−−']);
   });
 
   it('alle Icon-Platzhalter sind ersetzt und verweisen auf vorhandene Icons', () => {
@@ -70,10 +70,10 @@ describe('H10: Linien-Icons statt Emojis', () => {
     expect(offenders(document.body)).toEqual([]);
   });
 
-  it('Notentabelle Mitarbeit zeigt weiter Smileys', () => {
+  it('Notentabelle Mitarbeit zeigt Zeichen statt Smileys (AH52)', () => {
     app('openGroupStudents("g1")');
     app('switchClassDashboardTab("participation")');
-    expect(document.getElementById('overview-content').textContent).toContain('😊');
+    expect(document.querySelector('#overview-content .ov-part-btn .part-sign').textContent).toBe('+');
     expect(offenders(document.body)).toEqual([]);
   });
 });

@@ -40,7 +40,7 @@
       }
     })();
   </script>
-  <link rel="stylesheet" href="style.css?v=449" />
+  <link rel="stylesheet" href="style.css?v=450" />
   <script>
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
@@ -1423,9 +1423,10 @@
         <section class="sw-card sw-card-part">
           <div class="sw-label">Mitarbeit</div>
           <div class="sw-faces">
-            <button type="button" data-action="positive" aria-pressed="false" aria-label="Gute Mitarbeit" onclick="addParticipationSmiley('positive')">😊</button>
-            <button type="button" data-action="neutral" aria-pressed="false" aria-label="Mittlere Mitarbeit" onclick="addParticipationSmiley('neutral')">😐</button>
-            <button type="button" data-action="negative" aria-pressed="false" aria-label="Schwache Mitarbeit" onclick="addParticipationSmiley('negative')">☹️</button>
+            <button type="button" data-action="excellent" aria-pressed="false" aria-label="Mitarbeit sehr gut" onclick="addParticipationSmiley('excellent')"><span class="part-sign p4">++</span><small>sehr gut</small></button>
+            <button type="button" data-action="positive" aria-pressed="false" aria-label="Mitarbeit gut" onclick="addParticipationSmiley('positive')"><span class="part-sign p3">+</span><small>gut</small></button>
+            <button type="button" data-action="neutral" aria-pressed="false" aria-label="Mitarbeit wenig" onclick="addParticipationSmiley('neutral')"><span class="part-sign p2">−</span><small>wenig</small></button>
+            <button type="button" data-action="negative" aria-pressed="false" aria-label="Mitarbeit schwach" onclick="addParticipationSmiley('negative')"><span class="part-sign p1">−−</span><small>schwach</small></button>
           </div>
         </section>
         <section class="sw-card sw-card-grade">
@@ -1690,13 +1691,13 @@
   </div>
 
   <script src="lib/crypto-js.min.js"></script>
-  <script src="crypto-helper.js?v=449"></script>
+  <script src="crypto-helper.js?v=450"></script>
   <script src="lib/firebase-app-compat.js"></script>
   <script src="lib/firebase-auth-compat.js"></script>
   <script src="lib/firebase-firestore-compat.js"></script>
-  <script src="firebase-config.js?v=449"></script>
-  <script src="sync-manager.js?v=449"></script>
-  <script src="sync-merge.js?v=449"></script>
-  <script src="app.js?v=449"></script>
+  <script src="firebase-config.js?v=450"></script>
+  <script src="sync-manager.js?v=450"></script>
+  <script src="sync-merge.js?v=450"></script>
+  <script src="app.js?v=450"></script>
 </body>
 </html>

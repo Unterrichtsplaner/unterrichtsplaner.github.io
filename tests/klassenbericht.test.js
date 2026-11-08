@@ -62,7 +62,7 @@ describe('Daten je Klasse', () => {
     const d = app('classReportData(db.groups[0])');
     expect(d.rows.map(r => r.name)).toEqual(['Adam, Ben', 'Becker, Anna']);   // Sortierung wie eingestellt
     const anna = d.rows[1];
-    expect(anna).toMatchObject({ f: 1, e: 1, z: 1, pos: 1, neg: 1, neu: 0, ha: 1 });
+    expect(anna).toMatchObject({ f: 1, e: 1, z: 1, part: [0, 1, 0, 1], ha: 1 });   // Mitarbeit je Stufe (AH52)
     expect(anna.avg).toBe(app('calculateStudentAverage(db.students.g1[0], "g1")'));
     expect(d.cols.map(c => app('reportColTitle')(c).join(' '))).toEqual(['05.10. KA 1 KA', '12.10. Vokabeln Test', '20.10. Mdl']);
     expect(anna.grades).toEqual(['2.0', '2-', '1.5']);
@@ -94,8 +94,8 @@ describe('Excel (.xlsx)', () => {
     const s1 = files['xl/worksheets/sheet1.xml'].text;
     expect(s1).toContain('Klassen-Bericht 7a Mathe · Schuljahr 2026/27');
     expect(s1).toMatch(/<c r="A5" t="inlineStr"[^>]*><is><t xml:space="preserve">Adam, Ben<\/t>/);
-    expect(s1).toMatch(/<c r="L6"><v>2<\/v><\/c>/);                       // KA 1 bei Anna: Zahl
-    expect(s1).toMatch(/<c r="M6" t="inlineStr"><is><t xml:space="preserve">2-<\/t>/); // Tendenz bleibt Text
+    expect(s1).toMatch(/<c r="M6"><v>2<\/v><\/c>/);                       // KA 1 bei Anna: Zahl (AH52: eine Mitarbeit-Spalte mehr)
+    expect(s1).toMatch(/<c r="N6" t="inlineStr"><is><t xml:space="preserve">2-<\/t>/); // Tendenz bleibt Text
     expect(s1).toMatch(/<c r="E6"><v>1<\/v><\/c>/);                       // Fehlt unentschuldigt
     expect(s1).toContain('Klassenschnitt');
     expect(files['xl/worksheets/sheet2.xml'].text).toContain('Ø Gesamt (Punkte)');

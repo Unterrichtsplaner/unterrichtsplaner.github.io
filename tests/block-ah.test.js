@@ -213,8 +213,8 @@ describe('AH21: Handy-Menüleiste unten', () => {
 describe('AH46: Das ist neu (Nov. 2026, dritte Runde)', () => {
   it('neue Kennung, 5 Punkte zu den sichtbaren Änderungen, alle Symbole vorhanden', () => {
     const w = app('WHATS_NEW');
-    expect(w.id).toBe('2026-11-4');   // seit AH50/AH48 vierte Runde
-    expect(w.items.map(i => i.title)).toEqual(['Sitzplan', 'Timer und Stoppuhr', 'Leiste links', 'Klassenlehrer']);
+    expect(w.id).toBe('2026-11-5');   // seit AH52 fünfte Runde
+    expect(w.items.map(i => i.title)).toEqual(['Mitarbeit in vier Stufen', 'Sitzplan', 'Timer und Stoppuhr', 'Leiste links', 'Klassenlehrer']);
     w.items.forEach(i => expect(app('ICONS')[i.icon], i.icon).toBeTruthy());
   });
 });

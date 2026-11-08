@@ -40,9 +40,9 @@ describe('kompakt', () => {
     expect(document.getElementById('seating-student-sub').textContent).toMatch(/7b · Mathe · Mi\.?,? 04\.11\./);
     expect(M().querySelector('.modal-header').textContent).not.toMatch(/Zum Profil/);
   });
-  it('oben: drei Gesichter und vier gleich ruhige Knöpfe (keine Farben inline)', () => {
+  it('oben: vier Mitarbeit-Stufen und vier gleich ruhige Knöpfe (keine Farben inline)', () => {
     openAnna();
-    expect([...M().querySelectorAll('.sw-faces [data-action]')].map(b => b.dataset.action)).toEqual(['positive', 'neutral', 'negative']);
+    expect([...M().querySelectorAll('.sw-faces [data-action]')].map(b => b.dataset.action)).toEqual(['excellent', 'positive', 'neutral', 'negative']);   // AH52
     const seg = [...M().querySelectorAll('.sw-seg [data-action]')];
     expect(seg.map(b => b.textContent.trim())).toEqual(['Fehlt', 'Entschuldigt', 'Zu spät', 'HA fehlt']);
     expect(seg.map(b => b.dataset.action)).toEqual(['abwesend', 'entschuldigt', 'zuspät', 'homework']);

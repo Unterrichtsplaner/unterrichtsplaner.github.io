@@ -244,7 +244,7 @@ describe('Karten: Verlauf, Hinweis, Geburtstag', () => {
     app('toggleSeatingTrend()');
     expect(app('seatingShowGrades')).toBe(false);
     const dots = [...card('a').querySelectorAll('.sc-trend i')].map(i => i.className);
-    expect(dots).toEqual(['t-positive', 't-positive', 't-neutral', 't-positive', 't-negative', 't-positive']);
+    expect(dots).toEqual(['t-positive p3', 't-positive p3', 't-neutral p2', 't-positive p3', 't-negative p1', 't-positive p3']);   // AH52: Balkenhöhe je Stufe
     expect(card('b').querySelector('.sc-trend-empty')).toBeTruthy();
     expect(document.getElementById('btn-seating-trend').getAttribute('aria-pressed')).toBe('true');
     openSeating();

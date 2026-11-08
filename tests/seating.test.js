@@ -173,7 +173,7 @@ describe('H9: Datum nur Mo–Fr', () => {
   });
 });
 
-// Regression aus F1: Die Mitarbeit-Markierung ist fertiges HTML (<span style="color:…">+</span>) und wurde
+// Regression aus F1: Die Mitarbeit-Markierung ist fertiges HTML (<span class="part-sign …">+</span>) und wurde
 // zusätzlich escaped → auf der Karte stand der Quelltext statt eines farbigen „+“.
 describe('Mitarbeit-Markierung auf der Sitzplan-Karte', () => {
   const badge = () => {
@@ -181,13 +181,13 @@ describe('Mitarbeit-Markierung auf der Sitzplan-Karte', () => {
     return document.querySelector('.seating-card[data-id="s1"] .sc-part');
   };
 
-  it.each([['positive', '+', 'success'], ['neutral', '=', 'warning'], ['negative', '-', 'danger']])(
-    '%s zeigt „%s“ farbig, nicht als Quelltext', (value, sign, color) => {
+  it.each([['excellent', '++', 'p4'], ['positive', '+', 'p3'], ['neutral', '−', 'p2'], ['negative', '−−', 'p1']])(   // AH52
+    '%s zeigt „%s“ farbig, nicht als Quelltext', (value, sign, tone) => {
       anna().participation.push({ id: 'p1', date: '2026-09-10', value });
       const b = badge();
       expect(b.textContent.trim()).toBe(sign);
       expect(b.textContent).not.toContain('<span');
-      expect(b.querySelector('span').getAttribute('style')).toContain(`var(--${color})`);
+      expect(b.querySelector('span').className).toBe(`part-sign ${tone}`);
     });
 
   it('unbekannter Wert (z. B. aus Import/Sync) wird weiter escaped', () => {

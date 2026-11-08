@@ -94,11 +94,11 @@ describe('AH24 a: einheitlich und leise', () => {
     const empty = row('Ben').querySelectorAll('.ov-part-btn')[1];
     expect(empty.querySelector('.ov-empty').textContent).toBe('–');
     expect(empty.getAttribute('aria-label')).toMatch(/Ben X.*keine/);
-    expect(heads()[1].textContent).toBe('+ / = / –');
+    expect(heads()[1].textContent).toBe('++/+/−/−−');   // AH52 (Abstände per CSS)
     const sum = row('Anna').querySelectorAll('td')[1];
-    expect(sum.textContent.replace(/\s+/g, ' ').trim()).toBe('1 / 0 / 1');
+    expect(sum.textContent.replace(/\s+/g, ' ').trim()).toBe('0 / 1 / 0 / 1');
     expect(sum.querySelector('.n-bad').textContent).toBe('1');
-    expect(row('Ben').querySelectorAll('td')[1].querySelector('.n-bad')).toBeNull();   // 0 negativ: nicht rot
+    expect(row('Ben').querySelectorAll('td')[1].querySelector('.n-bad')).toBeNull();   // 0 schwach: nicht rot
   });
   it('Anwesenheit: Zusammenfassung „F / E“ wie im Reiter Schüler, E nicht grün', () => {
     app('openGroupStudents("g1", "attendance")');

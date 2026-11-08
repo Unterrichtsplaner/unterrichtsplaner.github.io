@@ -133,12 +133,12 @@ describe('e: Fehlzeiten und Hausaufgaben per Antippen', () => {
 describe('e: Mitarbeit mit kleiner Auswahl', () => {
   const open = (i = 0) => app(`openParticipationPicker(document.querySelectorAll("#overview-content tbody tr")[1].querySelectorAll(".ov-part-btn")[${i}], "b", "2026-10-13", "")`);
   const pop = () => document.getElementById('ov-part-pop');
-  it('Antippen öffnet 😊 😐 ☹️ leer; Wahl trägt ein und schließt', () => {
+  it('Antippen öffnet ++ + − −− leer; Wahl trägt ein und schließt', () => {
     app('openGroupStudents("g1", "participation")');
     expect(row('Ben').querySelector('.ov-part-btn').getAttribute('onclick')).toContain('openParticipationPicker(this,');
     open();
-    expect([...pop().querySelectorAll('button')].map(b => b.getAttribute('aria-label'))).toEqual(['gut', 'neutral', 'schlecht', 'leer']);
-    pop().querySelectorAll('button')[1].click();
+    expect([...pop().querySelectorAll('button')].map(b => b.getAttribute('aria-label'))).toEqual(['sehr gut', 'gut', 'wenig', 'schwach', 'leer']);   // AH52
+    pop().querySelectorAll('button')[2].click();
     expect(stu('b').participation).toEqual([expect.objectContaining({ date: '2026-10-13', value: 'neutral' })]);
     expect(pop()).toBeNull();
   });
@@ -146,7 +146,7 @@ describe('e: Mitarbeit mit kleiner Auswahl', () => {
     app('db.students.g1[1].participation = [{ id: "p", date: "2026-10-13", label: "", value: "positive" }]; openGroupStudents("g1", "participation")');
     open();
     expect(pop().querySelector('button.on').getAttribute('aria-label')).toBe('gut');
-    pop().querySelectorAll('button')[3].click();
+    pop().querySelectorAll('button')[4].click();
     expect(stu('b').participation).toEqual([]);
     undo();
     expect(stu('b').participation.length).toBe(1);

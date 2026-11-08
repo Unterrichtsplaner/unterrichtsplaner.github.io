@@ -60,7 +60,7 @@ describe('L1: Tabellen aktualisieren sich nach Schnellbewertung und Profil', () 
     showTab('participation');
     app(`openSeatingStudentModal("s1", "g1", "${MON}")`);
     app('addParticipationSmiley("positive")');
-    expect(document.getElementById('overview-content').textContent).toContain('😊');
+    expect([...document.querySelectorAll('#overview-content .ov-part-btn')].map(b => b.textContent.trim())).toContain('+');   // AH52: Zeichen statt 😊
   });
 
   it('Fehlzeit im Profil löschen aktualisiert die Tabelle', () => {

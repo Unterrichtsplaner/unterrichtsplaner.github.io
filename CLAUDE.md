@@ -69,7 +69,7 @@ db = {
   students: { '<groupId>': [{ id, firstName, lastName, notes /*Hinweis, im Sitzplan als Symbol (AD2)*/, importantNote? /*wichtiger Hinweis, rotes Symbol (AD17)*/, birthday? /*YYYY-MM-DD (AD6)*/,
              grades: [{ type, value /*String! '2.0', '2-' (Tendenz), '+' (zählt nicht)*/, date, note }],
              attendance: [{ id?, date, type, note }],
-             participation: [{ id?, date, value, label? }],
+             participation: [{ id?, date, value /*'excellent'|'positive'|'neutral'|'negative' = ++ + − −− (AH52)*/, label? }],
              homework: [{ id, date, note }],
              studentNotes: [{ text, date }] }] },
   supervisions: [{ id, day, start, end /*HH:MM*/, place, recurring, startDate?, specificDate? }], // Pausenaufsicht (AA4), wie eine Stunde → slotOccursOn
@@ -129,7 +129,7 @@ Datumswerte sind Strings `YYYY-MM-DD` in **lokaler** Zeit (`formatDate()`). Nie 
 19. **Event-Handler, die der Test auslösen soll** (z. B. `toggle` an `<details>`), nach dem `innerHTML` per `addEventListener` anhängen, nicht als Inline-Attribut. Ansichtszustand wie „Gruppe aufgeklappt“ in einer Modul-Variable halten, nie in `db`.
 20. **Stundenplan hat zwei Modi:** unter 700 px (`isTimetableDayView()`) die Tagesansicht (`timetableDay`), sonst die Woche (`currentWeekOffset`). Wer das Datum ändert, geht über `setTimetableDay`/`navigateWeek`/`jumpToDate`, damit beide zusammenpassen. Zellen nur über `buildTimetableCell` bauen. Im Test Breite per `window.innerWidth = 400` setzen.
 21. **Zeitabhängige Anzeigen (laufende/nächste Stunde) bekommen die Uhrzeit als Parameter** (`timetableClock(now)`, `findNextLesson(now)`) und werden per Timer neu gezeichnet (`refreshTimetableClock`). Im Test `vi.useFakeTimers({ toFake: ['Date'] })` + `vi.setSystemTime(…)`. Texte mit „heute“ im Stunden-Fenster (fällig, fehlen) nur, wenn die Stunde wirklich heute ist.
-22. **Symbole nur als Linien-Icons aus `ICONS` (app.js):** in app.js `icon('name')`, in index.html `<i data-icon="name"></i>` (ersetzt `fillIcons()` beim Start). Keine Emojis in Knöpfen, Reitern, Überschriften; Ausnahme 😊😐☹️ bei der Mitarbeit. Texte in `alert`/`confirm`/Toasts sind davon ausgenommen (können kein SVG). `tests/icons.test.js` prüft das.
+22. **Symbole nur als Linien-Icons aus `ICONS` (app.js):** in app.js `icon('name')`, in index.html `<i data-icon="name"></i>` (ersetzt `fillIcons()` beim Start). Keine Emojis in Knöpfen, Reitern, Überschriften; die Mitarbeit zeigt Zeichen (Regel 94). Texte in `alert`/`confirm`/Toasts sind davon ausgenommen (können kein SVG). `tests/icons.test.js` prüft das.
 23. **Unlesbare gespeicherte Daten nie überschreiben.** `loadDB()` legt sie als `lehrerapp_v3_defekt_<Zeit>` ab und meldet das (`dbLoadFailure`); klappt die Kopie nicht, blockiert `persistDB()`, bis der Nutzer die Datei heruntergeladen hat.
 24. **Gewählte Daten/Ansichten verfallen über Nacht.** Ein im Sitzplan gewähltes Datum gilt nur am Tag der Wahl (`setSeatingDate`/`refreshSeatingDate`); wer Einträge mit einem gemerkten Datum anlegt, prüft vorher, ob inzwischen ein neuer Tag ist. Wer eine Ansicht gezielt für eine Klasse öffnet, übergibt sie (`openSeatingForGroup(groupId, dateStr)`), statt eine globale Variable zu setzen, die die Ansicht beim Öffnen wieder überschreibt.
 25. **Automatische Notiz-Zeilen (z. B. „… hat letzte Stunde unentschuldigt gefehlt“) mit vollem Namen schreiben und zeilenweise entfernen**, nie per `replace` auf dem ganzen Text; Eintragen und Entfernen über dieselben Hilfsfunktionen (`addAbsenceNote`/`removeAbsenceNote`).
@@ -223,6 +223,8 @@ Datumswerte sind Strings `YYYY-MM-DD` in **lokaler** Zeit (`formatDate()`). Nie 
 92. **Die Suche ist ein Knopf und sieht aus wie ein Menüpunkt** (AH47), nie wie ein Eingabefeld, denn sie öffnet nur das Suchfenster. Oben in der Leiste gibt es keinen Schriftzug; Einklappen ist der Menüpunkt `btn-sidebar-toggle` unten in `.nav-items` (auf dem Handy ausgeblendet, Regel 75), sein Name kommt aus `updateSidebarToggle`. Die Linie über „Einstellungen“ bleibt auf Höhe der Sitzplan-Leiste (AH6), darum gehört nichts Weiteres in `.sidebar-footer`.
 
 93. **Menüpunkte nur über `navOrder()`/`renderNav()` anordnen, Schnellzugriffe nur über `quickLinksOf()`** (überspringt kaputte Einträge und gelöschte Klassen, AH48). Welcher Punkt markiert ist, entscheidet `markNavActive()` (läuft am Ende von `switchView` und beim Klassenwechsel im Sitzplan): ein passender Schnellzugriff statt des Menüpunkts, nie beide. Ein neuer Menüpunkt gehört in `NAV_VIEWS`/`NAV_NAMES`; gespeicherte Reihenfolgen bekommen ihn von selbst hinten dran. Wer eine Klasse löscht, entfernt ihre Schnellzugriffe.
+
+94. **Mitarbeit hat vier Stufen, nur über `PART_LEVELS`** (AH52): gespeichert das Wort (`excellent`, `positive`, `neutral`, `negative`), angezeigt das Zeichen über `partSignHTML` (++ + − −−, Farbe je Stufe), gezählt über `partCounts`/`partCountsHTML` (nur „schwach“ rot), Wörter „sehr gut · gut · wenig · schwach“ überall gleich. Nie eigene Listen mit Werten oder Gesichtern anlegen; eine neue Stufe braucht auch einen Eintrag in `MERGE_FACE_WORDS`. Alte App-Versionen kennen `excellent` nicht: Werte nie umbenennen.
 
 ## Arbeitsablauf
 

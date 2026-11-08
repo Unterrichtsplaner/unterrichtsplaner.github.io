@@ -514,7 +514,7 @@ button.cr-name:focus-visible{outline:2px solid var(--accent);outline-offset:3px;
 .overview-table th.ov-today{color:var(--accent);box-shadow:inset 0 -2px 0 var(--accent);}   /* Spalte von heute */
 .overview-table td.ov-part-cell,.overview-table td.ov-cycle-cell,.overview-table td.ov-grade-cell{padding:0;text-align:center;}
 .ov-part-btn{display:flex;align-items:center;justify-content:center;width:100%;min-height:var(--control-h);padding:0;background:none;border:none;border-radius:var(--radius-sm);font-family:inherit;font-size:20px;color:inherit;cursor:pointer;}
-.ov-part-btn .ov-empty{font-size:16px;color:var(--text-muted);}   /* leere Mitarbeit: leiser Strich statt Emoji (Regel 22) */
+.ov-part-btn .ov-empty{font-size:16px;color:var(--text-muted);}   /* leere Mitarbeit: leiser Strich */
 .ov-name-text{display:block;overflow:hidden;text-overflow:ellipsis;}
 #overview-content{flex:1;overflow-y:auto;padding:var(--space-4) var(--page-x);container-type:inline-size;}
 /* Schmale Tabelle (Handy, Split View): Namen kürzen, damit Notenspalten Platz haben (BUGS I7) */
@@ -1167,17 +1167,15 @@ select option{background:var(--bg-secondary);}
 .seating-card .sc-mark .ico{width:13px;height:13px;margin:0;}
 .seating-card .sc-bday{color:var(--text-accent);}
 .seating-card .sc-missed{color:var(--warning);}
-.seating-card .sc-trend{display:flex;gap:var(--space-1);justify-content:center;margin-top:var(--space-1);}
-.seating-card .sc-trend i{width:8px;height:8px;border-radius:50%;display:block;}
-.seating-card .sc-trend .t-positive{background:var(--success);}
-.seating-card .sc-trend .t-neutral{background:var(--warning);}
-.seating-card .sc-trend .t-negative{background:var(--danger);}
+.seating-card .sc-trend{display:flex;gap:2px;align-items:flex-end;justify-content:center;height:14px;margin-top:var(--space-1);}   /* Balken: je höher, desto besser (AH52) */
+.seating-card .sc-trend i{width:6px;display:block;background:var(--part);}
+.seating-card .sc-trend .p4{height:14px;}.seating-card .sc-trend .p3{height:10px;}.seating-card .sc-trend .p2{height:6px;}.seating-card .sc-trend .p1{height:3px;}
 .seating-card .sc-trend-empty{font-size:11px;color:var(--text-muted);}
 .seating-card.tiny .sc-marks{top:3px;left:3px;}
 /* kleine Karten (Handy): Symbole als Punkte, sonst verdecken sie den Namen */
 .seating-card.tiny .sc-mark .ico{display:none;}
 .seating-card.tiny .sc-mark{display:block;width:5px;height:5px;border-radius:50%;background:currentColor;}
-.seating-card.tiny .sc-trend i{width:6px;height:6px;}
+.seating-card.tiny .sc-trend{height:10px;}.seating-card.tiny .sc-trend i{width:4px;}.seating-card.tiny .sc-trend .p4{height:10px;}.seating-card.tiny .sc-trend .p3{height:7px;}.seating-card.tiny .sc-trend .p2{height:4px;}.seating-card.tiny .sc-trend .p1{height:2px;}
 /* Schüler-Fenster: Hinweis */
 .seating-hint-block{margin-bottom:var(--space-4);}
 #seating-student-notes:not(:empty){margin-top:var(--space-2);}
@@ -1219,7 +1217,7 @@ button.date-chip{font-family:inherit;padding:0;}
 #sw-more.is-veiled [data-private]{display:none;}
 .sw-sec .entry-list{max-height:none;overflow:visible;gap:0;}
 /* Einträge als ruhige Zeilen statt Einzelkarten (AH28) */
-.entry-face{font-size:20px;line-height:1;min-width:26px;text-align:center;}
+.entry-face{font-size:16px;line-height:1;min-width:26px;text-align:center;}
 /* Notenrunde im Sitzplan (AH28) */
 .grade-round-bar{display:flex;align-items:center;gap:var(--space-3);flex-wrap:wrap;margin:var(--space-2) var(--space-5) 0;padding:var(--space-2) var(--space-3) var(--space-2) var(--space-4);box-sizing:border-box;background:var(--bg-card);border:1px solid var(--text-primary);border-radius:var(--radius-md);flex-shrink:0;}
 .grade-round-title{display:flex;align-items:center;gap:var(--space-1);font-size:14px;font-weight:600;color:var(--text-primary);}
@@ -1937,10 +1935,10 @@ button.sw-hint-text{cursor:pointer;}
 .sw-card-part{order:1;}.sw-card-att{order:2;}.sw-card-grade{order:3;}#sw-grade-slot{order:4;}.sw-card-note{order:5;}.sw-more-btn{order:6;}#sw-more{order:7;}
 #sw-grade-slot[hidden]{display:none;}
 .sw-label{font-size:12px;font-weight:600;color:var(--text-secondary);margin:0;}
-.sw-faces{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:var(--space-2);}
+.sw-faces{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:var(--space-2);}
 .sw-seg{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--space-2);}
 .sw-faces button,.sw-seg button,.sw-grade-btn,.sw-more-btn,.sw-chips button,.sw-grid button{box-sizing:border-box;min-height:var(--control-h);border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--bg-elevated);font-family:inherit;font-size:13px;font-weight:500;color:var(--text-primary);cursor:pointer;}
-.sw-faces button{font-size:20px;line-height:1;padding:0;}
+.sw-faces button{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:var(--space-1);line-height:1;padding:0;}
 .sw-seg button{padding:0 var(--space-2);}
 .sw-grade-btn{display:flex;align-items:center;justify-content:center;gap:var(--space-2);width:100%;padding:0 var(--space-3);}
 .sw-grade-btn[aria-expanded="true"]{border-color:var(--text-primary);}
@@ -2187,3 +2185,18 @@ input, textarea, [contenteditable="true"]{-webkit-user-select:text;user-select:t
   .quick-row + .quick-row{padding-top:var(--space-2);border-top:1px solid var(--border);}
 }
 /* Ende Leiste anordnen (AH48) */
+
+/* Mitarbeit in vier Stufen (AH52): Zeichen ++ + − −− in der Farbe der Stufe (hell/dunkel über --grade-*) */
+.part-sign{--part:var(--text-secondary);color:var(--part);font-weight:700;letter-spacing:1px;white-space:nowrap;}
+.p4{--part:var(--grade-1);}.p3{--part:var(--grade-2);}.p2{--part:var(--grade-3);}.p1{--part:var(--grade-5);}
+.sw-faces .part-sign{font-size:16px;}
+.sw-faces small{font-size:11px;font-weight:500;color:var(--text-secondary);}
+.sc-part{position:absolute;top:-6px;right:-6px;z-index:10;padding:0 var(--space-2);font-size:16px;line-height:1.2;background:var(--bg-elevated);border:2px solid var(--border);border-radius:var(--radius-sm);box-shadow:var(--shadow-sm);}
+/* Tabelle: Zeichen auf kleinem Feld, sonst laufen „++“ und „+“ ohne Spaltenlinien ineinander */
+.ov-part-btn .part-sign{display:grid;place-items:center;min-width:30px;height:24px;padding:0 var(--space-1);font-size:14px;border-radius:var(--radius-xs);background:color-mix(in srgb, var(--part) 15%, transparent);}
+.ov-part-pop button .part-sign{font-size:16px;}
+.ov-legend .part-sign{margin-right:2px;}
+.overview-table th.ov-part-head{white-space:nowrap;}
+.overview-table th.ov-part-head .sep{margin:0 2px;color:var(--text-muted);font-weight:400;}
+@container (max-width: 520px){.overview-table th.ov-part-head .sep{margin:0;}}
+/* Ende Mitarbeit (AH52) */

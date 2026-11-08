@@ -62,7 +62,7 @@ const MERGE_PARTS = { first: ' (1. Hälfte)', second: ' (2. Hälfte)' };
 const mergeSlotPlace = p => `${p.specificDate ? `${mergeShortDate(p.specificDate)}, ` : `${MERGE_WEEKDAYS[p.day] || ''}, `}${p.block}. Stunde${MERGE_PARTS[p.part] || ''}`;
 const MERGE_ATTENDANCE_WORDS = { abwesend: 'Fehlt', entschuldigt: 'Entschuldigt', 'zuspät': 'Zu spät' };
 const MERGE_DAY_TYPES = Object.keys(MERGE_ATTENDANCE_WORDS);
-const MERGE_FACE_WORDS = { positive: '😊 gut', neutral: '😐 mittel', negative: '☹️ schwach' };
+const MERGE_FACE_WORDS = { excellent: '++ sehr gut', positive: '+ gut', neutral: '− wenig', negative: '−− schwach' };   // Mitarbeit (AH52, wie PART_LEVELS)
 
 // Beschreibung der Daten: atomic = als Ganzes vergleichen ('ask' fragt, 'local' Gerät gewinnt still, 'max' größerer Wert),
 // text = zeilenweise, list = Liste mit Schlüssel, map = Objekt mit gleichartigen Werten, fields = bekannte Felder.

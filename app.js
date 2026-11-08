@@ -25,7 +25,7 @@ const APP_COLORS = [
 ];
 
 // ─── Icons ───────────────────────────────────────────────────────────────
-// Linien-Icons wie im Menü, keine Emojis in Knöpfen/Reitern (Ausnahme: 😊😐☹️ bei der Mitarbeit).
+// Linien-Icons wie im Menü, keine Emojis in Knöpfen/Reitern (Mitarbeit: Zeichen ++ + − −−, AH52).
 // index.html setzt Platzhalter <i data-icon="name"></i>, fillIcons() ersetzt sie beim Start.
 const ICONS = {
   student:      '<path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>',
@@ -88,6 +88,35 @@ cards: '<rect x="3" y="3" width="8" height="8" rx="1"/><rect x="13" y="3" width=
 function icon(name) {
   if (!ICONS[name]) throw new Error('Unbekanntes Icon: ' + name);
   return `<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[name]}</svg>`;
+}
+// ─── Mitarbeit in vier Stufen (BUGS AH52) ───────────────────────────────
+// Gespeichert wird das Wort (`value`), angezeigt das Zeichen. Die drei alten Werte behalten ihre Bedeutung,
+// nur „neutral“ heißt jetzt „wenig“; alte Einträge brauchen keine Umrechnung. Reihenfolge: beste zuerst.
+const PART_LEVELS = [
+  { value: 'excellent', sign: '++', word: 'sehr gut', tone: 4 },
+  { value: 'positive',  sign: '+',  word: 'gut',      tone: 3 },
+  { value: 'neutral',   sign: '−',  word: 'wenig',    tone: 2 },
+  { value: 'negative',  sign: '−−', word: 'schwach',  tone: 1 },
+];
+function partLevel(value) { return PART_LEVELS.find(l => l.value === value) || null; }
+// Zeichen als farbiges Feld; Unbekanntes (neuere App-Version) roh und escaped (Regel 3)
+function partSignHTML(value) {
+  const l = partLevel(value);
+  return l ? `<span class="part-sign p${l.tone}">${l.sign}</span>` : escHtml(value || '');
+}
+// Anzahl je Stufe, in der Reihenfolge von PART_LEVELS
+function partCounts(list) {
+  return PART_LEVELS.map(l => (list || []).filter(p => p && p.value === l.value).length);
+}
+// „2 / 3 / 1 / 0“ wie in den anderen Zusammenfassungen (Regel 76): nur „schwach“ rot
+function partCountsHTML(list) {
+  const c = partCounts(list), last = c.length - 1;
+  return c.map((n, i) => `<span${i === last && n ? ' class="n-bad"' : ''}>${n}</span>`).join(' <span class="sep">/</span> ');
+}
+// „Mitarbeit: 2 sehr gut, 3 gut, 1 wenig, 0 schwach“ (Titel, VoiceOver)
+function partCountsText(list) {
+  const c = partCounts(list);
+  return PART_LEVELS.map((l, i) => `${c[i]} ${l.word}`).join(', ');
 }
 function fillIcons(root) {
   root.querySelectorAll('[data-icon]').forEach(el => { el.outerHTML = icon(el.dataset.icon); });
@@ -3355,7 +3384,7 @@ function renderOverviewTable() {
     });
     const partDates = Array.from(partEventsMap.values()).sort((a,b) => a.date.localeCompare(b.date));
     
-    html += '<th class="ov-sum-col" title="Mitarbeit: positiv / neutral / negativ">+ / = / –</th>';
+    html += `<th class="ov-sum-col ov-part-head" title="Mitarbeit: ${PART_LEVELS.map(l => l.word).join(' / ')}">${PART_LEVELS.map(l => l.sign).join('<span class="sep">/</span>')}</th>`;
     partDates.forEach(ev => {
       html += `<th${overviewTodayClass(ev.date)} style="cursor:pointer;" title="Klicken zum Bearbeiten" onclick="openEditColumnModal(${jsArg(ev.date)}, ${jsArg(ev.label)})">${overviewColHead(ev.date, ev.label)}</th>`;
     });
@@ -3364,25 +3393,18 @@ function renderOverviewTable() {
     sortedStudents.forEach(s => {
       html += `<tr><td class="ov-name-col ov-name" role="button" tabindex="0" onclick="openQuickRatingFromTable(${jsArg(s.id)})"><span class="ov-name-text" title="${escHtml(studentListName(s))}">${escHtml(studentListName(s))}</span></td>`;
       
-      let pos = 0, neu = 0, neg = 0;
-      partDates.forEach(ev => {
-        const pIdx = (s.participation||[]).findIndex(x => x.date === ev.date && (x.label||'') === (ev.label||''));
-        const val = pIdx !== -1 ? s.participation[pIdx].value : '';
-        if (val === 'positive') pos++;
-        else if (val === 'neutral') neu++;
-        else if (val === 'negative') neg++;
-      });
-      // Wie im Reiter Schüler: Schrägstriche, nur negative Einträge rot (AH24)
-      html += `<td class="ov-sum-col ov-sum"><span>${pos}</span> <span class="sep">/</span> <span>${neu}</span> <span class="sep">/</span> <span${neg ? ' class="n-bad"' : ''}>${neg}</span></td>`;
+      const shown = partDates.map(ev => (s.participation||[]).find(x => x.date === ev.date && (x.label||'') === (ev.label||''))).filter(Boolean);
+      // Wie im Reiter Schüler: Schrägstriche, nur „schwach“ rot (AH24, AH52)
+      html += `<td class="ov-sum-col ov-sum">${partCountsHTML(shown)}</td>`;
 
       partDates.forEach(ev => {
         const pIdx = (s.participation||[]).findIndex(x => x.date === ev.date && (x.label||'') === (ev.label||''));
         const val = pIdx !== -1 ? s.participation[pIdx].value : '';
-        // Antippen schaltet weiter; leer ist ein leiser Strich statt eines Emojis (Regel 22, AH24)
-        const face = { positive: ['😊', 'gut'], neutral: ['😐', 'neutral'], negative: ['☹️', 'schlecht'] }[val];
-        const label = `Mitarbeit ${studentListName(s)}, ${formatWeekdayShort(ev.date)}: ${face ? face[1] : 'keine'}`;
+        // Antippen öffnet die Auswahl; leer ist ein leiser Strich (AH24), Stufen als Zeichen (AH52)
+        const lvl = partLevel(val);
+        const label = `Mitarbeit ${studentListName(s)}, ${formatWeekdayShort(ev.date)}: ${lvl ? lvl.word : (val || 'keine')}`;
         html += `<td class="ov-part-cell">
-          <button type="button" class="ov-part-btn" aria-label="${escHtml(label)}" onclick="openParticipationPicker(this, ${jsArg(s.id)}, ${jsArg(ev.date)}, ${jsArg(ev.label||'')})">${face ? face[0] : '<span class="ov-empty" aria-hidden="true">–</span>'}</button>
+          <button type="button" class="ov-part-btn" aria-label="${escHtml(label)}" onclick="openParticipationPicker(this, ${jsArg(s.id)}, ${jsArg(ev.date)}, ${jsArg(ev.label||'')})">${val ? partSignHTML(val) : '<span class="ov-empty" aria-hidden="true">–</span>'}</button>
         </td>`;
       });
       html += `</tr>`;
@@ -3457,7 +3479,7 @@ function renderOverviewTable() {
   // Erklärzeile auf jedem Reiter, damit die Tabelle überall an derselben Stelle beginnt (AH40)
   const legend = {
     grades: '<span>Antippen zum Eintragen</span><span>Ø = Schnitt mit Gewichtung</span>',
-    participation: '<span>Antippen wählt:</span><span>😊 gut</span><span>😐 neutral</span><span>☹️ schlecht</span>',
+    participation: `<span class="ov-hint-wide">Antippen wählt:</span>${PART_LEVELS.map(l => `<span>${partSignHTML(l.value)} ${l.word}</span>`).join('')}`,
     attendance: '<span class="ov-hint-wide">Antippen schaltet weiter:</span><span class="ov-hint-wide">leer = da</span><span><b>F</b> fehlt</span><span><b>E</b> entschuldigt</span><span><b>Z</b> zu spät</span>',
     homework: '<span>Antippen: <b>X</b> = Hausaufgabe vergessen</span>',
   }[currentOverviewTab];
@@ -3554,7 +3576,7 @@ function updateInlineGrade(studentId, date, label, value, type = 'test', nth = 0
   renderOverviewTable(); // Rerender to update averages and colors
 }
 
-// Mitarbeit in der Tabelle (AH24 e): Antippen öffnet eine kleine Auswahl 😊 😐 ☹️ leer neben dem Feld
+// Mitarbeit in der Tabelle (AH24 e): Antippen öffnet eine kleine Auswahl ++ + − −− leer neben dem Feld (AH52)
 let ovPartPicker = null;   // { btn, left, top }: Scroll-Stelle der Tabelle beim Öffnen
 function closeParticipationPicker() {
   const p = document.getElementById('ov-part-pop');
@@ -3567,7 +3589,7 @@ function openParticipationPicker(btn, studentId, date, label) {
   if (!s || !btn) return;
   const cur = (s.participation || []).find(p => p.date === date && (p.label || '') === (label || ''));
   const curVal = cur ? cur.value : '';
-  const opts = [['positive', '😊', 'gut'], ['neutral', '😐', 'neutral'], ['negative', '☹️', 'schlecht'], ['', 'leer', 'leer']];
+  const opts = [...PART_LEVELS.map(l => [l.value, partSignHTML(l.value), l.word]), ['', 'leer', 'leer']];
   const pop = document.createElement('div');
   pop.id = 'ov-part-pop';
   pop.className = 'ov-part-pop';
@@ -4072,7 +4094,7 @@ function renderStudents() {
   const showGrades = classGradesShown;   // Beamer-Schutz (AH24 c): Schnitt und Mitarbeit nur auf Knopfdruck
   container.innerHTML = (showGrades ? '' : gradesVeilHTML('Schnitte und Mitarbeit sind verborgen, damit am Beamer niemand mitliest.'))
     + `<div class="students-head${showGrades ? '' : ' is-veiled'}" aria-hidden="true">${isStudentEditMode ? '<span class="students-head-cb"></span>' : ''}
-    <span class="students-head-main">Name</span>${showGrades ? '<span class="students-head-part">Mitarbeit + / = / −</span>' : ''}
+    <span class="students-head-main">Name</span>${showGrades ? `<span class="students-head-part">Mitarbeit ${PART_LEVELS.map(l => l.sign).join(' / ')}</span>` : ''}
     <span class="students-head-att">Fehlt F / E</span>${showGrades ? '<span class="students-head-avg">Ø</span>' : ''}</div>`;
   wireGradesVeil(container);
   const scale = gradeScale(currentGroupId);
@@ -4081,11 +4103,9 @@ function renderStudents() {
     const avg = calculateStudentAverage(s, currentGroupId);
     const attUnexcused = (s.attendance||[]).filter(a => a.type==='abwesend').length;
     const attExcused = (s.attendance||[]).filter(a => a.type==='entschuldigt').length;
-    const partPos = (s.participation||[]).filter(p => p.value==='positive').length;
-    const partNeutral = (s.participation||[]).filter(p => p.value==='neutral').length;
-    const partNeg = (s.participation||[]).filter(p => p.value==='negative').length;
+    const partN = partCounts(s.participation);
     const hints = {
-      participation: { title: 'Mitarbeit', lines: [[partPos, 'positiv', 'success'], [partNeutral, 'neutral', 'warning'], [partNeg, 'negativ', 'danger']] },
+      participation: { title: 'Mitarbeit', lines: PART_LEVELS.map((l, i) => [partN[i], l.word]) },
       attendance: { title: 'Fehltage', lines: [[attUnexcused, 'unentschuldigt', 'danger'], [attExcused, 'entschuldigt', 'success']] },
     };
     const hintText = kind => `${hints[kind].title}: ` + hints[kind].lines.map(([n, label]) => `${n} ${label}`).join(', ');
@@ -4106,7 +4126,7 @@ function renderStudents() {
       <div class="student-counters">
         ${showGrades ? `<div class="student-counter" data-kind="participation" role="button" tabindex="0" title="${hintText('participation')}" aria-label="${hintText('participation')}">
           <span class="student-counter-label">Mitarbeit</span>
-          <span>${partPos}</span><span class="sep">/</span><span>${partNeutral}</span><span class="sep">/</span><span${partNeg ? ' class="n-bad"' : ''}>${partNeg}</span>
+          ${partCountsHTML(s.participation).replace(/ <span class="sep">\/<\/span> /g, '<span class="sep">/</span>')}
         </div>` : ''}
         <div class="student-counter" data-kind="attendance" role="button" tabindex="0" title="${hintText('attendance')}" aria-label="${hintText('attendance')}">
           <span class="student-counter-label">Fehlt</span>
@@ -4590,13 +4610,11 @@ function renderStudentParticipationList(s) {
   list.innerHTML = '';
   if (!pList.length) { list.innerHTML = '<div class="entry-empty">Keine Einträge.</div>'; return; }
   // Gesichter wie überall (Sitzplan, Tabelle), statt „Hervorragende/Moderate Mitarbeit“ (AH28)
-  const faces = { 'positive':'😊', 'neutral':'😐', 'negative':'☹️' };
-  const words = { 'positive':'gut', 'neutral':'mittel', 'negative':'schwach' };
   [...pList].sort((a,b) => (b.date||'').localeCompare(a.date||'')).forEach(p => {
     const el = document.createElement('div');
     el.className = 'entry-item';
     el.innerHTML = `
-      <span class="entry-face" role="img" aria-label="${escHtml(words[p.value] || 'Mitarbeit')}">${faces[p.value] || escHtml(p.value)}</span>
+      <span class="entry-face" role="img" aria-label="${escHtml(partLevel(p.value)?.word || 'Mitarbeit')}">${partSignHTML(p.value)}</span>
       <span class="entry-item-text">${p.label ? escHtml(p.label) : ''}</span>
       <span class="entry-item-date">${p.date ? formatDateShort(p.date) : ''}</span>
       <button class="entry-item-delete" aria-label="Löschen">✕</button>`;
@@ -4739,11 +4757,11 @@ function exportCurrentStudent() {
   
   txt += `=== MITARBEIT ===\n`;
   if (s.participation && s.participation.length > 0) {
-    const textLabels = { 'positive':'Hervorragende Mitarbeit', 'neutral':'Moderate Mitarbeit', 'negative':'Schlechte Mitarbeit' };
     const sortedPart = [...s.participation].sort(byDate);
     sortedPart.forEach(p => {
-      let valStr = p.value === 'positive' ? '(+)' : (p.value === 'negative' ? '(-)' : '(o)');
-      let desc = p.label || textLabels[p.value] || 'Mitarbeit';
+      const l = partLevel(p.value);
+      const valStr = `(${l ? l.sign : p.value || '?'})`;
+      const desc = p.label || (l ? `Mitarbeit ${l.word}` : 'Mitarbeit');
       txt += `${dateStr(p.date)} | ${desc} | ${valStr}\n`;
     });
   } else {
@@ -6155,11 +6173,11 @@ document.addEventListener('visibilitychange', () => {
 // Mitarbeit-Verlauf: die letzten Smileys (ohne Titel, wie die Schnellbewertung, Regel 49) als Punkte, alt → neu
 const TREND_COUNT = 6;
 function participationTrendHTML(s) {
-  const list = (s.participation || []).filter(p => !p.label && ['positive', 'neutral', 'negative'].includes(p.value))
+  const list = (s.participation || []).filter(p => !p.label && partLevel(p.value))
     .sort((a, b) => (a.date || '').localeCompare(b.date || '')).slice(-TREND_COUNT);
   if (!list.length) return '<div class="sc-trend sc-trend-empty">–</div>';
-  const word = { positive: 'gut', neutral: 'mittel', negative: 'schwach' };
-  return `<div class="sc-trend" title="Mitarbeit zuletzt: ${list.map(p => word[p.value]).join(', ')}">${list.map(p => `<i class="t-${p.value}"></i>`).join('')}</div>`;
+  // Kleine Balken: je höher, desto besser (AH52)
+  return `<div class="sc-trend" title="Mitarbeit zuletzt: ${list.map(p => partLevel(p.value).word).join(', ')}">${list.map(p => `<i class="t-${p.value} p${partLevel(p.value).tone}"></i>`).join('')}</div>`;
 }
 
 // Hinweis im Schüler-Fenster (s.notes, AD2). Gesundheitsangaben u. Ä. → wie Noten erst nach „Anzeigen“,
@@ -7067,9 +7085,8 @@ function renderSeatingPlan() {
 
     let partHtml = '';
     if (participation) {
-      const valLabels = { 'positive':'<span style="color:var(--success)">+</span>', 'neutral':'<span style="color:var(--warning)">=</span>', 'negative':'<span style="color:var(--danger)">-</span>' };
-      // valLabels ist fertiges HTML; nur ein unbekannter Wert (Import/Sync) stammt aus den Daten und wird escaped
-      partHtml = `<div class="sc-part" style="position:absolute; top:-6px; right:-6px; font-size:16px; font-weight:800; background:var(--bg-elevated); padding:0 var(--space-2); border-radius:var(--radius-sm); border:2px solid var(--border); box-shadow:0 2px 6px rgba(0,0,0,0.3); line-height:1.2; z-index:10;">${valLabels[participation.value] || escHtml(participation.value)}</div>`;
+      // partSignHTML ist fertiges HTML; nur ein unbekannter Wert (Import/Sync) wird escaped (F2)
+      partHtml = `<div class="sc-part">${partSignHTML(participation.value)}</div>`;
     }
 
     const fullName = [s.firstName, s.lastName].filter(Boolean).join(' ');
@@ -7670,14 +7687,9 @@ function openSeatingStudentModal(studentId, groupId, dateStr, opts = {}) {
   const fromClassView = document.getElementById('view-students').classList.contains('active') && currentGroupId === groupId;
   if (!same) { swShown = fromClassView ? classGradesShown : seatingShowGrades; swHintShown = false; }
 
-  const partPos = (s.participation||[]).filter(p => p.value==='positive').length;
-  const partNeutral = (s.participation||[]).filter(p => p.value==='neutral').length;
-  const partNeg = (s.participation||[]).filter(p => p.value==='negative').length;
-  document.getElementById('seating-student-participation-summary').innerHTML = `Mitarbeit bisher:
-    <span style="color:var(--success)">😊 ${partPos}</span> ·
-    <span style="color:var(--warning)">😐 ${partNeutral}</span> ·
-    <span style="color:var(--danger)">☹️ ${partNeg}</span>
-  `;
+  const partN = partCounts(s.participation);
+  document.getElementById('seating-student-participation-summary').innerHTML = `Mitarbeit bisher: ` +
+    PART_LEVELS.map((l, i) => `<span>${partSignHTML(l.value)} ${partN[i]}</span>`).join(' · ');
 
   closeSeatingGradePad();
   closeSeatingMenu();
@@ -8579,8 +8591,9 @@ function initAllCustomDropdowns() {
 // Für das nächste große Update: `id` ändern und die Punkte ersetzen. Gemerkt wird nur auf diesem Gerät
 // (nicht in `db`, nicht synchronisiert). Neue Nutzer ohne Daten sehen es nie.
 const WHATS_NEW = {
-  id: '2026-11-4',
+  id: '2026-11-5',
   items: [
+    { icon: 'participation', title: 'Mitarbeit in vier Stufen', text: 'Neu: ++ sehr gut, + gut, − wenig, −− schwach. Bisherige Einträge bleiben: 😊 ist jetzt „gut“, 😐 „wenig“, ☹️ „schwach“.' },
     { icon: 'seating',  title: 'Sitzplan', text: 'Oben steht die Klasse. Die Pfeile springen zur vorigen oder nächsten Stunde der Klasse, ein Tipp aufs Datum öffnet den Kalender. Die Leiste darüber zeigt außerhalb der Stunde die nächste.' },
     { icon: 'clock',    title: 'Timer und Stoppuhr', text: 'Unten als Knöpfe neben Zufall und Gruppen. Antippen öffnet die Bedienung, die laufende Zeit steht im Knopf.' },
     { icon: 'panel',    title: 'Leiste links', text: 'Die Suche steht oben als Menüpunkt, „Einklappen“ unten. In den Einstellungen unter „Leiste“ ordnest du die Menüpunkte selbst und heftest Klassen an.' },
@@ -9444,8 +9457,7 @@ function classReportData(g) {
         ka: parts.schularbeit, so: parts.sonstige, avg: calculateStudentAverage(s, g.id),
         f: count(s.attendance, a => a.type === 'abwesend'), e: count(s.attendance, a => a.type === 'entschuldigt'),
         z: count(s.attendance, a => a.type === 'zuspät'),
-        pos: count(s.participation, p => p.value === 'positive'), neu: count(s.participation, p => p.value === 'neutral'),
-        neg: count(s.participation, p => p.value === 'negative'), ha: (s.homework || []).length,
+        part: partCounts(s.participation), ha: (s.homework || []).length,   // Mitarbeit je Stufe wie PART_LEVELS (AH52)
       };
     }),
   };
@@ -9493,9 +9505,9 @@ function buildClassReportPrint(groups) {
       <div class="rp-meta">${school ? `<strong>${escHtml(school)}</strong><br>` : ''}${teacher ? escHtml(teacher) + '<br>' : ''}Stand ${escHtml(formatDateLong(formatDate(new Date())))}</div></div>`;
     if (!d.rows.length) return `<section class="rp-page">${head}<p class="rp-empty">Keine Schüler.</p></section>`;
     const overview = `<table class="rp-table"><thead><tr><th class="rp-name">Name</th><th>Ø Klassen&shy;arbeiten</th><th>Ø Sonstige</th><th>Ø Gesamt${pts ? ' (Pkt.)' : ''}</th>
-        <th>Fehlt unentsch.</th><th>Fehlt entsch.</th><th>Zu spät</th><th>Mitarbeit + / = / −</th><th>HA fehlt</th></tr></thead><tbody>`
+        <th>Fehlt unentsch.</th><th>Fehlt entsch.</th><th>Zu spät</th><th>Mitarbeit ${PART_LEVELS.map(l => l.sign).join(' / ')}</th><th>HA fehlt</th></tr></thead><tbody>`
       + d.rows.map(r => `<tr><td class="rp-name">${escHtml(r.name)}</td><td>${fmt(r.ka)}</td><td>${fmt(r.so)}</td><td class="rp-avg">${fmt(r.avg)}</td>
-        <td>${r.f}</td><td>${r.e}</td><td>${r.z}</td><td>${r.pos} / ${r.neu} / ${r.neg}</td><td>${r.ha}</td></tr>`).join('')
+        <td>${r.f}</td><td>${r.e}</td><td>${r.z}</td><td>${r.part.join(' / ')}</td><td>${r.ha}</td></tr>`).join('')
       + `<tr class="rp-sum"><td class="rp-name">Klassenschnitt</td><td></td><td></td><td class="rp-avg">${fmt(d.groupAvg)}</td><td colspan="5"></td></tr></tbody></table>`;
     let grades = '';
     for (let i = 0; i < d.cols.length; i += REPORT_GRADE_COLS) {
@@ -9569,13 +9581,13 @@ function classReportSheetXML(g) {
   const d = classReportData(g);
   const pts = d.scale.higherIsBetter;
   const header = ['Name', 'Ø Klassenarbeiten', 'Ø Sonstige', `Ø Gesamt${pts ? ' (Punkte)' : ''}`, 'Fehlt unentschuldigt', 'Fehlt entschuldigt', 'Zu spät',
-    'Mitarbeit +', 'Mitarbeit =', 'Mitarbeit −', 'HA fehlt', ...d.cols.map(c => reportColTitle(c).join(' '))];
+    ...PART_LEVELS.map(l => `Mitarbeit ${l.word}`), 'HA fehlt', ...d.cols.map(c => reportColTitle(c).join(' '))];
   const rows = [
     [[`Klassen-Bericht ${g.className} ${g.subject || ''} · Schuljahr ${schoolYearLabel()}`, 1]],
     [[`Stand ${formatDateLong(formatDate(new Date()))}${db.settings.teacherName ? ' · ' + db.settings.teacherName : ''}${db.settings.school ? ' · ' + db.settings.school : ''} · Klassenarbeiten zählen ${d.weight} %`, 0]],
     [],
     header.map(h => [h, 1]),
-    ...d.rows.map(r => [[r.name, 0], [r.ka, 2], [r.so, 2], [r.avg, 2], [r.f, 0], [r.e, 0], [r.z, 0], [r.pos, 0], [r.neu, 0], [r.neg, 0], [r.ha, 0],
+    ...d.rows.map(r => [[r.name, 0], [r.ka, 2], [r.so, 2], [r.avg, 2], [r.f, 0], [r.e, 0], [r.z, 0], ...r.part.map(n => [n, 0]), [r.ha, 0],
       ...r.grades.map(v => [gradeCellValue(v), 0])]),
     [['Klassenschnitt', 1], [null], [null], [d.groupAvg, 2]],
   ];

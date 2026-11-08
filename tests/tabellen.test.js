@@ -47,7 +47,7 @@ describe('Alle vier Reiter gleich gebaut', () => {
     expect(box().querySelector('.ov-legend').textContent).toMatch(/Ø.*Gewichtung/);
     app('openGroupStudents("g1", "participation")');
     const t = box().querySelector('.ov-legend').textContent;
-    expect(t).toContain('😊'); expect(t).toMatch(/gut/); expect(t).toMatch(/neutral/); expect(t).toMatch(/schlecht/);
+    expect(t).toMatch(/\+\+ sehr gut/); expect(t).toMatch(/− wenig/); expect(t).toMatch(/−− schwach/);   // AH52
   });
   it('Die Tabelle kennt die Zahl ihrer Spalten für die Mindestbreite', () => {
     app('openGroupStudents("g1", "grades")');
