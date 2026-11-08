@@ -206,24 +206,25 @@ describe('N7–N10', () => {
     expect(card('s1').querySelector('.sc-name').title).toBe('Anna Muster');
   });
 
-  it('N9: gibt es die Klasse in zwei Fächern, steht das Fach dabei', () => {
-    expect(document.getElementById('seating-group-current-label').textContent).toBe('7b Mathe');
+  it('N9/AH50: das Fach steht immer klein neben der Klasse', () => {
+    expect(document.getElementById('seating-group-current-label').textContent).toBe('7b');
+    expect(document.getElementById('seating-group-subject').textContent).toBe('Mathe');
     app('currentSeatingGroupId = "g3"; renderSeatingGroupSelect()');
     expect(document.getElementById('seating-group-current-label').textContent).toBe('9c');
   });
 
-  it('N10: Tage mit Unterricht der Klasse sind markiert', () => {
-    const chips = [...document.querySelectorAll('#seating-date-strip .date-chip')];
-    const marked = chips.filter(c => c.classList.contains('has-lesson')).map(c => c.getAttribute('aria-label'));
-    expect(marked.some(l => l.includes('21.09.'))).toBe(true);  // Mo
-    expect(marked.some(l => l.includes('23.09.'))).toBe(true);  // Mi
-    expect(marked.some(l => l.includes('22.09.'))).toBe(false); // Di
+  it('N10/AH50: Pfeile springen zu Tagen mit Unterricht der Klasse (statt markierter Chips)', () => {
+    app('currentSeatingGroupId = "g1"; setSeatingDate("2026-09-21"); seatingStepLesson(1)');
+    expect(app('currentSeatingDateStr')).toBe('2026-09-23');   // Mi, nicht Di
+    app('seatingStepLesson(-1)');
+    expect(app('currentSeatingDateStr')).toBe('2026-09-21');
   });
 });
 
 describe('N11: Bedienbar per Tastatur und Screenreader', () => {
-  it('Datums-Chips und Klassenmenü sind Knöpfe', () => {
-    expect(document.querySelectorAll('#seating-date-strip button.date-chip').length).toBe(5);
+  it('Datums-Pfeile und Klassenmenü sind Knöpfe', () => {
+    expect(document.querySelectorAll('#btn-seating-prev, #btn-seating-next').length).toBe(2);
+    expect(document.getElementById('btn-seating-next').tagName).toBe('BUTTON');
     expect(document.querySelectorAll('#seating-group-menu button').length).toBe(3);
   });
 });

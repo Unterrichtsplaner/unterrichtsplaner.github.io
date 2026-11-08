@@ -390,8 +390,8 @@ describe('AA5: versetzte Tische im Sitzplan', () => {
   });
   const render = () => {
     const wrapper = document.getElementById('seating-canvas-wrapper');
-    Object.defineProperty(wrapper, 'clientWidth', { configurable: true, value: 440 });
-    Object.defineProperty(wrapper, 'clientHeight', { configurable: true, value: 340 });
+    Object.defineProperty(wrapper, 'clientWidth', { configurable: true, value: 400 });   // Innenabstand aus style.css, in jsdom 0 (AH50)
+    Object.defineProperty(wrapper, 'clientHeight', { configurable: true, value: 300 });
     app('currentSeatingGroupId = "g1"; renderSeatingPlan()');
   };
   const card = id => document.querySelector(`.seating-card[data-id="${id}"]`);
@@ -418,7 +418,7 @@ describe('AA5: versetzte Tische im Sitzplan', () => {
     expect(left(card('b')) - left(card('a'))).toBeCloseTo(cell / 2, 5);
     const width = parseFloat(document.getElementById('seating-canvas').style.minWidth);
     expect(width).toBeCloseTo(4.5 * cell, 5);
-    expect(width).toBeLessThanOrEqual(400);                              // Wrapper 440 − 40 Rand
+    expect(width).toBeLessThanOrEqual(400);                              // Platz im Wrapper
     expect(left(cells[4]) - left(cells[0])).toBeCloseTo(cell / 2, 5);   // 1. Zelle der 2. Reihe
     expect(left(cells[8])).toBe(left(cells[0]));                        // 3. Reihe wieder bündig
   });

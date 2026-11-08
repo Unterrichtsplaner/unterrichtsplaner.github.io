@@ -40,7 +40,7 @@
       }
     })();
   </script>
-  <link rel="stylesheet" href="style.css?v=444" />
+  <link rel="stylesheet" href="style.css?v=445" />
   <script>
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
@@ -260,74 +260,70 @@
       <div class="view-header seating-header">
         <h1>Sitzplan</h1>
         <div class="seating-toolbar">
-          <!-- Klassen-Auswahl -->
-          <div class="custom-dropdown" style="position:relative; display:inline-block; flex-shrink:0;">
-            <button id="seating-group-trigger" class="btn-secondary" style="font-size:13px; padding:var(--space-1) var(--space-3); min-width:80px; max-width:160px; font-weight:600; border-radius:var(--radius-sm); display:flex; align-items:center; justify-content:center; gap:var(--space-1); cursor:pointer;" onclick="toggleCustomGroupDropdown(event)">
-              <span id="seating-group-current-label">Klasse</span>
-              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" style="opacity: 0.7;"><polyline points="6 9 12 15 18 9"></polyline></svg>
+          <!-- Klasse als Überschrift (AH50) -->
+          <div class="custom-dropdown seating-class-pick">
+            <button type="button" id="seating-group-trigger" class="seating-class-btn" onclick="toggleCustomGroupDropdown(event)" aria-haspopup="true" aria-label="Klasse wählen">
+              <span id="seating-group-current-label" class="seating-class-name">Klasse</span>
+              <span id="seating-group-subject" class="seating-class-subject"></span>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg>
             </button>
-            <div id="seating-group-menu" class="hidden" style="position:absolute; top:40px; left:50%; transform:translateX(-50%); background:var(--bg-card); border:1px solid var(--border); border-radius:var(--radius-md); box-shadow:var(--shadow-md); z-index:1000; min-width:140px; max-height:250px; overflow-y:auto; padding:var(--space-2); display:flex; flex-direction:column; gap:var(--space-1);">
+            <div id="seating-group-menu" class="seating-group-menu hidden"></div>
+          </div>
+          <!-- Datum wie im Stundenplan; Pfeile springen zur vorigen/nächsten Stunde der Klasse (AH50) -->
+          <div class="seating-date-nav">
+            <button type="button" id="btn-seating-today" class="btn-heute seating-today-btn" onclick="seatingGoToday()">Heute</button>
+            <button type="button" id="btn-seating-prev" class="btn-icon" onclick="seatingStepLesson(-1)" title="Vorige Stunde der Klasse" aria-label="Vorige Stunde der Klasse">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg>
+            </button>
+            <button type="button" id="btn-seating-next" class="btn-icon" onclick="seatingStepLesson(1)" title="Nächste Stunde der Klasse" aria-label="Nächste Stunde der Klasse">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 18l6-6-6-6"/></svg>
+            </button>
+            <div class="week-label-wrap seating-date-wrap" title="Datum wählen">
+              <span id="seating-date-label" class="week-label"></span>
+              <input type="date" id="seating-date-hidden" aria-label="Datum wählen" onclick="try{this.showPicker();}catch(e){}" onchange="onHiddenDateChange(this.value)" />
             </div>
           </div>
-          <!-- Trennstrich -->
-          <div class="seating-toolbar-sep"></div>
-          <!-- Zurück zu heute (weggeblättert, z. B. über den Kalender in einen anderen Monat) -->
-          <button type="button" id="btn-seating-today" class="btn-heute seating-today-btn" onclick="seatingGoToday()">Heute</button>
-          <!-- Datum-Chips -->
-          <div id="seating-date-strip" class="scroll-chips-container"></div>
-          <!-- Kalender-Picker -->
-          <div class="seating-tool-slot">
-            <button class="btn-icon" style="width:100%; height:100%; pointer-events:none;" aria-hidden="true" tabindex="-1">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-            </button>
-            <input type="date" id="seating-date-hidden" aria-label="Datum wählen" style="position:absolute; top:0; left:0; width:100%; height:100%; opacity:0; cursor:pointer;" onclick="try{this.showPicker();}catch(e){}" onchange="onHiddenDateChange(this.value)" />
-          </div>
-          <!-- Trennstrich -->
-          <div class="seating-toolbar-sep"></div>
-          <!-- Grid-Settings -->
-          <div class="seating-tool-slot">
-            <button class="btn-icon" style="width:100%; height:100%;" title="Raster-Größe einstellen" onclick="toggleSeatingSettings(event)">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="pointer-events:none;"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="3" x2="9" y2="21"/><line x1="15" y1="3" x2="15" y2="21"/></svg>
-            </button>
-            <div id="seating-settings-popup" class="seating-settings-popup hidden">
-              <div class="ssp-row">
-                <span class="ssp-label">Raster:</span>
-                <input type="text" inputmode="numeric" pattern="[0-9]*" id="seating-cols" class="form-input seating-grid-input" aria-label="Spalten" placeholder="X" onchange="saveSeatingGrid()" />
-                <span class="ssp-times">×</span>
-                <input type="text" inputmode="numeric" pattern="[0-9]*" id="seating-rows" class="form-input seating-grid-input" aria-label="Reihen" placeholder="Y" onchange="saveSeatingGrid()" />
-              </div>
-              <div class="ssp-row">
-                <label class="ssp-check">
-                  <input type="checkbox" id="seating-show-grid-always" onchange="onToggleShowGridAlways(this.checked)" />
-                  Raster zeigen
-                </label>
-                <label class="ssp-check">
-                  <input type="checkbox" id="seating-stagger" onchange="onToggleSeatingStagger(this.checked)" />
-                  Reihen versetzt
-                </label>
+          <div class="seating-spring"></div>
+          <!-- Werkzeuge mit Namen (auf schmalen Bildschirmen nur das Symbol) -->
+          <div class="seating-tools">
+            <!-- Raster: nur im Bearbeiten-Modus -->
+            <div id="seating-grid-tool" class="seating-tool-slot hidden">
+              <button type="button" class="btn-secondary seating-tool-btn" title="Raster-Größe einstellen" aria-label="Raster" onclick="toggleSeatingSettings(event)"><i data-icon="grid"></i><span class="btn-label">Raster</span></button>
+              <div id="seating-settings-popup" class="seating-settings-popup hidden">
+                <div class="ssp-row">
+                  <span class="ssp-label">Raster:</span>
+                  <input type="text" inputmode="numeric" pattern="[0-9]*" id="seating-cols" class="form-input seating-grid-input" aria-label="Spalten" placeholder="X" onchange="saveSeatingGrid()" />
+                  <span class="ssp-times">×</span>
+                  <input type="text" inputmode="numeric" pattern="[0-9]*" id="seating-rows" class="form-input seating-grid-input" aria-label="Reihen" placeholder="Y" onchange="saveSeatingGrid()" />
+                </div>
+                <div class="ssp-row">
+                  <label class="ssp-check">
+                    <input type="checkbox" id="seating-show-grid-always" onchange="onToggleShowGridAlways(this.checked)" />
+                    Raster zeigen
+                  </label>
+                  <label class="ssp-check">
+                    <input type="checkbox" id="seating-stagger" onchange="onToggleSeatingStagger(this.checked)" />
+                    Reihen versetzt
+                  </label>
+                </div>
               </div>
             </div>
+            <!-- Noten ein-/ausblenden (Datenschutz, standardmäßig aus) -->
+            <button type="button" id="btn-seating-grades" class="btn-secondary seating-tool-btn" onclick="toggleSeatingGrades()" title="Noten anzeigen" aria-label="Noten zeigen" aria-pressed="false"><i data-icon="eye"></i><span class="btn-label">Noten zeigen</span></button>
+            <!-- Mitarbeit-Verlauf auf den Karten (AD2), wie Noten nur auf Knopfdruck -->
+            <button type="button" id="btn-seating-trend" class="btn-secondary seating-tool-btn" onclick="toggleSeatingTrend()" title="Mitarbeit-Verlauf anzeigen" aria-label="Mitarbeit-Verlauf anzeigen" aria-pressed="false"><i data-icon="activity"></i><span class="btn-label">Mitarbeit</span></button>
+            <!-- Notenrunde (AH28): Karte antippen → Note antippen → nächste Karte -->
+            <button type="button" id="btn-seating-round" class="btn-secondary seating-tool-btn" onclick="toggleGradeRound()" title="Noten geben (Notenrunde)" aria-label="Noten geben (Notenrunde)" aria-pressed="false"><i data-icon="grades"></i><span class="btn-label">Noten geben</span></button>
+            <!-- Bearbeiten -->
+            <button type="button" id="btn-seating-edit" class="btn-secondary seating-tool-btn" onclick="toggleSeatingEditMode()" title="Sitzplan bearbeiten" aria-label="Sitzplan bearbeiten" aria-pressed="false"><i data-icon="edit"></i><span class="btn-label">Bearbeiten</span></button>
           </div>
-          <!-- Noten ein-/ausblenden (Datenschutz, standardmäßig aus) -->
-          <button id="btn-seating-grades" class="btn-icon seating-tool-btn" onclick="toggleSeatingGrades()" title="Noten anzeigen" aria-pressed="false">
-            <svg class="eye-closed" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="pointer-events:none;"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/><path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/><path d="M14.12 14.12a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
-            <svg class="eye-open" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="pointer-events:none; display:none;"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
-          </button>
-          <!-- Mitarbeit-Verlauf auf den Karten (AD2), wie Noten nur auf Knopfdruck -->
-          <button id="btn-seating-trend" class="btn-icon seating-tool-btn" onclick="toggleSeatingTrend()" title="Mitarbeit-Verlauf anzeigen" aria-label="Mitarbeit-Verlauf anzeigen" aria-pressed="false"><i data-icon="activity"></i></button>
-          <!-- Notenrunde (AH28): Karte antippen → Note antippen → nächste Karte -->
-          <button id="btn-seating-round" class="btn-icon seating-tool-btn" onclick="toggleGradeRound()" title="Noten geben (Notenrunde)" aria-label="Noten geben (Notenrunde)" aria-pressed="false"><i data-icon="grades"></i></button>
-          <!-- Bearbeiten -->
-          <button id="btn-seating-edit" class="btn-icon seating-tool-btn" onclick="toggleSeatingEditMode()" title="Sitzplan bearbeiten" aria-label="Sitzplan bearbeiten" aria-pressed="false">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="pointer-events:none;"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-          </button>
         </div>
       </div>
-      <!-- Unterrichts-Cockpit (AD2): nur während einer Stunde dieser Klasse, renderSeatingCockpit -->
-      <div id="seating-cockpit" class="seating-cockpit hidden" role="region" aria-label="Laufende Stunde"></div>
+      <!-- Unterrichts-Cockpit (AD2, AH50): immer da; während der Stunde Restzeit, sonst die nächste Stunde (renderSeatingCockpit) -->
+      <div id="seating-cockpit" class="seating-cockpit hidden" role="region" aria-label="Stunde"></div>
       <div id="grade-round-bar" class="grade-round-bar hidden" role="region" aria-label="Notenrunde"></div>
       <div id="seating-overflow-hint" class="seating-overflow-hint hidden" role="status"></div>
-      <div id="seating-canvas-wrapper" style="flex:1; display:flex; overflow:hidden; padding:var(--space-5);">
+      <div id="seating-canvas-wrapper">
         <div class="seating-canvas" id="seating-canvas">
           <div id="seating-empty" class="empty-state">
             <div class="empty-state-icon"><i data-icon="seating"></i></div>
@@ -337,9 +333,13 @@
         </div>
       </div>
       <div class="seating-tools-bar">
-        <!-- Timer -->
+        <!-- Vier gleiche Knöpfe (AH50); Timer und Stoppuhr klappen ein kleines Feld auf und zeigen auf dem Knopf die laufende Zeit -->
+        <button type="button" id="btn-tool-timer" class="btn-secondary seating-tool" onclick="toggleToolPop('timer')" aria-expanded="false" aria-controls="tool-timer-pop"><i data-icon="clock"></i><span id="tool-timer-label">Timer</span></button>
+        <button type="button" id="btn-tool-stopwatch" class="btn-secondary seating-tool" onclick="toggleToolPop('stopwatch')" aria-expanded="false" aria-controls="tool-stopwatch-pop"><i data-icon="stopwatch"></i><span id="tool-stopwatch-label">Stoppuhr</span></button>
+        <button type="button" class="btn-secondary seating-tool" onclick="startSeatingRandomizer()"><i data-icon="dice"></i><span>Zufall</span></button>
+        <button type="button" class="btn-secondary seating-tool" onclick="openSeatingGroupModal()"><i data-icon="classes"></i><span>Gruppen</span></button>
+        <div id="tool-timer-pop" class="tool-pop hidden" role="group" aria-label="Timer">
         <div class="tool-widget">
-           <svg class="tool-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
            <span id="timer-display" class="tool-display">05:00</span>
            <button class="btn-icon timer-step" onclick="adjustTimer(-1)" title="−1 Min" aria-label="1 Minute weniger">−</button>
            <button class="btn-icon timer-step" onclick="adjustTimer(1)" title="+1 Min" aria-label="1 Minute mehr">+</button>
@@ -350,9 +350,9 @@
              <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><rect x="5" y="5" width="14" height="14" rx="2"></rect></svg>
            </button>
         </div>
-        <!-- Stopwatch -->
+        </div>
+        <div id="tool-stopwatch-pop" class="tool-pop hidden" role="group" aria-label="Stoppuhr">
         <div class="tool-widget">
-           <svg class="tool-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><path d="M12 2v4"></path><path d="M12 14 16 10"></path></svg>
            <span id="stopwatch-display" class="tool-display">00:00.0</span>
            <button class="btn-icon tool-play-btn" onclick="toggleStopwatch()" id="btn-stopwatch-toggle" aria-label="Stoppuhr starten">
              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="margin-left:2px;"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
@@ -361,14 +361,6 @@
              <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><rect x="5" y="5" width="14" height="14" rx="2"></rect></svg>
            </button>
         </div>
-        <!-- Live Buttons (brechen gemeinsam um) -->
-        <div class="seating-live-group">
-          <button class="btn-secondary seating-live-btn" onclick="startSeatingRandomizer()">
-            Zufall
-          </button>
-          <button class="btn-secondary seating-live-btn" onclick="openSeatingGroupModal()">
-            Gruppen
-          </button>
         </div>
       </div>
     </div>
@@ -1677,13 +1669,13 @@
   </div>
 
   <script src="lib/crypto-js.min.js"></script>
-  <script src="crypto-helper.js?v=444"></script>
+  <script src="crypto-helper.js?v=445"></script>
   <script src="lib/firebase-app-compat.js"></script>
   <script src="lib/firebase-auth-compat.js"></script>
   <script src="lib/firebase-firestore-compat.js"></script>
-  <script src="firebase-config.js?v=444"></script>
-  <script src="sync-manager.js?v=444"></script>
-  <script src="sync-merge.js?v=444"></script>
-  <script src="app.js?v=444"></script>
+  <script src="firebase-config.js?v=445"></script>
+  <script src="sync-manager.js?v=445"></script>
+  <script src="sync-merge.js?v=445"></script>
+  <script src="app.js?v=445"></script>
 </body>
 </html>

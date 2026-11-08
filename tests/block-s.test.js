@@ -63,7 +63,7 @@ describe('S1: Noten wieder verborgen bei Klassen- und Datumswechsel', () => {
   it('Datum wechseln', () => {
     app('switchView("seating")');
     app('toggleSeatingGrades()');
-    document.querySelectorAll('#seating-date-strip .date-chip')[0].click();
+    app('seatingStepLesson(-1)');
     expect(app('seatingShowGrades')).toBe(false);
   });
 });

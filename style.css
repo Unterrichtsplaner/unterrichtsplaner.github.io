@@ -469,7 +469,6 @@ button.cr-name:focus-visible{outline:2px solid var(--accent);outline-offset:3px;
 .seating-card.is-absent-excused .sc-name{text-decoration:line-through;color:var(--text-muted);}
 .seating-card .sc-hw-note{font-size:10px;font-weight:800;color:var(--hw-note-text);background:var(--warning);padding:2px var(--space-1);border-radius:var(--radius-xs);margin-top:var(--space-1);text-transform:uppercase;letter-spacing:0.5px;}
 .seating-card .sc-late-note{font-size:10px;font-weight:800;color:#fff;background:var(--text-muted);padding:2px var(--space-1);border-radius:var(--radius-xs);margin-top:var(--space-1);text-transform:uppercase;letter-spacing:0.5px;}
-#btn-seating-grades.active{background:var(--accent-soft);color:var(--text-accent);border-color:var(--accent);}
 
 /* Compact Mode */
 .seating-card.compact { padding: var(--space-1); border-radius:var(--radius-sm); }
@@ -1091,51 +1090,16 @@ select option{background:var(--bg-secondary);}
   .students-head { display: none; }
 }
 
-/* ─── Sitzplan-Leisten (BUGS H13) ───────────────────── */
-/* Stufen nach der Breite der Ansicht (nicht des Bildschirms: Seitenleiste, Split View) */
+/* ─── Sitzplan-Leisten (BUGS H13, AH50) ───────────────────── */
+/* Stufen nach der Breite der Ansicht (nicht des Bildschirms: Seitenleiste, Split View). Aufbau im Block „Sitzplan neu (AH50)“. */
 #view-seating { container-type: inline-size; container-name: seating; }
-.seating-header { position: relative; justify-content: flex-start; }
-.seating-toolbar { position: absolute; left: 50%; transform: translateX(-50%); display: flex; align-items: center; gap: var(--space-2); background: var(--bg-card); padding: var(--space-1) var(--space-2); border-radius: var(--radius-md); border: 1px solid var(--border); white-space: nowrap; max-width: 90%; justify-content: center; }
-.seating-toolbar-sep { width: 1px; height: 20px; background: var(--border); flex-shrink: 0; }
-#seating-date-strip { overflow: visible; flex-shrink: 0; }
-.seating-tools-bar { min-height: 80px; border-top: 1px solid var(--border); background: var(--bg-secondary); display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: var(--space-3) var(--space-6); flex-shrink: 0; padding: var(--space-2) var(--space-5); margin-top: auto; position: sticky; bottom: 0; z-index: 100; }
-.tool-widget { display: flex; align-items: center; gap: var(--space-3); background: var(--bg-elevated); padding: var(--space-2) var(--space-4); border-radius: var(--radius-md); border: 1px solid var(--border); }
-.tool-icon { color: var(--text-secondary); flex-shrink: 0; }
+.seating-tools-bar { min-height: 80px; border-top: 1px solid var(--border); background: var(--bg-secondary); display: flex; align-items: center; justify-content: center; gap: var(--space-2); flex-shrink: 0; padding: var(--space-2) var(--page-x); margin-top: auto; position: sticky; bottom: 0; z-index: 100; }
+.tool-widget { display: flex; align-items: center; gap: var(--space-2); }
 .timer-step { font-size: 20px; font-weight: 600; line-height: 1; }   /* „−“/„+“ waren als 13-px-Text kaum zu treffen (BUGS I20) */
 .tool-display { font-family: monospace; font-size: 26px; font-weight: 700; text-align: center; }
-#timer-display { width: 75px; }
-#stopwatch-display { width: 100px; }
-.seating-live-group { display: flex; gap: var(--space-3); }
-.seating-live-btn { height: 50px; padding: 0 var(--space-5); font-weight: 700; font-size: 14px; display: flex; align-items: center; justify-content: center; cursor: pointer; border-radius: var(--radius-sm); }
+#timer-display { width: 84px; }
+#stopwatch-display { width: 110px; }
 
-/* iPad quer und schmaler: untere Leiste kompakt, damit sie in eine (oder zwei) Zeilen passt */
-@container seating (max-width: 1000px) {
-  .seating-tools-bar { gap: var(--space-2) var(--space-4); }
-  .tool-widget { gap: var(--space-2); padding: var(--space-1) var(--space-3); }
-  .tool-icon { display: none; }
-  .tool-display { font-size: 20px; }
-  #timer-display { width: 62px; }
-  #stopwatch-display { width: 84px; }
-  .seating-live-group { gap: var(--space-2); }
-  .seating-live-btn { height: 44px; padding: 0 var(--space-4); }
-}
-
-/* Leiste würde den Titel überdecken (iPad quer mit Seitenleiste, iPad hochkant) → Titel weg, Leiste in den Fluss.
-   Seit „Heute“ (02.11.) ist die Leiste breiter, deshalb schon ab 900 px. */
-@container seating (max-width: 900px) {
-  .seating-header h1 { display: none; }
-  .seating-toolbar { position: static; transform: none; max-width: 100%; margin: 0 auto; }
-}
-
-/* Handy: Datums-Chips in eigene Zeile, Knöpfe unten kleiner */
-@container seating (max-width: 520px) {
-  .seating-header { height: auto; min-height: 68px; padding: var(--space-2) var(--page-x); }
-  .seating-toolbar { flex-wrap: wrap; border-radius:var(--radius-lg); row-gap: var(--space-1); }
-  .seating-toolbar-sep { display: none; }
-  #seating-date-strip { order: 10; flex-basis: 100%; justify-content: center; }
-  .seating-tools-bar { padding: var(--space-2) var(--space-3); gap: var(--space-2) var(--space-2); }
-  .seating-live-btn { height: 40px; padding: 0 var(--space-4); font-size: 14px; }
-}
 /* Mit Seitenleiste (iPad, Laptop): untere Leiste so hoch wie die Fußzeile der Seitenleiste mit ihrem Abstand zum
    Home-Balken (AH1), sonst liegt ihre Linie tiefer als die über „Einstellungen“ (AH6) */
 @media (min-width: 601px){
@@ -1214,7 +1178,6 @@ select option{background:var(--bg-secondary);}
 .seating-card.tiny .sc-mark .ico{display:none;}
 .seating-card.tiny .sc-mark{display:block;width:5px;height:5px;border-radius:50%;background:currentColor;}
 .seating-card.tiny .sc-trend i{width:6px;height:6px;}
-#btn-seating-trend.active,#btn-seating-grades.active{background:var(--accent-soft);color:var(--text-accent);}
 /* Schüler-Fenster: Hinweis */
 .seating-hint-block{margin-bottom:var(--space-4);}
 #seating-student-notes:not(:empty){margin-top:var(--space-2);}
@@ -1242,15 +1205,9 @@ select option{background:var(--bg-secondary);}
 
 /* ─── Sitzplan (BUGS N1, N6, N10–N12) ─── */
 .seating-overflow-hint{margin:var(--space-2) var(--space-5) 0;padding:var(--space-2) var(--space-3);border:1px solid var(--warning);border-radius:var(--radius-md);background:var(--warning-soft);color:var(--warning);font-size:13px;font-weight:600;text-align:center;}
-.seating-tool-slot{position:relative;width:34px;height:34px;flex-shrink:0;}
-.seating-tool-btn{width:34px;height:34px;}
-#seating-group-trigger{height:34px;}
 .seating-grid-input{width:32px;height:26px;padding:0;font-size:12px;text-align:center;border-radius:var(--radius-sm);}
 .tool-play-btn{background:var(--accent-soft);color:var(--text-accent);border-radius:var(--radius-sm);width:32px;height:32px;}
 button.date-chip{font-family:inherit;padding:0;}
-.date-chip.has-lesson:not(.active){border-color:var(--accent);color:var(--text-primary);}
-.date-chip:not(.has-lesson):not(.active){opacity:.6;}
-.seating-group-item{width:100%;}
 /* Schüler-Fenster (AH28): oben das Schnelle, alles gleich ruhig; heute schon eingetragen = dunkel gefüllt */
 #modal-seating-student .sw-seg [data-action].is-set{background:var(--text-primary);border-color:var(--text-primary);color:var(--bg-secondary);font-weight:600;}
 #modal-seating-student .sw-faces [data-action].is-set{border-color:var(--text-primary);box-shadow:inset 0 0 0 2px var(--text-primary);background:var(--bg-card);}
@@ -1271,7 +1228,6 @@ button.date-chip{font-family:inherit;padding:0;}
 .grade-round-count{font-size:14px;color:var(--text-secondary);font-variant-numeric:tabular-nums;}
 .grade-round-hint{flex:1;font-size:13px;color:var(--text-muted);}
 .grade-round-done{min-height:36px;margin-left:auto;}
-#btn-seating-round.active{background:var(--text-primary);color:var(--bg-secondary);}
 .grade-round-pop{position:fixed;z-index:1200;width:320px;max-width:calc(100vw - 16px);padding:var(--space-2);background:var(--bg-secondary);border:1px solid var(--border);border-radius:var(--radius-md);box-shadow:var(--shadow-lg);}
 .grade-round-who{font-size:13px;font-weight:600;color:var(--text-secondary);margin:2px var(--space-1) var(--space-2);}
 .grade-round-pop .sw-grid{gap:var(--space-1);}
@@ -1302,13 +1258,9 @@ button.date-chip{font-family:inherit;padding:0;}
 /* Touch (iPad): Tippflächen mindestens 44 px (BUGS N11) */
 @media (pointer: coarse){
   .date-chip, .date-chip.active{width:44px;height:44px;}
-  .seating-tool-slot, .seating-tool-btn, #seating-group-trigger{width:44px;height:44px;}
-  #seating-group-trigger{width:auto;}
-  .tool-play-btn, .tool-widget .btn-icon{width:44px;height:44px;}
   .class-row .btn-icon, .lcn-add-btn, .seating-note-add{width:44px;height:44px;}   /* Klassenübersicht, Notiz-„+“ (03.11.) */
   .class-row .btn-icon .ico{width:20px;height:20px;}
   .seating-grid-input{width:44px;height:40px;font-size:16px;}
-  .seating-group-item{min-height:44px !important;}
   .modal-close{width:44px;height:44px;}
   .seating-reveal-btn, .seating-grade-edit-btn{min-height:44px;min-width:44px;}
   .entry-item-delete{width:44px;height:44px;font-size:14px;}   /* ✕ im Schülerprofil (BUGS U3) */
@@ -1659,9 +1611,6 @@ h1,h2,h3,.dash-heading,.subject-heading{text-wrap:balance;}
 #print-area .rp-sum td{background:#f4f4f4;font-weight:600;}
 #print-area .rp-empty{color:#666;}
 
-/* Sitzplan: „Heute“ in der Werkzeugleiste (Rückmeldung 02.11.) */
-.seating-today-btn{height:34px;padding:0 var(--space-3);flex-shrink:0;}
-@media (pointer: coarse){.seating-today-btn{height:44px;}}
 
 /* Klassen-Ansicht: „+ Thema“ als Knopf (Rückmeldung 02.11.: als Link zu schwer zu treffen) */
 .ttc-add-btn{min-height:32px;padding:0 var(--space-3);font-size:13px;}
@@ -1770,7 +1719,7 @@ h1,h2,h3,.dash-heading,.subject-heading{text-wrap:balance;}
 @media (max-width: 699px){#view-timetable .btn-heute{padding:0 var(--space-3);}#view-timetable .week-label-wrap .week-label{padding:0 var(--space-2);}.week-label-kw{display:none;}}   /* Handy: 44er-Knöpfe lassen dem Datum sonst kaum Platz */
 @media (pointer: coarse){.tt-add-supervision{min-height:32px;}}
 input[type="date"].entry-date,input[type="date"].form-input{min-height:var(--control-h);}   /* sonst gewinnt der iOS-Fix ganz oben */
-.seating-tool-slot,.seating-tool-btn,.tool-widget .btn-icon,.tool-play-btn{width:var(--control-h);height:var(--control-h);}
+
 input.form-input,select.form-input,input.entry-input,input.entry-date,.custom-form-dropdown-trigger{padding-top:0;padding-bottom:0;}   /* sonst wächst das Feld über die Höhe hinaus */
 .btn-icon,.btn-circle,.btn-secondary.btn-circle,.btn-primary.btn-circle,.modal-close{width:var(--control-h);height:var(--control-h);min-width:var(--control-h);padding:0;flex-shrink:0;}   /* kein display hier: Knöpfe werden je Breite aus- und eingeblendet */
 .btn-circle .ico,.modal-close .ico{margin:0;}
@@ -1959,8 +1908,6 @@ textarea.form-input,.notes-textarea{min-height:calc(var(--control-h) * 2.5);}
 }
 /* Ende Einstellungen (AH38) */
 
-/* Sitzplan-Leiste rechts wie die Knöpfe in den anderen Ansichten (AH34) */
-@media (min-width: 601px){.seating-toolbar{position:static;transform:none;margin-left:auto;}}
 
 /* Abstände (AH34): nur diese Werte. 4 Titel zu Untertitel · 8 Knopf zu Knopf, Überschrift zu Inhalt · 12 zwischen Karten ·
    16 Innenrand von Karten und Fenstern · 24 zwischen großen Abschnitten · 32 große Seitenränder */
@@ -2112,3 +2059,92 @@ input, textarea, [contenteditable="true"]{-webkit-user-select:text;user-select:t
 .dash-todos .todo-row,.todo-view .todo-row{box-sizing:border-box;min-height:calc(var(--control-h) + var(--space-3));gap:var(--space-1);}
 .dash-todos .todo-body,.todo-view .todo-body{gap:2px;}
 .lesson-todos .todo-list{margin-top:var(--space-1);}
+
+/* ─── Sitzplan neu (AH50) ─── */
+/* Kopf: Klasse als Überschrift · Heute, Pfeile zur vorigen/nächsten Stunde der Klasse, Datum (antippen = Kalender) ·
+   Werkzeuge mit Namen. Darunter die Leiste (immer da, feste Höhe), das Raster ohne Rahmen, unten vier gleiche Knöpfe. */
+.seating-header h1{display:none;}
+.seating-toolbar{display:flex;align-items:center;gap:var(--space-2);flex:1;min-width:0;}
+.seating-class-pick{position:relative;flex-shrink:0;margin-right:var(--space-2);}
+.seating-class-btn{display:inline-flex;align-items:baseline;gap:var(--space-2);min-height:var(--control-h);padding:0 var(--space-2);margin-left:calc(var(--space-2) * -1);background:none;border:none;border-radius:var(--radius-sm);font-family:var(--font-display);font-size:26px;font-weight:600;line-height:var(--control-h);color:var(--text-primary);white-space:nowrap;cursor:pointer;}
+.seating-class-subject{font-size:16px;font-weight:400;color:var(--text-secondary);}
+.seating-class-subject:empty{display:none;}
+.seating-class-btn svg{align-self:center;color:var(--text-secondary);flex-shrink:0;}
+@media (hover: hover){.seating-class-btn:hover{background:var(--bg-elevated);}}
+.seating-group-menu{position:absolute;top:calc(100% + var(--space-1));left:calc(var(--space-2) * -1);min-width:180px;max-height:60vh;overflow-y:auto;display:flex;flex-direction:column;gap:2px;padding:var(--space-1);background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-md);box-shadow:var(--shadow-md);z-index:200;}
+.seating-group-menu.hidden{display:none;}
+.seating-group-head{padding:var(--space-2) var(--space-3) var(--space-1);font-size:11px;font-weight:600;color:var(--text-muted);}
+.seating-group-item{width:100%;min-height:var(--control-h);padding:0 var(--space-3);text-align:left;font:inherit;font-size:14px;font-weight:500;color:var(--text-primary);background:transparent;border:none;border-radius:var(--radius-sm);cursor:pointer;}
+.seating-group-item.active{background:var(--bg-elevated);font-weight:600;box-shadow:inset 0 0 0 1px var(--border);}
+@media (hover: hover){.seating-group-item:not(.active):hover{background:var(--bg-card-hover);}}
+.seating-date-nav{display:flex;align-items:center;gap:var(--space-2);flex-shrink:0;}
+.seating-today-btn{padding:0 var(--space-4);}
+.seating-date-wrap{position:relative;display:flex;cursor:pointer;}
+.seating-date-wrap .week-label{min-width:0;padding:0 var(--space-3);white-space:nowrap;pointer-events:none;}
+.seating-date-wrap input{position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer;}
+.seating-spring{flex:1;min-width:0;}
+.seating-tools{display:flex;align-items:center;gap:var(--space-2);flex-shrink:0;}
+.seating-tool-slot{position:relative;}
+.seating-tool-slot.hidden{display:none;}
+.seating-tool-btn{display:inline-flex;align-items:center;justify-content:center;gap:var(--space-2);height:var(--control-h);padding:0 var(--space-3);font-size:14px;font-weight:500;white-space:nowrap;}
+.seating-tool-btn .ico{width:18px;height:18px;margin:0;flex-shrink:0;}
+.seating-tool-btn[aria-pressed="true"]{background:var(--text-primary);color:var(--bg-secondary);border-color:var(--text-primary);}
+.seating-settings-popup{top:calc(100% + var(--space-1));left:0;transform:none;}
+.seating-tools.editing #btn-seating-round{display:none;}   /* Bearbeiten: Raster statt Notenrunde (die beendet das Bearbeiten ohnehin) */
+/* Schmaler: Werkzeuge nur als Symbol (Name im aria-label), dann das Fach weg */
+@container seating (max-width: 940px){
+  .seating-tool-btn .btn-label{display:none;}
+  .seating-tool-btn{width:var(--control-h);padding:0;}
+}
+@container seating (max-width: 700px){
+  .seating-class-subject{display:none;}
+  .seating-class-pick{margin-right:0;}
+}
+/* Schmal (Handy, Split View): Werkzeuge in eine zweite Zeile */
+@container seating (max-width: 620px){
+  .seating-header{height:auto;min-height:68px;padding-top:var(--space-2);padding-bottom:var(--space-2);}
+  .seating-toolbar{flex-wrap:wrap;row-gap:var(--space-2);}
+  .seating-class-btn{font-size:20px;}
+  .seating-date-nav{margin-left:auto;gap:var(--space-1);}
+  .seating-today-btn{padding:0 var(--space-3);}
+  .seating-spring{display:none;}
+  .seating-tools{flex-basis:100%;justify-content:space-between;}
+  .seating-tool-btn{flex:1;width:auto;}
+}
+@container seating (max-width: 360px){.seating-today-btn{display:none;}}
+
+/* Leiste oben: immer da, gleich hoch mit und ohne laufende Stunde */
+.seating-cockpit{margin:var(--space-3) var(--page-x) 0;}
+.cockpit-kicker{font-size:12px;font-weight:600;color:var(--text-secondary);}
+.cockpit-when{font-size:20px;font-weight:700;color:var(--text-primary);line-height:1.15;white-space:nowrap;}
+.cockpit-none{cursor:default;}
+@container seating (min-width: 521px){
+  .seating-cockpit{height:80px;align-items:center;padding-top:0;padding-bottom:0;}
+  .cockpit-time{display:grid;grid-template-columns:auto 1fr;column-gap:var(--space-2);row-gap:var(--space-1);width:210px;align-content:center;}
+  .cockpit-time .cockpit-mins,.cockpit-time .cockpit-progress,.cockpit-time .cockpit-kicker,.cockpit-time .cockpit-when{grid-column:1 / -1;}
+  .cockpit-time .cockpit-sub{margin:0;line-height:14px;}
+  .cockpit-time .cockpit-progress{width:100%;}
+  .cockpit-mins b{font-size:26px;}
+  .cockpit-main{align-self:center;}
+}
+@container seating (min-width: 521px) and (max-width: 820px){.cockpit-time{width:170px;}}
+
+/* Raster ohne Rahmen und Fläche: die Karten stehen auf dem Papier */
+#seating-canvas-wrapper{flex:1;display:flex;overflow:hidden;padding:var(--space-3) var(--page-x);}
+.seating-canvas{border:none;background:none;border-radius:0;}
+.seating-canvas.edit-mode{background:none;}
+
+/* Unten: vier gleiche Knöpfe; Timer und Stoppuhr klappen ein Feld darüber auf */
+.seating-tool{flex:0 1 160px;display:inline-flex;align-items:center;justify-content:center;gap:var(--space-2);min-width:0;padding:0 var(--space-3);font-size:14px;font-weight:500;white-space:nowrap;}
+.seating-tool .ico{width:20px;height:20px;margin:0;flex-shrink:0;}
+.seating-tool.on{font-variant-numeric:tabular-nums;font-weight:700;color:var(--text-primary);border-color:var(--text-muted);}
+.seating-tool.done{color:var(--danger);border-color:var(--danger);background:var(--danger-soft);}
+.seating-tool[aria-expanded="true"]{border-color:var(--text-primary);}
+.tool-pop{position:absolute;bottom:calc(100% + var(--space-2));left:var(--space-2);display:flex;padding:var(--space-3);background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-md);box-shadow:var(--shadow-lg);z-index:120;}
+.tool-pop.hidden{display:none;}
+.tool-play-btn,.tool-widget .btn-icon{width:var(--control-h);height:var(--control-h);}
+@container seating (max-width: 520px){
+  .seating-tool{flex:1 1 0;padding:0 var(--space-1);font-size:12px;gap:var(--space-1);}
+  .seating-tool .ico{width:16px;height:16px;}
+}
+/* Ende Sitzplan neu (AH50) */

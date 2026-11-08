@@ -19,7 +19,7 @@ describe('Sitzplan: Heute', () => {
     app('seatingGoToday()');
     expect(app('currentSeatingDateStr')).toBe('2026-11-04');
     expect(btn.classList.contains('active')).toBe(true);
-    expect(document.querySelector('#seating-date-strip .date-chip.active').textContent).toContain('4');
+    expect(document.getElementById('seating-date-label').textContent).toMatch(/04\.11\./);
   });
   it('am Wochenende: nächster Schultag', () => {
     vi.setSystemTime(new Date(2026, 10, 7, 10, 0));   // Sa

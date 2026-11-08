@@ -23,8 +23,9 @@ function seatingDB() {
 // Sitzplan mit vorgegebener Rahmengröße zeichnen (jsdom hat kein Layout)
 function renderSeatingAt(width, height) {
   const wrapper = document.getElementById('seating-canvas-wrapper');
-  Object.defineProperty(wrapper, 'clientWidth', { configurable: true, value: width });
-  Object.defineProperty(wrapper, 'clientHeight', { configurable: true, value: height });
+  // Innenabstand steht seit AH50 in style.css (in jsdom nicht geladen): Breite/Höhe hier = Platz für das Raster
+  Object.defineProperty(wrapper, 'clientWidth', { configurable: true, value: width - 40 });
+  Object.defineProperty(wrapper, 'clientHeight', { configurable: true, value: height - 40 });
   try {
     app('switchView("seating"); currentSeatingGroupId = "g1"; renderSeatingPlan()');
     return [...document.querySelectorAll('.seating-card')];
@@ -34,8 +35,8 @@ function renderSeatingAt(width, height) {
 }
 
 function containerBlock(maxWidth) {
-  const m = css.match(new RegExp(`@container seating \\(max-width:\\s*${maxWidth}px\\)\\s*\\{([\\s\\S]*?)\\n\\}`));
-  return m ? m[1] : '';
+  // alle Blöcke dieser Stufe zusammen (Cockpit und Kopf stehen in eigenen Blöcken)
+  return [...css.matchAll(new RegExp(`@container seating \\(max-width:\\s*${maxWidth}px\\)\\s*\\{([\\s\\S]*?)\\n\\}`, 'g'))].map(m => m[1]).join('\n');
 }
 
 beforeAll(() => {
@@ -49,28 +50,26 @@ describe('H13: Sitzplan passt auf schmale Bildschirme', () => {
     expect(css).toMatch(/#view-seating\s*\{[^}]*container-type:\s*inline-size[^}]*container-name:\s*seating/);
   });
 
-  it('untere Werkzeugleiste bricht um statt über die Ränder zu laufen', () => {
+  it('untere Werkzeugleiste: vier Knöpfe, die schrumpfen statt über die Ränder zu laufen (AH50)', () => {
     const bar = document.querySelector('#view-seating .seating-tools-bar');
     expect(bar.getAttribute('style')).toBeNull();   // Layout steht in style.css, nicht inline
-    expect(css).toMatch(/\.seating-tools-bar\s*\{[^}]*flex-wrap:\s*wrap/);
-    expect(containerBlock(1000)).toMatch(/\.tool-widget/);
+    expect(css).toMatch(/\.seating-tool\{[^}]*flex:0 1 160px[^}]*min-width:0/);
   });
 
-  it('obere Leiste überdeckt den Titel nicht: rückt in den Fluss, Titel ausgeblendet', () => {
+  it('obere Leiste: Titel ausgeblendet (Klasse ist die Überschrift), Leiste im Fluss (AH50)', () => {
     expect(document.querySelector('#view-seating .seating-toolbar')).not.toBeNull();
-    const narrow = containerBlock(900);   // seit „Heute“ in der Leiste (AD13) schon ab 900 px
-    expect(narrow).toMatch(/\.seating-header h1\s*\{[^}]*display:\s*none/);
-    expect(narrow).toMatch(/\.seating-toolbar\s*\{[^}]*position:\s*static/);
+    expect(css).toMatch(/\.seating-header h1\{display:none;\}/);
+    expect(css).not.toMatch(/\.seating-toolbar\s*\{[^}]*position:\s*absolute/);
   });
 
-  it('Handy: Datums-Chips in eigener Zeile', () => {
-    const phone = containerBlock(520);
+  it('Handy: Werkzeuge in eigener Zeile', () => {
+    const phone = containerBlock(620);
     expect(phone).toMatch(/\.seating-toolbar\s*\{[^}]*flex-wrap:\s*wrap/);
-    expect(phone).toMatch(/#seating-date-strip\s*\{[^}]*flex-basis:\s*100%/);
+    expect(phone).toMatch(/\.seating-tools\s*\{[^}]*flex-basis:\s*100%/);
   });
 
   it('Knöpfe und Anzeigen bleiben erreichbar (IDs unverändert)', () => {
-    ['timer-display', 'stopwatch-display', 'btn-timer-toggle', 'btn-stopwatch-toggle', 'seating-date-strip',
+    ['timer-display', 'stopwatch-display', 'btn-timer-toggle', 'btn-stopwatch-toggle', 'seating-date-label',
       'seating-group-trigger', 'btn-seating-grades', 'btn-seating-edit'].forEach(id =>
       expect(document.getElementById(id), id).not.toBeNull());
   });

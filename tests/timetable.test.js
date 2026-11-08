@@ -322,7 +322,7 @@ describe('D10: Datumsstrings werden als lokale Zeit gelesen', () => {
       expect(document.getElementById('week-label').textContent).toContain('04.01.');
       app(`currentSeatingDateStr = '2027-01-04'`);
       app('renderSeatingDateStrip()');
-      expect(document.querySelector('#seating-date-strip .date-chip.active .date-chip-day').textContent).toBe('Mo');
+      expect(document.getElementById('seating-date-label').textContent).toMatch(/^Mo\.?,? 04\.01\./);
     } finally {
       if (oldTZ === undefined) delete process.env.TZ; else process.env.TZ = oldTZ;
     }

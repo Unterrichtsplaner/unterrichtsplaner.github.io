@@ -21,7 +21,6 @@ function sampleDB() {
 }
 
 const anna = () => app('db').students.g1[0];
-const chipDays = () => [...document.querySelectorAll('#seating-date-strip .date-chip .date-chip-day')].map(e => e.textContent);
 
 beforeAll(() => {
   localStorage.setItem('lehrerapp_v3', JSON.stringify(sampleDB()));
@@ -145,15 +144,12 @@ describe('H8: „Zu spät“ in der Schnellbewertung', () => {
   });
 });
 
-describe('H9: Datumsleiste nur Mo–Fr', () => {
-  it('um einen Montag herum: Do Fr Mo Di Mi', () => {
-    app('currentSeatingDateStr = "2026-09-14"; renderSeatingDateStrip()');
-    expect(chipDays()).toEqual(['Do', 'Fr', 'Mo', 'Di', 'Mi']);
-  });
-
-  it('um einen Freitag herum: Mi Do Fr Mo Di', () => {
-    app('currentSeatingDateStr = "2026-09-11"; renderSeatingDateStrip()');
-    expect(chipDays()).toEqual(['Mi', 'Do', 'Fr', 'Mo', 'Di']);
+describe('H9: Datum nur Mo–Fr', () => {
+  it('Klasse ohne Stunden: Pfeile springen über das Wochenende', () => {
+    app('db.lessonSlots = db.lessonSlots.filter(s => s.groupId !== currentSeatingGroupId); setSeatingDate("2026-09-11"); seatingStepLesson(1)');
+    expect(app('currentSeatingDateStr')).toBe('2026-09-14');
+    app('seatingStepLesson(-1)');
+    expect(app('currentSeatingDateStr')).toBe('2026-09-11');
   });
 
   it('Wochenende im Kalender gewählt → nächster Montag', () => {
@@ -170,8 +166,7 @@ describe('H9: Datumsleiste nur Mo–Fr', () => {
       app('currentSeatingDateStr = ""');
       app('switchView("seating")');
       expect(app('currentSeatingDateStr')).toBe('2026-09-28');
-      expect(chipDays()).not.toContain('Sa');
-      expect(chipDays()).not.toContain('So');
+      expect(document.getElementById('seating-date-label').textContent).toMatch(/^Mo/);
     } finally {
       vi.useRealTimers();
     }

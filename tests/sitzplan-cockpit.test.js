@@ -35,7 +35,8 @@ function sampleDB() {
 }
 const at = (h, m = 0, s = 0) => vi.setSystemTime(new Date(2026, 10, 2, h, m, s));
 const cockpit = () => document.getElementById('seating-cockpit');
-const shown = () => !cockpit().classList.contains('hidden');
+// „Live“ = Leiste der laufenden Stunde (Restzeit). Außerhalb zeigt die Leiste seit AH50 die nächste Stunde (tests/sitzplan-neu).
+const shown = () => !cockpit().classList.contains('hidden') && cockpit().classList.contains('live');
 const openSeating = (groupId = 'g1') => app(`seatingRequest = { groupId: ${JSON.stringify(groupId)}, dateStr: "${MON}" }; switchView("seating")`);
 const card = id => document.querySelector(`.seating-card[data-id="${id}"]`);
 
@@ -69,7 +70,7 @@ describe('Cockpit-Leiste', () => {
     expect(cockpit().querySelector('.cockpit-next').textContent).toMatch(/^danach 9c · 09:/);
   });
 
-  it('kurz vorher „in … Min“, außerhalb der Stunde und an anderen Tagen keine Leiste', () => {
+  it('kurz vorher „in … Min“, außerhalb der Stunde und an anderen Tagen keine Restzeit', () => {
     at(7, 35);
     openSeating();
     expect(shown()).toBe(true);
@@ -82,7 +83,7 @@ describe('Cockpit-Leiste', () => {
     expect(shown()).toBe(false);
   });
 
-  it('andere Klasse (9c läuft nicht): keine Leiste', () => {
+  it('andere Klasse (9c läuft nicht): keine Restzeit', () => {
     at(8, 0);
     openSeating('g2');
     expect(shown()).toBe(false);
@@ -194,11 +195,14 @@ describe('Cockpit-Leiste', () => {
     spy();
   });
 
-  it('im Bearbeiten-Modus keine Leiste (und kein Neuzeichnen unter dem Finger)', () => {
+  it('im Bearbeiten-Modus bleibt die Leiste stehen (Raster springt nicht), der Takt zeichnet nicht neu', () => {
     at(8, 0);
     openSeating();
     app('toggleSeatingEditMode()');
-    expect(shown()).toBe(false);
+    expect(shown()).toBe(true);
+    const html = cockpit().innerHTML;
+    at(8, 10); app('refreshSeatingCockpit()');
+    expect(cockpit().innerHTML).toBe(html);
     app('toggleSeatingEditMode()');
     expect(shown()).toBe(true);
   });

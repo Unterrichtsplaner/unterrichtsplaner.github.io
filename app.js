@@ -77,6 +77,9 @@ cards: '<rect x="3" y="3" width="8" height="8" rx="1"/><rect x="13" y="3" width=
   info:         '<circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/>',
   cake:         '<path d="M20 21v-8a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8"/><path d="M4 16s.5-1 2-1 2.5 2 4 2 2.5-2 4-2 2.5 2 4 2 2-1 2-1"/><path d="M2 21h20"/><path d="M7 8v3"/><path d="M12 8v3"/><path d="M17 8v3"/><path d="M7 4h.01"/><path d="M12 4h.01"/><path d="M17 4h.01"/>',
   activity:     '<polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>',
+  clock:        '<circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 14"/>',
+  stopwatch:    '<circle cx="12" cy="13" r="8"/><line x1="12" y1="13" x2="15" y2="10"/><line x1="10" y1="2" x2="14" y2="2"/>',
+  grid:         '<rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="3" x2="9" y2="21"/><line x1="15" y1="3" x2="15" y2="21"/>',
   pin:          '<line x1="12" y1="17" x2="12" y2="22"/><path d="M5 17h14v-1.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V6h1a2 2 0 0 0 0-4H8a2 2 0 0 0 0 4h1v4.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24Z"/>',
   'calendar-x': '<rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><line x1="10" y1="14" x2="14" y2="18"/><line x1="14" y1="14" x2="10" y2="18"/>',
 };
@@ -396,6 +399,7 @@ function switchView(name) {
   }
   if (name !== 'timetable' && timetableEditMode) setTimetableEditUI(false); // AC2
   if (name !== 'seating') setSeatingWakeLock(false); // Bildschirm darf wieder ausgehen (AD2)
+  if (name !== 'seating') closeToolPops();   // Timer-/Stoppuhr-Feld (AH50)
   if (name !== 'seating' && typeof gradeRound !== 'undefined' && gradeRound) endGradeRound();   // Notenrunde (AH28)
   if (name !== 'students') hideClassGrades();   // Beamer-Schutz (AH24 c)
   if (typeof closeParticipationPicker === 'function') closeParticipationPicker();
@@ -5558,68 +5562,42 @@ function renderSeatingGroupSelect() {
   const label = document.getElementById('seating-group-current-label');
   if (!menu || !label) return;
   menu.innerHTML = '';
-  
+
   if (!currentSeatingGroupId && db.groups.length > 0) {
     currentSeatingGroupId = db.groups[0].id;
   }
-  
+
+  // Klasse als Überschrift, das Fach klein daneben (AH50; ersetzt „7b Mathe“ bei Zwillingen, BUGS N9)
   const activeGroup = db.groups.find(g => g.id === currentSeatingGroupId);
-  if (activeGroup) {
-    // Gibt es die Klasse in mehreren Fächern, steht das Fach dabei (BUGS N9)
-    const twin = db.groups.some(g => g !== activeGroup && g.className === activeGroup.className);
-    label.textContent = twin ? `${activeGroup.className} ${activeGroup.subject}` : activeGroup.className;
-  } else {
-    label.textContent = 'Klasse';
-  }
-  
+  const subject = document.getElementById('seating-group-subject');
+  label.textContent = activeGroup ? activeGroup.className : 'Klasse';
+  if (subject) subject.textContent = activeGroup ? (activeGroup.subject || '') : '';
+  const trigger = document.getElementById('seating-group-trigger');
+  if (trigger) trigger.setAttribute('aria-label', activeGroup
+    ? `Klasse wählen: ${[activeGroup.className, activeGroup.subject].filter(Boolean).join(' ')}` : 'Klasse wählen');
+
   const grouped = {};
   db.groups.forEach(g => {
     const subject = g.subject || 'Ohne Fach';
     if (!grouped[subject]) grouped[subject] = [];
     grouped[subject].push(g);
   });
-  
+
   const sortedSubjects = Object.keys(grouped).sort((a,b) => a.localeCompare(b, undefined, { numeric: true }));
-  
+
   sortedSubjects.forEach(subject => {
     const header = document.createElement('div');
-    header.style.fontSize = '10px';
-    header.style.fontWeight = '700';
-    header.style.color = 'var(--text-muted)';
-    header.style.textTransform = 'uppercase';
-    header.style.padding = '6px 10px 2px';
-    header.style.textAlign = 'center';
-    header.style.letterSpacing = '0.5px';
+    header.className = 'seating-group-head';
     header.textContent = subject;
     menu.appendChild(header);
-    
+
     const classes = grouped[subject].sort((a,b) => a.className.localeCompare(b.className, undefined, { numeric: true }));
-    
+
     classes.forEach(g => {
       const item = document.createElement('button'); // Knopf: per Tastatur/Screenreader erreichbar (BUGS N11)
       item.type = 'button';
-      item.className = 'seating-group-item';
-      item.style.border = 'none';
-      item.style.fontFamily = 'inherit';
-      item.style.minHeight = '36px';
-      item.style.padding = '6px 12px';
-      item.style.fontSize = '13px';
-      item.style.fontWeight = '600';
-      item.style.borderRadius = '8px';
-      item.style.cursor = 'pointer';
-      item.style.textAlign = 'center';
-      item.style.transition = 'all var(--transition)';
-      item.style.color = g.id === currentSeatingGroupId ? 'var(--text-accent)' : 'var(--text-primary)';
-      item.style.background = g.id === currentSeatingGroupId ? 'var(--accent-soft)' : 'transparent';
+      item.className = 'seating-group-item' + (g.id === currentSeatingGroupId ? ' active' : '');
       item.textContent = `Klasse ${g.className}`;
-      
-      item.onmouseover = () => {
-        if (g.id !== currentSeatingGroupId) item.style.background = 'var(--bg-card-hover)';
-      };
-      item.onmouseout = () => {
-        if (g.id !== currentSeatingGroupId) item.style.background = 'transparent';
-      };
-      
       item.onclick = (e) => {
         e.stopPropagation();
         // Andere Klasse: deren Noten nicht gleich auf dem Beamer zeigen (Regel 16, BUGS S1)
@@ -5628,10 +5606,10 @@ function renderSeatingGroupSelect() {
         seatingAutoLast = getSuggestedSeatingGroupId(); // von Hand gewählt: erst bei der nächsten Stunde wieder wechseln
         menu.classList.add('hidden');
         renderSeatingGroupSelect();
-        renderSeatingDateStrip(); // Unterrichtstage gehören zur Klasse
+        renderSeatingDateStrip();
         renderSeatingPlan();
       };
-      
+
       menu.appendChild(item);
     });
   });
@@ -5653,43 +5631,31 @@ document.addEventListener('click', () => {
   }
 });
 
+// Datum im Kopf (AH50): wie im Stundenplan „Heute“, Pfeile, Datum (antippen = Kalender). Name von früher (Datums-Chips).
 function renderSeatingDateStrip() {
-  const container = document.getElementById('seating-date-strip');
-  if (!container) return;
-  container.innerHTML = '';
-  
+  const label = document.getElementById('seating-date-label');
   const baseDate = nextSchoolDay(currentSeatingDateStr ? parseDate(currentSeatingDateStr) : new Date());
   const picker = document.getElementById('seating-date-hidden');
   if (picker) picker.value = formatDate(baseDate); // wie beim Stundenplan (BUGS M14)
-  
+  if (label) label.textContent = formatWeekdayShort(formatDate(baseDate));
   const todayBtn = document.getElementById('btn-seating-today');
   if (todayBtn) todayBtn.classList.toggle('active', currentSeatingDateStr === formatDate(nextSchoolDay(new Date())));
-  const days = ['So','Mo','Di','Mi','Do','Fr','Sa'];
-  for(let i = -2; i <= 2; i++) {
-    const d = addSchoolDays(baseDate, i);
-    const dStr = formatDate(d);
-    
-    const chip = document.createElement('button');
-    chip.type = 'button';
-    chip.className = 'date-chip';
-    if (dStr === currentSeatingDateStr) chip.classList.add('active');
-    // Tage mit Unterricht dieser Klasse markieren (BUGS N10)
-    const hasLesson = !!currentSeatingGroupId && lessonsOnDate(dStr).some(l => l.slot.groupId === currentSeatingGroupId && !l.ausfall);
-    chip.classList.toggle('has-lesson', hasLesson);
-    chip.setAttribute('aria-label', d.toLocaleDateString('de-DE', { weekday: 'long', day: '2-digit', month: '2-digit' }) + (hasLesson ? ', Unterricht' : ''));
-    if (dStr === currentSeatingDateStr) chip.setAttribute('aria-current', 'date');
-
-    const dayLabel = days[d.getDay()];
-    const dateNum = d.getDate();
-    
-    chip.innerHTML = `<span class="date-chip-day">${dayLabel}</span><span class="date-chip-date">${dateNum}</span>`;
-    chip.onclick = () => {
-      setSeatingDate(dStr);
-      renderSeatingDateStrip();
-      renderSeatingPlan();
-    };
-    container.appendChild(chip);
+}
+// Pfeile: vorige/nächste Stunde dieser Klasse (ohne Ausfall, bis 70 Tage weit, Regel 17); ohne Stunden ein Schultag
+function seatingStepLesson(dir) {
+  const start = parseDate(currentSeatingDateStr || formatDate(nextSchoolDay(new Date())));
+  let target = null;
+  if (currentSeatingGroupId) {
+    let d = addDays(start, dir);
+    for (let i = 0; i < 70 && !target; i++, d = addDays(d, dir)) {
+      if (!isSchoolDay(d)) continue;
+      const ds = formatDate(d);
+      if (lessonsOnDate(ds).some(l => l.slot.groupId === currentSeatingGroupId && !l.ausfall)) target = ds;
+    }
   }
+  setSeatingDate(target || formatDate(addSchoolDays(start, dir)));
+  renderSeatingDateStrip();
+  renderSeatingPlan();
 }
 
 function onHiddenDateChange(val) {
@@ -5733,10 +5699,11 @@ function updateSeatingGradesButton() {
   const btn = document.getElementById('btn-seating-grades');
   if (!btn) return;
   btn.classList.toggle('active', seatingShowGrades);
+  const text = seatingShowGrades ? 'Noten verbergen' : 'Noten zeigen';
   btn.title = seatingShowGrades ? 'Noten verbergen' : 'Noten anzeigen';
+  btn.setAttribute('aria-label', text);
   btn.setAttribute('aria-pressed', seatingShowGrades ? 'true' : 'false');
-  btn.querySelector('.eye-open').style.display = seatingShowGrades ? '' : 'none';
-  btn.querySelector('.eye-closed').style.display = seatingShowGrades ? 'none' : '';
+  btn.innerHTML = icon(seatingShowGrades ? 'eye-off' : 'eye') + `<span class="btn-label">${text}</span>`;
 }
 
 // ─── Unterrichts-Cockpit im Sitzplan (AD2) ─────────────────────────────────
@@ -5803,19 +5770,45 @@ function cockpitCount(cls, iconName, count, label, title) {
     + `${icon(iconName)}${count !== null ? `<b>${count}</b>` : ''}<span class="cockpit-count-label">${label}</span></button>`;
 }
 const plural = (n, one, many) => n === 1 ? one : many;
-// Zeichnet die Leiste; liefert true, wenn sie erschienen oder verschwunden ist (dann ändert sich die Rasterhöhe)
+// Außerhalb der Stunde (AH50): welche Stunde die Leiste zeigt. Heute die nächste, die noch kommt; an einem anderen
+// Tag die erste an diesem Tag, sonst die nächste danach. Ohne Ausfall, bis 70 Tage weit (Regel 17).
+function seatingPlannedLesson(groupId, dateStr, now = new Date()) {
+  if (!groupId || !dateStr) return null;
+  const todayStr = formatDate(now);
+  const nowMins = now.getHours() * 60 + now.getMinutes();
+  const mine = ds => lessonsOnDate(ds).filter(l => l.slot.groupId === groupId && !l.ausfall && l.range);
+  if (dateStr !== todayStr) {
+    const own = mine(dateStr)[0];
+    if (own) return { lesson: own, kicker: 'Stunde' };
+  }
+  let d = parseDate(dateStr);
+  for (let i = 0; i < 70; i++, d = addDays(d, 1)) {
+    const ds = formatDate(d);
+    if (!isSchoolDay(d) && ds !== dateStr) continue;
+    const hit = mine(ds).find(l => ds !== todayStr || l.range.start > nowMins);
+    if (hit && (i > 0 || ds === todayStr)) return { lesson: hit, kicker: 'Nächste Stunde' };
+  }
+  return null;
+}
+// Zeichnet die Leiste. Sie ist immer da (feste Höhe, das Raster springt nicht): während der Stunde Restzeit und
+// Bildschirm an, sonst die nächste Stunde. Liefert true, wenn sich Sichtbarkeit oder Art geändert hat (Raster neu einpassen).
 function renderSeatingCockpit(now = new Date()) {
   const el = document.getElementById('seating-cockpit');
   if (!el) return false;
   const viewOpen = document.getElementById('view-seating')?.classList.contains('active');
-  const info = viewOpen && !seatingEditMode ? seatingCockpitInfo(currentSeatingGroupId, currentSeatingDateStr, now) : null;
-  const wasShown = !el.classList.contains('hidden');
-  el.classList.toggle('hidden', !info);
+  const groupOk = !!db.groups.find(g => g.id === currentSeatingGroupId);
+  const info = viewOpen && groupOk ? seatingCockpitInfo(currentSeatingGroupId, currentSeatingDateStr, now) : null;
+  const wasShown = !el.classList.contains('hidden'), wasLive = el.classList.contains('live');
+  const show = !!(viewOpen && groupOk);
+  el.classList.toggle('hidden', !show);
+  el.classList.toggle('live', !!info);
   setSeatingWakeLock(!!info);
-  if (!info) { el.innerHTML = ''; cockpitHTML = ''; cockpitLesson = null; cockpitToday = null; return wasShown; }
+  const changed = wasShown !== show || wasLive !== !!info;
+  if (!show) { el.innerHTML = ''; cockpitHTML = ''; cockpitLesson = null; cockpitToday = null; return changed; }
+  if (!info) { renderPlannedCockpit(el, now); return changed; }
   const t = seatingTodayInfo(currentSeatingGroupId, info);
   cockpitLesson = { slotId: info.lesson.slot.id, dateStr: info.lesson.dateStr };
-  cockpitToday = { info, t };
+  cockpitToday = { info, t, live: true };
   const { range, block } = info.lesson;
   const nextText = info.next ? `danach ${[lessonTitle(info.next.slot).main, minsToTime(info.next.range.start)].join(' · ')}` : '';
   // Links groß die Zeit mit Balken (das, worauf man im Unterricht am häufigsten schaut)
@@ -5825,8 +5818,40 @@ function renderSeatingCockpit(now = new Date()) {
     + `<div class="cockpit-progress" aria-hidden="true"><span style="width:${Math.round(info.progress * 100)}%"></span></div>`
     + `<div class="cockpit-sub">${info.running ? `bis ${minsToTime(range.end)}` : `${escHtml(block.label)} · ab ${minsToTime(range.start)}`}</div>`
     + (nextText ? `<div class="cockpit-sub cockpit-next">${escHtml(nextText)}</div>` : '');
+  setCockpitHTML(el, `
+    <button type="button" class="cockpit-time" onclick="openSeatingToday()" aria-label="Alles zu heute">${timeHTML}</button>
+    ${cockpitMainHTML(t, 'Thema heute')}`);
+  return changed;
+}
+// Leiste außerhalb der Stunde: links wann, Mitte Thema und Zähler wie während der Stunde
+function renderPlannedCockpit(el, now) {
+  const plan = seatingPlannedLesson(currentSeatingGroupId, currentSeatingDateStr, now);
+  if (!plan) {
+    cockpitLesson = null; cockpitToday = null;
+    setCockpitHTML(el, `<div class="cockpit-time cockpit-none"><div class="cockpit-kicker">Nächste Stunde</div><div class="cockpit-when">–</div></div>
+      <div class="cockpit-main"><span class="cockpit-topic-text"><span class="cockpit-empty">Kein Unterricht eingetragen</span></span></div>`);
+    return;
+  }
+  const info = { lesson: plan.lesson, running: false, next: null };
+  const t = seatingTodayInfo(currentSeatingGroupId, info);
+  cockpitLesson = { slotId: plan.lesson.slot.id, dateStr: plan.lesson.dateStr };
+  cockpitToday = { info, t, live: false };
+  const { range, block, dateStr } = plan.lesson;
+  const today = dateStr === formatDate(now);
+  const timeHTML = `<div class="cockpit-kicker">${plan.kicker}</div>`
+    + `<div class="cockpit-when">${escHtml(today ? minsToTime(range.start) : formatWeekdayShort(dateStr))}</div>`
+    + `<div class="cockpit-sub">${escHtml((today ? 'heute' : minsToTime(range.start)) + ' · ' + block.label)}</div>`;
+  setCockpitHTML(el, `
+    <button type="button" class="cockpit-time" onclick="openSeatingToday()" aria-label="Alles zu dieser Stunde">${timeHTML}</button>
+    ${cockpitMainHTML(t, 'Thema')}`);
+}
+// Nur bei neuem Inhalt ersetzen: Sonst verschwände alle paar Sekunden der Knopf unter dem Finger, und das Tippen ginge verloren (AH3)
+function setCockpitHTML(el, html) {
+  if (html !== cockpitHTML) { el.innerHTML = html; cockpitHTML = html; }
+}
+function cockpitMainHTML(t, ownLabel) {
   // Mitte: Überschrift, Thema in voller Breite, darunter die Zähler
-  const topicLabel = t.topic ? 'Thema heute' : t.prevTopic ? `Letzte Stunde · ${formatWeekdayShort(t.prev.dateStr)}` : 'Thema';
+  const topicLabel = t.topic ? ownLabel : t.prevTopic ? `Letzte Stunde · ${formatWeekdayShort(t.prev.dateStr)}` : 'Thema';
   const topicHTML = `<span class="cockpit-topic-label">${escHtml(topicLabel)}</span>`
     + `<span class="cockpit-topic-text">${t.topic || t.prevTopic ? escHtml(t.topic || t.prevTopic) : '<span class="cockpit-empty">Noch kein Thema eingetragen</span>'}</span>`;
   const counts = [];
@@ -5835,16 +5860,11 @@ function renderSeatingCockpit(now = new Date()) {
   if (t.absent.length) counts.push(cockpitCount('absent', 'absences', t.absent.length, plural(t.absent.length, 'fehlt', 'fehlen'), `${t.absent.length} ${plural(t.absent.length, 'fehlt', 'fehlen')} heute`));
   if (t.missed.length) counts.push(cockpitCount('missed', 'calendar-x', t.missed.length, 'nachholen', `${t.missed.length} ${plural(t.missed.length, 'hat', 'haben')} letzte Stunde gefehlt`));
   if (t.birthdays.length) counts.push(cockpitCount('bday', 'cake', t.birthdays.length, 'Geb.', `${t.birthdays.length} ${plural(t.birthdays.length, 'Geburtstag', 'Geburtstage')}`));
-  const html = `
-    <button type="button" class="cockpit-time" onclick="openSeatingToday()" aria-label="Alles zu heute">${timeHTML}</button>
-    <div class="cockpit-main">
-      <button type="button" class="cockpit-topic" onclick="openSeatingToday()" title="Alles zu heute">${topicHTML}</button>
+  return `<div class="cockpit-main">
+      <button type="button" class="cockpit-topic" onclick="openSeatingToday()" title="Alles zu dieser Stunde">${topicHTML}</button>
       ${counts.length ? `<div class="cockpit-counts">${counts.join('')}</div>` : ''}
     </div>
     <button type="button" class="btn-secondary cockpit-lesson-btn" onclick="openCockpitLesson()" aria-label="Diese Stunde: Inhalt, Notiz, Hausaufgabe">${icon('edit')}<span>Stunde</span></button>`;
-  // Nur bei neuem Inhalt ersetzen: Sonst verschwände alle paar Sekunden der Knopf unter dem Finger, und das Tippen ginge verloren (AH3)
-  if (html !== cockpitHTML) { el.innerHTML = html; cockpitHTML = html; }
-  return !wasShown;
 }
 let cockpitToday = null, cockpitHTML = '';
 // Fenster „Heute“: alles zur laufenden Stunde im Detail (Listen dürfen hier beliebig lang sein)
@@ -5859,7 +5879,8 @@ function renderSeatingToday() {
   const { info, t } = cockpitToday;
   const { slot, range, block } = info.lesson;
   const title = lessonTitle(slot);
-  document.getElementById('seating-today-title').textContent = `Heute · ${title.main}${title.sub ? ' ' + title.sub : ''}`;
+  const day = info.lesson.dateStr === formatDate(new Date()) ? 'Heute' : formatWeekdayShort(info.lesson.dateStr);
+  document.getElementById('seating-today-title').textContent = `${day} · ${title.main}${title.sub ? ' ' + title.sub : ''}`;
   const section = (label, iconName, body, cls = '') => `<section class="today-section ${cls}"><h3>${icon(iconName)}${label}</h3>${body}</section>`;
   const list = items => `<ul>${items.join('')}</ul>`;
   const text = s => escHtml(s).replace(/\n/g, '<br>');
@@ -6606,19 +6627,13 @@ document.addEventListener('keydown', e => { if (e.key === 'Escape' && document.g
 function toggleSeatingEditMode() {
   seatingEditMode = !seatingEditMode;
   const btn = document.getElementById('btn-seating-edit');
-  if (seatingEditMode) {
-    btn.innerHTML = '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="pointer-events:none;"><polyline points="20 6 9 17 4 12"></polyline></svg>';
-    btn.setAttribute('aria-pressed', 'true');
-    btn.style.background = 'var(--success, #10b981)';
-    btn.style.color = 'white';
-    btn.style.border = 'none';
-  } else {
-    btn.innerHTML = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="pointer-events:none;"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>';
-    btn.setAttribute('aria-pressed', 'false');
-    btn.style.background = '';
-    btn.style.color = '';
-    btn.style.border = '';
-  }
+  btn.classList.toggle('is-editing', seatingEditMode);
+  btn.setAttribute('aria-pressed', seatingEditMode ? 'true' : 'false');
+  btn.innerHTML = icon(seatingEditMode ? 'check' : 'edit') + `<span class="btn-label">${seatingEditMode ? 'Fertig' : 'Bearbeiten'}</span>`;
+  // Raster-Größe gehört zum Bearbeiten (AH50): sonst ausgeblendet
+  document.getElementById('seating-grid-tool')?.classList.toggle('hidden', !seatingEditMode);
+  document.querySelector('.seating-tools')?.classList.toggle('editing', seatingEditMode);   // „Noten geben“ passt nicht zum Umsetzen
+  if (!seatingEditMode) document.getElementById('seating-settings-popup')?.classList.add('hidden');
   renderSeatingPlan();
 }
 
@@ -6781,8 +6796,11 @@ function renderSeatingPlan() {
   canvas.style.minHeight = '0px';
   
   const wrapper = document.getElementById('seating-canvas-wrapper');
-  const containerWidth = (wrapper ? wrapper.clientWidth : canvas.parentElement.clientWidth) - 40;
-  const containerHeight = (wrapper ? wrapper.clientHeight : canvas.parentElement.clientHeight) - 40;
+  // Platz innerhalb des Innenabstands (AH50: das Raster hat keinen Rahmen mehr, der Abstand kommt aus style.css)
+  const box = wrapper || canvas.parentElement;
+  const pad = getComputedStyle(box);
+  const containerWidth = box.clientWidth - (parseFloat(pad.paddingLeft) || 0) - (parseFloat(pad.paddingRight) || 0);
+  const containerHeight = box.clientHeight - (parseFloat(pad.paddingTop) || 0) - (parseFloat(pad.paddingBottom) || 0);
   
   // Versetzte Reihen (BUGS AA5): jede zweite Reihe einen halben Platz nach rechts, das Raster wird ein halbes Feld breiter
   const stagger = !!g.seatingStagger && rows > 1;
@@ -6895,7 +6913,7 @@ function renderSeatingPlan() {
     const hasHint = !!(s.notes || '').trim();
     const important = !!(s.importantNote || '').trim();   // AD17: rot, ersetzt das graue ⓘ
     const bday = birthdayInfo(s, dateStr);
-    const missedLast = !!(cockpitToday && cockpitToday.t.missed.includes(s)); // nur während der Stunde (Cockpit)
+    const missedLast = !!(cockpitToday && cockpitToday.live && cockpitToday.t.missed.includes(s)); // nur während der Stunde (Cockpit)
     const marks = (important ? `<span class="sc-mark sc-important" title="Wichtiger Hinweis">${icon('alert')}</span>`
         : hasHint ? `<span class="sc-mark sc-hint" title="Hinweis vorhanden">${icon('info')}</span>` : '')
       + (bday ? `<span class="sc-mark sc-bday" title="Geburtstag">${icon('cake')}</span>` : '')
@@ -10003,6 +10021,7 @@ function setPlayButton(id, running, name) {
   if (!btn) return;
   btn.innerHTML = running ? PAUSE_SVG : PLAY_SVG;
   btn.setAttribute('aria-label', `${name} ${running ? 'anhalten' : 'starten'}`);
+  updateToolLabels();
 }
 
 let timerInterval = null;
@@ -10010,17 +10029,71 @@ let timerSeconds = 300; // 5 mins default; läuft der Timer, ist das die zuletzt
 let timerIsRunning = false;
 let timerEndsAt = 0;    // Date.now()-Zeitpunkt, an dem der laufende Timer abläuft
 
+const mmss = secs => Math.floor(secs / 60).toString().padStart(2, '0') + ':' + (secs % 60).toString().padStart(2, '0');
+let timerDone = false;   // abgelaufen, bis „Zurücksetzen“ (BUGS N12)
 function updateTimerDisplay() {
   const el = document.getElementById('timer-display');
-  if (!el) return;
-  const m = Math.floor(timerSeconds / 60).toString().padStart(2, '0');
-  const s = (timerSeconds % 60).toString().padStart(2, '0');
-  el.textContent = m + ':' + s;
+  if (el) el.textContent = mmss(timerSeconds);
+  updateToolLabels();
 }
+// Knöpfe unten (AH50): „Timer“/„Stoppuhr“, sobald etwas läuft oder eingestellt ist die Zeit – auch bei geschlossenem Feld
+function updateToolLabels() {
+  const t = document.getElementById('btn-tool-timer'), tl = document.getElementById('tool-timer-label');
+  if (t && tl) {
+    const on = timerIsRunning || timerDone || timerSeconds !== 300;
+    tl.textContent = on ? mmss(timerSeconds) : 'Timer';
+    t.classList.toggle('on', on);
+    t.classList.toggle('done', timerDone);
+    t.setAttribute('aria-label', on ? `Timer ${mmss(timerSeconds)}${timerDone ? ', abgelaufen' : ''}` : 'Timer');
+  }
+  const w = document.getElementById('btn-tool-stopwatch'), wl = document.getElementById('tool-stopwatch-label');
+  if (w && wl) {
+    const on = stopwatchIsRunning || stopwatchMs > 0;
+    wl.textContent = on ? mmss(Math.floor(stopwatchMs / 1000)) : 'Stoppuhr';
+    w.classList.toggle('on', on);
+    w.setAttribute('aria-label', on ? `Stoppuhr ${mmss(Math.floor(stopwatchMs / 1000))}` : 'Stoppuhr');
+  }
+}
+// Feld über dem Knopf: höchstens eins offen; Escape und Tippen daneben schließen es (Regel 27)
+function toggleToolPop(name) {
+  const pop = document.getElementById(`tool-${name}-pop`);
+  if (!pop) return;
+  const opening = pop.classList.contains('hidden');
+  closeToolPops();
+  if (!opening) return;
+  const btn = document.getElementById(`btn-tool-${name}`);
+  pop.classList.remove('hidden');
+  btn?.setAttribute('aria-expanded', 'true');
+  placeToolPop(pop, btn);
+}
+function placeToolPop(pop, btn) {
+  const bar = pop.parentElement;
+  if (!btn || !bar) return;
+  pop.style.left = '0px';
+  const max = Math.max(0, bar.clientWidth - pop.offsetWidth - 8);
+  const want = btn.offsetLeft + btn.offsetWidth / 2 - pop.offsetWidth / 2;
+  pop.style.left = Math.round(Math.max(8, Math.min(max, want))) + 'px';
+}
+function closeToolPops() {
+  ['timer', 'stopwatch'].forEach(n => {
+    document.getElementById(`tool-${n}-pop`)?.classList.add('hidden');
+    document.getElementById(`btn-tool-${n}`)?.setAttribute('aria-expanded', 'false');
+  });
+}
+document.addEventListener('click', e => {
+  const open = document.querySelector('.tool-pop:not(.hidden)');
+  if (!open || open.contains(e.target) || pressStartedIn(open)) return;
+  if (e.target.closest && e.target.closest('#btn-tool-timer, #btn-tool-stopwatch')) return;
+  closeToolPops();
+});
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape' && document.querySelector('.tool-pop:not(.hidden)')) closeToolPops();
+});
 
 function adjustTimer(mins) {
   if (timerIsRunning) return;
   document.getElementById('timer-display').classList.remove('timer-done');
+  timerDone = false;
   timerSeconds += mins * 60;
   if (timerSeconds < 0) timerSeconds = 0;
   updateTimerDisplay();
@@ -10061,6 +10134,8 @@ function timerTick() {
     setPlayButton('btn-timer-toggle', false, 'Timer');
     // Bleibt markiert, bis zurückgesetzt wird; kurzer Ton, falls der Browser ihn zulässt (BUGS N12)
     document.getElementById('timer-display').classList.add('timer-done');
+    timerDone = true;
+    updateToolLabels();
     playTimerSound();
     showToast('Timer abgelaufen');
   }
@@ -10089,6 +10164,7 @@ function toggleTimer() {
 
 function resetTimer() {
   document.getElementById('timer-display').classList.remove('timer-done');
+  timerDone = false;
   clearInterval(timerInterval);
   timerIsRunning = false;
   timerSeconds = 300;
@@ -10109,6 +10185,7 @@ function updateStopwatchDisplay() {
   const s = (totalSeconds % 60).toString().padStart(2, '0');
   const ms = Math.floor((stopwatchMs % 1000) / 100).toString();
   el.textContent = m + ':' + s + '.' + ms;
+  updateToolLabels();
 }
 
 function stopwatchTick() {
