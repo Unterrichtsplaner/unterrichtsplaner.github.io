@@ -5769,6 +5769,7 @@ function renderSeatingGroupSelect() {
   });
 
   const sortedSubjects = Object.keys(grouped).sort((a,b) => a.localeCompare(b, undefined, { numeric: true }));
+  const now = new Date();
 
   sortedSubjects.forEach(subject => {
     const header = document.createElement('div');
@@ -5782,7 +5783,12 @@ function renderSeatingGroupSelect() {
       const item = document.createElement('button'); // Knopf: per Tastatur/Screenreader erreichbar (BUGS N11)
       item.type = 'button';
       item.className = 'seating-group-item' + (g.id === currentSeatingGroupId ? ' active' : '');
-      item.textContent = `Klasse ${g.className}`;
+      // Daneben, wann die Klasse dran ist (AH58), mit denselben Texten wie die Klassenansicht; Reihenfolge bleibt
+      const next = currentOrNextLessonOfGroup(g.id, now);
+      const when = next ? nextLessonLabelHTML(next, now) : '';
+      const isNow = !!(next && when.startsWith('jetzt'));
+      item.innerHTML = `<span class="sgi-name">Klasse ${escHtml(g.className)}</span>`
+        + (when ? `<span class="sgi-when${isNow ? ' is-now' : ''}">${when}</span>` : '');
       item.onclick = (e) => {
         e.stopPropagation();
         // Andere Klasse: deren Noten nicht gleich auf dem Beamer zeigen (Regel 16, BUGS S1)
@@ -5804,6 +5810,7 @@ function toggleCustomGroupDropdown(event) {
   event.stopPropagation();
   const menu = document.getElementById('seating-group-menu');
   if (menu) {
+    if (menu.classList.contains('hidden')) renderSeatingGroupSelect();   // „jetzt · bis …“ frisch zur Uhrzeit (AH58)
     menu.classList.toggle('hidden');
   }
 }

@@ -66,7 +66,7 @@ describe('Kopf: Klasse als Überschrift', () => {
     const items = [...document.querySelectorAll('#seating-group-menu .seating-group-item')];
     expect(items.length).toBe(3);
     items.forEach(b => expect(b.getAttribute('style')).toBeNull());
-    expect(document.querySelector('#seating-group-menu .seating-group-item.active').textContent).toBe('Klasse 7a');
+    expect(document.querySelector('#seating-group-menu .seating-group-item.active .sgi-name').textContent).toBe('Klasse 7a');
   });
 });
 
