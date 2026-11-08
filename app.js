@@ -9141,11 +9141,12 @@ function fillLessonPlanBox(slot, dateStr) {
   const head = `<div class="notes-section-header"><span class="notes-section-icon">${icon('list')}</span><span class="notes-section-label">${label}</span>`
     + `<button type="button" class="link-btn lesson-plan-link" data-act="plan">Ganze Planung</button></div>`;
   const note = t && t.note ? `<div class="lesson-plan-note">${escHtml(t.note)}</div>` : '';
+  const prev = lessonPrevHTML(slot, dateStr);
   if (doneT) {
-    box.innerHTML = `${head}<div class="lesson-plan-row is-done"><div class="lesson-plan-text"><b>${escHtml(doneT.title)}</b>${note}</div>
+    box.innerHTML = `${head}${prev}<div class="lesson-plan-row is-done"><div class="lesson-plan-text"><b>${escHtml(doneT.title)}</b>${note}</div>
       <button type="button" class="btn-secondary lesson-plan-btn" data-act="toggle">✓ Erledigt</button></div>`;
   } else {
-    box.innerHTML = `${head}${note}<div class="lesson-plan-row"><input type="text" id="lesson-plan-input" class="entry-input" maxlength="200"
+    box.innerHTML = `${head}${prev}${note}<div class="lesson-plan-row"><input type="text" id="lesson-plan-input" class="entry-input" maxlength="200"
       placeholder="Thema für diese Stunde" aria-label="Thema für diese Stunde" />
       <button type="button" class="btn-primary lesson-plan-btn" data-act="toggle">Erledigt</button></div>`;
     lessonPlanShown = { slotId: slot.id, dateStr, groupId: g.id, topic: t };
@@ -9162,6 +9163,14 @@ function fillLessonPlanBox(slot, dateStr) {
     const topic = doneT || commitLessonTopic();
     if (topic) toggleLessonTopicDone(slot, dateStr, topic);
   });
+}
+// Was die Klasse in der Stunde davor gemacht hat (Unterrichtsinhalt), wie „Zuletzt“ in der Klassen-Ansicht (AH56)
+function lessonPrevHTML(slot, dateStr) {
+  const own = lessonsOnDate(dateStr).find(l => l.slot.id === slot.id);
+  const prev = previousLessonOfGroup(slot.groupId, dateStr, own && own.range ? own.range.start : 0);
+  const done = prev ? String((db.lessonData[lessonKeyOf(prev)] || {}).done || '').trim() : '';
+  if (!done) return '';
+  return `<div class="lesson-plan-prev"><span>Letzte Stunde · ${escHtml(formatWeekdayShort(prev.dateStr))}</span><p>${escHtml(done)}</p></div>`;
 }
 // Eingetipptes Thema übernehmen. Liefert das Thema, das danach in dieser Stunde liegt (oder null).
 // Neu bzw. anders als geplant → eigenes Thema mit festem Termin für genau diese Stunde; die Reihe rutscht dahinter.
