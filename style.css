@@ -1174,8 +1174,10 @@ select option{background:var(--bg-secondary);}
 .seating-card.tiny .sc-marks{top:3px;left:3px;}
 /* Mittlere und große Karten: Symbole so weit wie möglich in der Ecke und mit der Karte kleiner (AH57, --sc = Kartengröße
    aus renderSeatingPlan): 100 px → 13 px Symbol, 60 px → 9 px; so bleiben sie über dem Namen. */
-.seating-card:not(.tiny) .sc-marks{top:clamp(2px,calc(var(--sc,100px) * 0.03),4px);left:clamp(2px,calc(var(--sc,100px) * 0.03),4px);gap:1px;}
-.seating-card:not(.tiny) .sc-mark .ico{width:clamp(8px,calc(var(--sc,100px) * 0.14),13px);height:clamp(8px,calc(var(--sc,100px) * 0.14),13px);}
+.seating-card:not(.tiny) .sc-marks{top:clamp(1px,calc(var(--sc,100px) * 0.03),4px);left:clamp(1px,calc(var(--sc,100px) * 0.03),4px);gap:1px;}
+/* Ohne Zeilenhöhe: Als Text saß das Symbol auf der Schriftlinie, 6–8 px unter der Ecke (Rückmeldung 09.11.) */
+.seating-card:not(.tiny) .sc-mark{display:block;line-height:0;}
+.seating-card:not(.tiny) .sc-mark .ico{display:block;width:clamp(8px,calc(var(--sc,100px) * 0.14),13px);height:clamp(8px,calc(var(--sc,100px) * 0.14),13px);}
 /* kleine Karten (Handy): Symbole als Punkte, sonst verdecken sie den Namen */
 .seating-card.tiny .sc-mark .ico{display:none;}
 .seating-card.tiny .sc-mark{display:block;width:5px;height:5px;border-radius:50%;background:currentColor;}

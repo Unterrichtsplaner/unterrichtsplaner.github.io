@@ -66,9 +66,11 @@ describe('Letzte Stunde im Stunden-Fenster (AH56)', () => {
 describe('Symbole auf Sitzplan-Karten (AH57)', () => {
   const css = fs.readFileSync(path.join(__dirname, '..', 'style.css'), 'utf8');
   it('mittlere und große Karten: Symbole eng in der Ecke, Größe wächst mit der Karte (--sc), höchstens 13 px', () => {
-    expect(css).toMatch(/\.seating-card:not\(\.tiny\) \.sc-marks\{top:clamp\(2px,calc\(var\(--sc,100px\) \* 0\.03\),4px\);/);
-    expect(css).toMatch(/\.seating-card:not\(\.tiny\) \.sc-mark \.ico\{width:clamp\(8px,calc\(var\(--sc,100px\) \* 0\.14\),13px\);/);
-    expect(css).not.toMatch(/\.sc-marks\{top:-/);   // keine Schildchen über dem Rand (Rückmeldung 09.11.)
+    expect(css).toMatch(/\.seating-card:not\(\.tiny\) \.sc-marks\{top:clamp\(1px,calc\(var\(--sc,100px\) \* 0\.03\),4px\);/);
+    expect(css).toMatch(/\.seating-card:not\(\.tiny\) \.sc-mark \.ico\{display:block;width:clamp\(8px,calc\(var\(--sc,100px\) \* 0\.14\),13px\);/);
+    expect(css).not.toMatch(/\.sc-marks\{top:-/);
+    // Symbol als Kästchen ohne Zeilenhöhe, sonst sitzt es auf der Schriftlinie unter der Ecke
+    expect(css).toMatch(/\.seating-card:not\(\.tiny\) \.sc-mark\{display:block;line-height:0;\}/);   // keine Schildchen über dem Rand (Rückmeldung 09.11.)
   });
   it('jede Karte bekommt ihre Größe als --sc', () => {
     app('openSeatingForGroup("g1")');
