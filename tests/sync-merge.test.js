@@ -342,3 +342,14 @@ describe('Altdaten', () => {
     expect(r.merged.students.leer).toBeUndefined();
   });
 });
+
+describe('Thema mit festem Termin aus dem Stunden-Fenster (AH54)', () => {
+  it('Termin und Stunde gehören zusammen: eine Seite ändert, wird übernommen; beide verschieden, eine Frage „Fester Termin“', () => {
+    const set = (date, slot) => d => { Object.assign(d.groups[0].plan[0], { pinned: date, pinnedSlot: slot }); };
+    const r = merge(set('2026-11-30', 'l1'), none);
+    expect(r.conflicts).toEqual([]);
+    expect(r.merged.groups[0].plan[0]).toMatchObject({ pinned: '2026-11-30', pinnedSlot: 'l1' });
+    const r2 = merge(set('2026-11-30', 'l1'), set('2026-12-07', 'l1'));
+    expect(r2.conflicts.map(c => [c.what, c.localText, c.cloudText])).toEqual([['Fester Termin', '30.11.', '07.12.']]);
+  });
+});

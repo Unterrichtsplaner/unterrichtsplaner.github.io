@@ -1,5 +1,5 @@
-// AH37: Karten im Stunden-Fenster selbst anordnen und ausblenden. Keine Löcher: Nur gleich große Karten stehen nebeneinander,
-// eine Karte ohne Partner nimmt die ganze Zeile. Gespeichert in db.settings, läuft im Abgleich mit.
+// AH37: Karten im Stunden-Fenster selbst anordnen und ausblenden. AH53: feste Paare nach Platz (1+2, 3+4 …),
+// eine Karte ohne Partner in dieser Stunde nimmt die ganze Zeile. Gespeichert in db.settings, läuft im Abgleich mit.
 const { loadApp, app } = require('./helpers/load-app');
 
 const st = (id, f) => ({ id, firstName: f, lastName: 'X', grades: [], attendance: [], participation: [], homework: [], studentNotes: [] });
@@ -29,33 +29,29 @@ beforeEach(() => {
 });
 afterEach(() => vi.useRealTimers());
 
-describe('Keine Löcher: wer steht neben wem', () => {
-  const pair = cards => app('pairLessonCards')(cards);
-  it('gleich große Karten bilden Paare, die Reihenfolge bleibt', () => {
-    expect(pair([{ key: 'a', size: 'M' }, { key: 'b', size: 'M' }, { key: 'c', size: 'L' }, { key: 'd', size: 'L' }]).map(r => r.map(c => c.key)))
-      .toEqual([['a', 'b'], ['c', 'd']]);
+describe('Feste Paare (AH53): wer steht neben wem', () => {
+  const rows = slots => app('lessonCardRows')(slots).map(r => r.map(c => c.key));
+  const S = (keys, gone = []) => keys.map(key => ({ key, shown: !gone.includes(key) }));
+  const ALL = ['absent', 'todos', 'plan', 'classnotes', 'content', 'notes', 'hw', 'test'];
+  it('Paare nach Platz: 1+2, 3+4 …', () => {
+    expect(rows(S(ALL))).toEqual([['absent', 'todos'], ['plan', 'classnotes'], ['content', 'notes'], ['hw', 'test']]);
   });
-  it('offene Hausaufgabe neben ausgeschaltetem Test: jede bekommt ihre eigene Zeile', () => {
-    expect(pair([{ key: 'hw', size: 'L' }, { key: 'test', size: 'S' }]).map(r => r.map(c => c.key))).toEqual([['hw'], ['test']]);
+  it('fehlt eine Karte in dieser Stunde, nimmt ihr Partner die Zeile; die anderen Paare bleiben', () => {
+    expect(rows(S(ALL, ['absent', 'plan']))).toEqual([['todos'], ['classnotes'], ['content', 'notes'], ['hw', 'test']]);
+    expect(rows(S(ALL, ['absent', 'todos']))).toEqual([['plan', 'classnotes'], ['content', 'notes'], ['hw', 'test']]);
   });
-  it('sucht weiter hinten nach einem Partner, statt ein Loch zu lassen', () => {
-    expect(pair([{ key: 'a', size: 'M' }, { key: 'b', size: 'L' }, { key: 'c', size: 'M' }, { key: 'd', size: 'L' }]).map(r => r.map(c => c.key)))
-      .toEqual([['a', 'c'], ['b', 'd']]);
-  });
-  it('Zufallstest: Jede Karte genau einmal; jede Reihe ist ein gleich großes Paar oder eine einzelne Karte; kein zweiter Einzelner gleicher Größe', () => {
+  it('Zufallstest: Jede Karte genau einmal, Partner hängt nur am Platz, nie an anderen Karten', () => {
     let seed = 42;
     const rnd = n => { seed = (seed * 1103515245 + 12345) & 0x7fffffff; return seed % n; };
-    const SIZES = ['S', 'M', 'L'];
     for (let run = 0; run < 2000; run++) {
-      const cards = Array.from({ length: rnd(9) }, (_, i) => ({ key: 'k' + i, size: SIZES[rnd(3)] }));
-      const rows = pair(cards);
-      expect(rows.flat().map(c => c.key).sort()).toEqual(cards.map(c => c.key).sort());
-      rows.forEach(r => {
+      const slots = Array.from({ length: rnd(9) }, (_, i) => ({ key: 'k' + i, shown: rnd(3) > 0 }));
+      const out = rows(slots);
+      expect(out.flat().sort()).toEqual(slots.filter(c => c.shown).map(c => c.key).sort());
+      out.forEach(r => {
         expect(r.length === 1 || r.length === 2).toBe(true);
-        if (r.length === 2) expect(r[0].size).toBe(r[1].size);
+        const at = r.map(k => slots.findIndex(c => c.key === k));
+        if (r.length === 2) { expect(at[0] % 2).toBe(0); expect(at[1]).toBe(at[0] + 1); }
       });
-      const alone = rows.filter(r => r.length === 1).map(r => r[0].size);
-      expect(new Set(alone).size).toBe(alone.length);
     }
   });
 });
@@ -69,7 +65,7 @@ describe('Im Fenster', () => {
     expect(document.getElementById('lesson-notes-form').classList.contains('lc-default')).toBe(true);
     app('closeModal("modal-lesson")');
   });
-  it('HA einschalten: Beide bekommen eine eigene Zeile, „Kein Test angekündigt“ steht in der schmalen Karte', () => {
+  it('HA einschalten: HA und Test bleiben nebeneinander, „Kein Test angekündigt“ steht in der Test-Karte', () => {
     open();
     const hint = key => card(key).querySelector('.lc-off-hint');
     expect(hint('hw').hidden).toBe(false);
@@ -78,8 +74,9 @@ describe('Im Fenster', () => {
     const t = document.getElementById('hw-toggle');
     t.checked = true;
     app('toggleSection("hw")');
-    expect(wide('hw')).toBe(true);
-    expect(wide('test')).toBe(true);
+    expect(wide('hw')).toBe(false);
+    expect(wide('test')).toBe(false);
+    expect(pos('test')).toBe(pos('hw') + 1);
     expect(hint('hw').hidden).toBe(true);
     expect(hint('test').hidden).toBe(false);
     app('closeModal("modal-lesson")');
@@ -90,11 +87,16 @@ describe('Im Fenster', () => {
     expect(wide('classnotes')).toBe(true);
     app('closeModal("modal-lesson")');
   });
-  it('Karte mit Klassennotiz ist hoch genug für ein Textfeld daneben', () => {
-    app(`db.groups[0].classNotes = [{ id: "n", text: "Buch", date: "${DATE}" }]`);
+  it('Klassennotiz, Fehlende und Merkzettel ändern die Anordnung darunter nicht (AH53)', () => {
     open();
-    expect(app('lessonCardSize')('classnotes')).toBe('L');
-    expect(wide('plan')).toBe(true);
+    const plain = ['plan', 'classnotes', 'content', 'notes', 'hw', 'test'].map(k => [k, wide(k)]);
+    app('closeModal("modal-lesson")');
+    app(`db.groups[0].classNotes = [{ id: "n", text: "Buch", date: "${DATE}" }]`);
+    app(`db.students.g1[0].attendance.push({ date: "${DATE}", type: "abwesend", note: "" })`);
+    app('db.todos = [{ id: "t1", text: "Elternbrief", created: "2026-11-01", groupId: "g1" }]');
+    open();
+    expect(['plan', 'classnotes', 'content', 'notes', 'hw', 'test'].map(k => [k, wide(k)])).toEqual(plain);
+    expect([shown('absent'), shown('todos'), wide('absent'), wide('todos')]).toEqual([true, true, false, false]);
     app('closeModal("modal-lesson")');
   });
 });
@@ -129,16 +131,17 @@ describe('Anordnen und ausblenden', () => {
     app('db.settings.lessonCards = "kaputt"');
     expect(app('lessonCardSetup()').order.length).toBe(8);
   });
-  it('ausgeblendet: Karte weg, Nachbar nimmt die Zeile; steht in dieser Stunde etwas drin, erscheint sie trotzdem', () => {
+  it('ausgeblendet: Karte zählt nicht mit, die nächste rückt nach; steht in dieser Stunde etwas drin, erscheint sie trotzdem', () => {
     app('setLessonCards(LESSON_CARDS.map(c => c.key), ["notes"])');
     open();
     expect(shown('notes')).toBe(false);
-    expect(wide('content')).toBe(true);
+    expect([wide('content'), wide('hw'), wide('test')]).toEqual([false, false, true]);
+    expect(pos('hw')).toBe(pos('content') + 1);
     app('closeModal("modal-lesson")');
     app(`db.lessonData["l1_${DATE}"] = { notes: "wichtig" }`);
     open();
     expect(shown('notes')).toBe(true);
-    expect(wide('content')).toBe(false);
+    expect([wide('content'), wide('notes'), wide('test')]).toEqual([false, false, false]);
     app('closeModal("modal-lesson")');
   });
   it('fällige Hausaufgabe aus einer anderen Stunde zeigt die ausgeblendete Karte auch', () => {

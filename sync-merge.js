@@ -117,7 +117,10 @@ const MERGE_SPEC = {
           gradeEvents: mergeEventList, attendanceEvents: mergeEventList, participationEvents: mergeEventList, homeworkEvents: mergeEventList,
           plan: {
             list: p => p.id, ordered: true, onDelete: 'ask', title: p => `Thema „${p.title || ''}“`,
-            item: { fields: { note: MERGE_TEXT, title: MERGE_TEXT, doneLessons: { list: k => k, onDelete: 'keep' } } },
+            item: {
+              together: [{ fields: ['pinned', 'pinnedSlot'], what: 'Fester Termin', show: p => (p.pinned ? mergeShortDate(p.pinned) : 'kein') }],   // AH54
+              fields: { note: MERGE_TEXT, title: MERGE_TEXT, doneLessons: { list: k => k, onDelete: 'keep' } },
+            },
           },
           classNotes: { list: n => n.id, onDelete: 'ask', title: n => `Klassennotiz „${n.text || ''}“`, item: { fields: { text: MERGE_TEXT } } },
         },

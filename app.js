@@ -2387,8 +2387,9 @@ function ensureLessonData() {
 
 // Eingaben des Stunden-Fensters übernehmen. Gespeichert (= „geändert“) wird nur, wenn sich etwas geändert hat.
 function storeLessonForm() {
-  // Eingetippte, aber nicht per „+“ übernommene HA/Tests und Klassennotiz nicht verwerfen
+  // Eingetippte, aber nicht per „+“ übernommene HA/Tests, Klassennotiz und Thema nicht verwerfen
   addLessonClassNote();
+  commitLessonTopic();
   if (document.getElementById('hw-toggle').checked) addHWItem(true);
   if (document.getElementById('test-toggle').checked) addTestItem(true);
   const form = {
@@ -8628,7 +8629,8 @@ function closeWhatsNew() {
 // Pro Klasse eine Themenliste (group.plan). Themen hängen nicht an Daten, sondern verteilen sich auf die
 // kommenden Stunden, die wirklich stattfinden – fällt eine aus oder sind Ferien, rutscht alles weiter.
 // Erledigt wird pro Stunde (doneLessons = lessonData-Schlüssel); ein Thema kann mehrere Stunden lang sein.
-// Datenmodell: { id, title, lessons?: n, pinned?: 'YYYY-MM-DD', note?, doneLessons?: [key], done?: 'YYYY-MM-DD' }
+// Datenmodell: { id, title, lessons?: n, pinned?: 'YYYY-MM-DD', pinnedSlot?: slotId, note?, doneLessons?: [key], done?: 'YYYY-MM-DD' }
+// pinnedSlot: im Stunden-Fenster eingetippt (AH54), gehört zu genau dieser Stunde des Tages; fällt sie aus, rutscht das Thema weiter.
 const isDateStr = v => typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v);
 function groupPlan(g) { return g && Array.isArray(g.plan) ? g.plan.filter(t => t && typeof t === 'object') : []; }
 function ensurePlan(g) { if (!Array.isArray(g.plan)) g.plan = []; return g.plan; }
@@ -8680,7 +8682,16 @@ function planAssignments(g, todayStr = formatDate(new Date())) {
   };
   const open = plan.filter(t => !t.done);
   const overflow = [];
-  open.filter(t => isDateStr(t.pinned)).forEach(t => { if (!take(t, lessons.filter(l => l.dateStr >= t.pinned))) overflow.push(t); });
+  // Feste Termine: der späteste zuerst, damit ein früherer, mehrstündiger Termin einen späteren nicht verdrängt (AH54).
+  // Ein im Stunden-Fenster eingetipptes Thema nimmt genau seine Stunde, falls sie stattfindet.
+  const pinnedFirst = open.filter(t => isDateStr(t.pinned))
+    .sort((a, b) => b.pinned.localeCompare(a.pinned) || (b.pinnedSlot ? 1 : 0) - (a.pinnedSlot ? 1 : 0));
+  pinnedFirst.forEach(t => {
+    const from = lessons.filter(l => l.dateStr >= t.pinned);
+    const exact = t.pinnedSlot ? from.findIndex(l => l.dateStr === t.pinned && l.slot.id === t.pinnedSlot) : -1;
+    if (exact > 0) from.unshift(from.splice(exact, 1)[0]);
+    if (!take(t, from)) overflow.push(t);
+  });
   open.filter(t => !isDateStr(t.pinned)).forEach(t => { if (!take(t, lessons)) overflow.push(t); });
   return { byKey, firstDate, overflow, until };
 }
@@ -9045,6 +9056,7 @@ function savePlanTopic() {
   const note = document.getElementById('plan-topic-note').value.trim();
   const apply = t => {
     if (lessons > 1) t.lessons = lessons; else delete t.lessons;
+    if (t.pinned !== pinned) delete t.pinnedSlot;   // anderer Termin: gilt nicht mehr für die eingetippte Stunde
     if (isDateStr(pinned)) t.pinned = pinned; else delete t.pinned;
     if (note) t.note = note; else delete t.note;
     return t;
@@ -9106,36 +9118,111 @@ function openPlanForGroup(groupId) {
   switchClassDashboardTab('plan');
 }
 
-// ── Im Stunden-Fenster: „Geplant: …“ mit Haken ──
+// ── Im Stunden-Fenster: Thema der Stunde (AH54) ──
+// Heute und künftig ein Eingabefeld: zeigt das geplante Thema, Eintippen plant direkt (gleiche Liste wie der Reiter „Planung“).
+// Übernommen wird beim Schließen (storeLessonForm), mit Enter oder mit „Erledigt“ – nie beim Verlassen des Feldes,
+// sonst würde das Neuzeichnen den angetippten Knopf unter dem Finger ersetzen.
+let lessonPlanShown = null;   // { slotId, dateStr, groupId, topic } – was das Feld zeigt, Thema per Referenz (Regel 8)
 function renderLessonPlanBox(slot, dateStr) { fillLessonPlanBox(slot, dateStr); layoutLessonCards(); }
 function fillLessonPlanBox(slot, dateStr) {
   const box = document.getElementById('lesson-plan-box');
   if (!box) return;
+  lessonPlanShown = null;
   const g = slot.groupId && db.groups.find(x => x.id === slot.groupId);
   const todayStr = formatDate(new Date());
   if (!g || (dateStr < todayStr && !topicDoneIn(g, slot.id + '_' + dateStr))) { box.classList.add('hidden'); box.innerHTML = ''; return; }
   const key = slot.id + '_' + dateStr;
   const doneT = topicDoneIn(g, key);
   const a = !doneT && dateStr >= todayStr ? planAssignments(g, todayStr).byKey.get(key) : null;
-  const t = doneT || (a && a.topic);
+  const t = doneT || (a && a.topic) || null;
   box.classList.remove('hidden');
-  const head = text => `<div class="notes-section-header"><span class="notes-section-icon">${icon('list')}</span><span class="notes-section-label">${text}</span></div>`;
-  if (!t) {
-    box.innerHTML = `${head('Planung')}<div class="lesson-plan-empty">Kein Thema geplant · <button type="button" class="link-btn" data-act="plan">Planung öffnen</button></div>`;
+  const unit = doneT ? doneT.doneLessons.indexOf(key) + 1 : a ? a.unit : 0;
+  const label = `${doneT ? 'Erledigt' : t ? 'Geplant' : 'Thema'}${t && topicLength(t) > 1 ? ` · Stunde ${unit} von ${topicLength(t)}` : ''}`;
+  const head = `<div class="notes-section-header"><span class="notes-section-icon">${icon('list')}</span><span class="notes-section-label">${label}</span>`
+    + `<button type="button" class="link-btn lesson-plan-link" data-act="plan">Ganze Planung</button></div>`;
+  const note = t && t.note ? `<div class="lesson-plan-note">${escHtml(t.note)}</div>` : '';
+  if (doneT) {
+    box.innerHTML = `${head}<div class="lesson-plan-row is-done"><div class="lesson-plan-text"><b>${escHtml(doneT.title)}</b>${note}</div>
+      <button type="button" class="btn-secondary lesson-plan-btn" data-act="toggle">✓ Erledigt</button></div>`;
   } else {
-    const unit = doneT ? doneT.doneLessons.indexOf(key) + 1 : a.unit;
-    box.innerHTML = `${head(`${doneT ? 'Erledigt' : 'Geplant'}${topicLength(t) > 1 ? ` · Stunde ${unit} von ${topicLength(t)}` : ''}`)}<div class="lesson-plan-row${doneT ? ' is-done' : ''}">
-      <div class="lesson-plan-text"><b>${escHtml(t.title)}</b>${t.note ? `<span>${escHtml(t.note)}</span>` : ''}</div>
-      <button type="button" class="${doneT ? 'btn-secondary' : 'btn-primary'} lesson-plan-btn" data-act="toggle">${doneT ? '✓ Erledigt' : 'Erledigt'}</button></div>`;
+    box.innerHTML = `${head}${note}<div class="lesson-plan-row"><input type="text" id="lesson-plan-input" class="entry-input" maxlength="200"
+      placeholder="Thema für diese Stunde" aria-label="Thema für diese Stunde" />
+      <button type="button" class="btn-primary lesson-plan-btn" data-act="toggle">Erledigt</button></div>`;
+    lessonPlanShown = { slotId: slot.id, dateStr, groupId: g.id, topic: t };
+    const input = box.querySelector('#lesson-plan-input');
+    const btn = box.querySelector('[data-act="toggle"]');
+    input.value = t ? String(t.title || '') : '';
+    const sync = () => { btn.disabled = !input.value.trim(); };
+    sync();
+    input.addEventListener('input', sync);
+    input.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); commitLessonTopic(); } });
   }
-  const planBtn = box.querySelector('[data-act="plan"]');
-  if (planBtn) planBtn.addEventListener('click', () => openPlanForGroup(g.id));
-  const tBtn = box.querySelector('[data-act="toggle"]');
-  if (tBtn) tBtn.addEventListener('click', () => toggleLessonTopicDone(slot, dateStr, t));
+  box.querySelector('[data-act="plan"]').addEventListener('click', () => openPlanForGroup(g.id));
+  box.querySelector('[data-act="toggle"]').addEventListener('click', () => {
+    const topic = doneT || commitLessonTopic();
+    if (topic) toggleLessonTopicDone(slot, dateStr, topic);
+  });
+}
+// Eingetipptes Thema übernehmen. Liefert das Thema, das danach in dieser Stunde liegt (oder null).
+// Neu bzw. anders als geplant → eigenes Thema mit festem Termin für genau diese Stunde; die Reihe rutscht dahinter.
+// Ein Thema nur für diese Stunde (fester Termin heute, eine Stunde) wird umbenannt bzw. beim Leeren gelöscht.
+function commitLessonTopic() {
+  const input = document.getElementById('lesson-plan-input');
+  const shown = lessonPlanShown;
+  if (!input || !shown) return null;
+  const text = input.value.trim().replace(/\s+/g, ' ');
+  const g = db.groups.find(x => x.id === shown.groupId);
+  const topic = shown.topic && g && groupPlan(g).includes(shown.topic) ? shown.topic : null;
+  // Unverändert: nichts anlegen. Ist das Thema inzwischen weg (Sync), meldet „Erledigt“ das (toggleLessonTopicDone)
+  if (text === (shown.topic ? String(shown.topic.title || '').trim() : '')) return shown.topic;
+  if (!g) { showToast('Diese Klasse gibt es nicht mehr (z. B. durch Sync)', 'error'); return null; }
+  const plan = ensurePlan(g);
+  const own = topic && topic.pinned === shown.dateStr && topicLength(topic) === 1 && !topicDoneCount(topic);
+  let result = null;
+  if (own && text) {
+    topic.title = text;
+    result = topic;
+  } else if (own) {
+    const i = plan.indexOf(topic);
+    plan.splice(i, 1);
+    showUndoToast(`Thema „${topic.title}“ gelöscht`, () => {
+      if (!db.groups.includes(g) || ensurePlan(g).includes(topic)) return;
+      ensurePlan(g).splice(Math.min(i, g.plan.length), 0, topic);
+      saveDB();
+      refreshPlanViews(g.id);
+      refreshLessonPlanBox(shown);
+    });
+  } else if (text) {
+    result = { id: uid(), title: text, pinned: shown.dateStr, pinnedSlot: shown.slotId };
+    const { byKey, firstDate } = planAssignments(g);
+    const cur = byKey.get(shown.slotId + '_' + shown.dateStr);
+    // In der Liste dorthin, wo es zeitlich steht: vor das bisherige Thema der Stunde (mitten in einer Reihe: dahinter)
+    let i = cur ? plan.indexOf(cur.topic) + (cur.unit > 1 ? 1 : 0)
+      : plan.findIndex(x => x && !x.done && firstDate.has(x) && firstDate.get(x).dateStr > shown.dateStr);
+    if (i < 0) i = plan.length;
+    plan.splice(i, 0, result);
+  } else {
+    // Thema aus der Liste geleert: bleibt geplant (gelöscht wird in der Planung, dort sieht man die ganze Reihe)
+    input.value = topic ? String(topic.title || '') : '';
+    showToast('Das Thema bleibt in der Planung. Löschen geht unter „Ganze Planung“.');
+    return topic;
+  }
+  saveDB();
+  refreshPlanViews(g.id);
+  refreshLessonPlanBox(shown);
+  return result;
+}
+// Thema-Kachel neu zeichnen, wenn das Stunden-Fenster noch dieselbe Stunde zeigt
+function refreshLessonPlanBox(shown) {
+  if (document.getElementById('modal-lesson').classList.contains('hidden')) return;
+  if (activeLessonId !== shown.slotId || activeLessonDate !== shown.dateStr) return;
+  const slot = db.lessonSlots.find(x => x.id === shown.slotId);
+  if (slot) renderLessonPlanBox(slot, shown.dateStr);
 }
 // ─── Karten im Stunden-Fenster (AH37) ───────────────────────────────────────
 // Reihenfolge und Ausblenden in db.settings.lessonCards ({ order, hidden }); der Standard wird nie gespeichert.
-// Keine Löcher: Nur gleich große Karten stehen nebeneinander (pairLessonCards), wer keinen Partner findet, nimmt die Zeile.
+// Feste Paare (AH53): 1+2, 3+4 … in der gewählten Reihenfolge, damit jede Stunde gleich aussieht. Fehlt in einer Stunde
+// der Partner (Wer fehlt, Merkzettel, Thema), nimmt die Karte die Zeile; die Zeilen darunter bleiben, wo sie sind.
 // Die Karten bleiben im DOM, wo sie sind, nur CSS-order und .lc-wide ändern sich: Sonst ginge beim Tippen der Fokus verloren.
 const LESSON_CARDS = [
   { key: 'absent', sel: '#lesson-absent-container', label: 'Wer fehlt', icon: 'attendance', always: true },
@@ -9163,33 +9250,23 @@ function setLessonCards(order, hidden) {
   saveDB();
   layoutLessonCards();
 }
-// S = nur Kopfzeile, M = Kopfzeile und eine Reihe, L = hoch genug für ein Textfeld daneben
-function lessonCardSize(key) {
-  const el = document.querySelector(LESSON_CARDS.find(c => c.key === key).sel);
-  if (key === 'hw' || key === 'test') return document.getElementById(`${key}-toggle`).checked ? 'L' : 'S';
-  if (key === 'content' || key === 'notes') return 'L';
-  if (key === 'classnotes') return el.querySelector('.cn-chip') ? 'L' : 'M';
-  if (key === 'absent') return el.querySelectorAll('li').length > 3 ? 'L' : 'M';
-  if (key === 'todos') return el.querySelectorAll('.todo-row').length > 2 ? 'L' : 'M';
-  return 'M';
-}
 // Steht in dieser Stunde etwas in der Karte? Dann erscheint sie auch ausgeblendet, sonst wäre es still weg
 function lessonCardHasContent(key) {
   const el = document.querySelector(LESSON_CARDS.find(c => c.key === key).sel);
   if (LESSON_CARDS.find(c => c.key === key).always) return true;
-  if (key === 'plan') return !!el.querySelector('.lesson-plan-row.is-done');
+  if (key === 'plan') return !!el.querySelector('.lesson-plan-row.is-done') || !!(el.querySelector('#lesson-plan-input')?.value.trim());
   if (key === 'classnotes') return !!el.querySelector('.cn-chip');
   if (key === 'content' || key === 'notes') return !!el.querySelector('textarea').value.trim();
   const incoming = document.getElementById(`${key}-incoming-list`);
   return document.getElementById(`${key}-toggle`).checked || !!document.querySelector(`#${key}-items-list .entry-item`)
     || !!(incoming && !incoming.classList.contains('hidden') && incoming.children.length);
 }
-function pairLessonCards(cards) {
-  const rest = [...cards], rows = [];
-  while (rest.length) {
-    const first = rest.shift();
-    const i = rest.findIndex(c => c.size === first.size);
-    rows.push(i === -1 ? [first] : [first, rest.splice(i, 1)[0]]);
+// Plätze (ausgeblendete Karten zählen nicht mit) → Zeilen mit den in dieser Stunde sichtbaren Karten
+function lessonCardRows(slots) {
+  const rows = [];
+  for (let i = 0; i < slots.length; i += 2) {
+    const row = slots.slice(i, i + 2).filter(c => c.shown);
+    if (row.length) rows.push(row);
   }
   return rows;
 }
@@ -9198,14 +9275,14 @@ function layoutLessonCards() {
   if (!form) return;
   const { order, hidden } = lessonCardSetup();
   form.classList.toggle('lc-default', lessonCardsAreDefault(order));
-  const cards = [];
+  const slots = [];
   order.forEach(key => {
     const el = form.querySelector(LESSON_CARDS.find(c => c.key === key).sel);
     el.classList.toggle('lc-off', hidden.includes(key) && !lessonCardHasContent(key));
-    if (!el.classList.contains('hidden') && !el.classList.contains('lc-off')) cards.push({ key, el, size: lessonCardSize(key) });
+    if (!el.classList.contains('lc-off')) slots.push({ key, el, shown: !el.classList.contains('hidden') });
   });
   let n = 0;
-  pairLessonCards(cards).forEach(row => row.forEach(c => {
+  lessonCardRows(slots).forEach(row => row.forEach(c => {
     c.el.style.setProperty('--lc-order', n++);
     c.el.classList.toggle('lc-wide', row.length === 1);
   }));

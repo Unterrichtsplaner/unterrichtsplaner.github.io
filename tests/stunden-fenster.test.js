@@ -50,15 +50,17 @@ describe('Inhalt', () => {
     expect(seat.classList.contains('hidden')).toBe(false);
     const box = document.getElementById('lesson-plan-box');
     expect(box.querySelector('.notes-section-label').textContent).toMatch(/Geplant · Stunde 1 von 3/);
-    expect(box.querySelector('.lesson-plan-row b').textContent).toBe('Brüche');
+    expect(box.querySelector('.lesson-plan-row #lesson-plan-input').value).toBe('Brüche');
     expect(box.querySelector('.lesson-plan-row .lesson-plan-btn')).not.toBeNull();
     app('closeModal("modal-lesson")');
   });
-  it('Klasse ohne geplantes Thema: Karte hat dieselbe Überschrift-Zeile', () => {
+  it('Klasse ohne geplantes Thema: leeres Feld zum Eintippen, „Erledigt“ erst mit Text (AH54)', () => {
     app(`db.groups[0].plan = []; openLessonDetail("l1", "${DATE}")`);
     const box = document.getElementById('lesson-plan-box');
-    expect(box.querySelector('.notes-section-label').textContent).toBe('Planung');
-    expect(box.textContent).toMatch(/Kein Thema geplant/);
+    expect(box.querySelector('.notes-section-label').textContent).toBe('Thema');
+    expect(box.querySelector('#lesson-plan-input').value).toBe('');
+    expect(box.querySelector('#lesson-plan-input').placeholder).toBe('Thema für diese Stunde');
+    expect(box.querySelector('.lesson-plan-btn').disabled).toBe(true);
     app('closeModal("modal-lesson")');
   });
   it('Stunde ohne Klasse: Knöpfe weg, beide Karten der Reihe weg', () => {

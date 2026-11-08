@@ -78,11 +78,13 @@ describe('Erledigt im Stunden-Fenster', () => {
   const box = () => document.getElementById('lesson-plan-box');
   it('zeigt „Geplant“; Erledigt trägt den Titel ins leere Inhaltsfeld und wird mit dem Fenster gespeichert', () => {
     app('openLessonDetail("mo", "2026-11-09")');
-    expect(box().textContent).toMatch(/Geplant\s*Brüche erweitern/);
+    expect(box().querySelector('.notes-section-label').textContent).toBe('Geplant');
+    expect(document.getElementById('lesson-plan-input').value).toBe('Brüche erweitern');
     box().querySelector('[data-act="toggle"]').click();
     expect(app('db.groups[0].plan[0].done')).toBe('2026-11-09');
     expect(document.getElementById('lesson-done-text').value).toBe('Brüche erweitern');
-    expect(box().textContent).toMatch(/Erledigt\s*Brüche erweitern/);
+    expect(box().querySelector('.notes-section-label').textContent).toBe('Erledigt');
+    expect(box().querySelector('.lesson-plan-row.is-done b').textContent).toBe('Brüche erweitern');
     app('saveLessonDataAndClose()');
     expect(app('db.lessonData["mo_2026-11-09"].done')).toBe('Brüche erweitern');
   });
@@ -126,11 +128,13 @@ describe('Erledigt im Stunden-Fenster', () => {
     app('saveLessonDataAndClose()');
   });
 
-  it('ohne Thema: Hinweis mit Weg zur Planung; Stunde ohne Klasse: nichts', () => {
+  it('ohne Thema: leeres Feld und Weg zur Planung; Stunde ohne Klasse: nichts', () => {
     app('db.groups[0].plan = []');
     app('openLessonDetail("mo", "2026-11-09")');
-    expect(box().textContent).toContain('Kein Thema geplant');
+    expect(document.getElementById('lesson-plan-input').value).toBe('');
+    expect(box().querySelector('[data-act="plan"]').textContent).toBe('Ganze Planung');
     app('saveLessonDataAndClose()');
+    expect(app('db.groups[0].plan')).toEqual([]);   // leer gelassen: nichts angelegt
     app(`db.lessonSlots.push({ id: 'frei', day: 1, block: 2, part: 'full', subject: 'AG', color: '#999', recurring: 'weekly' })`);
     app('openLessonDetail("frei", "2026-11-10")');
     expect(box().classList.contains('hidden')).toBe(true);
