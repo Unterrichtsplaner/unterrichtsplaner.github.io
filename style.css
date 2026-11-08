@@ -1172,11 +1172,10 @@ select option{background:var(--bg-secondary);}
 .seating-card .sc-trend .p4{height:14px;}.seating-card .sc-trend .p3{height:10px;}.seating-card .sc-trend .p2{height:6px;}.seating-card .sc-trend .p1{height:3px;}
 .seating-card .sc-trend-empty{font-size:11px;color:var(--text-muted);}
 .seating-card.tiny .sc-marks{top:3px;left:3px;}
-/* Mittlere und große Karten: Symbole als Plaketten halb über der linken oberen Ecke, nie über dem Namen (AH57).
-   -6 px passt in den kleinsten Kartenabstand (10 % von 64 px), sonst schnitte der Rand des Sitzplans sie ab. */
-.seating-card:not(.tiny) .sc-marks{top:-6px;left:-6px;gap:2px;z-index:1;}
-.seating-card:not(.tiny) .sc-mark{display:flex;align-items:center;justify-content:center;width:18px;height:18px;box-sizing:border-box;background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-xs);box-shadow:var(--shadow-sm);}
-.seating-card:not(.tiny) .sc-mark .ico{width:12px;height:12px;}
+/* Mittlere und große Karten: Symbole so weit wie möglich in der Ecke und mit der Karte kleiner (AH57, --sc = Kartengröße
+   aus renderSeatingPlan): 100 px → 13 px Symbol, 60 px → 9 px; so bleiben sie über dem Namen. */
+.seating-card:not(.tiny) .sc-marks{top:clamp(2px,calc(var(--sc,100px) * 0.03),4px);left:clamp(2px,calc(var(--sc,100px) * 0.03),4px);gap:1px;}
+.seating-card:not(.tiny) .sc-mark .ico{width:clamp(8px,calc(var(--sc,100px) * 0.14),13px);height:clamp(8px,calc(var(--sc,100px) * 0.14),13px);}
 /* kleine Karten (Handy): Symbole als Punkte, sonst verdecken sie den Namen */
 .seating-card.tiny .sc-mark .ico{display:none;}
 .seating-card.tiny .sc-mark{display:block;width:5px;height:5px;border-radius:50%;background:currentColor;}

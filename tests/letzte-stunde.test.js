@@ -65,12 +65,16 @@ describe('Letzte Stunde im Stunden-Fenster (AH56)', () => {
 
 describe('Symbole auf Sitzplan-Karten (AH57)', () => {
   const css = fs.readFileSync(path.join(__dirname, '..', 'style.css'), 'utf8');
-  it('mittlere und große Karten: Plaketten halb über der Ecke, innerhalb des kleinsten Kartenabstands', () => {
-    const m = css.match(/\.seating-card:not\(\.tiny\) \.sc-marks\{top:(-\d+)px;left:(-\d+)px;/);
-    expect(m).not.toBeNull();
-    // kleinster Abstand Karte ↔ Rand bei nicht winzigen Karten: 10 % von 64 px
-    expect(-Number(m[1])).toBeLessThanOrEqual(6.4);
-    expect(-Number(m[2])).toBeLessThanOrEqual(6.4);
+  it('mittlere und große Karten: Symbole eng in der Ecke, Größe wächst mit der Karte (--sc), höchstens 13 px', () => {
+    expect(css).toMatch(/\.seating-card:not\(\.tiny\) \.sc-marks\{top:clamp\(2px,calc\(var\(--sc,100px\) \* 0\.03\),4px\);/);
+    expect(css).toMatch(/\.seating-card:not\(\.tiny\) \.sc-mark \.ico\{width:clamp\(8px,calc\(var\(--sc,100px\) \* 0\.14\),13px\);/);
+    expect(css).not.toMatch(/\.sc-marks\{top:-/);   // keine Schildchen über dem Rand (Rückmeldung 09.11.)
+  });
+  it('jede Karte bekommt ihre Größe als --sc', () => {
+    app('openSeatingForGroup("g1")');
+    const card = document.querySelector('.seating-card');
+    expect(card.style.getPropertyValue('--sc')).toMatch(/^-?[\d.]+px$/);   // jsdom hat kein Layout, darum keine echte Größe
+    app('switchView("dashboard")');
   });
   it('kleine Karten (Handy) behalten die Punkte in der Ecke', () => {
     expect(css).toMatch(/\.seating-card\.tiny \.sc-mark\{display:block;width:5px;height:5px;/);

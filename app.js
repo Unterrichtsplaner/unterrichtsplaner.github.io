@@ -7080,6 +7080,7 @@ function renderSeatingPlan() {
     card.style.top = centerY + 'px';
     card.style.width = cardSize + 'px';
     card.style.height = cardSize + 'px';
+    card.style.setProperty('--sc', cardSize + 'px');   // Symbole in der Ecke wachsen und schrumpfen mit der Karte (AH57)
 
     if (isCompact) card.classList.add('compact');
     if (isTiny) card.classList.add('tiny');
