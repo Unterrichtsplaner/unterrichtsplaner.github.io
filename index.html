@@ -40,7 +40,7 @@
       }
     })();
   </script>
-  <link rel="stylesheet" href="style.css?v=451" />
+  <link rel="stylesheet" href="style.css?v=452" />
   <script>
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
@@ -1149,10 +1149,10 @@
             </div>
 
             <!-- Sync Controls -->
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-top:var(--space-4);">
-              <div>
-                <span id="sync-status-badge" class="badge-status" style="background: var(--bg-card); padding: var(--space-1) var(--space-2); border-radius:var(--radius-xs); border: 1px solid var(--border); font-size: 12px;">Status: Bereit</span>
-                <div id="sync-last-time" style="font-size:11px; color:var(--text-muted); margin-top:2px;">Noch nie synchronisiert</div>
+            <div class="sync-controls">
+              <div class="sync-status">
+                <span id="sync-status-badge" class="sync-status-badge">Status: Bereit</span>
+                <div id="sync-last-time" class="sync-last-time">Noch nie synchronisiert</div>
               </div>
               <button class="btn-primary" onclick="triggerManualSync()">Jetzt synchronisieren</button>
             </div>
@@ -1691,13 +1691,13 @@
   </div>
 
   <script src="lib/crypto-js.min.js"></script>
-  <script src="crypto-helper.js?v=451"></script>
+  <script src="crypto-helper.js?v=452"></script>
   <script src="lib/firebase-app-compat.js"></script>
   <script src="lib/firebase-auth-compat.js"></script>
   <script src="lib/firebase-firestore-compat.js"></script>
-  <script src="firebase-config.js?v=451"></script>
-  <script src="sync-manager.js?v=451"></script>
-  <script src="sync-merge.js?v=451"></script>
-  <script src="app.js?v=451"></script>
+  <script src="firebase-config.js?v=452"></script>
+  <script src="sync-manager.js?v=452"></script>
+  <script src="sync-merge.js?v=452"></script>
+  <script src="app.js?v=452"></script>
 </body>
 </html>

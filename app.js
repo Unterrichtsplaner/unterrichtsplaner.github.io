@@ -10555,7 +10555,7 @@ function initSync() {
       badge.style.background = 'var(--success-soft)';
       badge.style.color = 'var(--success)';
     } else if (status === 'conflict') {
-      badge.textContent = 'Status: Konflikt!';
+      badge.textContent = 'Status: Konflikt';
       badge.style.background = 'var(--danger-soft)';
       badge.style.color = 'var(--danger)';
     } else if (status === 'confirm_password') {
@@ -10563,7 +10563,7 @@ function initSync() {
       badge.style.background = 'var(--warning-soft)';
       badge.style.color = 'var(--warning)';
     } else if (status === 'error') {
-      badge.textContent = 'Status: Fehler!';
+      badge.textContent = 'Status: Fehler';
       badge.style.background = 'var(--danger-soft)';
       badge.style.color = 'var(--danger)';
     } else {

@@ -2201,3 +2201,9 @@ input, textarea, [contenteditable="true"]{-webkit-user-select:text;user-select:t
 .overview-table th.ov-part-head .sep{margin:0 2px;color:var(--text-muted);font-weight:400;}
 @container (max-width: 520px){.overview-table th.ov-part-head .sep{margin:0;}}
 /* Ende Mitarbeit (AH52) */
+
+/* Sync-Status in den Einstellungen: Kasten und Zeitzeile untereinander, ohne Überlappen; langer Status bricht um */
+.sync-controls{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:var(--space-3);margin-top:var(--space-4);}
+.sync-status{display:flex;flex-direction:column;align-items:flex-start;gap:var(--space-1);flex:1 1 180px;min-width:0;}
+.sync-status-badge{display:inline-block;max-width:100%;box-sizing:border-box;padding:var(--space-1) var(--space-2);border:1px solid var(--border);border-radius:var(--radius-xs);background:var(--bg-card);font-size:12px;line-height:1.4;}
+.sync-last-time{font-size:11px;color:var(--text-muted);}
