@@ -8579,13 +8579,12 @@ function initAllCustomDropdowns() {
 // Für das nächste große Update: `id` ändern und die Punkte ersetzen. Gemerkt wird nur auf diesem Gerät
 // (nicht in `db`, nicht synchronisiert). Neue Nutzer ohne Daten sehen es nie.
 const WHATS_NEW = {
-  id: '2026-11-3',
+  id: '2026-11-4',
   items: [
-    { icon: 'cards',    title: 'Stunden-Fenster', text: 'Breiter und mit Karten. Über das Karten-Symbol oben im Fenster legst du selbst fest, was wo steht und was ausgeblendet ist.' },
-    { icon: 'student',  title: 'Schüler antippen', text: 'Das Fenster ist breiter, der Hinweis steht oben und erscheint erst nach Antippen, damit am Beamer niemand mitliest.' },
-    { icon: 'settings', title: 'Einstellungen', text: 'Jetzt mit Menü statt langem Scrollen.' },
-    { icon: 'overview', title: 'Dashboard', text: 'Übersichtlicher: der Tag, „Auffällig“ (bisher „Warnungen“), „Als Nächstes“ und der Merkzettel.' },
-    { icon: 'calendar', title: 'Stundenplan und Tabellen', text: 'Ruhiger und bündig. Aufsichten zeigen zuerst den Ort.' },
+    { icon: 'seating',  title: 'Sitzplan', text: 'Oben steht die Klasse. Die Pfeile springen zur vorigen oder nächsten Stunde der Klasse, ein Tipp aufs Datum öffnet den Kalender. Die Leiste darüber zeigt außerhalb der Stunde die nächste.' },
+    { icon: 'clock',    title: 'Timer und Stoppuhr', text: 'Unten als Knöpfe neben Zufall und Gruppen. Antippen öffnet die Bedienung, die laufende Zeit steht im Knopf.' },
+    { icon: 'panel',    title: 'Leiste links', text: 'Die Suche steht oben als Menüpunkt, „Einklappen“ unten. In den Einstellungen unter „Leiste“ ordnest du die Menüpunkte selbst und heftest Klassen an.' },
+    { icon: 'classes',  title: 'Klassenlehrer', text: 'Beim Bearbeiten einer Klasse eintragen. Der Name steht dann im Klassenkopf, auf der Klassenkarte und im Stunden-Fenster.' },
   ],
 };
 const WHATS_NEW_SEEN_KEY = 'whats_new_seen';
