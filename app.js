@@ -8027,6 +8027,12 @@ function openSeatingStudentModal(studentId, groupId, dateStr, opts = {}) {
   window.currentSeatingStudent = { studentId, groupId, dateStr };
   profileGroupId = groupId;
   currentStudentId = studentId;
+  // QR-Knopf oben (AJ2e): schneller Weg zum Code, nur mit persönlichen Seiten der Klasse
+  const codeBtn = document.getElementById('sw-code-btn');
+  if (codeBtn) {
+    codeBtn.classList.toggle('hidden', !(sg && personalActive(sg)));
+    codeBtn.onclick = () => showStudentCode(groupId, studentId);
+  }
   // Beamer: aus dem Sitzplan nur, wenn dort die Noten eingeblendet sind; aus der Klassenansicht wie dort (AH24 c)
   const fromClassView = document.getElementById('view-students').classList.contains('active') && currentGroupId === groupId;
   const fromSeating = document.getElementById('view-seating').classList.contains('active');   // sonst gilt der Sitzplan-Schalter nie (W1)

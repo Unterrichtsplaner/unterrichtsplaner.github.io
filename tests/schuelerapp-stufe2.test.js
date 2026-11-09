@@ -223,6 +223,23 @@ describe('Schüler-Fenster: Abschnitt „Schülerapp“', () => {
     expect(document.querySelector('#sa-beamer-qr svg')).not.toBeNull();
     app('closeModal("modal-studentapp-beamer"); closeModal("modal-seating-student")');
   });
+  it('AJ2e: QR-Knopf oben im Schüler-Fenster nur mit persönlichen Seiten; öffnet den großen Code', () => {
+    app('db.groups[0].studentApp.personal = { on: false }; openSeatingStudentModal("a", "g1", "2026-11-09")');
+    const btn = () => document.getElementById('sw-code-btn');
+    expect(btn().classList.contains('hidden')).toBe(true);
+    app('closeModal("modal-seating-student"); db.groups[0].studentApp.personal = { on: true, step: 10 }; openSeatingStudentModal("a", "g1", "2026-11-09")');
+    expect(btn().classList.contains('hidden')).toBe(false);
+    expect(btn().getAttribute('aria-label')).toMatch(/Code/);
+    btn().click();
+    expect(document.getElementById('modal-studentapp-beamer').classList.contains('hidden')).toBe(false);
+    expect(document.getElementById('sa-beamer-title').textContent).toBe('Anna Geheimrath');
+    expect(document.getElementById('sa-beamer-hint').textContent).toMatch(/nicht am Beamer/);
+    app('closeModal("modal-studentapp-beamer"); closeModal("modal-seating-student")');
+    app('db.settings.studentApp = { on: false }; openSeatingStudentModal("a", "g1", "2026-11-09")');
+    expect(btn().classList.contains('hidden')).toBe(true);   // Schülerapp ganz aus: kein Knopf
+    app('closeModal("modal-seating-student")');
+  });
+
   it('das Code-Fenster liegt über dem Schüler-Fenster (steht später im Markup)', () => {
     const all = [...document.querySelectorAll('.modal-overlay')].map(m => m.id);
     expect(all.indexOf('modal-studentapp-beamer')).toBeGreaterThan(all.indexOf('modal-seating-student'));

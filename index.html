@@ -40,7 +40,7 @@
       }
     })();
   </script>
-  <link rel="stylesheet" href="style.css?v=491" />
+  <link rel="stylesheet" href="style.css?v=492" />
   <script>
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
@@ -1453,6 +1453,8 @@
         <div class="sw-title"><h2 id="seating-student-title">Schüler</h2><span id="seating-student-sub" class="modal-subtitle"></span></div>
         <div id="sw-head-hint" class="sw-head-hint" hidden></div>
         <div class="sw-head-btns">
+          <!-- Schülerapp (AJ2e): nur mit persönlichen Seiten der Klasse, öffnet den großen Code zum Scannen -->
+          <button type="button" id="sw-code-btn" class="btn-icon hidden" aria-label="Code für die persönliche Seite zeigen" title="Code zum Scannen zeigen"><i data-icon="qr"></i></button>
           <button type="button" id="sw-menu-btn" class="btn-icon sw-menu-btn" aria-label="Weitere Aktionen" aria-haspopup="menu" aria-expanded="false"><i data-icon="more"></i></button>
           <div id="sw-menu" class="sw-menu" role="menu" hidden>
             <button type="button" role="menuitem" data-menu="edit"><i data-icon="edit"></i>Name, Geburtstag, Hinweise ändern</button>
@@ -1817,15 +1819,15 @@
   </div>
 
   <script src="lib/crypto-js.min.js"></script>
-  <script src="crypto-helper.js?v=491"></script>
+  <script src="crypto-helper.js?v=492"></script>
   <script src="lib/firebase-app-compat.js"></script>
   <script src="lib/firebase-auth-compat.js"></script>
   <script src="lib/firebase-firestore-compat.js"></script>
-  <script src="firebase-config.js?v=491"></script>
-  <script src="sync-manager.js?v=491"></script>
-  <script src="sync-merge.js?v=491"></script>
+  <script src="firebase-config.js?v=492"></script>
+  <script src="sync-manager.js?v=492"></script>
+  <script src="sync-merge.js?v=492"></script>
   <script src="lib/qrcode.js"></script>
-  <script src="student-share.js?v=491"></script>
-  <script src="app.js?v=491"></script>
+  <script src="student-share.js?v=492"></script>
+  <script src="app.js?v=492"></script>
 </body>
 </html>
