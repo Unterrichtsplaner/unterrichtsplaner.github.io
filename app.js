@@ -2828,8 +2828,8 @@ function renderSubjectGroups() {
 
     sortedGroups.forEach(g => {
       const students = db.students[g.id] || [];
-      const gradeCount = students.flatMap(s => s.grades||[]).filter(gr => !isNaN(gradeNumber(gr.value))).length;
-      const groupAvg = calculateGroupAverage(g.id);
+      const gradeCount = students.flatMap(s => periodList(s.grades, viewPeriod(todayStr))).filter(gr => !isNaN(gradeNumber(gr.value))).length;
+      const groupAvg = calculateGroupAverage(g.id);   // Halbjahr wie in der Klassenansicht (Y7)
       const scale = gradeScale(g);
       // Wochentage aus dem Stundenplan; Vertretungen (L9) und beendete Stunden (M7) nicht
       const linkedSlots = db.lessonSlots.filter(s => s.groupId === g.id && !isOneOffSlot(s) && (!s.validUntil || s.validUntil >= todayStr));
@@ -3071,10 +3071,75 @@ function saveSubjectGroup() {
   editingGroupId = null;
 }
 
+// ─── Halbjahre (Y7) ────────────────────────────────────────────────────────
+// Stichtag ist das Halbjahresende aus den Einstellungen (AD4), aber nur, wenn es in dieses Schuljahr gehört.
+// Zeitraum = { key, from, to } (to null = offen) oder null = alles (kein Stichtag oder „Schuljahr“: wie bisher, nichts fällt weg).
+// Welcher Zeitraum gezeigt wird, ist Ansichtszustand (Regel 19): nur in dieser Variable, nie in db, Standard vor dem
+// Stichtag 1. Halbjahr, danach Schuljahr. Klassenansicht, Schüler-Fenster, Sitzplan und Bericht folgen ihm; die
+// Warnungen zählen immer das laufende Halbjahr (runningHalf).
+let periodChoice = null;   // null = Standard, sonst 'h1' | 'h2' | 'year'
+const PERIOD_NAMES = { h1: '1. Halbjahr', h2: '2. Halbjahr', year: 'Schuljahr' };
+function halfYearSplit(todayStr = formatDate(new Date())) {
+  const hy = db.settings.halfYearEnd;
+  return isDateStr(hy) && hy >= schoolYearStart(todayStr) ? hy : null;
+}
+function periodRange(key, todayStr = formatDate(new Date())) {
+  const hy = halfYearSplit(todayStr);
+  if (!hy || key === 'year') return null;
+  return key === 'h1' ? { key, from: schoolYearStart(hy), to: hy } : { key: 'h2', from: formatDate(addDays(parseDate(hy), 1)), to: null };
+}
+function periodKey(todayStr = formatDate(new Date())) {
+  const hy = halfYearSplit(todayStr);
+  if (!hy) return 'year';
+  return periodChoice || (todayStr <= hy ? 'h1' : 'year');
+}
+const viewPeriod = (todayStr = formatDate(new Date())) => periodRange(periodKey(todayStr), todayStr);
+function runningHalf(todayStr = formatDate(new Date())) {
+  const hy = halfYearSplit(todayStr);
+  return hy ? periodRange(todayStr <= hy ? 'h1' : 'h2', todayStr) : null;
+}
+// Einträge ohne gültiges Datum zählen immer (lieber sichtbar als still weg, Regel 7)
+const inPeriod = (dateStr, range) => !range || !isDateStr(dateStr) || (dateStr >= range.from && (!range.to || dateStr <= range.to));
+const periodList = (list, range) => (Array.isArray(list) ? list : []).filter(x => x && inPeriod(x.date, range));
+// Neuer Eintrag außerhalb des gezeigten Halbjahrs: auf „Schuljahr“ stellen, statt ihn scheinbar verschwinden zu lassen
+function revealPeriodOf(dateStr) {
+  if (inPeriod(dateStr, viewPeriod())) return;
+  periodChoice = 'year';
+  overviewRenderedKey = null;
+  updatePeriodSelect();
+  showToast('Zeitraum auf „Schuljahr“ gestellt, damit der neue Eintrag zu sehen ist');
+}
+function setPeriodChoice(key) {
+  periodChoice = PERIOD_NAMES[key] ? key : null;
+  overviewRenderedKey = null;   // andere Spalten: neueste zeigen
+  refreshPeriodViews();
+}
+// Alles, was dem Umschalter folgt, neu zeichnen
+function refreshPeriodViews() {
+  updatePeriodSelect();
+  if (currentGroupId) refreshStudentViews(currentGroupId);   // Sitzplan und Schüler-Fenster zeichnen beim Öffnen neu
+}
+function updatePeriodSelect() {
+  const sel = document.getElementById('period-select'), pick = document.getElementById('period-pick');
+  if (!sel || !pick) return;
+  const has = !!halfYearSplit();   // ohne Halbjahresende in den Einstellungen gibt es nichts umzuschalten
+  pick.classList.toggle('hidden', !has);
+  if (!has) return;
+  // Handy: kurze Namen, sonst verdrängt der Umschalter den Klassennamen im Kopf (Y7, im Browser bei 375 px gemessen)
+  const narrow = window.matchMedia && window.matchMedia('(max-width: 600px)').matches;
+  const SHORT = { h1: '1. Hj', h2: '2. Hj', year: 'Jahr' };
+  [...sel.options].forEach(o => { o.textContent = narrow ? SHORT[o.value] : PERIOD_NAMES[o.value]; });
+  sel.value = periodKey();
+}
+if (window.matchMedia) {
+  const mq = window.matchMedia('(max-width: 600px)');
+  if (mq.addEventListener) mq.addEventListener('change', updatePeriodSelect);
+}
+
 // Teil-Durchschnitte nach Gewichtungs-Kategorie (siehe gradeCategory), jeweils null wenn keine Noten.
-function calculateGradeCategoryAverages(student) {
+function calculateGradeCategoryAverages(student, range = viewPeriod()) {
   const sums = { schularbeit: 0, sonstige: 0 }, counts = { schularbeit: 0, sonstige: 0 };
-  ((student && student.grades) || []).forEach(gr => {
+  periodList(student && student.grades, range).forEach(gr => {
     const v = gradeNumber(gr.value);
     if (isNaN(v)) return;
     const cat = gradeCategory(gr.type);
@@ -3093,13 +3158,13 @@ function getSchularbeitWeight(group) {
   return isNaN(w) ? 50 : Math.min(100, Math.max(0, w));
 }
 
-function calculateStudentAverage(student, groupId) {
+function calculateStudentAverage(student, groupId, range = viewPeriod()) {
   const g = db.groups.find(x => x.id === groupId);
   if (!g || !student || !student.grades || student.grades.length === 0) return null;
 
   const wSchularbeit = getSchularbeitWeight(g);
   const wSonstige = 100 - wSchularbeit;
-  const { schularbeit: avgSchularbeit, sonstige: avgSonstige } = calculateGradeCategoryAverages(student);
+  const { schularbeit: avgSchularbeit, sonstige: avgSonstige } = calculateGradeCategoryAverages(student, range);
 
   if (avgSchularbeit !== null && avgSonstige !== null) {
     return (avgSchularbeit * wSchularbeit + avgSonstige * wSonstige) / 100;
@@ -3112,8 +3177,8 @@ function calculateStudentAverage(student, groupId) {
 }
 
 // Klassenschnitt = Mittel der Schülerschnitte (Schüler ohne Noten zählen nicht)
-function calculateGroupAverage(groupId) {
-  const avgs = (db.students[groupId] || []).map(s => calculateStudentAverage(s, groupId)).filter(a => a !== null);
+function calculateGroupAverage(groupId, range = viewPeriod()) {
+  const avgs = (db.students[groupId] || []).map(s => calculateStudentAverage(s, groupId, range)).filter(a => a !== null);
   return avgs.length ? avgs.reduce((a, b) => a + b, 0) / avgs.length : null;
 }
 
@@ -3296,6 +3361,7 @@ function addTodayColumn() {
   const key = tab === 'attendance' ? date : `${date}_`;
   if (overviewColumnKeys(group, db.students[currentOverviewGroupId] || []).has(key)) showToast('Die Spalte für heute gibt es schon');
   else { (group[field] = group[field] || []).push({ date, label: '' }); saveDB(); }
+  revealPeriodOf(date);
   overviewRenderedKey = null;   // neueste Spalte zeigen
   renderOverviewTable();
 }
@@ -3366,10 +3432,12 @@ function renderOverviewTable() {
   }
 
   const sortedStudents = sortStudents(students);
+  const range = viewPeriod();   // Halbjahr (Y7): nur Spalten und Einträge aus dem gewählten Zeitraum
+  const inRange = ev => inPeriod(ev.date, range);
   let html = '<div class="overview-table-wrapper"><table class="overview-table"><thead><tr><th class="ov-name-col">Schüler</th>';
 
   if (currentOverviewTab === 'grades') {
-    const gradeEvents = gradeColumns(group, sortedStudents);
+    const gradeEvents = gradeColumns(group, sortedStudents).filter(inRange);
 
     html += '<th class="ov-sum-col">Ø</th>';
     const weight = getSchularbeitWeight(group);
@@ -3429,7 +3497,7 @@ function renderOverviewTable() {
         partEventsMap.set(`${p.date}_${p.label}`, { date: p.date, label: p.label });
       });
     });
-    const partDates = Array.from(partEventsMap.values()).sort((a,b) => a.date.localeCompare(b.date));
+    const partDates = Array.from(partEventsMap.values()).filter(inRange).sort((a,b) => a.date.localeCompare(b.date));
     
     html += `<th class="ov-sum-col ov-part-head" title="Mitarbeit: ${PART_LEVELS.map(l => l.word).join(' / ')}">${PART_LEVELS.map(l => l.sign).join('<span class="sep">/</span>')}</th>`;
     partDates.forEach(ev => {
@@ -3468,7 +3536,7 @@ function renderOverviewTable() {
     sortedStudents.forEach(s => {
       (s.attendance || []).forEach(a => { if (!attEventsMap.has(a.date)) attEventsMap.set(a.date, { date: a.date, label: '' }); });
     });
-    const attDates = Array.from(attEventsMap.values()).sort((a,b) => a.date.localeCompare(b.date));
+    const attDates = Array.from(attEventsMap.values()).filter(inRange).sort((a,b) => a.date.localeCompare(b.date));
     
     html += '<th class="ov-sum-col" title="Fehltage unentschuldigt (F) / entschuldigt (E), ohne zu spät (Z)"><span class="ov-wide-only">Fehlt </span>F / E</th>';
     attDates.forEach(ev => {
@@ -3479,8 +3547,8 @@ function renderOverviewTable() {
     sortedStudents.forEach(s => {
       html += `<tr><td class="ov-name-col ov-name" role="button" tabindex="0" onclick="openQuickRatingFromTable(${jsArg(s.id)})"><span class="ov-name-text" title="${escHtml(studentListName(s))}">${escHtml(studentListName(s))}</span></td>`;
       // Wie im Reiter Schüler: F / E, nur unentschuldigte rot (AH24)
-      const missF = (s.attendance||[]).filter(a => a.type === 'abwesend').length;
-      const missE = (s.attendance||[]).filter(a => a.type === 'entschuldigt').length;
+      const missF = periodList(s.attendance, range).filter(a => a.type === 'abwesend').length;
+      const missE = periodList(s.attendance, range).filter(a => a.type === 'entschuldigt').length;
       html += `<td class="ov-sum-col ov-sum"><span${missF ? ' class="n-bad"' : ''}>${missF}</span> <span class="sep">/</span> <span>${missE}</span></td>`;
 
       attDates.forEach(ev => {
@@ -3499,7 +3567,7 @@ function renderOverviewTable() {
     sortedStudents.forEach(s => {
       (s.homework || []).forEach(h => hwEventsMap.set(`${h.date}_${h.note||''}`, { date: h.date, label: h.note||'' }));
     });
-    const hwDates = Array.from(hwEventsMap.values()).sort((a,b) => a.date.localeCompare(b.date));
+    const hwDates = Array.from(hwEventsMap.values()).filter(inRange).sort((a,b) => a.date.localeCompare(b.date));
     
     html += '<th class="ov-sum-col" title="Wie oft die Hausaufgaben gefehlt haben">Vergessen</th>';
     hwDates.forEach(ev => {
@@ -3509,7 +3577,7 @@ function renderOverviewTable() {
 
     sortedStudents.forEach(s => {
       html += `<tr><td class="ov-name-col ov-name" role="button" tabindex="0" onclick="openQuickRatingFromTable(${jsArg(s.id)})"><span class="ov-name-text" title="${escHtml(studentListName(s))}">${escHtml(studentListName(s))}</span></td>`;
-      const totalMissed = (s.homework||[]).length;
+      const totalMissed = periodList(s.homework, range).length;
       html += `<td class="ov-sum-col" style="text-align:center;font-weight:600;color:${totalMissed ? 'var(--danger)' : 'var(--text-muted)'};">${totalMissed}</td>`;
 
       hwDates.forEach(ev => {
@@ -3997,6 +4065,7 @@ function saveOverviewColumn() {
 
   saveDB();
   closeModal('modal-add-column');
+  revealPeriodOf(newDate);
   renderOverviewTable();
 }
 
@@ -4087,6 +4156,7 @@ function openGroupStudents(groupId, initialTab = 'students') {
   setClassViewHeader(g);
   switchView('students');
   updateStudentAppTabVisibility();   // Reiter „Schülerapp“ nur, wenn sie an ist (AJ1)
+  updatePeriodSelect();   // Halbjahr (Y7)
   switchClassDashboardTab(initialTab);
 }
 
@@ -4147,18 +4217,20 @@ function renderStudents() {
   wireGradesVeil(container);
   const scale = gradeScale(currentGroupId);
   const todayStr = formatDate(new Date());
+  const range = viewPeriod(todayStr);   // Halbjahr (Y7)
   sortStudents(students).forEach(s => {
-    const avg = calculateStudentAverage(s, currentGroupId);
-    const attUnexcused = (s.attendance||[]).filter(a => a.type==='abwesend').length;
-    const attExcused = (s.attendance||[]).filter(a => a.type==='entschuldigt').length;
-    const partN = partCounts(s.participation);
+    const avg = calculateStudentAverage(s, currentGroupId, range);
+    const att = periodList(s.attendance, range), part = periodList(s.participation, range);
+    const attUnexcused = att.filter(a => a.type==='abwesend').length;
+    const attExcused = att.filter(a => a.type==='entschuldigt').length;
+    const partN = partCounts(part);
     const hints = {
       participation: { title: 'Mitarbeit', lines: PART_LEVELS.map((l, i) => [partN[i], l.word]) },
       attendance: { title: 'Fehltage', lines: [[attUnexcused, 'unentschuldigt', 'danger'], [attExcused, 'entschuldigt', 'success']] },
     };
     const hintText = kind => `${hints[kind].title}: ` + hints[kind].lines.map(([n, label]) => `${n} ${label}`).join(', ');
 
-    const grades = s.grades || [];
+    const grades = periodList(s.grades, range);
     const row = document.createElement('div');
     row.className = 'student-row';
     row.setAttribute('role', 'button');
@@ -4174,7 +4246,7 @@ function renderStudents() {
       <div class="student-counters">
         ${showGrades ? `<div class="student-counter" data-kind="participation" role="button" tabindex="0" title="${hintText('participation')}" aria-label="${hintText('participation')}">
           <span class="student-counter-label">Mitarbeit</span>
-          ${partCountsHTML(s.participation).replace(/ <span class="sep">\/<\/span> /g, '<span class="sep">/</span>')}
+          ${partCountsHTML(part).replace(/ <span class="sep">\/<\/span> /g, '<span class="sep">/</span>')}
         </div>` : ''}
         <div class="student-counter" data-kind="attendance" role="button" tabindex="0" title="${hintText('attendance')}" aria-label="${hintText('attendance')}">
           <span class="student-counter-label">Fehlt</span>
@@ -4498,11 +4570,12 @@ function openGradeFormForCurrentStudentDetailed() {
 function getCurrentStudent() { return (db.students[profileGroupId]||[]).find(x => x.id === currentStudentId); }
 
 function renderGradesList(s) {
-  const grades = s.grades||[];
+  const range = viewPeriod();   // Halbjahr wie in der Klassenansicht (Y7)
+  const grades = periodList(s.grades, range);
   const scale = gradeScale(profileGroupId);
   const summary = document.getElementById('grades-summary');
   if (!grades.length) {
-    summary.innerHTML = '<span style="color:var(--text-muted);font-size:13px">Noch keine Noten.</span>';
+    summary.innerHTML = `<span style="color:var(--text-muted);font-size:13px">${range ? `Keine Noten im ${PERIOD_NAMES[range.key]}.` : 'Noch keine Noten.'}</span>`;
   } else {
     const byType = {};
     grades.forEach(g => {
@@ -4511,11 +4584,11 @@ function renderGradesList(s) {
       if (!byType[g.type]) byType[g.type]=[];
       byType[g.type].push(v);
     });
-    const rawAvg = calculateStudentAverage(s, profileGroupId);
+    const rawAvg = calculateStudentAverage(s, profileGroupId, range);
     summary.innerHTML = `
       <div class="grade-summary-item" style="margin-right:var(--space-4)">
         <div class="grade-avg-display" style="color:${gradeColor(rawAvg, scale)}">${formatGradeAverage(rawAvg)}</div>
-        <div class="grade-avg-label">${scale.higherIsBetter ? 'Ø Punkte' : 'Ø Gesamt'}</div>
+        <div class="grade-avg-label">${range ? `Ø ${PERIOD_NAMES[range.key]}` : scale.higherIsBetter ? 'Ø Punkte' : 'Ø Gesamt'}</div>
       </div>
       ${Object.entries(byType).map(([type,vals]) => {
         const ta = vals.reduce((a,b)=>a+b,0)/vals.length;
@@ -4595,7 +4668,7 @@ function addStudentNote() {
 }
 
 function renderAttendanceList(s) {
-  const att  = s.attendance||[];
+  const att  = periodList(s.attendance, viewPeriod());   // Halbjahr (Y7)
   const list = document.getElementById('attendance-list');
   list.innerHTML='';
   if (!att.length) { list.innerHTML='<div class="entry-empty">Keine Einträge.</div>'; return; }
@@ -4652,7 +4725,7 @@ function deleteAttendance(a) {
 }
 
 function renderStudentParticipationList(s) {
-  const pList = s.participation || [];
+  const pList = periodList(s.participation, viewPeriod());   // Halbjahr (Y7)
   const list = document.getElementById('participation-list');
   if (!list) return;
   list.innerHTML = '';
@@ -4691,7 +4764,7 @@ function renderStudentHomeworkList(s) {
     labels.delete('');
     titles.innerHTML = [...labels].sort().map(l => `<option value="${escHtml(l)}"></option>`).join('');
   }
-  const hw = s.homework || [];
+  const hw = periodList(s.homework, viewPeriod());   // Halbjahr (Y7)
   if (!hw.length) {
     list.innerHTML = '<span style="color:var(--text-muted);font-size:13px">Keine Hausaufgaben vergessen.</span>';
     return;
@@ -4790,9 +4863,10 @@ function exportCurrentStudent() {
   const byDate = (a,b) => (a.date||'').localeCompare(b.date||'');
   const dateStr = d => d ? formatDateLong(d) : 'ohne Datum';
 
-  const avg = calculateStudentAverage(s, profileGroupId);
-  const avgText = avg === null ? '-' : points ? formatGradeAverage(avg) + ' Punkte' : formatGradeAverage(avg, 2);
-  txt += `=== NOTEN (Aktueller Schnitt: ${avgText}) ===\n`;
+  // Sicherung: immer alle Noten; der Schnitt über alle, dazu je Halbjahr, wenn eins eingestellt ist (Y7)
+  const avgText = r => { const a = calculateStudentAverage(s, profileGroupId, r); return a === null ? '-' : points ? formatGradeAverage(a) + ' Punkte' : formatGradeAverage(a, 2); };
+  const halves = halfYearSplit() ? `, 1. Halbjahr: ${avgText(periodRange('h1'))}, 2. Halbjahr: ${avgText(periodRange('h2'))}` : '';
+  txt += `=== NOTEN (Schnitt aller Noten: ${avgText(null)}${halves}) ===\n`;
   if (s.grades && s.grades.length > 0) {
     const sortedGrades = [...s.grades].sort(byDate);
     sortedGrades.forEach(g => {
@@ -5507,6 +5581,7 @@ function saveSettings() {
   const hy = document.getElementById('settings-half-year').value, ye = document.getElementById('settings-year-end').value;
   if (isDateStr(hy)) db.settings.halfYearEnd = hy; else delete db.settings.halfYearEnd;
   if (isDateStr(ye)) db.settings.schoolYearEnd = ye; else delete db.settings.schoolYearEnd;
+  if (!halfYearSplit()) periodChoice = null;   // ohne Halbjahre gibt es nichts umzuschalten (Y7)
   if (document.getElementById('settings-seating-autoswitch').checked) delete db.settings.seatingAutoSwitch; else db.settings.seatingAutoSwitch = false;
   const protectBefore = classGradesProtected();
   if (document.getElementById('settings-class-grades-protect').checked) delete db.settings.classGradesProtect; else db.settings.classGradesProtect = false;
@@ -5541,6 +5616,7 @@ function saveSettings() {
   closeModal('modal-settings');
   renderNav();
   updateStudentAppTabVisibility();
+  updatePeriodSelect();   // Halbjahresende geändert: Umschalter ein-/ausblenden (Y7)
   // Offene Ansicht mit den neuen Einstellungen zeichnen (Warnschwellen, Sortierung, Namensformat; BUGS M1/O4)
   renderScheduleViews();
   if (document.getElementById('view-students')?.classList.contains('active') && currentGroupId) refreshStudentViews(currentGroupId);
@@ -5562,10 +5638,11 @@ function exportGradesCSV() {
   let csvContent = `\uFEFFNachname;Vorname;${header}\n`; // \uFEFF is BOM for Excel to read UTF-8 correctly
   const fmt = v => v !== null ? v.toFixed(points ? 1 : 2).replace('.', ',') : '';
   
+  const range = viewPeriod();   // Zeitraum wie in der Klassenansicht (Y7)
   sortStudents(students).forEach(s => {
     // Spalten wie die Gewichtung der Klasse (gradeCategory), damit sich die Gesamtnote daraus ergibt
-    const parts = calculateGradeCategoryAverages(s);
-    const total = calculateStudentAverage(s, g.id);
+    const parts = calculateGradeCategoryAverages(s, range);
+    const total = calculateStudentAverage(s, g.id, range);
     csvContent += [s.lastName, s.firstName, fmt(parts.schularbeit), fmt(parts.sonstige), fmt(total)].map(csvCell).join(';') + '\n';
   });
   
@@ -5573,7 +5650,7 @@ function exportGradesCSV() {
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = `Noten_${g.className}_${g.subject}_${formatDate(new Date())}.csv`;
+  a.download = `Noten_${g.className}_${g.subject}_${range ? PERIOD_NAMES[range.key].replace(/\W+/g, '') + '_' : ''}${formatDate(new Date())}.csv`;
   a.click();
   URL.revokeObjectURL(url);
   showToast('Noten als CSV exportiert ✓');
@@ -7937,8 +8014,9 @@ function openSeatingStudentModal(studentId, groupId, dateStr, opts = {}) {
   const fromClassView = document.getElementById('view-students').classList.contains('active') && currentGroupId === groupId;
   if (!same) { swShown = fromClassView ? classGradesShown : seatingShowGrades; swHintShown = false; }
 
-  const partN = partCounts(s.participation);
-  document.getElementById('seating-student-participation-summary').innerHTML = `Mitarbeit bisher: ` +
+  const range = viewPeriod();   // Halbjahr wie in der Klassenansicht (Y7)
+  const partN = partCounts(periodList(s.participation, range));
+  document.getElementById('seating-student-participation-summary').innerHTML = `${range ? `Mitarbeit im ${PERIOD_NAMES[range.key]}` : 'Mitarbeit bisher'}: ` +
     PART_LEVELS.map((l, i) => `<span>${partSignHTML(l.value)} ${partN[i]}</span>`).join(' · ');
 
   closeSeatingGradePad();
@@ -8261,6 +8339,7 @@ function saveGradeFromForm() {
 
   saveDB();
   closeGradeForm();
+  revealPeriodOf(dateStr);
   refreshGradeViews(s, groupId);
 }
 
@@ -9780,21 +9859,22 @@ function addTopicsToDayTiles(grid) {
 // ─── Klassen-Bericht als PDF und Excel (AD1) ──────────────────────────────
 // Sicherung zum Ausdrucken bzw. Weiterbearbeiten: je Klasse Noten (alle Einzelnoten + Schnitte), Fehlzeiten,
 // Mitarbeit, fehlende HA. Keine Hinweise/Inhalte (Entscheidung 02.11.). Die Dateien sind unverschlüsselt.
-function classReportData(g) {
+function classReportData(g, range = viewPeriod()) {   // Zeitraum wie in der Klassenansicht (Y7)
   const students = sortStudents(db.students[g.id] || []);
-  const cols = gradeColumns(g, students);
-  const count = (list, pred) => (list || []).filter(pred).length;
+  const cols = gradeColumns(g, students).filter(c => inPeriod(c.date, range));
+  const count = (list, pred) => periodList(list, range).filter(pred).length;
   return {
-    g, cols, scale: gradeScale(g), weight: getSchularbeitWeight(g), groupAvg: calculateGroupAverage(g.id),
+    g, cols, scale: gradeScale(g), weight: getSchularbeitWeight(g), groupAvg: calculateGroupAverage(g.id, range),
+    period: range ? PERIOD_NAMES[range.key] : '',
     rows: students.map(s => {
-      const parts = calculateGradeCategoryAverages(s);
+      const parts = calculateGradeCategoryAverages(s, range);
       return {
         name: [s.lastName, s.firstName].filter(Boolean).join(', '),
         grades: cols.map(c => { const gr = findColumnGrade(s, c); return gr ? gr.value : null; }),
-        ka: parts.schularbeit, so: parts.sonstige, avg: calculateStudentAverage(s, g.id),
+        ka: parts.schularbeit, so: parts.sonstige, avg: calculateStudentAverage(s, g.id, range),
         f: count(s.attendance, a => a.type === 'abwesend'), e: count(s.attendance, a => a.type === 'entschuldigt'),
         z: count(s.attendance, a => a.type === 'zuspät'),
-        part: partCounts(s.participation), ha: (s.homework || []).length,   // Mitarbeit je Stufe wie PART_LEVELS (AH52)
+        part: partCounts(periodList(s.participation, range)), ha: periodList(s.homework, range).length,   // Mitarbeit je Stufe wie PART_LEVELS (AH52)
       };
     }),
   };
@@ -9826,7 +9906,8 @@ function toggleClassReportAll() {
 }
 function reportFileStem(groups) {
   const part = groups.length === 1 ? `${groups[0].className}_${groups[0].subject || ''}` : 'alle_Klassen';
-  return `Klassenbericht_${part}_${formatDate(new Date())}`.replace(/[\\/:*?"<>|\s]+/g, '_').replace(/_+/g, '_');
+  const range = viewPeriod();   // Zeitraum im Dateinamen (Y7)
+  return `Klassenbericht_${part}_${range ? PERIOD_NAMES[range.key] + '_' : ''}${formatDate(new Date())}`.replace(/[\\/:*?"<>|\s]+/g, '_').replace(/_+/g, '_');
 }
 
 // ── PDF (Druckansicht) ──
@@ -9838,7 +9919,7 @@ function buildClassReportPrint(groups) {
     const d = classReportData(g);
     const pts = d.scale.higherIsBetter;
     const head = `<div class="rp-head"><div><div class="rp-title">${escHtml(g.className)} <span>${escHtml(g.subject || '')}</span></div>
-      <div class="rp-sub">Klassen-Bericht · Schuljahr ${schoolYearLabel()}${g.year ? ' · ' + escHtml(g.year) : ''} · Klassenarbeiten zählen ${d.weight} %</div></div>
+      <div class="rp-sub">Klassen-Bericht · Schuljahr ${schoolYearLabel()}${d.period ? ' · ' + escHtml(d.period) : ''}${g.year ? ' · ' + escHtml(g.year) : ''} · Klassenarbeiten zählen ${d.weight} %</div></div>
       <div class="rp-meta">${school ? `<strong>${escHtml(school)}</strong><br>` : ''}${teacher ? escHtml(teacher) + '<br>' : ''}Stand ${escHtml(formatDateLong(formatDate(new Date())))}</div></div>`;
     if (!d.rows.length) return `<section class="rp-page">${head}<p class="rp-empty">Keine Schüler.</p></section>`;
     const overview = `<table class="rp-table"><thead><tr><th class="rp-name">Name</th><th>Ø Klassen&shy;arbeiten</th><th>Ø Sonstige</th><th>Ø Gesamt${pts ? ' (Pkt.)' : ''}</th>
@@ -9920,7 +10001,7 @@ function classReportSheetXML(g) {
   const header = ['Name', 'Ø Klassenarbeiten', 'Ø Sonstige', `Ø Gesamt${pts ? ' (Punkte)' : ''}`, 'Fehlt unentschuldigt', 'Fehlt entschuldigt', 'Zu spät',
     ...PART_LEVELS.map(l => `Mitarbeit ${l.word}`), 'HA fehlt', ...d.cols.map(c => reportColTitle(c).join(' '))];
   const rows = [
-    [[`Klassen-Bericht ${g.className} ${g.subject || ''} · Schuljahr ${schoolYearLabel()}`, 1]],
+    [[`Klassen-Bericht ${g.className} ${g.subject || ''} · Schuljahr ${schoolYearLabel()}${d.period ? ' · ' + d.period : ''}`, 1]],
     [[`Stand ${formatDateLong(formatDate(new Date()))}${db.settings.teacherName ? ' · ' + db.settings.teacherName : ''}${db.settings.school ? ' · ' + db.settings.school : ''} · Klassenarbeiten zählen ${d.weight} %`, 0]],
     [],
     header.map(h => [h, 1]),
@@ -10091,10 +10172,16 @@ function lessonTitle(slot) {
 
 // Welche Einträge eine quittierte Warnung meinte. Nur die Anzahl zu merken reichte nicht: Eintrag gelöscht und
 // neuer angelegt = gleiche Anzahl, die neue Fehlzeit blieb unsichtbar (BUGS R14).
-function warningSignature(s, type) {
-  const parts = type === 'absences' ? (s.attendance || []).filter(a => a.type === 'abwesend').map(a => a.date)
-    : type === 'homework' ? (s.homework || []).map(h => h.date + '|' + (h.note || ''))
-    : (s.grades || []).map(g => (g.date || '') + '|' + g.value);
+// Warnungen zählen das laufende Halbjahr (Y7). Was quittiert wurde, merkt sich db unter `<id>_<art>`; im 2. Halbjahr
+// unter eigenem Namen, sonst hielte der höhere Stand aus dem 1. Halbjahr neue Warnungen zurück. Im 1. Halbjahr und
+// ohne Stichtag bleibt der alte Name, damit Quittiertes gültig bleibt (auch für ältere App-Versionen).
+function warningAckBase(studentId, type, range = runningHalf()) {
+  return `${studentId}_${type}` + (range && range.key === 'h2' ? `_h2-${range.from}` : '');
+}
+function warningSignature(s, type, range = runningHalf()) {
+  const parts = type === 'absences' ? periodList(s.attendance, range).filter(a => a.type === 'abwesend').map(a => a.date)
+    : type === 'homework' ? periodList(s.homework, range).map(h => h.date + '|' + (h.note || ''))
+    : periodList(s.grades, range).map(g => (g.date || '') + '|' + g.value);
   const str = parts.sort().join(';');
   let h = 5381;
   for (let i = 0; i < str.length; i++) h = ((h * 33) ^ str.charCodeAt(i)) >>> 0;
@@ -10102,11 +10189,12 @@ function warningSignature(s, type) {
 }
 // Noch quittiert? Anzahl nicht gestiegen und (falls gemerkt) dieselben Einträge
 function warningAcknowledged(ack, s, type, count) {
-  const n = ack[`${s.id}_${type}`];
+  const base = warningAckBase(s.id, type);
+  const n = ack[base];
   if (!(count <= (n || 0))) return false;
   // Weniger als beim Quittieren (z. B. ein Fehltag nachträglich entschuldigt): Es ist besser geworden (BUGS U6)
   if (type !== 'grade' && count < n) return true;
-  const sig = ack[`${s.id}_${type}_sig`];
+  const sig = ack[`${base}_sig`];
   return !sig || sig === warningSignature(s, type);
 }
 
@@ -10118,27 +10206,28 @@ function collectWarnings() {
   const warnPoints   = db.settings.warnPoints !== undefined ? db.settings.warnPoints : 5; // Oberstufe: unter x Punkten
   const warnings = [];
 
+  const range = runningHalf();   // laufendes Halbjahr (Y7)
   db.groups.forEach(group => {
     (db.students[group.id] || []).forEach(s => {
       const name = `${escHtml(s.firstName)} ${escHtml(s.lastName)}`;
-      const unexcused = (s.attendance || []).filter(a => a.type === 'abwesend').length;
+      const unexcused = periodList(s.attendance, range).filter(a => a.type === 'abwesend').length;
       if (warnAbsences > 0 && unexcused >= warnAbsences && !warningAcknowledged(ack, s, 'absences', unexcused)) {
         warnings.push({ student: s, group, type: 'absences', count: unexcused,
           title: 'Zu viele unentschuldigte Fehlzeiten', desc: `${name} hat ${unexcused === 1 ? 'eine unentschuldigte Fehlzeit' : unexcused + ' unentschuldigte Fehlzeiten'}.` });
       }
-      const hwCount = (s.homework || []).length;
+      const hwCount = periodList(s.homework, range).length;
       if (warnHomework > 0 && hwCount >= warnHomework && !warningAcknowledged(ack, s, 'homework', hwCount)) {
         warnings.push({ student: s, group, type: 'homework', count: hwCount,
           title: 'Oft Hausaufgaben vergessen', desc: `${name} hat ${hwCount === 1 ? 'einmal' : hwCount + '-mal'} die Hausaufgaben vergessen.` });
       }
-      const grades = s.grades || [];
+      const grades = periodList(s.grades, range);
       if (grades.length > 0) {
-        const avg = calculateStudentAverage(s, group.id);
+        const avg = calculateStudentAverage(s, group.id, range);
         const points = gradeScale(group).higherIsBetter;
         const critical = avg !== null && (points ? warnPoints > 0 && avg < warnPoints : warnGrade > 0 && avg >= warnGrade);
         // Quittiert und seitdem nicht schlechter geworden (z. B. Note zum Besseren korrigiert): bleibt quittiert (BUGS U6)
-        const ackAvg = ack[`${s.id}_grade_avg`];
-        const notWorse = ack[`${s.id}_grade`] !== undefined && typeof ackAvg === 'number'
+        const ackAvg = ack[`${warningAckBase(s.id, 'grade', range)}_avg`];
+        const notWorse = ack[warningAckBase(s.id, 'grade', range)] !== undefined && typeof ackAvg === 'number'
           && (points ? avg >= ackAvg : avg <= ackAvg);
         if (critical && !notWorse && !warningAcknowledged(ack, s, 'grade', grades.length)) {
           warnings.push({ student: s, group, type: 'grade', count: grades.length,
@@ -10491,13 +10580,14 @@ function renderDashboardWarnings() {
 
 window.acknowledgeWarning = function(studentId, type, count) {
   if (!db.acknowledgedWarnings) db.acknowledgedWarnings = {};
-  db.acknowledgedWarnings[`${studentId}_${type}`] = count; // Anzahl: lesen auch ältere App-Versionen
+  const range = runningHalf(), base = warningAckBase(studentId, type, range);   // laufendes Halbjahr (Y7)
+  db.acknowledgedWarnings[base] = count; // Anzahl: lesen auch ältere App-Versionen
   const s = Object.values(db.students).flat().find(x => x && x.id === studentId);
-  if (s) db.acknowledgedWarnings[`${studentId}_${type}_sig`] = warningSignature(s, type);
+  if (s) db.acknowledgedWarnings[`${base}_sig`] = warningSignature(s, type, range);
   if (s && type === 'grade') {
     const groupId = Object.keys(db.students).find(g => (db.students[g] || []).includes(s));
-    const avg = calculateStudentAverage(s, groupId);
-    if (avg !== null) db.acknowledgedWarnings[`${studentId}_grade_avg`] = avg;
+    const avg = calculateStudentAverage(s, groupId, range);
+    if (avg !== null) db.acknowledgedWarnings[`${base}_avg`] = avg;
   }
   saveDB();
   renderDashboard();

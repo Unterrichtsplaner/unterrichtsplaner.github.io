@@ -40,7 +40,7 @@
       }
     })();
   </script>
-  <link rel="stylesheet" href="style.css?v=471" />
+  <link rel="stylesheet" href="style.css?v=473" />
   <script>
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
@@ -231,6 +231,13 @@
             </div>
           </div>
           <div class="header-actions">
+            <label class="classes-sort period-pick hidden" id="period-pick" title="Zeitraum: Noten, Mitarbeit, Fehlzeiten, Hausaufgaben"><i data-icon="calendar"></i>
+              <select id="period-select" aria-label="Zeitraum" onchange="setPeriodChoice(this.value)">
+                <option value="h1">1. Halbjahr</option>
+                <option value="h2">2. Halbjahr</option>
+                <option value="year">Schuljahr</option>
+              </select>
+            </label>
             <button id="btn-add-overview-other" class="btn-secondary hidden" onclick="openAddColumnModal()" aria-label="Andere Spalte anlegen" title="Spalte für einen anderen Tag oder mit Titel"><i data-icon="calendar"></i><span class="btn-label">Andere Spalte …</span></button>
             <button id="btn-class-grades" class="btn-secondary btn-grades-toggle hidden" onclick="toggleClassGrades()" aria-pressed="false" aria-label="Noten anzeigen" title="Noten anzeigen"><i data-icon="eye"></i><span class="btn-label">Noten zeigen</span></button>
             <button class="btn-secondary btn-seating" onclick="openSeatingForGroup(currentGroupId)" aria-label="Zum Sitzplan"><i data-icon="seating"></i><span class="btn-label">Zum Sitzplan</span></button>
@@ -1765,15 +1772,15 @@
   </div>
 
   <script src="lib/crypto-js.min.js"></script>
-  <script src="crypto-helper.js?v=471"></script>
+  <script src="crypto-helper.js?v=473"></script>
   <script src="lib/firebase-app-compat.js"></script>
   <script src="lib/firebase-auth-compat.js"></script>
   <script src="lib/firebase-firestore-compat.js"></script>
-  <script src="firebase-config.js?v=471"></script>
-  <script src="sync-manager.js?v=471"></script>
-  <script src="sync-merge.js?v=471"></script>
+  <script src="firebase-config.js?v=473"></script>
+  <script src="sync-manager.js?v=473"></script>
+  <script src="sync-merge.js?v=473"></script>
   <script src="lib/qrcode.js"></script>
-  <script src="student-share.js?v=471"></script>
-  <script src="app.js?v=471"></script>
+  <script src="student-share.js?v=473"></script>
+  <script src="app.js?v=473"></script>
 </body>
 </html>
