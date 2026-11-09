@@ -14,6 +14,16 @@ class WrongPasswordError extends Error {
   }
 }
 
+// Wird geworfen, wenn die Cloud-Daten gerade nicht lesbar sind, das Passwort aber nicht nachweislich falsch ist
+// (Entpacken scheiterte, Gerät konnte den Schlüssel nicht berechnen …). Das Passwort bleibt gespeichert (Regel 15).
+class CloudReadError extends Error {
+  constructor(cause) {
+    super('Die Cloud-Daten ließen sich gerade nicht lesen. Versuch es gleich noch einmal oder starte die App neu. Dein Master-Passwort bleibt gespeichert, hochgeladen wurde nichts.');
+    this.name = 'CloudReadError';
+    if (cause) this.cause = cause;
+  }
+}
+
 // Wird geworfen, wenn ein anderes Gerät die Cloud zwischen Lesen und Schreiben verändert hat.
 class CloudChangedError extends Error {
   constructor() {
@@ -290,15 +300,23 @@ const SyncManager = {
   },
 
   /**
-   * Entschlüsselt einen Cloud-Datensatz; wirft WrongPasswordError bei falschem Passwort.
+   * Entschlüsselt einen Cloud-Datensatz; wirft WrongPasswordError nur bei falschem Passwort, sonst CloudReadError.
    */
   async decryptPayload(cloudPayload) {
-    try {
-      return await CryptoHelper.decryptPayload(cloudPayload, this.masterPassword);
-    } catch (e) {
-      if (e.name === 'UnsupportedFormatError') throw e;
-      throw new WrongPasswordError();
+    // Ein Aussetzer (Gerät lange im Ruhezustand, App über ein Update offen) soll nicht als falsches Passwort enden:
+    // ein zweiter Versuch mit frisch berechnetem Schlüssel. Falsches Passwort nur, wenn der Schlüssel nicht passt.
+    let last = null;
+    for (let attempt = 0; attempt < 2; attempt++) {
+      try {
+        return await CryptoHelper.decryptPayload(cloudPayload, this.masterPassword);
+      } catch (e) {
+        if (e.name === 'UnsupportedFormatError') throw e;
+        last = e;
+        CryptoHelper._keyCache = null;
+      }
     }
+    if (last && last.kind === 'key') throw new WrongPasswordError();
+    throw new CloudReadError(last);
   },
 
   /**

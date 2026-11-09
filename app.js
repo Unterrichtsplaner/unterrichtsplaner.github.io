@@ -11880,6 +11880,9 @@ async function triggerSyncInternal({ manual = false } = {}) {
       rejectMasterPassword();
       alert('❌ Falsches Master-Passwort.\n\nEs passt nicht zu den Daten in der Cloud. Es wurde nichts hochgeladen. Bitte gib das Passwort erneut ein.\n\n'
         + 'Wurde das Master-Passwort auf einem anderen Gerät geändert? Dann hier das neue eingeben.');
+    } else if (error.name === 'CloudReadError') {
+      // Gerade nicht lesbar, aber kein falsches Passwort: Passwort bleibt, kein Alarm, später neu versuchen (Regel 15)
+      if (manual || !syncErrorShown) { syncErrorShown = true; showToast('❌ ' + error.message, 'error'); }
     } else if (error.name === 'CloudChangedError') {
       // Ein anderes Gerät war schneller – einfach neu prüfen.
       syncQueued = true;

@@ -303,6 +303,46 @@ describe('A7: Verschlüsselung (Format v2: PBKDF2 + AES-GCM)', () => {
     expect(app('SyncManager').masterPassword).toBe('');
   });
 
+  // „Kann ich gerade nicht lesen“ ist kein falsches Passwort (Regel 15; Mac-App 09.11.: Meldung, nach Neustart ging es)
+  it('Entschlüsseln scheitert einmal (Aussetzer): zweiter Versuch klappt, kein Alarm, Passwort bleibt', async () => {
+    await sync();   // Gerät ist abgeglichen, danach ändert ein anderes Gerät
+    await otherDeviceUploads(sampleDB('Cloud'), Date.now() + 5000);
+    const CH = app('CryptoHelper'), real = CH.decryptPayload.bind(CH);
+    let calls = 0;
+    CH.decryptPayload = async (...a) => { if (calls++ === 0) throw Object.assign(new Error('Aussetzer'), { kind: 'unpack' }); return real(...a); };
+    try { await sync(); } finally { CH.decryptPayload = real; }
+    expect(calls).toBe(2);
+    expect(app('db').groups[0].className).toBe('Cloud');
+    expect(globalThis.alert).not.toHaveBeenCalled();
+    expect(app('SyncManager').masterPassword).toBe(PW);
+  });
+
+  it('Daten lassen sich dauerhaft nicht entpacken: Hinweis statt „falsches Passwort“, Passwort bleibt, nichts hochgeladen', async () => {
+    await otherDeviceUploads(sampleDB('Cloud'), 777);
+    userEdits('db.groups[0].className = "lokal"');
+    const CH = app('CryptoHelper'), real = CH.decryptPayload;
+    CH.decryptPayload = async () => { throw Object.assign(new Error('kaputt'), { kind: 'unpack' }); };
+    document.getElementById('toast-container').innerHTML = '';
+    try { await sync({ manual: true }); } finally { CH.decryptPayload = real; }
+    expect(cloud.writes).toBe(0);
+    expect(globalThis.alert).not.toHaveBeenCalled();
+    expect(app('SyncManager').masterPassword).toBe(PW);
+    expect(document.getElementById('toast-container').textContent).toMatch(/ließen sich gerade nicht lesen/);
+  });
+
+  it('CryptoHelper sagt, welcher Schritt scheiterte: falsches Passwort = Schlüssel, kaputte Packung = Entpacken', async () => {
+    const CH = app('CryptoHelper');
+    const doc = await CH.encryptPayload('{"a":1}', 'richtig');
+    await expect(CH.decryptPayload(doc, 'falsch')).rejects.toMatchObject({ kind: 'key' });
+    if (doc.compression === 'gzip') {
+      const plainKey = await CH._deriveKey('richtig', doc.salt, doc.iterations);
+      const iv = crypto.getRandomValues(new Uint8Array(12));
+      const junk = new Uint8Array(await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, plainKey, new TextEncoder().encode('kein gzip')));
+      const b64 = b => Buffer.from(b).toString('base64');
+      await expect(CH.decryptPayload({ ...doc, iv: b64(iv), encryptedData: b64(junk) }, 'richtig')).rejects.toMatchObject({ kind: 'unpack' });
+    }
+  });
+
   it('alte Cloud-Daten (v1) werden gelesen und still ins neue Format umgeschrieben, Kennung bleibt', async () => {
     oldAppUploads(sampleDB('von alter App'), 4242);
     app('db = ' + JSON.stringify(emptyDB()));

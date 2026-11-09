@@ -36,6 +36,16 @@ function base64ToBytes(b64) {
   return bytes;
 }
 
+// Fehler mit Angabe, welcher Schritt scheiterte (Mac-App 09.11.): 'key' = Schlüssel passt nicht (falsches Passwort
+// oder veränderte Daten), 'device' = dieses Gerät konnte den Schlüssel nicht berechnen, 'unpack' = Entpacken scheiterte.
+// Nur 'key' darf als „falsches Passwort“ gelten (Regel 15).
+function cryptoStepError(message, kind, cause) {
+  const e = new Error(message);
+  e.kind = kind;
+  if (cause) e.cause = cause;
+  return e;
+}
+
 async function pipeBytes(bytes, transform) {
   const stream = new ReadableStream({ start(c) { c.enqueue(bytes); c.close(); } }).pipeThrough(transform);
   return new Uint8Array(await new Response(stream).arrayBuffer());
@@ -97,21 +107,33 @@ const CryptoHelper = {
     if (format === 1) return this.decryptLegacy(payload.encryptedData, password);
     if (format !== 2) throw new UnsupportedFormatError(format);
 
-    let plain;
+    let key, plain;
     try {
-      const key = await this._deriveKey(password, payload.salt, payload.iterations);
+      key = await this._deriveKey(password, payload.salt, payload.iterations);
+    } catch (e) {
+      throw cryptoStepError('Der Schlüssel ließ sich auf diesem Gerät nicht berechnen.', 'device', e);
+    }
+    try {
       plain = new Uint8Array(await crypto.subtle.decrypt(
         { name: 'AES-GCM', iv: base64ToBytes(payload.iv) }, key, base64ToBytes(payload.encryptedData)));
     } catch (e) {
-      throw new Error('Entschlüsselung fehlgeschlagen. Überprüfe dein Master-Passwort.');
+      throw cryptoStepError('Entschlüsselung fehlgeschlagen. Überprüfe dein Master-Passwort.', 'key', e);
     }
     if (payload.compression === 'gzip') {
       if (typeof DecompressionStream === 'undefined') {
         throw new UnsupportedFormatError('2/gzip', 'device');
       }
-      plain = await pipeBytes(plain, new DecompressionStream('gzip'));
+      try {
+        plain = await pipeBytes(plain, new DecompressionStream('gzip'));
+      } catch (e) {
+        throw cryptoStepError('Die Daten ließen sich nicht entpacken.', 'unpack', e);
+      }
     }
-    return new TextDecoder().decode(plain);
+    try {
+      return new TextDecoder().decode(plain);
+    } catch (e) {
+      throw cryptoStepError('Die Daten ließen sich nicht lesen.', 'unpack', e);
+    }
   },
 
   /**
@@ -131,7 +153,7 @@ const CryptoHelper = {
       if (packet.check !== 'LEHRER_APP_VALID_E2EE') throw new Error('Prüfwert falsch');
       return packet.data;
     } catch (error) {
-      throw new Error('Entschlüsselung fehlgeschlagen. Überprüfe dein Master-Passwort.');
+      throw cryptoStepError('Entschlüsselung fehlgeschlagen. Überprüfe dein Master-Passwort.', 'key', error);
     }
   }
 };
