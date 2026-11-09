@@ -273,3 +273,37 @@ describe('C10: Dashboard-Warnung „Hausaufgaben“', () => {
     expect(document.getElementById('sw-more').dataset.focus).toBe('homework');
   });
 });
+
+describe('AJ3h: Namen aus alten Listen-Importen in den Vornamen holen (alle Klassen)', () => {
+  beforeEach(() => {
+    app('db').settings.studentApp = { on: true };   // Reiter „Schülerapp“ gibt es nur dann
+    app('db').students.g1 = [
+      { id: 'a', firstName: '', lastName: 'Lena', grades: [], attendance: [] },
+      { id: 'b', firstName: 'Tom', lastName: 'Huber', grades: [], attendance: [] },
+      { id: 'c', firstName: '', lastName: 'van Berg', grades: [], attendance: [] },   // zwei Wörter: nicht anfassen
+    ];
+    app('db').students.g2 = [{ id: 'd', firstName: '', lastName: 'Mia', grades: [], attendance: [] }];
+  });
+  const names = () => [...app('db').students.g1, ...app('db').students.g2].map(s => `${s.firstName}|${s.lastName}`);
+
+  it('findet nur Schüler ohne Vorname mit genau einem Wort im Nachnamen', () => {
+    expect(app('singleLastNameStudents().length')).toBe(2);
+  });
+  it('Hinweis mit Knopf im Reiter Schülerapp, ein Tipp ändert alle Klassen, Rückgängig stellt her', () => {
+    app('openGroupStudents("g1", "studentapp")');
+    const box = document.getElementById('sa-fix-names');
+    expect(box.textContent).toMatch(/2 Schüler/);
+    box.querySelector('button').click();
+    expect(names()).toEqual(['Lena|', 'Tom|Huber', '|van Berg', 'Mia|']);
+    expect(document.getElementById('sa-fix-names')).toBeNull();
+    const undo = [...document.querySelectorAll('#toast-container .toast-undo button')].pop();
+    undo.click();
+    expect(names()).toEqual(['|Lena', 'Tom|Huber', '|van Berg', '|Mia']);
+  });
+  it('ohne betroffene Schüler kein Hinweis', () => {
+    app('db').students.g1 = [{ id: 'b', firstName: 'Tom', lastName: 'Huber', grades: [], attendance: [] }];
+    app('db').students.g2 = [];
+    app('openGroupStudents("g1", "studentapp")');
+    expect(document.getElementById('sa-fix-names')).toBeNull();
+  });
+});

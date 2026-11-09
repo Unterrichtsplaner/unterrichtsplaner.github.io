@@ -12369,6 +12369,52 @@ function studentAppStatusText(sa) {
   }
   return 'Freigegeben. Die Seite erscheint mit dem nächsten Sync.';
 }
+// AJ3h: Ältere Listen-Importe legten einen einzelnen Namen im Nachnamen ab; die Schülerseite zeigte dann „Ich“.
+// Betroffen: kein Vorname, Nachname genau ein Wort. Umgestellt wird nur auf Knopfdruck, für alle Klassen, mit „Rückgängig“.
+function singleLastNameStudents() {
+  const out = [];
+  db.groups.forEach(g => (Array.isArray(db.students[g.id]) ? db.students[g.id] : []).forEach(s => {
+    if (s && !String(s.firstName || '').trim() && /^\S+$/.test(String(s.lastName || '').trim())) out.push({ gid: g.id, s });
+  }));
+  return out;
+}
+function fixNamesHTML() {
+  const list = singleLastNameStudents();
+  if (!list.length) return '';
+  const classes = new Set(list.map(x => x.gid)).size;
+  return `<section class="set-card sa-card" id="sa-fix-names"><h3 class="sa-subtitle">Namen prüfen</h3>
+    <p class="sa-status">${list.length} Schüler${classes > 1 ? ` in ${classes} Klassen` : ''} haben nur einen Nachnamen, keinen Vornamen (so kamen einzelne Namen früher aus „Namen einfügen“). Auf ihrer persönlichen Seite steht dann „Ich“.</p>
+    <div><button type="button" class="btn-secondary" id="sa-fix-names-btn">Als Vornamen übernehmen</button></div></section>`;
+}
+function moveSingleNamesToFirst() {
+  const list = singleLastNameStudents();
+  if (!list.length) return;
+  const moved = list.map(({ gid, s }) => {
+    const old = { firstName: s.firstName, lastName: s.lastName };
+    s.firstName = String(s.lastName).trim();
+    s.lastName = '';
+    renameAbsenceNotes(gid, old, s);
+    return { gid, s, old, name: s.firstName };
+  });
+  const refresh = () => { [...new Set(moved.map(x => x.gid))].forEach(refreshStudentViews); renderStudentAppTab(); };
+  saveDB();
+  refresh();
+  showUndoToast(`${moved.length} Namen als Vornamen übernommen`, () => {
+    let n = 0;
+    moved.forEach(({ gid, s, old, name }) => {
+      if (!(db.students[gid] || []).includes(s) || s.firstName !== name || s.lastName) return;   // inzwischen geändert: so lassen
+      const now = { firstName: s.firstName, lastName: s.lastName };
+      Object.assign(s, old);
+      renameAbsenceNotes(gid, now, s);
+      n++;
+    });
+    if (n) { saveDB(); refresh(); }
+  });
+}
+function wireFixNames(content) {
+  const b = content.querySelector('#sa-fix-names-btn');
+  if (b) b.addEventListener('click', moveSingleNamesToFirst);
+}
 function renderStudentAppTab() {
   const content = document.getElementById('overview-content');
   const g = db.groups.find(x => x.id === currentOverviewGroupId);
@@ -12376,10 +12422,11 @@ function renderStudentAppTab() {
   const sa = studentAppOf(g);
   const cls = escHtml(g.className);
   if (!SyncManager.isInitialized || !SyncManager.currentUser) {
-    content.innerHTML = `<div class="sa-wrap"><section class="set-card sa-card"><h3 class="sa-title">Schülerapp für die ${cls}</h3>
+    content.innerHTML = `<div class="sa-wrap">${fixNamesHTML()}<section class="set-card sa-card"><h3 class="sa-title">Schülerapp für die ${cls}</h3>
       <p class="sa-status">Die Schülerapp braucht die Cloud: Die Seite der Klasse liegt verschlüsselt dort. Melde dich unter Einstellungen → Daten &amp; Cloud an.</p>
       <div><button type="button" class="btn-secondary" id="sa-open-cloud">${icon('cloud')}Zur Anmeldung</button></div></section></div>`;
     content.querySelector('#sa-open-cloud').addEventListener('click', () => { openSettings(); showSettingsPane('data'); });
+    wireFixNames(content);
     return;
   }
   const goal = sa.goal;
@@ -12393,7 +12440,7 @@ function renderStudentAppTab() {
     ['next', 'Nächste Stunde', 'Tag, Zeit, Raum'],
   ];
   content.innerHTML = `<div class="sa-wrap"><div class="sa-grid"><div class="sa-col">
-    <section class="set-card sa-card">
+    ${fixNamesHTML()}<section class="set-card sa-card">
       <div class="sa-head"><div><h3 class="sa-title">Schülerapp für die ${cls}</h3><p class="sa-status" id="sa-status">${escHtml(studentAppStatusText(sa))}</p></div>
         <label class="toggle-switch" title="Für die Klasse freigeben"><input type="checkbox" id="sa-on" aria-label="Für die ${cls} freigeben"${sa.on ? ' checked' : ''}><span class="toggle-slider"></span></label></div>
     </section>
@@ -12429,6 +12476,7 @@ function renderStudentAppTab() {
     <div class="sa-phone"><iframe id="sa-preview-frame" src="schueler.html?vorschau" title="Vorschau der Schülerapp"></iframe></div></aside>` : ''}
   </div></div>`;
   content.querySelector('#sa-on').addEventListener('change', e => setStudentAppOn(g.id, e.target.checked));
+  wireFixNames(content);
   if (!(sa.on && sa.access)) return;
   content.querySelector('#sa-beamer').addEventListener('click', () => showStudentAppBeamer(g.id));
   content.querySelector('#sa-copy').addEventListener('click', () => copyStudentAppLink(g.id));

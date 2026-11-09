@@ -2040,6 +2040,7 @@ button.sw-hint-text{cursor:pointer;}
 /* Schülerapp (AJ1): Reiter in der Klassenansicht, Klassenliste in den Einstellungen, Beamer */
 .sa-grid{display:grid;grid-template-columns:minmax(0,1fr) 320px;gap:var(--space-5);align-items:start;max-width:1100px;}
 .sa-col{display:flex;flex-direction:column;gap:var(--space-3);min-width:0;}
+.sa-wrap > #sa-fix-names{margin-bottom:var(--space-3);}   /* ohne Anmeldung steht der Hinweis nicht in .sa-col (AJ3h) */
 .sa-head{display:flex;justify-content:space-between;align-items:flex-start;gap:var(--space-3);}
 .sa-title{font-size:16px;font-weight:600;margin:0;}
 .sa-subtitle{font-size:14px;font-weight:600;margin:0;}
