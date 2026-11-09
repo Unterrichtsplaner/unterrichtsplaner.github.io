@@ -1,24 +1,24 @@
-const CACHE_NAME = 'lehrer-app-v494';
+const CACHE_NAME = 'lehrer-app-v496';
 const ASSETS = [
   './',
   './index.html',
-  './sync-merge.js?v=494',
-  './app.js?v=494',
-  './style.css?v=494',
+  './sync-merge.js?v=496',
+  './app.js?v=496',
+  './style.css?v=496',
   './manifest.json',
   './icon.svg',
   './icon-180.png',
   './icon-192.png',
   './icon-512.png',
   './lib/crypto-js.min.js',
-  './crypto-helper.js?v=494',
+  './crypto-helper.js?v=496',
   './lib/firebase-app-compat.js',
   './lib/firebase-auth-compat.js',
   './lib/firebase-firestore-compat.js',
-  './firebase-config.js?v=494',
-  './sync-manager.js?v=494',
+  './firebase-config.js?v=496',
+  './sync-manager.js?v=496',
   './lib/qrcode.js',
-  './student-share.js?v=494'
+  './student-share.js?v=496'
 ];
 
 self.addEventListener('install', event => {

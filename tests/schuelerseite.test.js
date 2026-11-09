@@ -234,6 +234,7 @@ describe('Persönliche Seite (AJ2)', () => {
     const d = me();
     d.year = [{ date: '2026-09-14', v: null }, { date: '2026-09-21', v: 'positive' }, { date: '2026-09-28', v: 'excellent' }, { date: '2026-10-05', v: 'a' },
       { date: '2026-10-12', v: 'positive' }, { date: '2026-10-19', v: 'negative' }, { date: '2026-10-26', v: 'positive' }, { date: '2026-11-02', v: 'neutral' }];
+    window.SchuelerSeite.setMeTab('sammlung');   // AJ3b: Jahreskarte steht in der Sammlung
     page().innerHTML = window.SchuelerSeite.buildMePage(d, NOW);
     const months = [...page().querySelectorAll('.yr-month')].map(m => [m.querySelector('.yr-m').textContent, m.querySelectorAll('.yr-c').length]);
     expect(months).toEqual([['Sep', 3], ['Okt', 4], ['Nov', 1]]);
@@ -252,9 +253,12 @@ describe('Persönliche Seite (AJ2)', () => {
       { name: 'Baustelle geschafft', icon: 'crane', color: 1, reason: 'Hausaufgaben', date: '2026-10-20', xp: 20 }];
     d.album = [{ name: 'Erstes Plus', icon: 'plus', color: 0 }, { name: 'Erklärprofi', icon: 'bubble', color: 3 }, { name: 'Baustelle geschafft', icon: 'crane', color: 1 }];
     d.locked = [{ name: 'Dranbleiben', icon: 'flame', hint: '3× Plus in Folge' }];
-    page().innerHTML = window.SchuelerSeite.buildMePage(d, NOW);
+    page().innerHTML = window.SchuelerSeite.buildMePage(d, NOW);   // Ich: Baustelle steht, was gerade ansteht
     expect(page().querySelector('.bau .bt').textContent).toBe('Material fehlt oft');
     expect(page().querySelector('.bau').textContent).toMatch(/seit 26\.10\..*20 XP/s);
+    expect(page().querySelector('.gift')).toBeNull();   // AJ3b: Sammlung steht nicht mehr auf „Ich“
+    window.SchuelerSeite.setMeTab('sammlung');
+    page().innerHTML = window.SchuelerSeite.buildMePage(d, NOW);
     expect(page().textContent).toMatch(/Von Herrn T\./);
     expect([...page().querySelectorAll('.gift')].map(g => g.textContent.replace(/\s+/g, ' ').trim())).toEqual([
       'Erklärprofi„hat Lisa geholfen“02.11., +20 XP', 'Baustelle geschafft„Hausaufgaben“20.10., +20 XP']);
@@ -268,6 +272,9 @@ describe('Persönliche Seite (AJ2)', () => {
     d.giver = X; d.bau = { text: X, since: '2026-10-26' };
     d.gifts = [{ name: X, icon: X, color: X, reason: X, date: '2026-11-02', xp: X }];
     d.album = [{ name: X, icon: '<img data-xss>', color: 1 }]; d.locked = [{ name: X, icon: X, hint: X }];
+    window.renderStudentPage(d);
+    expect(document.querySelectorAll('[data-xss]').length).toBe(0);
+    window.SchuelerSeite.setMeTab('sammlung');
     window.renderStudentPage(d);
     expect(document.querySelectorAll('[data-xss]').length).toBe(0);
     expect(page().querySelectorAll('.album svg').length).toBe(2);
@@ -297,36 +304,73 @@ describe('Persönliche Seite (AJ2)', () => {
   });
 });
 
-describe('Freischaltungen im Heft (AJ2d)', () => {
+describe('Belohnungen zum Aussuchen (AJ3b, ersetzt AJ2d)', () => {
   const me = level => ({ v: 1, kind: 'me', first: 'Anna', cls: '7b', subject: 'Mathe', level, xp: 10 * level, from: 10 * level - 5, next: 10 * level + 5, jokers: {}, feedback: [], year: [] });
   const heft = () => document.querySelector('.heft');
-  afterEach(() => window.renderStudentPage({ v: 2, cls: '7b' }));
+  const look = () => [...heft().classList].filter(c => /^(st|hc|pp|mk)-/.test(c)).sort();
+  beforeEach(() => { Object.keys(localStorage).filter(k => /^sa_(look|seen)_/.test(k)).forEach(k => localStorage.removeItem(k)); window.SchuelerSeite.setMeTab('ich'); });
+  afterEach(() => { window.SchuelerSeite.setMeTab('ich'); window.renderStudentPage({ v: 2, cls: '7b' }); });
 
-  it('Level 1: nichts freigeschaltet, nächste Freischaltung bei Level 3', () => {
+  it('Freischaltung alle zwei Level ab 3, im Wechsel Stempel, Heftfarbe, Papier, Textmarker', () => {
+    const r = window.SchuelerSeite.REWARDS;
+    expect(r.slice(0, 4).map(x => [x.level, x.kind])).toEqual([[3, 'stamp'], [5, 'color'], [7, 'paper'], [9, 'marker']]);
+    expect(r.every((x, i) => x.level === 3 + 2 * i)).toBe(true);
+  });
+
+  it('Level 1: Standard-Heft, nichts zum Aussuchen außer dem Standard, kein goldener Rahmen mehr', () => {
     window.renderStudentPage(me(1));
-    expect([...heft().classList].filter(c => c.startsWith('u-'))).toEqual([]);
-    expect(page().querySelector('.unlocks').textContent).toMatch(/Level 3.*grüner Textmarker/s);
-    expect(page().querySelectorAll('.unlocks .ul.on').length).toBe(0);
+    expect(look()).toEqual(['hc-white', 'mk-yellow', 'pp-karo', 'st-circle']);
+    window.SchuelerSeite.setMeTab('sammlung');
+    window.renderStudentPage(me(1));
+    expect(page().querySelectorAll('.rw[data-look]').length).toBe(4);   // je Art nur der Standard
+    expect(page().querySelector('.rw.locked').textContent).toMatch(/Stern.*ab Level 3/);
+    expect(document.querySelector('.u-gold')).toBeNull();
   });
 
-  it('Level 9: grün wird pink, Stern-Stempel, Punktraster', () => {
-    window.renderStudentPage(me(9));
-    expect([...heft().classList].filter(c => c.startsWith('u-')).sort()).toEqual(['u-dots', 'u-pink', 'u-star']);
-    expect(page().querySelectorAll('.unlocks .ul.on').length).toBe(4);
-    expect(page().querySelector('.unlocks .ul.next').textContent).toMatch(/Level 12/);
+  it('neu freigeschaltet: Hinweis auf „Ich“, verschwindet nach dem Blick in die Sammlung', () => {
+    window.renderStudentPage(me(5));
+    expect(page().querySelector('.newrw').textContent).toMatch(/Heftfarbe „Mint“/);
+    page().querySelector('.newrw [data-tab="sammlung"]').click();
+    expect(page().querySelector('[data-tab="sammlung"]').getAttribute('aria-selected')).toBe('true');
+    page().querySelector('[data-tab="ich"]').click();
+    expect(page().querySelector('.newrw')).toBeNull();
   });
 
-  it('Level 15: Millimeterpapier ersetzt das Punktraster, goldener Rand; alles freigeschaltet', () => {
-    window.renderStudentPage(me(15));
-    expect([...heft().classList].filter(c => c.startsWith('u-')).sort()).toEqual(['u-gold', 'u-mm', 'u-pink', 'u-star']);
-    expect(page().querySelectorAll('.unlocks .ul.on').length).toBe(6);
-    expect(page().querySelector('.unlocks .ul.next')).toBeNull();
+  it('aussuchen: Stern und Mint gewählt, gilt sofort für die ganze Seite und bleibt auf dem Handy', () => {
+    window.SchuelerSeite.setMeTab('sammlung');
+    window.renderStudentPage(me(5));
+    page().querySelector('[data-look="stamp"][data-val="star"]').click();
+    page().querySelector('[data-look="color"][data-val="mint"]').click();
+    expect(look()).toEqual(['hc-mint', 'mk-yellow', 'pp-karo', 'st-star']);
+    expect(page().querySelector('[data-val="star"]').getAttribute('aria-pressed')).toBe('true');
+    expect(JSON.parse(localStorage.getItem('sa_look_vorschau'))).toMatchObject({ stamp: 'star', color: 'mint' });
+    window.SchuelerSeite.setMeTab('ich');
+    window.renderStudentPage(me(5));
+    expect(look()).toContain('st-star');
+  });
+
+  it('Level gesunken (Korrektur): nicht mehr freigeschaltete Wahl fällt auf den Standard zurück', () => {
+    localStorage.setItem('sa_look_vorschau', JSON.stringify({ stamp: 'crown', color: 'mint', paper: 'dots', marker: 'green' }));
+    window.renderStudentPage(me(6));
+    expect(look()).toEqual(['hc-mint', 'mk-yellow', 'pp-karo', 'st-circle']);
   });
 
   it('Klassenseite (ohne persönlichen Link): immer das normale Heft', () => {
-    window.renderStudentPage(me(15));
+    localStorage.setItem('sa_look_vorschau', JSON.stringify({ stamp: 'star' }));
+    window.renderStudentPage(me(9));
     window.renderStudentPage({ v: 2, cls: '7b' });
-    expect([...heft().classList].filter(c => c.startsWith('u-'))).toEqual([]);
+    expect(look()).toEqual([]);
+  });
+
+  it('Reiter „Ich“ zeigt nur das Wichtigste: Karte, was ansteht, letzte 6 Stunden', () => {
+    const d = me(4);
+    d.feedback = Array.from({ length: 10 }, (_, i) => ({ date: `2026-10-${String(10 + i).padStart(2, '0')}`, v: 'positive' }));
+    window.renderStudentPage(d);
+    expect(page().querySelector('.hero .who').textContent).toBe('Anna');
+    expect(page().querySelectorAll('.fb .sp').length).toBe(6);
+    expect(page().querySelector('.album')).toBeNull();
+    expect(page().querySelector('.yr')).toBeNull();
+    expect(page().querySelector('.card.joker')).toBeNull();   // kein Joker frei: nichts dazu auf „Ich“
   });
 });
 
