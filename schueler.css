@@ -36,7 +36,8 @@
   }
 }
 * { box-sizing: border-box; margin: 0; padding: 0; }
-html, body { min-height: 100%; background: var(--paper); }
+/* Wie eine App (Wunsch 09.11.): nur senkrecht wischen, kein Zoom, kein seitliches Verschieben, kein Doppeltipp-Zoom */
+html, body { min-height: 100%; background: var(--paper); overflow-x: hidden; touch-action: pan-y; overscroll-behavior-x: none; -webkit-tap-highlight-color: transparent; }
 body {
   font-family: 'Archivo', system-ui, -apple-system, sans-serif;
   color: var(--ink);

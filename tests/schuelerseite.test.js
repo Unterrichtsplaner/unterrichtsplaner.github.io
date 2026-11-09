@@ -329,3 +329,16 @@ describe('Freischaltungen im Heft (AJ2d)', () => {
     expect([...heft().classList].filter(c => c.startsWith('u-'))).toEqual([]);
   });
 });
+
+describe('Fühlt sich an wie eine App (Wunsch 09.11.)', () => {
+  const css = fs.readFileSync(path.join(__dirname, '..', 'schueler.css'), 'utf8');
+  const js = fs.readFileSync(path.join(__dirname, '..', 'schueler.js'), 'utf8');
+  it('kein Zoomen: Viewport fest, nur senkrecht wischen, Zwei-Finger-Geste auf dem iPhone abgefangen', () => {
+    expect(html).toMatch(/name="viewport" content="[^"]*maximum-scale=1[^"]*user-scalable=no/);
+    expect(css).toMatch(/html, body \{[^}]*touch-action: pan-y/);
+    expect(js).toMatch(/gesturestart/);
+  });
+  it('kein seitliches Verschieben', () => {
+    expect(css).toMatch(/html, body \{[^}]*overflow-x: hidden/);
+  });
+});

@@ -376,6 +376,9 @@
     }
   }
 
+  // Safari auf dem iPhone ignoriert user-scalable=no: Zwei-Finger-Zoom hier abfangen (wie eine App, Wunsch 09.11.)
+  ['gesturestart', 'gesturechange'].forEach(t => document.addEventListener(t, e => e.preventDefault(), { passive: false }));
+
   const preview = /[?&]vorschau\b/.test(location.search);
   // Vorschau im Planer: Inhalt kommt vom Planer, nichts wird geladen
   window.renderStudentPage = data => { if (data && typeof data === 'object') draw(data, {}); };
