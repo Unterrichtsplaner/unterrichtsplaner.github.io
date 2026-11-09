@@ -12582,7 +12582,7 @@ function studentStreak(s, lessonDates, todayStr) {
 // Auszug für die persönliche Seite. Ohne Zeitstempel (wie die Klassenseite): gleicher Inhalt → kein neues Schreiben.
 function studentPersonalSnapshot(g, s, now = new Date(), ctx = null) {
   const todayStr = formatDate(now);
-  ctx = ctx || { lessons: pastLessonDates(g, now), klasse: studentAppSnapshot(g, now) };
+  ctx = ctx || { lessons: pastLessonDates(g, now), klasse: studentAppSnapshot(g, now), start: classYearStart(g, todayStr) };
   const p = personalOf(g), info = studentPersonalInfo(g, s, todayStr);
   const feedback = yearParticipation(s, todayStr).filter(x => !x.label && partLevel(x.value))
     .sort((a, b) => a.date.localeCompare(b.date)).slice(-12).map(x => ({ date: x.date, v: x.value }));
@@ -12592,13 +12592,35 @@ function studentPersonalSnapshot(g, s, now = new Date(), ctx = null) {
     xp: info.xp, level: info.level, from: info.from, next: info.next, rank: info.rank, nextRank: info.nextRank,
     jokers: { ...info.jokers, max: SA_JOKER_MAX, every: SA_JOKER_EVERY, list: p.jokers },
     feedback, streak: studentStreak(s, ctx.lessons, todayStr), klasse: ctx.klasse,
+    year: studentYearMap(s, ctx, todayStr),
   };
+}
+// Jahreskarte (AJ2c): jede vergangene Stunde ab dem ersten Eintrag der Klasse im Schuljahr, mit der eigenen Mitarbeit
+// (ohne Titel; mehrere am Tag: die beste), „a“ = gefehlt, null = nichts eingetragen. Nur eigene Daten.
+const PART_RANK = { excellent: 4, positive: 3, neutral: 2, negative: 1 };
+function studentYearMap(s, ctx, todayStr) {
+  const best = new Map();
+  yearParticipation(s, todayStr).filter(p => !p.label && PART_RANK[p.value]).forEach(p => {
+    if (!best.has(p.date) || PART_RANK[p.value] > PART_RANK[best.get(p.date)]) best.set(p.date, p.value);
+  });
+  const absent = new Set((s.attendance || []).filter(a => a && (a.type === 'abwesend' || a.type === 'entschuldigt')).map(a => a.date));
+  return ctx.lessons.filter(d => d >= ctx.start).slice().reverse().slice(-160)
+    .map(d => ({ date: d, v: best.get(d) || (absent.has(d) ? 'a' : null) }));
+}
+// Erster Eintrag der Klasse im Schuljahr (Mitarbeit oder Fehlzeit irgendeines Schülers); vorher beginnt die Karte nicht
+function classYearStart(g, todayStr) {
+  const from = schoolYearStart(todayStr);
+  let first = null;
+  (db.students[g.id] || []).forEach(st => ['participation', 'attendance'].forEach(f => (st[f] || []).forEach(e => {
+    if (e && isDateStr(e.date) && e.date >= from && e.date <= todayStr && (!first || e.date < first)) first = e.date;
+  })));
+  return first || todayStr;
 }
 // Veröffentlichen je Schüler (aus publishStudentApps); fehlt ein Zugang (neuer Schüler), wird er angelegt
 async function publishPersonalPages(g, active) {
   const students = db.students[g.id] || [];
   if (active && students.map(ensureStudentAccess).includes(true)) saveDB();
-  const ctx = active ? { lessons: pastLessonDates(g, new Date()), klasse: studentAppSnapshot(g) } : null;
+  const ctx = active ? { lessons: pastLessonDates(g, new Date()), klasse: studentAppSnapshot(g), start: classYearStart(g, formatDate(new Date())) } : null;
   for (const st of students) {
     const acc = studentAccessOf(st);
     if (!acc) continue;

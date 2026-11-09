@@ -230,6 +230,20 @@ describe('Persönliche Seite (AJ2)', () => {
     expect(t.replace('Noten stehen hier nie', '')).not.toMatch(/Note/);
   });
 
+  it('Jahreskarte (AJ2c): ein Feld je Stunde nach Monaten, Zahlen und längste Serie', () => {
+    const d = me();
+    d.year = [{ date: '2026-09-14', v: null }, { date: '2026-09-21', v: 'positive' }, { date: '2026-09-28', v: 'excellent' }, { date: '2026-10-05', v: 'a' },
+      { date: '2026-10-12', v: 'positive' }, { date: '2026-10-19', v: 'negative' }, { date: '2026-10-26', v: 'positive' }, { date: '2026-11-02', v: 'neutral' }];
+    page().innerHTML = window.SchuelerSeite.buildMePage(d, NOW);
+    const months = [...page().querySelectorAll('.yr-month')].map(m => [m.querySelector('.yr-m').textContent, m.querySelectorAll('.yr-c').length]);
+    expect(months).toEqual([['Sep', 3], ['Okt', 4], ['Nov', 1]]);
+    expect(page().querySelector('.yr-c.a').getAttribute('title')).toMatch(/gefehlt/);
+    const t = page().querySelector('.yr-stats').textContent;
+    expect(t).toMatch(/8\s*Stunden/);
+    expect(t).toMatch(/4\s*mit Plus/);
+    expect(t).toMatch(/3\s*längste Serie/);   // 21.09., 28.09., (05.10. gefehlt), 12.10.
+  });
+
   it('Reiter „Klasse“ zeigt die Klassenseite ohne doppelten Kopf', () => {
     window.SchuelerSeite.setMeTab('klasse');
     page().innerHTML = window.SchuelerSeite.buildMePage(me(), NOW);

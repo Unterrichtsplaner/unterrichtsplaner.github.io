@@ -199,6 +199,26 @@
       <div class="tabs" role="tablist">${[['ich', 'Ich'], ['klasse', 'Klasse']].map(([k, l]) =>
         `<button type="button" role="tab" data-tab="${k}" aria-selected="${meTab === k}" class="${meTab === k ? 'on' : ''}">${l}</button>`).join('')}</div></header>`;
   }
+  // Jahreskarte (AJ2c): ein Feld je Stunde, nach Monaten; Zahlen darunter. Längste Serie wie im Planer: Fehltag zählt nicht dagegen
+  const MONTHS = ['Jan', 'Feb', 'Mär', 'Apr', 'Mai', 'Jun', 'Jul', 'Aug', 'Sep', 'Okt', 'Nov', 'Dez'];
+  const YR_WORD = { excellent: 'sehr gut', positive: 'gut', neutral: 'wenig', negative: 'schwach', a: 'gefehlt' };
+  function yearMapHTML(cells) {
+    if (!cells.length) return '';
+    const months = [];
+    cells.forEach(c => {
+      const m = c.date.slice(0, 7);
+      if (!months.length || months[months.length - 1].m !== m) months.push({ m, cells: [] });
+      months[months.length - 1].cells.push(c);
+    });
+    let best = 0, run = 0;
+    cells.forEach(c => { if (c.v === 'a') return; if (c.v === 'positive' || c.v === 'excellent') best = Math.max(best, ++run); else run = 0; });
+    const plus = cells.filter(c => c.v === 'positive' || c.v === 'excellent').length;
+    const cls = v => (PART[v] ? PART[v][1] : v === 'a' ? 'a' : 'none');
+    return `<h2>Dein Schuljahr</h2><div class="yr">${months.map(mo => `<div class="yr-month"><span class="yr-m">${MONTHS[Number(mo.m.slice(5)) - 1]}</span>
+        <span class="yr-cells">${mo.cells.map(c => `<i class="yr-c ${cls(c.v)}" title="${esc(short(c.date))}: ${esc(YR_WORD[c.v] || 'nichts eingetragen')}"></i>`).join('')}</span></div>`).join('')}</div>
+      <div class="legend yr-legend">${[['pp', '++'], ['p', '+'], ['m', '−'], ['mm', '−−'], ['a', 'gefehlt'], ['none', 'nichts']].map(([c, l]) => `<span><i class="yr-c ${c}"></i>${l}</span>`).join('')}</div>
+      <div class="yr-stats"><span><b>${cells.length}</b> Stunden</span><span><b>${plus}</b> mit Plus</span><span><b>${best}</b> längste Serie</span></div>`;
+  }
   function buildMePage(d, now = new Date(), opts = {}) {
     const today = fmt(now);
     let html = meHead(d);
@@ -227,6 +247,7 @@
       ${fb.length ? `<div class="fb">${fb.map(x => `<div><div class="sp ${PART[x.v][1]}">${PART[x.v][0]}</div><small>${esc(short(x.date).slice(3))}</small></div>`).join('')}</div>
         <div class="legend"><span><b>++</b> sehr gut</span><span><b>+</b> gut</span><span><b>−</b> wenig</span><span><b>−−</b> schwach</span></div>`
         : '<p class="empty" style="margin-top:0">Noch keine Einträge in diesem Schuljahr.</p>'}
+      ${yearMapHTML(list(d.year).filter(c => c && isDate(c.date)))}
       <p class="hint"><b>So bekommst du XP:</b> + gibt 10, ++ gibt 20. Abgezogen wird nie etwas.</p>`;
     html += `<div class="spread"><div class="col">${left}</div><div class="col">${right}</div></div>`;
     const foot = [];
