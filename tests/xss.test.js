@@ -112,6 +112,20 @@ describe('Ansichten mit präparierten Daten', () => {
       // Der Auszug selbst geht verschlüsselt raus; escapen muss die Schülerseite (tests/schuelerseite.test.js)
       app('closeModal("modal-settings"); SyncManager.isInitialized = false; SyncManager.currentUser = null');
     },
+    'neues schuljahr (alle schritte, vorlagen)': () => {   // Y6
+      app('exportData = () => {}; openNewYear()');
+      document.getElementById('ny-backup').click(); document.getElementById('ny-next').click();
+      expect(document.querySelectorAll('#ny-body .ny-row').length).toBeGreaterThan(0);   // Klassen wirklich gezeichnet
+      expect(injected()).toBe(0); expect(brokenHandlers()).toEqual([]);
+      document.getElementById('ny-next').click();
+      expect(injected()).toBe(0);
+      app('newYearState = null; closeModal("modal-new-year")');
+      app(`db.planTemplates = [{ id: ${JSON.stringify(X)}, name: ${JSON.stringify(X)}, year: ${JSON.stringify(X)}, topics: [{ id: "t", title: ${JSON.stringify(X)} }] }]`);
+      app('openSettings(); showSettingsPane("data")');
+      expect(document.getElementById('plan-templates-list').children.length).toBe(1);
+      expect(injected()).toBe(0); expect(brokenHandlers()).toEqual([]);
+      app('closeModal("modal-settings")');
+    },
     'planung thema-fenster': () => app(`openPlanTopicForm(${G}, db.groups[0].plan[0])`),
     'stundenplan klasse': () => {
       app(`switchView("timetable"); timetableClassGroupId = ${G}; setTimetableMode("class")`);

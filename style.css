@@ -2092,6 +2092,19 @@ button.sw-hint-text{cursor:pointer;}
   .sa-beamer-text{font-size:20px;}
 }
 
+/* Schuljahreswechsel (Y6) */
+.ny-modal .modal-body{display:flex;flex-direction:column;gap:var(--space-3);overflow-y:auto;}
+.ny-step{margin:0;font-size:12px;font-weight:600;color:var(--text-muted);}
+.ny-lead{margin:0;font-size:14px;line-height:1.45;color:var(--text-primary);}
+.ny-actions{display:flex;flex-wrap:wrap;gap:var(--space-2);}
+.ny-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:var(--space-2) var(--space-3);align-items:center;padding:var(--space-3) 0;border-top:1px solid var(--border);}
+.ny-cls{font-size:14px;min-width:0;overflow-wrap:anywhere;}
+.ny-cls small{display:block;font-size:12px;color:var(--text-muted);}
+.ny-name{grid-column:1 / -1;display:flex;flex-direction:column;gap:var(--space-1);font-size:12px;color:var(--text-secondary);}
+.ny-tpl{grid-column:1 / -1;font-size:13px;color:var(--text-primary);}
+.ny-sum{margin:0;padding-left:var(--space-4);display:flex;flex-direction:column;gap:var(--space-2);font-size:14px;line-height:1.45;}
+.ny-tpl-head{margin-top:var(--space-4);}
+
 /* Markieren (AH17): wie in einer App. Bedienelemente nicht markierbar und ohne Kopieren-Menü beim langen Drücken
    (iPad: sonst Lupe und blaue Markierung statt Aktion); Inhalte, die man lesen oder weitergeben will, und alle
    Eingabefelder schon. Reihenfolge zählt: Grundsatz → Inhalte → Knöpfe darin → Eingaben. */

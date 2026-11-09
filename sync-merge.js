@@ -171,6 +171,11 @@ const MERGE_SPEC = {
       onDelete: 'keep',   // Liste einer ganzen Klasse: das Löschen ganzer Klassen prüft mergeDB vorher
     },
     supervisions: { list: s => s.id, onDelete: 'ask', title: s => `Aufsicht ${s.place || ''}`.trim(), item: {} },
+    // Vorlagen der Planung (Y6): entstehen beim Schuljahreswechsel, werden danach nur übernommen oder gelöscht
+    planTemplates: {
+      list: t => t.id, onDelete: 'ask', title: t => `Vorlage „${t.name || ''}“`,
+      item: { fields: { name: MERGE_TEXT, topics: { atomic: 'ask', what: 'Themen der Vorlage', show: v => `${(v || []).length} Themen` } } },
+    },
     todos: {
       list: t => t.id, onDelete: 'ask', title: t => `Merkzettel „${t.text || ''}“`,
       item: { fields: { text: MERGE_TEXT, done: { atomic: 'max' }, doneAt: { atomic: 'max' } } },

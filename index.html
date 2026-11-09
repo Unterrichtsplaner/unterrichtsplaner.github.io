@@ -40,7 +40,7 @@
       }
     })();
   </script>
-  <link rel="stylesheet" href="style.css?v=476" />
+  <link rel="stylesheet" href="style.css?v=478" />
   <script>
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
@@ -1092,9 +1092,18 @@
           <button class="btn-danger-outline hidden" id="btn-clear-everywhere" onclick="clearAllDataEverywhere()"><i data-icon="trash"></i>Alles löschen, auch in der Cloud</button>
         </div>
         <div id="merge-restore-row" class="merge-restore hidden">
-          <button class="btn-secondary" onclick="restoreMergeBackup()"><i data-icon="undo"></i>Stand vor dem letzten Zusammenführen</button>
+          <button class="btn-secondary" onclick="restoreMergeBackup()"><i data-icon="undo"></i>Früheren Stand zurückholen</button>
         </div>
         <input type="file" id="import-file-input" accept=".json" style="display:none" onchange="importData(event)" />
+      </div>
+</section>
+<section class="set-card">
+      <div class="settings-section">
+        <h3>Neues Schuljahr</h3>
+        <p class="field-hint-muted">Klassen ins neue Jahr übernehmen (Schüler bleiben), das alte Jahr sichern und aufräumen: Noten, Fehlzeiten, Notizen und Stundenplan werden gelöscht. Die App führt Schritt für Schritt durch.</p>
+        <div><button type="button" class="btn-secondary" onclick="openNewYear()"><i data-icon="calendar"></i>Neues Schuljahr beginnen</button></div>
+        <h3 class="ny-tpl-head hidden">Vorlagen der Planung</h3>
+        <div id="plan-templates-list" class="entry-list"></div>
       </div>
 </section>
 <section class="set-card">
@@ -1671,6 +1680,18 @@
   </div>
 
   <!-- Klassen-Bericht (AD1) -->
+  <!-- Schuljahreswechsel (Y6): drei Schritte, Inhalt aus renderNewYear -->
+  <div id="modal-new-year" class="modal-overlay hidden" onclick="closeModalOnOverlay(event,'modal-new-year')">
+    <div class="modal modal-small ny-modal" onclick="event.stopPropagation()">
+      <div class="modal-header">
+        <h2>Neues Schuljahr</h2>
+        <button class="modal-close" aria-label="Schließen" onclick="closeModalLikeButton('modal-new-year')">✕</button>
+      </div>
+      <div class="modal-body" id="ny-body"></div>
+      <div class="modal-footer" id="ny-footer"></div>
+    </div>
+  </div>
+
   <div id="modal-class-report" class="modal-overlay hidden" onclick="closeModalOnOverlay(event,'modal-class-report')">
     <div class="modal modal-small" onclick="event.stopPropagation()">
       <div class="modal-header">
@@ -1772,15 +1793,15 @@
   </div>
 
   <script src="lib/crypto-js.min.js"></script>
-  <script src="crypto-helper.js?v=476"></script>
+  <script src="crypto-helper.js?v=478"></script>
   <script src="lib/firebase-app-compat.js"></script>
   <script src="lib/firebase-auth-compat.js"></script>
   <script src="lib/firebase-firestore-compat.js"></script>
-  <script src="firebase-config.js?v=476"></script>
-  <script src="sync-manager.js?v=476"></script>
-  <script src="sync-merge.js?v=476"></script>
+  <script src="firebase-config.js?v=478"></script>
+  <script src="sync-manager.js?v=478"></script>
+  <script src="sync-merge.js?v=478"></script>
   <script src="lib/qrcode.js"></script>
-  <script src="student-share.js?v=476"></script>
-  <script src="app.js?v=476"></script>
+  <script src="student-share.js?v=478"></script>
+  <script src="app.js?v=478"></script>
 </body>
 </html>

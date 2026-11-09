@@ -3189,6 +3189,25 @@ function deleteGroup(id) {
   const studentCount = (db.students[id] || []).length;
   const slotIds = new Set(getGroupSlots(id).map(s => s.id));
   if (!confirm(`Klasse ${g.className} (${g.subject}) mit ${studentCount} Schüler(n), allen Noten/Einträgen und ${slotIds.size} Stunde(n) im Stundenplan löschen?`)) return;
+  removeGroupData(id);
+  saveDB();
+  if (currentSeatingGroupId === id) currentSeatingGroupId = '';
+  if (currentGroupId === id || currentOverviewGroupId === id) {
+    currentOverviewGroupId = null;
+    goBackToSubjects();
+  } else {
+    renderSubjectGroups();
+  }
+  renderTimetable();
+  renderNav();
+  showToast('Klasse gelöscht');
+}
+
+// Klasse samt Abhängigem aus db entfernen (Regel 10), ohne Rückfrage und ohne Speichern. Auch für den Schuljahreswechsel (Y6).
+function removeGroupData(id) {
+  const g = db.groups.find(x => x.id === id);
+  if (!g) return;
+  const slotIds = new Set(getGroupSlots(id).map(s => s.id));
   const shared = studentAppOf(g).access;   // Schülerseite der Klasse mit weg (AJ1, Regel 10)
   if (shared) queueShareDeletion(shared.id);
   db.groups = db.groups.filter(x => x.id !== id);
@@ -3203,17 +3222,6 @@ function deleteGroup(id) {
     db.settings.quickLinks = db.settings.quickLinks.filter(l => !(l && l.groupId === id));
     if (!db.settings.quickLinks.length) delete db.settings.quickLinks;
   }
-  saveDB();
-  if (currentSeatingGroupId === id) currentSeatingGroupId = '';
-  if (currentGroupId === id || currentOverviewGroupId === id) {
-    currentOverviewGroupId = null;
-    goBackToSubjects();
-  } else {
-    renderSubjectGroups();
-  }
-  renderTimetable();
-  renderNav();
-  showToast('Klasse gelöscht');
 }
 
 // ─── Class Overview (Tabelle) ─────────────────────────────────────────────
@@ -5157,6 +5165,7 @@ function showSettingsPane(name) {
 document.querySelectorAll('#modal-settings .set-rail button').forEach(b => b.addEventListener('click', () => showSettingsPane(b.dataset.pane)));
 // Felder und Blöcke-Entwurf aus db füllen – beim Öffnen und nach einer Cloud-Übernahme (BUGS P2)
 function fillSettingsForm() {
+  renderPlanTemplatesSetting();   // Vorlagen der Planung (Y6)
   refreshMergeRestoreButton();   // AH4
   document.getElementById('settings-teacher-name').value = db.settings.teacherName||'';
   document.getElementById('settings-school').value       = db.settings.school||'';
@@ -8718,6 +8727,7 @@ const MODAL_CLOSE_ACTIONS = {
   'modal-plan-topic': () => cancelPlanTopic(),       // bei Änderungen fragen (Regel 55)
   'modal-class-notes': () => closeClassNotes(),      // Eingetipptes übernehmen, nicht verwerfen (AD15)
   'modal-lesson-topic': () => closeLessonTopic(),    // Eingetipptes übernehmen, nicht verwerfen (AI2)
+  'modal-new-year': () => closeNewYear(),            // ab Schritt 2 nachfragen (Y6)
   'modal-add-student': () => leaveGuardedForm('modal-add-student'),         // bei Änderungen fragen (W2)
   'modal-import-students': () => leaveGuardedForm('modal-import-students'),
   'modal-add-group': () => leaveGuardedForm('modal-add-group'),
@@ -9069,7 +9079,7 @@ function renderPlanTab() {
       </span>
     </div>`).join('') + '</div>';
   html += `<div class="plan-actions"><button type="button" class="btn-primary" data-act="add">+ Themen</button>`
-    + `<button type="button" class="btn-secondary" data-act="copy">Von Klasse übernehmen …</button></div>`;
+    + `<button type="button" class="btn-secondary" data-act="copy">${planTemplatesOf().length ? 'Von Klasse oder Vorlage übernehmen …' : 'Von Klasse übernehmen …'}</button></div>`;
   if (done.length) {
     html += `<details class="plan-done"${planShowDone ? ' open' : ''}><summary>Erledigt (${done.length})</summary><div class="plan-list">`
       + done.slice().sort((a, b) => (a.done || '').localeCompare(b.done || '')).map(t => `
@@ -9097,17 +9107,23 @@ async function choosePlanSource(targetId) {
   const sources = db.groups.filter(x => x.id !== targetId && groupPlan(x).length)
     .sort((a, b) => (b.subject === target.subject) - (a.subject === target.subject)
       || (a.className || '').localeCompare(b.className || '', undefined, { numeric: true }));
-  if (!sources.length) { showToast('Noch keine andere Klasse hat Themen. Erst dort planen, dann hier übernehmen', 'error'); return; }
-  const n = g => groupPlan(g).length;
+  // Vorlagen aus dem letzten Schuljahr (Y6), gleiches Fach zuerst
+  const tpls = planTemplatesOf().slice().sort((a, b) => (String(b.name).startsWith(target.subject || '\u0000') ? 1 : 0) - (String(a.name).startsWith(target.subject || '\u0000') ? 1 : 0));
+  if (!sources.length && !tpls.length) { showToast('Noch keine andere Klasse hat Themen. Erst dort planen, dann hier übernehmen', 'error'); return; }
+  const n = g => groupPlan(g).length, nt = k => `${k} ${k === 1 ? 'Thema' : 'Themen'}`;
   const choice = await askChoice('Themen übernehmen',
     `Die Themen werden in derselben Reihenfolge hinten an die Liste der ${target.className} angehängt, ohne feste Termine und ohne „erledigt“.`,
-    sources.map((x, i) => ({ label: `${x.className} ${x.subject || ''} · ${n(x)} ${n(x) === 1 ? 'Thema' : 'Themen'}`, value: x.id, primary: i === 0 })));
+    [...sources.map(x => ({ label: `${x.className} ${x.subject || ''} · ${nt(n(x))}`, value: x.id })),
+      ...tpls.map(t => ({ label: `Vorlage: ${t.name}${t.year ? ` (${t.year})` : ''} · ${nt(t.topics.length)}`, value: t.id }))]
+      .map((o, i) => ({ ...o, primary: i === 0 })));
   if (choice) copyPlanFrom(targetId, choice);
 }
 function copyPlanFrom(targetId, sourceId) {
-  const target = db.groups.find(x => x.id === targetId), source = db.groups.find(x => x.id === sourceId);
-  if (!target || !source) { showToast('Diese Klasse gibt es nicht mehr (z. B. durch Sync)', 'error'); return; }
-  const added = groupPlan(source).map(t => {
+  const target = db.groups.find(x => x.id === targetId);
+  const group = db.groups.find(x => x.id === sourceId), tpl = !group && planTemplatesOf().find(x => x.id === sourceId);
+  const source = group || (tpl && { className: `der Vorlage ${tpl.name}` });
+  if (!target || !source) { showToast('Diese Klasse oder Vorlage gibt es nicht mehr (z. B. durch Sync)', 'error'); return; }
+  const added = (group ? groupPlan(group) : tpl.topics.filter(t => t && String(t.title || '').trim())).map(t => {
     const c = { id: uid(), title: t.title };
     if (topicLength(t) > 1) c.lessons = topicLength(t);
     if (t.note) c.note = t.note;
@@ -10279,6 +10295,10 @@ function safetyNoteHTML() {
     return `<div id="dash-safety-note" class="dash-safety" role="status">${icon('save')}<span>${when} Ohne Cloud liegen deine Daten nur auf diesem Gerät. Die Sicherungsdatei ist unverschlüsselt.</span>
       <button type="button" class="btn-secondary dash-safety-do">Jetzt sichern</button><button type="button" class="btn-secondary dash-safety-later" data-hint="backup">Später</button></div>`;
   }
+  if (newYearNoteDue()) {   // Y6
+    return `<div id="dash-safety-note" class="dash-safety" role="status">${icon('calendar')}<span>Neues Schuljahr? Klassen übernehmen, das alte Jahr sichern und aufräumen.</span>
+      <button type="button" class="btn-secondary dash-safety-newyear">Neues Schuljahr beginnen</button><button type="button" class="btn-secondary dash-safety-later" data-hint="newyear">Später</button></div>`;
+  }
   if (homeNoteDue()) {
     return `<div id="dash-safety-note" class="dash-safety" role="status">${icon('info')}<span>Tipp: Lege die App auf den Home-Bildschirm (Teilen → Zum Home-Bildschirm). Sonst kann Safari die Daten nach 7 Tagen ohne Nutzung löschen.</span>
       <button type="button" class="btn-secondary dash-safety-later" data-hint="home">Verstanden</button></div>`;
@@ -10287,8 +10307,10 @@ function safetyNoteHTML() {
 }
 function wireSafetyNote(container) {
   container.querySelector('.dash-safety-do')?.addEventListener('click', () => { exportData(); renderDashboard(); });
+  container.querySelector('.dash-safety-newyear')?.addEventListener('click', () => openNewYear());
   container.querySelector('.dash-safety-later')?.addEventListener('click', e => {
     if (e.currentTarget.dataset.hint === 'backup') setDeviceHint(BACKUP_SNOOZE_KEY, String(Date.now()));
+    else if (e.currentTarget.dataset.hint === 'newyear') setDeviceHint(NEWYEAR_HINT_KEY, formatDate(new Date()).slice(0, 4));   // bis zum nächsten Jahr
     else setDeviceHint(HOME_HINT_KEY, '1');
     renderDashboard();
   });
@@ -11590,13 +11612,16 @@ async function readSyncBase(cloudTimestamp) {
   const rec = uid ? await syncStore.get(`base_${uid}`) : null;
   return rec && rec.cloudTimestamp === cloudTimestamp ? rec.data : null;
 }
-async function keepMergeBackup(localDataString, cloudDataString) {
+async function keepMergeBackup(localDataString, cloudDataString, kind = '') {
   const list = (await syncStore.get(MERGE_BACKUPS_KEY)) || [];
   // Dieselben Stände nur einmal, sonst schieben wiederholte offene Fragen ältere aus der Liste
   if (list[0] && list[0].local === localDataString && list[0].cloud === cloudDataString) return;
   const uid = SyncManager.currentUser && SyncManager.currentUser.uid;
-  list.unshift({ time: Date.now(), uid, local: localDataString, cloud: cloudDataString });
-  await syncStore.put(MERGE_BACKUPS_KEY, list.slice(0, MERGE_BACKUPS_MAX));
+  list.unshift({ time: Date.now(), uid, local: localDataString, cloud: cloudDataString, ...(kind ? { kind } : {}) });
+  // Der Stand vor dem Schuljahreswechsel (Y6) bleibt, auch wenn danach mehrere Abgleiche kommen
+  const kept = list.slice(0, MERGE_BACKUPS_MAX), year = list.find(x => x.kind === 'newYear');
+  if (year && !kept.includes(year)) kept.push(year);
+  await syncStore.put(MERGE_BACKUPS_KEY, kept);
 }
 // Nur Stände dieses Kontos anbieten (Abmelden und anderes Konto: Regel 15 gilt auch hier)
 async function mergeBackupsOfAccount() {
@@ -11728,13 +11753,16 @@ async function refreshMergeRestoreButton() {
 async function restoreMergeBackup() {
   const list = await mergeBackupsOfAccount();
   if (!list.length) { showToast('Es gibt keinen früheren Stand', 'error'); return; }
-  const whenOf = x => new Date(x.time).toLocaleString('de-DE');
+  const whenOf = x => new Date(x.time).toLocaleString('de-DE') + (x.kind === 'newYear' ? ' (vor dem neuen Schuljahr)' : '');
   // Ein Fehler fällt oft erst nach dem nächsten Abgleich auf: darum auch die älteren Stände
   const last = list.length === 1 ? list[0] : await askChoice('Stand vor dem Zusammenführen', 'Welchen Zeitpunkt möchtest du zurückholen?',
     list.map((x, i) => ({ label: whenOf(x), value: x, primary: i === 0 })));
   if (!last) return;
-  const side = await askChoice('Stand vor dem Zusammenführen', `Vom ${whenOf(last)}. Der gewählte Stand ersetzt alle Daten auf diesem Gerät und danach auch in der Cloud.`,
-    [{ label: 'Stand dieses Geräts', value: 'local', primary: true }, { label: 'Stand aus der Cloud', value: 'cloud' }]);
+  const side = last.kind === 'newYear'   // vor dem Schuljahreswechsel gab es nur einen Stand
+    ? await askChoice('Stand vor dem neuen Schuljahr', `Vom ${whenOf(last)}. Er ersetzt alle Daten auf diesem Gerät und danach auch in der Cloud.`,
+      [{ label: 'Wiederherstellen', value: 'local', primary: true }])
+    : await askChoice('Stand vor dem Zusammenführen', `Vom ${whenOf(last)}. Der gewählte Stand ersetzt alle Daten auf diesem Gerät und danach auch in der Cloud.`,
+      [{ label: 'Stand dieses Geräts', value: 'local', primary: true }, { label: 'Stand aus der Cloud', value: 'cloud' }]);
   if (!side) return;
   const parsed = JSON.parse(last[side]);
   const syncSettings = db.syncSettings;
@@ -12451,6 +12479,207 @@ function renderSettingsStudentApps() {
     if (!studentAppOn()) { showToast('Erst die Schülerapp einschalten und speichern', 'error'); return; }
     openGroupStudents(row.dataset.id, 'studentapp');
   }));
+}
+
+// ─── Schuljahreswechsel (Y6) ─────────────────────────────────────────────────
+// Einstellungen → Daten & Cloud → „Neues Schuljahr beginnen“: 1. sichern, 2. je Klasse übernehmen (neuer Name, Schüler
+// bleiben mit Hinweisen, Geburtstag und Sitzplatz) oder löschen, Planung auf Wunsch als Vorlage, 3. Zusammenfassung.
+// Danach sind alle Einträge des Jahres weg (Noten, Fehlzeiten, Mitarbeit, HA, Schülernotizen, Klassennotizen,
+// Stundenplan mit Stundendaten, Aufsichten), Halbjahres-/Schuljahresende und vergangene Ferien zurückgesetzt,
+// Schülerapp-Links neu. Vorher liegt der alte Stand im Sicherheitsnetz (Einstellungen → „Früheren Stand zurückholen“).
+const NEWYEAR_HINT_KEY = 'newyear_hint_dismissed';
+let newYearState = null;   // { step, backedUp, choices: [{ id, action: 'keep'|'delete', name, template }] } – nie in db
+function planTemplatesOf() {
+  return (Array.isArray(db.planTemplates) ? db.planTemplates : []).filter(t => t && t.id && Array.isArray(t.topics));
+}
+// „7b“ → „8b“, „Q11“ → „Q12“; ohne Zahl bleibt der Name (änderbar)
+const nextClassName = name => String(name || '').replace(/\d+/, n => String(Number(n) + 1));
+function nextYearLabel(y) {
+  const m = /^(\d{4})\/(\d{2})$/.exec(String(y || '').trim());
+  return m ? `${Number(m[1]) + 1}/${String((Number(m[2]) + 1) % 100).padStart(2, '0')}` : y;
+}
+const YEAR_LISTS = ['grades', 'attendance', 'participation', 'homework', 'studentNotes'];
+function hasYearData() {
+  return Object.values(db.students || {}).some(l => (l || []).some(s => s && YEAR_LISTS.some(f => (s[f] || []).length)))
+    || Object.keys(db.lessonData || {}).length > 0;
+}
+// Die eigentliche Umstellung. Ändert db, speichert nicht. Klassen ohne Wahl (z. B. per Sync dazugekommen) bleiben unter
+// ihrem Namen (Regel 7: nie still löschen). Liefert eine kleine Zusammenfassung.
+function applyNewSchoolYear(choices, todayStr = formatDate(new Date())) {
+  const byId = new Map((choices || []).map(c => [c.id, c]));
+  const yearOfOld = schoolYearLabel(addDays(parseDate(todayStr), -60));   // der Wechsel läuft meist in den Sommerferien
+  const out = { kept: 0, deleted: 0, templates: 0 };
+  db.groups.forEach(g => {
+    const c = byId.get(g.id);
+    const topics = groupPlan(g).filter(t => String(t.title || '').trim());
+    if (!c || !c.template || !topics.length) return;
+    (db.planTemplates = Array.isArray(db.planTemplates) ? db.planTemplates : []).push({
+      id: uid(), name: [g.subject, g.className].filter(Boolean).join(' '), year: yearOfOld, created: todayStr,
+      topics: topics.map(t => {
+        const x = { id: uid(), title: String(t.title).trim() };
+        if (topicLength(t) > 1) x.lessons = topicLength(t);
+        if (t.note) x.note = t.note;
+        return x;
+      }),
+    });
+    out.templates++;
+  });
+  (choices || []).filter(c => c.action === 'delete' && db.groups.some(g => g.id === c.id)).forEach(c => { removeGroupData(c.id); out.deleted++; });
+  db.groups.forEach(g => {
+    const c = byId.get(g.id);
+    const name = c && String(c.name || '').trim();
+    if (name) g.className = name;
+    if (g.year) g.year = nextYearLabel(g.year);
+    ['gradeEvents', 'attendanceEvents', 'participationEvents', 'homeworkEvents', 'plan', 'classNotes'].forEach(f => { if (Array.isArray(g[f])) g[f] = []; });
+    const sa = g.studentApp;
+    if (sa && typeof sa === 'object') {   // neuer Link: Ehemalige sehen die Klasse nicht mehr (Regel 95)
+      if (sa.access && sa.access.id) { queueShareDeletion(sa.access.id); sa.access = StudentShare.newAccess(); }
+      delete sa.goal;
+    }
+    (db.students[g.id] || []).forEach(st => { if (st) YEAR_LISTS.forEach(f => { st[f] = []; }); });   // Hinweise, Geburtstag, Sitzplatz bleiben
+    out.kept++;
+  });
+  db.lessonSlots = [];
+  db.lessonData = {};
+  db.supervisions = [];
+  db.acknowledgedWarnings = {};
+  delete db.settings.halfYearEnd;
+  delete db.settings.schoolYearEnd;
+  if (Array.isArray(db.settings.holidays)) db.settings.holidays = db.settings.holidays.filter(h => h && isDateStr(h.until) && h.until >= todayStr);
+  periodChoice = null;
+  return out;
+}
+
+function openNewYear() {
+  if (!db.groups.length) { showToast('Noch keine Klassen', 'error'); return; }
+  newYearState = {
+    step: 1, backedUp: false,
+    choices: db.groups.slice().sort((a, b) => (a.className || '').localeCompare(b.className || '', undefined, { numeric: true }))
+      .map(g => ({ id: g.id, action: 'keep', name: nextClassName(g.className), template: groupPlan(g).length > 0 })),
+  };
+  closeModal('modal-settings');
+  renderNewYear();
+  openModal('modal-new-year');
+}
+function newYearGroup(c) { return db.groups.find(g => g.id === c.id); }
+function renderNewYear() {
+  const st = newYearState, body = document.getElementById('ny-body'), foot = document.getElementById('ny-footer');
+  if (!st || !body || !foot) return;
+  const stepLine = `<p class="ny-step">Schritt ${st.step} von 3 · ${['Sichern', 'Klassen', 'Zusammenfassung'][st.step - 1]}</p>`;
+  if (st.step === 1) {
+    body.innerHTML = stepLine + `<p class="ny-lead">Danach sind alle Noten, Fehlzeiten, Mitarbeit, Hausaufgaben, Notizen und der Stundenplan des alten Jahres gelöscht. Sichere sie vorher.</p>
+      <div class="ny-actions"><button type="button" class="btn-secondary" id="ny-backup">${icon('download')}Sicherung herunterladen</button>
+        <button type="button" class="btn-secondary" id="ny-report">${icon('printer')}Klassen-Bericht (PDF/Excel)</button></div>
+      <p class="field-hint-muted">${st.backedUp ? 'Sicherung heruntergeladen.' : 'Weiter geht es, sobald die Sicherung heruntergeladen ist.'} Die Dateien enthalten Schülerdaten unverschlüsselt.</p>`;
+    body.querySelector('#ny-backup').addEventListener('click', () => { exportData(); st.backedUp = true; renderNewYear(); });
+    body.querySelector('#ny-report').addEventListener('click', () => openClassReport());
+  } else if (st.step === 2) {
+    body.innerHTML = stepLine + `<p class="ny-lead">Übernommene Klassen behalten ihre Schüler mit Hinweisen, Geburtstagen und Sitzplan. Alles andere aus dem Jahr fällt weg.</p>`
+      + st.choices.map((c, i) => {
+        const g = newYearGroup(c);
+        if (!g) return '';
+        const n = (db.students[g.id] || []).length, topics = groupPlan(g).length;
+        return `<div class="ny-row" data-i="${i}">
+          <div class="ny-cls"><b>${escHtml(g.className)}</b> ${escHtml(g.subject || '')}<small>${n} ${n === 1 ? 'Schüler' : 'Schüler'}</small></div>
+          <div class="sw-chips ny-act" role="group" aria-label="${escHtml(g.className)}: übernehmen oder löschen">
+            <button type="button" data-act="keep" class="${c.action === 'keep' ? 'on' : ''}" aria-pressed="${c.action === 'keep'}">Übernehmen</button>
+            <button type="button" data-act="delete" class="${c.action === 'delete' ? 'on' : ''}" aria-pressed="${c.action === 'delete'}">Löschen</button></div>
+          ${c.action === 'keep' ? `<label class="ny-name">Neuer Name<input type="text" class="form-input" maxlength="40" value="${escHtml(c.name)}"></label>` : ''}
+          ${topics ? `<label class="print-check ny-tpl"><input type="checkbox"${c.template ? ' checked' : ''}> Planung als Vorlage behalten (${topics} ${topics === 1 ? 'Thema' : 'Themen'})</label>` : ''}
+        </div>`;
+      }).join('');
+    body.querySelectorAll('.ny-row').forEach(row => {
+      const c = st.choices[Number(row.dataset.i)];
+      row.querySelectorAll('[data-act]').forEach(b => b.addEventListener('click', () => { c.action = b.dataset.act; renderNewYear(); }));
+      row.querySelector('.ny-name input')?.addEventListener('input', e => { c.name = e.target.value; });
+      row.querySelector('.ny-tpl input')?.addEventListener('change', e => { c.template = e.target.checked; });
+    });
+  } else {
+    const live = st.choices.filter(c => newYearGroup(c));
+    const keep = live.filter(c => c.action === 'keep'), del = live.filter(c => c.action === 'delete'), tpl = live.filter(c => c.template && groupPlan(newYearGroup(c)).length);
+    const names = list => list.map(c => {
+      const g = newYearGroup(c);
+      return c.action === 'keep' && c.name.trim() && c.name.trim() !== g.className ? `${g.className} → ${c.name.trim()}` : g.className;
+    }).map(escHtml).join(', ');
+    body.innerHTML = stepLine + `<ul class="ny-sum">
+        ${keep.length ? `<li><b>Übernommen:</b> ${names(keep)}</li>` : ''}
+        ${del.length ? `<li><b>Gelöscht:</b> ${names(del)}</li>` : ''}
+        ${tpl.length ? `<li><b>Vorlagen:</b> ${tpl.length} ${tpl.length === 1 ? 'Planung' : 'Planungen'} (unter Planung → „Von Klasse oder Vorlage übernehmen“)</li>` : ''}
+        <li>Noten, Fehlzeiten, Mitarbeit, Hausaufgaben, Schüler- und Klassennotizen werden gelöscht.</li>
+        <li>Stundenplan und Aufsichten werden geleert, Halbjahres- und Schuljahresende sowie vergangene Ferien zurückgesetzt.</li>
+        ${live.some(c => c.action === 'keep' && studentAppOf(newYearGroup(c)).access) ? '<li>Freigegebene Klassen bekommen einen neuen Schülerapp-Link.</li>' : ''}
+      </ul>
+      <p class="field-hint-muted">Der alte Stand bleibt in deiner Sicherungsdatei und auf diesem Gerät (Einstellungen → Daten & Cloud → „Früheren Stand zurückholen“).</p>`;
+  }
+  foot.innerHTML = (st.step > 1 ? '<button type="button" class="btn-secondary" id="ny-back">Zurück</button>' : '')
+    + (st.step < 3 ? `<button type="button" class="btn-primary" id="ny-next"${st.step === 1 && !st.backedUp ? ' disabled' : ''}>Weiter</button>`
+      : '<button type="button" class="btn-primary" id="ny-go">Neues Schuljahr beginnen</button>');
+  foot.querySelector('#ny-back')?.addEventListener('click', () => { st.step--; renderNewYear(); });
+  foot.querySelector('#ny-next')?.addEventListener('click', () => { if (st.step === 1 && !st.backedUp) return; st.step++; renderNewYear(); });
+  foot.querySelector('#ny-go')?.addEventListener('click', () => finishNewYear());
+}
+function closeNewYear() {
+  if (newYearState && newYearState.step > 1 && !confirm('Schuljahreswechsel abbrechen?\n\nEs wurde noch nichts geändert.')) return;
+  newYearState = null;
+  closeModal('modal-new-year');
+}
+async function finishNewYear() {
+  const st = newYearState;
+  if (!st) return;
+  const dbAtStart = db;   // Regel 32: über das await hinweg
+  const before = JSON.stringify(db);
+  let kept = false;
+  try { await keepMergeBackup(before, before, 'newYear'); kept = true; } catch (e) { console.warn('Sicherheitsnetz nicht gespeichert:', e.message); }
+  if (!kept && !confirm('Das Sicherheitsnetz auf diesem Gerät ließ sich nicht anlegen. Deine Sicherungsdatei hast du heruntergeladen.\n\nTrotzdem fortfahren?')) return;
+  if (db !== dbAtStart || newYearState !== st) { showToast('Die Daten haben sich inzwischen geändert (z. B. durch Sync). Bitte noch einmal starten', 'error'); closeModal('modal-new-year'); return; }
+  const sum = applyNewSchoolYear(st.choices);
+  newYearState = null;
+  saveDB();
+  closeModal('modal-new-year');
+  replaceDB(db);   // alles neu zeichnen, Auswahl zurücksetzen (Regel 32)
+  renderDashboard();
+  showToast(`Neues Schuljahr: ${sum.kept} ${sum.kept === 1 ? 'Klasse' : 'Klassen'} übernommen${sum.deleted ? `, ${sum.deleted} gelöscht` : ''}`);
+  const next = await askChoice('Neues Schuljahr eingerichtet', 'Als Nächstes: Ferien laden, Halbjahres- und Schuljahresende eintragen und den neuen Stundenplan anlegen.',
+    [{ label: 'Später', value: null }, { label: 'Zum Stundenplan', value: 'timetable' }, { label: 'Ferien und Termine', value: 'holidays', primary: true }]);
+  if (next === 'timetable') switchView('timetable');
+  if (next === 'holidays') { openSettings(); showSettingsPane('holidays'); }
+}
+
+// Vorlagen der Planung in den Einstellungen: ansehen und löschen (mit „Rückgängig“, Regel 45)
+function renderPlanTemplatesSetting() {
+  const box = document.getElementById('plan-templates-list');
+  if (!box) return;
+  const list = planTemplatesOf();
+  box.closest('.set-card')?.querySelector('.ny-tpl-head')?.classList.toggle('hidden', !list.length);
+  box.innerHTML = list.map(t => `<div class="entry-item" data-id="${escHtml(t.id)}"><span class="entry-item-text">${escHtml(t.name)}${t.year ? ` <small>${escHtml(t.year)}</small>` : ''}</span>
+    <span class="entry-item-date">${t.topics.length} ${t.topics.length === 1 ? 'Thema' : 'Themen'}</span><button class="entry-item-delete" aria-label="Vorlage ${escHtml(t.name)} löschen">✕</button></div>`).join('');
+  box.querySelectorAll('.entry-item').forEach(el => {
+    const t = list.find(x => x.id === el.dataset.id);
+    el.querySelector('.entry-item-delete').addEventListener('click', () => deletePlanTemplate(t));
+  });
+}
+function deletePlanTemplate(t) {
+  const arr = Array.isArray(db.planTemplates) ? db.planTemplates : [];
+  const i = arr.indexOf(t);
+  if (i === -1) { renderPlanTemplatesSetting(); return; }   // inzwischen weg (Sync): nichts löschen (Regel 9)
+  arr.splice(i, 1);
+  saveDB();
+  renderPlanTemplatesSetting();
+  showUndoToast(`Vorlage „${t.name}“ gelöscht`, () => {
+    db.planTemplates = Array.isArray(db.planTemplates) ? db.planTemplates : [];
+    if (db.planTemplates.some(x => x.id === t.id)) return;
+    db.planTemplates.splice(Math.min(i, db.planTemplates.length), 0, t);
+    saveDB();
+    renderPlanTemplatesSetting();
+  });
+}
+// Leiser Hinweis im Dashboard ab den Sommerferien bzw. nach dem Schuljahresende (Regel 82: höchstens einer, nie ein Dialog)
+function newYearNoteDue(todayStr = formatDate(new Date())) {
+  if (!hasYearData()) return false;
+  const h = holidayAt(todayStr);
+  const summer = !!(h && /sommer/i.test(h.label || ''));
+  const after = isDateStr(db.settings.schoolYearEnd) && todayStr > db.settings.schoolYearEnd;
+  return (summer || after) && deviceHint(NEWYEAR_HINT_KEY) !== todayStr.slice(0, 4);
 }
 
 // Starte Sync-Initialisierung beim Laden
