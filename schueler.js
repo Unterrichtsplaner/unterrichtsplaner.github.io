@@ -303,6 +303,24 @@
     const text = Number(j.earned) >= max ? 'Alle Joker für dieses Schuljahr verdient.' : `Den nächsten gibt es bei Level ${(Math.floor(level / every) + 1) * every}.`;
     return `<h2>Joker <small>${Number(j.used) || 0} eingelöst</small></h2><p class="me-line">${Number(j.open) > 0 ? `<b>${Number(j.open)} frei.</b> ` : ''}${esc(text)}</p>`;
   }
+  // Rückmeldung (AJ3g): Reihe von Stempeln, auf Wunsch alle des Schuljahrs nach Monaten (neueste oben), darunter Zählung je Stufe
+  let fbAll = false;   // nur Ansicht, nie gespeichert
+  const MONTHS_LONG = ['Januar', 'Februar', 'März', 'April', 'Mai', 'Juni', 'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember'];
+  const fbRow = items => `<div class="fb">${items.map(x => `<div><div class="sp ${PART[x.v][1]}">${PART[x.v][0]}</div><small>${esc(short(x.date).slice(3))}</small></div>`).join('')}</div>`;
+  function fbAllHTML(items) {
+    const months = [];
+    items.forEach(x => {
+      const m = x.date.slice(0, 7);
+      if (!months.length || months[months.length - 1].m !== m) months.push({ m, items: [] });
+      months[months.length - 1].items.push(x);
+    });
+    return `<div class="fb-all">${months.reverse().map(mo => `<div class="fb-month"><h4>${MONTHS_LONG[Number(mo.m.slice(5)) - 1]} ${mo.m.slice(0, 4)}</h4>${fbRow(mo.items)}</div>`).join('')}</div>`;
+  }
+  function fbStatsHTML(items) {
+    const n = v => items.filter(x => x.v === v).length;
+    return `<div class="fb-stats"><div class="fs-k">Dieses Schuljahr</div><div class="fs-row">${[['excellent', 'sehr gut'], ['positive', 'gut'], ['neutral', 'wenig'], ['negative', 'schwach']]
+      .map(([v, w]) => `<div class="fs"><b>${n(v)}×</b> <span class="sp ${PART[v][1]}">${PART[v][0]}</span> <small>${w}</small></div>`).join('')}</div></div>`;
+  }
   // Lange Vornamen kleiner statt mitten im Wort umbrechen (neben dem Stempel ist wenig Platz)
   const nameSize = n => { const l = String(n || '').length; return l > 12 ? ' xlong' : l > 8 ? ' long' : ''; };
   function buildMePage(d, now = new Date(), opts = {}) {
@@ -327,10 +345,11 @@
     // Reiter „Ich“ (Wunsch 09.11.): eine Karte mit Level, XP und Rückmeldung ganz oben, dann Baustelle, dann Joker
     const j = d.jokers && typeof d.jokers === 'object' ? d.jokers : {};
     const jl = list(j.list).filter(Boolean);
-    const fb = list(d.feedback).filter(x => x && isDate(x.date) && PART[x.v]).slice(-6);
-    const fbHTML = `<div class="hero-fb"><h3>Rückmeldung <small>deine letzten Stunden</small></h3>
-      ${fb.length ? `<div class="fb">${fb.map(x => `<div><div class="sp ${PART[x.v][1]}">${PART[x.v][0]}</div><small>${esc(short(x.date).slice(3))}</small></div>`).join('')}</div>
-        <div class="legend"><span><b>++</b> sehr gut</span><span><b>+</b> gut</span><span><b>−</b> wenig</span><span><b>−−</b> schwach</span></div>`
+    const fbAllList = list(d.feedback).filter(x => x && isDate(x.date) && PART[x.v]).sort((a, b) => a.date.localeCompare(b.date));
+    const fbHTML = `<div class="hero-fb"><h3>Rückmeldung <small>${fbAll ? 'dieses Schuljahr' : 'deine letzten Stunden'}</small></h3>
+      ${fbAllList.length ? `${fbAll ? fbAllHTML(fbAllList) : fbRow(fbAllList.slice(-6))}
+        ${fbAllList.length > 6 ? `<button type="button" class="fb-more" data-fb-all aria-expanded="${fbAll}">${fbAll ? 'Weniger anzeigen' : `Alle anzeigen (${fbAllList.length})`}</button>` : ''}
+        ${fbStatsHTML(fbAllList)}`
         : '<p class="me-line">Noch keine Einträge in diesem Schuljahr.</p>'}</div>`;
     const hero = `<div class="card hero"><div class="player"><div class="lvl-wrap"><div class="lvl" aria-label="Level ${level}"><small>Level</small><b${level >= 10 ? ' class="two"' : ''}>${level}</b></div></div>
         <div><div class="who${nameSize(d.first)}">${esc(d.first || 'Ich')}</div><div class="rank">${rankBadge(tierOf(level), d.rank)}<span class="lvl-word">Level ${level} · </span>${xp} XP</div></div></div>
@@ -367,6 +386,7 @@
     }));
     document.title = me ? `${data.first || 'Ich'} · ${data.cls || ''}`.trim() : [data.cls, data.subject].filter(Boolean).join(' ') || 'Klasse';
     page.querySelectorAll('[data-tab]').forEach(b => b.addEventListener('click', () => { meTab = b.dataset.tab; draw(current.data, current.opts); }));
+    page.querySelectorAll('[data-fb-all]').forEach(b => b.addEventListener('click', () => { fbAll = !fbAll; draw(current.data, current.opts); }));
     if (me) data = data.klasse && typeof data.klasse === 'object' ? data.klasse : {};   // Aufträge und Kalender: aus der Klassenseite
     const hw = list(data.hw).filter(x => isDate(x.date) && x.date >= fmt(new Date()));
     const today = fmt(new Date());

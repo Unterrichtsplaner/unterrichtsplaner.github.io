@@ -84,6 +84,11 @@ describe('Auszug der persönlichen Seite', () => {
   it('Rückmeldung: Stunden ohne Titel mit allen vier Stufen, älteste zuerst', () => {
     expect(snap().feedback.map(f => f.v)).toEqual(['positive', 'excellent', 'negative', 'positive', 'positive', 'excellent']);
   });
+  it('Rückmeldung (AJ3g): alle Einträge des Schuljahrs, nicht nur die letzten 12', () => {
+    const many = Array.from({ length: 30 }, (_, i) => ({ date: app('formatDate(addDays(parseDate("2026-09-15"), ' + i + '))'), value: 'positive' }));
+    app('db.students.g1[0].participation = ' + JSON.stringify(many));
+    expect(snap().feedback.length).toBe(30);
+  });
   it('Serie: Stunden in Folge mit Plus; Fehltag und heute ohne Eintrag unterbrechen nicht', () => {
     expect(snap().streak).toBe(3);   // 02.11. ++, 26.10. +, 19.10. fehlt (übersprungen), 12.10. +, 05.10. − → Schluss
   });

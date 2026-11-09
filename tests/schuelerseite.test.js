@@ -403,6 +403,32 @@ describe('Belohnungen zum Aussuchen (AJ3b, ersetzt AJ2d)', () => {
     expect(cards.map(c => ['hero', 'bau', 'joker'].find(k => c.classList.contains(k))).filter(Boolean)).toEqual(['hero', 'bau', 'joker']);
   });
 
+  it('Rückmeldung (AJ3g): Zählung je Stufe, „Alle anzeigen“ klappt alle Einträge nach Monaten auf (neueste oben)', () => {
+    const d = me(4);
+    const vs = ['positive', 'excellent', 'positive', 'neutral', 'positive', 'negative', 'positive', 'excellent', 'positive'];
+    d.feedback = vs.map((v, i) => ({ date: i < 4 ? `2026-10-${String(10 + i).padStart(2, '0')}` : `2026-11-0${i - 3}`, v }));
+    window.renderStudentPage(d);
+    expect(page().querySelector('.fb-stats').textContent.replace(/\s+/g, ' ')).toMatch(/2× \+\+.*5× \+.*1× −.*1× −−/);
+    expect(page().querySelectorAll('.fb .sp').length).toBe(6);
+    expect(page().querySelector('.fb-all')).toBeNull();
+    page().querySelector('[data-fb-all]').click();
+    const months = [...page().querySelectorAll('.fb-all .fb-month h4')].map(h => h.textContent);
+    expect(months[0]).toMatch(/November/);
+    expect(months[1]).toMatch(/Oktober/);
+    expect(page().querySelectorAll('.fb-all .sp').length).toBe(9);
+    expect(page().querySelector('[data-fb-all]').textContent).toMatch(/Weniger/);
+    page().querySelector('[data-fb-all]').click();
+    expect(page().querySelector('.fb-all')).toBeNull();
+  });
+
+  it('höchstens 6 Einträge: kein Knopf „Alle anzeigen“', () => {
+    const d = me(4);
+    d.feedback = [{ date: '2026-11-02', v: 'positive' }];
+    window.renderStudentPage(d);
+    expect(page().querySelector('[data-fb-all]')).toBeNull();
+    expect(page().querySelector('.fb-stats')).not.toBeNull();
+  });
+
   it('lange Vornamen werden kleiner statt im Wort umzubrechen', () => {
     const d = me(4); d.first = 'Maximilian';
     window.renderStudentPage(d);

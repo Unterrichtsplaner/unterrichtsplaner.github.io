@@ -12650,7 +12650,7 @@ function studentPersonalSnapshot(g, s, now = new Date(), ctx = null) {
   ctx = ctx || { lessons: pastLessonDates(g, now), klasse: studentAppSnapshot(g, now), start: classYearStart(g, todayStr) };
   const p = personalOf(g), info = studentPersonalInfo(g, s, todayStr);
   const feedback = yearParticipation(s, todayStr).filter(x => !x.label && partLevel(x.value))
-    .sort((a, b) => a.date.localeCompare(b.date)).slice(-12).map(x => ({ date: x.date, v: x.value }));
+    .sort((a, b) => a.date.localeCompare(b.date)).slice(-400).map(x => ({ date: x.date, v: x.value }));   // ganzes Schuljahr (AJ3g), Grenze nur gegen Ausreißer
   return {
     v: 1, kind: 'me', first: String(s.firstName || '').trim(),
     cls: g.className || '', subject: g.subject || '', teacher: studentAppTeacherName(), color: g.color || '',
