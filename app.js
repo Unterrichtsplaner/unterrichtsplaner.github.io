@@ -1372,7 +1372,7 @@ function buildTimetableCell(d, dayIdx, block, clock = timetableClock()) {
            data-slot="${escHtml(lesson.id)}" data-date="${escHtml(dateStr)}"
            onclick="${timetableEditMode ? 'openEditLessonFor' : 'openLessonDetail'}(${jsArg(lesson.id)},${jsArg(dateStr)})">
         <div class="tt-lesson-head">
-          <div class="tt-lesson-class">${escHtml(t.main)}</div>
+          <div class="tt-lesson-class" title="${escHtml(t.main)}">${escHtml(t.main)}</div>
           ${sub ? `<div class="tt-lesson-subject">${sub}</div>` : ''}
           ${kind ? `<div class="tt-lesson-kind${lesson.substitute ? ' sub' : ''}">${kind}</div>` : ''}
         </div>
@@ -1836,7 +1836,8 @@ async function commitLessonSlot(input, slot, { ignoreConflictWith = null, scope 
         + 'Solange die Vertretung dort liegt, sind sie nicht zu sehen (sie bleiben aber gespeichert).\n\nVertretung trotzdem anlegen?')) return false;
   // Mit dem eigenen Beginn der Stunde: Eine Nachfolgerin, die erst nach der beendeten beginnt, überschneidet
   // sich nie mit ihr und darf weiter bearbeitet werden (Nachtrag BUGS V1)
-  const endedHere = !isOneOffSlot(candidate) && !splitFrom && db.lessonSlots.find(s => s !== slot && endedBefore(s)
+  // Ohne Terminänderung (nur Raum, Farbe …) nie: Altdaten aus V1 ließen sich sonst gar nicht mehr speichern (Y14)
+  const endedHere = !isOneOffSlot(candidate) && !splitFrom && !(slot && !changesSchedule) && db.lessonSlots.find(s => s !== slot && endedBefore(s)
       && slotsShareDate(candidate, s) && partsOverlap(part, s.part));
   if (endedHere) {
     // Eine bestehende Stunde mit früheren Einträgen läge in früheren Wochen auf dem Platz der beendeten: dort
@@ -7277,6 +7278,7 @@ function renderSeatingPlan() {
     lastSeatingDateStr = dateStr;
   }
 
+  document.getElementById('seating-overflow-hint').classList.add('hidden');   // auch ohne Klasse (W16)
   // clear old elements
   canvas.querySelectorAll('.seating-card').forEach(c => c.remove());
   canvas.querySelectorAll('.seating-grid-cell').forEach(c => c.remove());
@@ -7381,8 +7383,8 @@ function renderSeatingPlan() {
     const absence = (s.attendance||[]).find(a => a.date === dateStr && (a.type === 'abwesend' || a.type === 'entschuldigt'));
     const late = (s.attendance||[]).some(a => a.date === dateStr && a.type === 'zuspät');
     const forgotHw = (s.homework||[]).some(h => h.date === dateStr);
-    const participation = (s.participation||[]).find(p => p.date === dateStr && !p.label)
-      || (s.participation||[]).find(p => p.date === dateStr);
+    // Nur Mitarbeit ohne Titel: „Referat“ gehört zu einer Spalte der Tabelle (Regel 49, W10)
+    const participation = (s.participation||[]).find(p => p.date === dateStr && !p.label);
 
     const card = document.createElement('div');
     card.className = 'seating-card';

@@ -59,6 +59,7 @@ input[type="date"] { min-height: 1.2em; } /* Fix iOS Safari date input collapse 
    hinaus – auf dem iPhone fehlte die Leiste oben. 100dvh = sichtbare Höhe (100vh ist in Safari die mit
    eingefahrener Leiste, also zu hoch). */
 #app{display:flex;height:100vh;height:100dvh;width:100vw;margin:auto;min-height:650px;background:var(--bg-primary);overflow-x:auto;overflow-y:hidden;padding-top:env(safe-area-inset-top);padding-left:env(safe-area-inset-left);padding-right:env(safe-area-inset-right);padding-bottom:env(safe-area-inset-bottom);}
+@media (max-height: 650px){#app{min-height:0;}}   /* Handy quer (~390 px hoch): sonst scrollt die ganze Seite und die Leisten liegen unten außerhalb (W8) */
 
 /* Als Karte mit Rahmen nur in großen Fenstern mit Maus (Desktop). Auf dem iPad blieb sonst rundum bis zu einem
    Drittel schwarz (BUGS X1). Die Schwelle liegt über dem iPad Pro 13″ quer (1376 × 1032), das mit Trackpad auch

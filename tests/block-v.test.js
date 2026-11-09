@@ -84,6 +84,17 @@ describe('V1: Stunde auf den Platz einer beendeten Stunde', () => {
     expect(app('lessonsAt("2026-09-28", 1)').map(s => s.id)).toEqual(['di8a']);
   });
 
+  it('Y14: Altdaten (Stunde schon vor dem Fix auf dem Platz der beendeten, mit früheren Einträgen) – nur Raum ändern geht', async () => {
+    app(`db.lessonSlots.push({ id: 'alt', day: 0, block: 1, part: 'full', subject: 'Physik', color: '#f59e0b', groupId: 'g2', recurring: 'weekly' })`);
+    data()['alt_2026-09-14'] = { notes: 'früher' };
+    editLesson('alt', '2026-09-28');
+    document.getElementById('new-lesson-room').value = 'R 210';
+    await app('saveLessonSlot()');
+    expect(toasts()).not.toMatch(/früheren Wochen/);
+    expect(slot('alt').room).toBe('R 210');
+    expect(slot('alt').day).toBe(0);
+  });
+
   it('8a mit früheren Einträgen, „alle Stunden ändern“: abgelehnt statt Überschneidung in früheren Wochen', async () => {
     data()['di8a_2026-09-15'] = { notes: 'Versuch 1' };
     editLesson('di8a', '2026-09-29');
