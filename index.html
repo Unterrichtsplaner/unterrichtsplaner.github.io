@@ -40,7 +40,7 @@
       }
     })();
   </script>
-  <link rel="stylesheet" href="style.css?v=482" />
+  <link rel="stylesheet" href="style.css?v=486" />
   <script>
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
@@ -1514,7 +1514,7 @@
             <div id="seating-student-participation-summary" class="seating-part-summary"></div>
             <div class="entry-list" id="participation-list"></div>
           </section>
-          <section id="sw-sec-studentapp" class="sw-sec" data-private hidden>
+          <section id="sw-sec-studentapp" class="sw-sec" hidden><!-- Geben offen, Details darin data-private (AJ2b) -->
             <h3 class="seating-hint-title"><i data-icon="student"></i>Schülerapp</h3>
             <div id="sw-studentapp"></div>
           </section>
@@ -1769,6 +1769,25 @@
     </div>
   </div>
 
+<!-- Schülerapp (AJ2b): Sticker oder Baustelle geben. Nach dem Schüler-Fenster im Markup, damit es darüber liegt. -->
+<div id="modal-give-sticker" class="modal-overlay hidden" onclick="closeModalOnOverlay(event,'modal-give-sticker')">
+  <div class="modal modal-small" onclick="event.stopPropagation()">
+    <div class="modal-header">
+      <h2 id="gs-title">Sticker geben</h2>
+      <button class="modal-close" aria-label="Schließen" onclick="closeModalLikeButton('modal-give-sticker')">✕</button>
+    </div>
+    <div class="modal-body gs-body">
+      <div id="gs-choices" class="gs-choices" role="group" aria-label="Auswahl"></div>
+      <div class="form-group"><label for="gs-reason" id="gs-reason-label">Wofür?</label><input type="text" id="gs-reason" class="form-input" maxlength="120" /></div>
+      <p class="field-hint-muted" id="gs-hint"></p>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-secondary" onclick="closeModalLikeButton('modal-give-sticker')">Abbrechen</button>
+      <button class="btn-primary" id="gs-save" onclick="saveGive()">Geben</button>
+    </div>
+  </div>
+</div>
+
 <!-- Schülerapp (AJ1): großer Code für die Klasse am Beamer, auch persönlicher Code eines Schülers (AJ2).
      Steht spät im Markup: liegt über dem Schüler-Fenster, aus dem es geöffnet wird. -->
 <div id="modal-studentapp-beamer" class="modal-overlay hidden" onclick="closeModalOnOverlay(event,'modal-studentapp-beamer')">
@@ -1798,15 +1817,15 @@
   </div>
 
   <script src="lib/crypto-js.min.js"></script>
-  <script src="crypto-helper.js?v=482"></script>
+  <script src="crypto-helper.js?v=486"></script>
   <script src="lib/firebase-app-compat.js"></script>
   <script src="lib/firebase-auth-compat.js"></script>
   <script src="lib/firebase-firestore-compat.js"></script>
-  <script src="firebase-config.js?v=482"></script>
-  <script src="sync-manager.js?v=482"></script>
-  <script src="sync-merge.js?v=482"></script>
+  <script src="firebase-config.js?v=486"></script>
+  <script src="sync-manager.js?v=486"></script>
+  <script src="sync-merge.js?v=486"></script>
   <script src="lib/qrcode.js"></script>
-  <script src="student-share.js?v=482"></script>
-  <script src="app.js?v=482"></script>
+  <script src="student-share.js?v=486"></script>
+  <script src="app.js?v=486"></script>
 </body>
 </html>

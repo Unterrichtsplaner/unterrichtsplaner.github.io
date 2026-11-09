@@ -244,6 +244,35 @@ describe('Persönliche Seite (AJ2)', () => {
     expect(t).toMatch(/3\s*längste Serie/);   // 21.09., 28.09., (05.10. gefehlt), 12.10.
   });
 
+  it('AJ2b: Baustelle mit Textmarker, „Von Herrn …“ mit Grund, Album mit gesperrten Stickern und Hinweis', () => {
+    const d = me();
+    d.giver = 'Herr T.'; d.bauXP = 20;
+    d.bau = { text: 'Material fehlt oft', since: '2026-10-26' };
+    d.gifts = [{ name: 'Erklärprofi', icon: 'bubble', color: 3, reason: 'hat Lisa geholfen', date: '2026-11-02', xp: 20 },
+      { name: 'Baustelle geschafft', icon: 'crane', color: 1, reason: 'Hausaufgaben', date: '2026-10-20', xp: 20 }];
+    d.album = [{ name: 'Erstes Plus', icon: 'plus', color: 0 }, { name: 'Erklärprofi', icon: 'bubble', color: 3 }, { name: 'Baustelle geschafft', icon: 'crane', color: 1 }];
+    d.locked = [{ name: 'Dranbleiben', icon: 'flame', hint: '3× Plus in Folge' }];
+    page().innerHTML = window.SchuelerSeite.buildMePage(d, NOW);
+    expect(page().querySelector('.bau .bt').textContent).toBe('Material fehlt oft');
+    expect(page().querySelector('.bau').textContent).toMatch(/seit 26\.10\..*20 XP/s);
+    expect(page().textContent).toMatch(/Von Herrn T\./);
+    expect([...page().querySelectorAll('.gift')].map(g => g.textContent.replace(/\s+/g, ' ').trim())).toEqual([
+      'Erklärprofi„hat Lisa geholfen“02.11., +20 XP', 'Baustelle geschafft„Hausaufgaben“20.10., +20 XP']);
+    expect(page().querySelectorAll('.album .stk:not(.locked)').length).toBe(3);
+    expect(page().querySelector('.album .stk.locked').textContent).toMatch(/Dranbleiben3× Plus in Folge/);
+    expect(page().querySelector('.gift .s svg')).not.toBeNull();
+  });
+
+  it('AJ2b: präparierte Sticker, Gründe und Baustellen werden escaped; unbekanntes Symbol zeigt den Stern', () => {
+    const d = me();
+    d.giver = X; d.bau = { text: X, since: '2026-10-26' };
+    d.gifts = [{ name: X, icon: X, color: X, reason: X, date: '2026-11-02', xp: X }];
+    d.album = [{ name: X, icon: '<img data-xss>', color: 1 }]; d.locked = [{ name: X, icon: X, hint: X }];
+    window.renderStudentPage(d);
+    expect(document.querySelectorAll('[data-xss]').length).toBe(0);
+    expect(page().querySelectorAll('.album svg').length).toBe(2);
+  });
+
   it('Reiter „Klasse“ zeigt die Klassenseite ohne doppelten Kopf', () => {
     window.SchuelerSeite.setMeTab('klasse');
     page().innerHTML = window.SchuelerSeite.buildMePage(me(), NOW);

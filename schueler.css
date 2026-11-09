@@ -187,6 +187,31 @@ details.row .more { padding: 0 0 14px 32px; }
 .fb small { display: block; font-size: 11px; color: var(--ink-2); margin-top: 4px; }
 .legend { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 12px; color: var(--ink-2); margin-top: 10px; }
 .legend b { font-weight: 800; color: var(--ink); }
+/* Baustelle, Sticker von der Lehrkraft, Album (AJ2b) */
+.bau { position: relative; margin-top: 18px; }
+.bau .k { font-size: 13px; color: var(--ink-2); padding-right: 40px; }
+.bau .bt { margin-top: 4px; }
+.bau .bt span { font-size: 18px; font-weight: 800; background: var(--marker); color: var(--marker-ink); padding: 0 4px; border-radius: 3px 8px 4px 9px;
+  box-decoration-break: clone; -webkit-box-decoration-break: clone; }
+.bau .r { font-size: 13px; color: var(--ink-2); margin-top: 8px; line-height: 1.4; }
+.bau .ic { position: absolute; right: 14px; top: 12px; width: 30px; height: 30px; color: var(--ink); }
+.bau .ic svg { width: 100%; height: 100%; }
+.gift { display: grid; grid-template-columns: 62px 1fr; gap: 14px; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--grid); }
+.gifts .gift:last-child { border-bottom: none; }
+.gift .s, .stk .s { display: flex; align-items: center; justify-content: center; background: var(--stk); color: #fff; border: 3px solid #fff; box-shadow: 0 2px 6px rgba(28, 42, 87, .25); }
+.gift .s { width: 56px; height: 56px; border-radius: 16px; }
+.gift .s svg { width: 28px; height: 28px; }
+.gift b { font-size: 15px; }
+.gift .q { font-size: 14px; margin-top: 2px; line-height: 1.35; overflow-wrap: anywhere; }
+.gift .d { font-size: 12px; color: var(--ink-3); margin-top: 3px; }
+.album { display: grid; grid-template-columns: repeat(auto-fill, minmax(88px, 1fr)); gap: 14px 10px; }
+.stk { text-align: center; font-size: 12px; line-height: 1.3; color: var(--ink-2); overflow-wrap: anywhere; }
+.stk .s { width: 72px; height: 72px; margin: 0 auto 6px; border-radius: 20px; }
+.stk .s svg { width: 34px; height: 34px; }
+.stk b { display: block; color: var(--ink); font-size: 13px; }
+.stk.locked .s { background: transparent; border: 2px dashed var(--ink-3); box-shadow: none; color: var(--ink-3); }
+.stk.locked b { color: var(--ink-3); }
+@media (prefers-color-scheme: dark) { .gift .s, .stk .s { border-color: var(--card); } }
 .yr { display: flex; flex-direction: column; gap: 6px; }
 .yr-month { display: grid; grid-template-columns: 34px minmax(0, 1fr); gap: 8px; align-items: center; }
 .yr-m { font-size: 12px; font-weight: 700; color: var(--ink-2); }

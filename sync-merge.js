@@ -132,7 +132,10 @@ const MERGE_SPEC = {
               personal: {
                 together: [{ fields: ['level', 'step'], what: 'Tempo der Level', show: p => (p.level || 'normal') }],
                 fields: { ranks: { atomic: 'ask', what: 'Ränge', show: r => (r || []).filter(Boolean).join(', ') || 'keine' },
-                  jokers: { atomic: 'ask', what: 'Joker', show: j => (j || []).join(', ') || 'keine' } },
+                  jokers: { atomic: 'ask', what: 'Joker', show: j => (j || []).join(', ') || 'keine' },
+                  stickers: { atomic: 'ask', what: 'Sticker von dir', show: l => (l || []).map(x => x.name).join(', ') || 'keine' },   // AJ2b
+                  autoStickers: { atomic: 'ask', what: 'Sticker, die von selbst kommen', show: l => (l || []).map(x => x.name).join(', ') || 'keine' },
+                  bauXP: { atomic: 'ask', what: 'XP für eine geschaffte Baustelle' } },
                 other: MERGE_LOCAL,
               },
             },
@@ -175,6 +178,9 @@ const MERGE_SPEC = {
             // Schülerapp Stufe 2a (AJ2): persönlicher Link als Ganzes, eingelöste Joker als Liste
             studentApp: { fields: { access: { atomic: 'ask', what: 'Persönlicher Link', show: a => (a && a.id ? `Link …${String(a.id).slice(-4)}` : 'kein Link') } }, other: MERGE_LOCAL },
             jokersUsed: { list: j => j.id, onDelete: 'ask', what: j => `Joker vom ${mergeShortDate(j.date)}`, item: { other: MERGE_LOCAL } },
+            // AJ2b: vergebene Sticker (Grund als Text), Baustellen (geschafft: das spätere Datum gilt)
+            stickersGiven: { list: x => x.id, onDelete: 'ask', what: x => `Sticker „${x.name || ''}“ vom ${mergeShortDate(x.date)}`, item: { fields: { reason: MERGE_TEXT }, other: MERGE_LOCAL } },
+            baustellen: { list: x => x.id, onDelete: 'ask', what: x => `Baustelle „${x.text || ''}“`, item: { fields: { text: MERGE_TEXT, done: { atomic: 'max' }, xp: { atomic: 'max' } }, other: MERGE_LOCAL } },
           },
         },
       },

@@ -46,6 +46,7 @@ cards: '<rect x="3" y="3" width="8" height="8" rx="1"/><rect x="13" y="3" width=
   'check-circle':'<path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/>',
   late:         '<circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>',
   plus:         '<line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>',
+  star:         '<path d="M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1-4.4-4.3 6.1-.9z"/>',
   qr:           '<rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><path d="M14 14h3v3h-3zM21 14v.01M14 21h3M21 17v4h-4"/>',
   list:         '<line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/>',
   download:     '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>',
@@ -8734,6 +8735,7 @@ const MODAL_CLOSE_ACTIONS = {
   'modal-class-notes': () => closeClassNotes(),      // Eingetipptes übernehmen, nicht verwerfen (AD15)
   'modal-lesson-topic': () => closeLessonTopic(),    // Eingetipptes übernehmen, nicht verwerfen (AI2)
   'modal-new-year': () => closeNewYear(),            // ab Schritt 2 nachfragen (Y6)
+  'modal-give-sticker': () => closeGive(),           // Eingetipptes nur nach Rückfrage verwerfen (AJ2b)
   'modal-add-student': () => leaveGuardedForm('modal-add-student'),         // bei Änderungen fragen (W2)
   'modal-import-students': () => leaveGuardedForm('modal-import-students'),
   'modal-add-group': () => leaveGuardedForm('modal-add-group'),
@@ -12509,6 +12511,31 @@ const SA_XP = { positive: 10, excellent: 20 };
 const SA_FIRST_LEVEL_XP = 10;              // Level 2 mit dem ersten Plus
 const SA_JOKER_EVERY = 4, SA_JOKER_MAX = 4;
 const SA_MIDDLE_XP_PER_LESSON = 4.7;       // mittlere Schüler, gemessen im Punkte-Rechner (170 XP bei 36 Stunden)
+// Sticker (AJ2b): von Hand mit Grund (Katalog je Klasse, XP einstellbar), automatisch nach Regeln (0 XP, sonst zählten
+// die Plusse doppelt), Baustelle geschafft (XP einstellbar). Feste Kennungen der Startwerte, damit Vergebenes passt.
+const SA_STICKERS_DEFAULT = [
+  { id: 'd-erklaer', name: 'Erklärprofi', icon: 'bubble', color: 3, xp: 20 },
+  { id: 'd-mutig', name: 'Mutig gefragt', icon: 'ask', color: 2, xp: 20 },
+  { id: 'd-team', name: 'Teamplayer', icon: 'hands', color: 1, xp: 20 },
+];
+const SA_AUTO_DEFAULT = [
+  { id: 'a-first', name: 'Erstes Plus', icon: 'plus', color: 0, kind: 'any', n: 1, mode: 'total' },
+  { id: 'a-pp', name: 'Doppelplus', icon: 'star', color: 4, kind: 'excellent', n: 1, mode: 'total' },
+  { id: 'a-streak', name: 'Dranbleiben', icon: 'flame', color: 2, kind: 'any', n: 3, mode: 'streak' },
+];
+const SA_AUTO_KINDS = { any: 'Plus', excellent: 'Doppelplus' };
+const SA_AUTO_MODES = { streak: 'in Folge', total: 'insgesamt', half: 'im Halbjahr' };
+const SA_ICON_NAMES = { star: 'Stern', bubble: 'Sprechblase', ask: 'Frage', hands: 'Hände', bulb: 'Glühbirne', rocket: 'Rakete', heart: 'Herz',
+  flame: 'Flamme', medal: 'Medaille', puzzle: 'Puzzle', plus: 'Plus', check: 'Haken', crane: 'Baustelle' };
+const SA_COLOR_NAMES = ['Orange', 'Grün', 'Pink', 'Blau', 'Lila', 'Gelb'];
+const SA_BAU_DEFAULT_XP = 20;
+const SA_BAU_SUGGEST = ['Material fehlt oft', 'Hausaufgaben', 'Pünktlich sein', 'Öfter melden', 'Heftführung', 'Nicht reinrufen'];
+const clampInt = (v, lo, hi, d) => { const n = Math.round(Number(v)); return Number.isFinite(n) ? Math.max(lo, Math.min(hi, n)) : d; };
+const cleanSticker = x => x && x.id && String(x.name || '').trim()
+  ? { id: String(x.id), name: String(x.name).trim().slice(0, 30), icon: SA_ICON_NAMES[x.icon] ? x.icon : 'star', color: clampInt(x.color, 0, 5, 0), xp: clampInt(x.xp, 0, 200, 20) } : null;
+const cleanAuto = x => x && x.id && String(x.name || '').trim()
+  ? { id: String(x.id), name: String(x.name).trim().slice(0, 30), icon: SA_ICON_NAMES[x.icon] ? x.icon : 'star', color: clampInt(x.color, 0, 5, 0),
+    kind: SA_AUTO_KINDS[x.kind] ? x.kind : 'any', n: clampInt(x.n, 1, 99, 1), mode: SA_AUTO_MODES[x.mode] ? x.mode : 'total' } : null;
 
 function personalOf(g) {
   const sa = g && g.studentApp && typeof g.studentApp === 'object' ? g.studentApp : {};
@@ -12521,6 +12548,9 @@ function personalOf(g) {
     step: Number(p.step) >= 5 ? Math.round(Number(p.step)) : null,
     ranks,
     jokers: Array.isArray(p.jokers) ? p.jokers.map(x => String(x || '').trim()).filter(Boolean).slice(0, 12) : SA_JOKERS_DEFAULT.slice(),
+    stickers: (Array.isArray(p.stickers) ? p.stickers : SA_STICKERS_DEFAULT).map(cleanSticker).filter(Boolean).slice(0, 20),
+    autoStickers: (Array.isArray(p.autoStickers) ? p.autoStickers : SA_AUTO_DEFAULT).map(cleanAuto).filter(Boolean).slice(0, 20),
+    bauXP: clampInt(p.bauXP, 0, 200, SA_BAU_DEFAULT_XP),
   };
 }
 const personalActive = g => studentAppOn() && studentAppOf(g).on && !!studentAppOf(g).access && personalOf(g).on;
@@ -12546,7 +12576,28 @@ function yearParticipation(s, todayStr) {
   const from = schoolYearStart(todayStr);
   return (s.participation || []).filter(p => p && isDateStr(p.date) && p.date >= from && p.date <= todayStr);
 }
-const studentXP = (s, todayStr = formatDate(new Date())) => yearParticipation(s, todayStr).reduce((n, p) => n + (SA_XP[p.value] || 0), 0);
+// Einträge eines Schülers aus diesem Schuljahr (Sticker von Hand, Baustellen nach Datum, geschaffte nach Erledigt-Datum)
+const yearList = (list, todayStr, field = 'date') => {
+  const from = schoolYearStart(todayStr);
+  return (Array.isArray(list) ? list : []).filter(x => x && isDateStr(x[field]) && x[field] >= from && x[field] <= todayStr);
+};
+// XP: Plusse + Sticker von Hand + geschaffte Baustellen (je mit dem XP-Wert beim Vergeben). Ein gelöschter Eintrag (Verklicken) nimmt seine XP mit.
+const studentXP = (s, todayStr = formatDate(new Date())) => yearParticipation(s, todayStr).reduce((n, p) => n + (SA_XP[p.value] || 0), 0)
+  + yearList(s.stickersGiven, todayStr).reduce((n, x) => n + clampInt(x.xp, 0, 200, 0), 0)
+  + yearList(s.baustellen, todayStr, 'done').reduce((n, x) => n + clampInt(x.xp, 0, 200, 0), 0);
+// Automatische Sticker: Regel erfüllt? Gezählt in Stunden (Serie wie studentStreak: ein Fehltag unterbricht nicht)
+function autoStickerEarned(rule, s, lessonDates, todayStr) {
+  const fits = p => (rule.kind === 'excellent' ? p.value === 'excellent' : !!SA_XP[p.value]);
+  const parts = yearParticipation(s, todayStr).filter(fits);
+  if (rule.mode === 'total') return parts.length >= rule.n;
+  if (rule.mode === 'half') { const r = runningHalf(todayStr); return parts.filter(p => inPeriod(p.date, r)).length >= rule.n; }
+  const hit = new Set(parts.map(p => p.date));
+  const absent = new Set((s.attendance || []).filter(a => a && (a.type === 'abwesend' || a.type === 'entschuldigt')).map(a => a.date));
+  let run = 0, best = 0;
+  lessonDates.slice().reverse().forEach(d => { if (hit.has(d)) best = Math.max(best, ++run); else if (!absent.has(d)) run = 0; });
+  return best >= rule.n;
+}
+const autoHint = r => `${r.n}× ${SA_AUTO_KINDS[r.kind]} ${SA_AUTO_MODES[r.mode]}`;
 function levelInfo(xp, step) {
   if (xp < SA_FIRST_LEVEL_XP) return { level: 1, from: 0, next: SA_FIRST_LEVEL_XP };
   const k = Math.floor((xp - SA_FIRST_LEVEL_XP) / step);
@@ -12593,6 +12644,25 @@ function studentPersonalSnapshot(g, s, now = new Date(), ctx = null) {
     jokers: { ...info.jokers, max: SA_JOKER_MAX, every: SA_JOKER_EVERY, list: p.jokers },
     feedback, streak: studentStreak(s, ctx.lessons, todayStr), klasse: ctx.klasse,
     year: studentYearMap(s, ctx, todayStr),
+    ...studentStickerSnapshot(g, s, ctx, todayStr),
+  };
+}
+// Sticker und Baustelle für die Seite „Ich“ (AJ2b): Grund und Baustellen-Text sieht nur der Schüler selbst
+function studentStickerSnapshot(g, s, ctx, todayStr) {
+  const p = personalOf(g);
+  const given = yearList(s.stickersGiven, todayStr).map(x => ({ name: String(x.name || ''), icon: x.icon, color: x.color, reason: String(x.reason || ''), date: x.date, xp: clampInt(x.xp, 0, 200, 0) }));
+  const done = yearList(s.baustellen, todayStr, 'done').map(x => ({ name: 'Baustelle geschafft', icon: 'crane', color: 1, reason: String(x.text || ''), date: x.done, xp: clampInt(x.xp, 0, 200, 0) }));
+  const gifts = [...given, ...done].sort((a, b) => b.date.localeCompare(a.date));
+  const autos = p.autoStickers.map(r => ({ r, ok: autoStickerEarned(r, s, ctx.lessons, todayStr) }));
+  const open = (Array.isArray(s.baustellen) ? s.baustellen : []).filter(x => x && !x.done && String(x.text || '').trim()).sort((a, b) => String(b.date).localeCompare(String(a.date)))[0];
+  return {
+    gifts: gifts.slice(0, 30),
+    album: [...autos.filter(a => a.ok).map(a => ({ name: a.r.name, icon: a.r.icon, color: a.r.color, hint: autoHint(a.r) })),
+      ...gifts.map(x => ({ name: x.name, icon: x.icon, color: x.color }))].slice(0, 60),
+    locked: autos.filter(a => !a.ok).map(a => ({ name: a.r.name, icon: a.r.icon, hint: autoHint(a.r) })),
+    bau: open ? { text: String(open.text).trim(), since: open.date } : null,
+    bauXP: p.bauXP,
+    giver: studentAppTeacherName(),   // nicht „from“: das sind die XP am Anfang des Levels
   };
 }
 // Jahreskarte (AJ2c): jede vergangene Stunde ab dem ersten Eintrag der Klasse im Schuljahr, mit der eigenen Mitarbeit
@@ -12747,6 +12817,162 @@ function printStudentCards(groupId) {
   document.title = prev;
 }
 
+// ── Sticker geben, Baustelle geben (ein Fenster, AJ2b) ──
+let giveState = null;   // { mode: 'sticker'|'bau', groupId, studentId, choice } – nur Ansicht, nie in db
+function openGive(mode, groupId, studentId) {
+  const g = db.groups.find(x => x.id === groupId), s = findStudentIn(groupId, studentId);
+  if (!g || !s) return;
+  const p = personalOf(g);
+  if (mode === 'sticker' && !p.stickers.length) { showToast('Noch keine Sticker angelegt (Reiter „Schülerapp“)', 'error'); return; }
+  giveState = { mode, groupId, studentId, choice: mode === 'sticker' ? p.stickers[0].id : '' };
+  document.getElementById('gs-title').textContent = `${mode === 'sticker' ? 'Sticker' : 'Baustelle'} für ${s.firstName}`;
+  document.getElementById('gs-reason-label').textContent = mode === 'sticker' ? 'Wofür?' : 'Was soll besser werden?';
+  const input = document.getElementById('gs-reason');
+  input.value = '';
+  input.placeholder = mode === 'sticker' ? 'z. B. hat die Umformung super erklärt' : 'kurzer Satz';
+  document.getElementById('gs-hint').textContent = mode === 'sticker'
+    ? `Das sieht ${s.firstName} mit Datum in der App.`
+    : `Nur ${s.firstName} sieht das in der App. Geschafft gibt es den Sticker „Baustelle geschafft“ und ${p.bauXP} XP.`;
+  document.getElementById('gs-save').textContent = mode === 'sticker' ? 'Geben' : 'Baustelle geben';
+  renderGiveChoices();
+  openModal('modal-give-sticker');
+}
+function renderGiveChoices() {
+  const st = giveState, box = document.getElementById('gs-choices');
+  if (!st || !box) return;
+  const g = db.groups.find(x => x.id === st.groupId);
+  if (st.mode === 'sticker') {
+    box.innerHTML = personalOf(g).stickers.map(x => `<button type="button" class="gs-stk${st.choice === x.id ? ' on' : ''}" data-id="${escHtml(x.id)}" aria-pressed="${st.choice === x.id}">
+      <span class="gs-tile" style="--stk:${escHtml(StudentShare.stickerColor(x.color))}">${StudentShare.stickerSvg(x.icon)}</span><b>${escHtml(x.name)}</b><small>${x.xp} XP</small></button>`).join('');
+    box.querySelectorAll('[data-id]').forEach(b => b.addEventListener('click', () => { st.choice = b.dataset.id; renderGiveChoices(); }));
+  } else {
+    box.innerHTML = `<div class="sw-chips">${SA_BAU_SUGGEST.map(t => `<button type="button" data-text="${escHtml(t)}">${escHtml(t)}</button>`).join('')}</div>`;
+    box.querySelectorAll('[data-text]').forEach(b => b.addEventListener('click', () => { document.getElementById('gs-reason').value = b.dataset.text; }));
+  }
+}
+function saveGive() {
+  const st = giveState;
+  if (!st) return;
+  const g = db.groups.find(x => x.id === st.groupId), s = findStudentIn(st.groupId, st.studentId);
+  if (!g || !s) { showToast('Diesen Schüler gibt es nicht mehr (z. B. durch Sync)', 'error'); return; }
+  const text = document.getElementById('gs-reason').value.trim().slice(0, 120);
+  const today = formatDate(new Date());
+  let entry, list, label;
+  if (st.mode === 'sticker') {
+    const k = personalOf(g).stickers.find(x => x.id === st.choice);
+    if (!k) { showToast('Bitte einen Sticker wählen', 'error'); return; }
+    entry = { id: uid(), date: today, name: k.name, icon: k.icon, color: k.color, xp: k.xp, ...(text ? { reason: text } : {}) };
+    list = s.stickersGiven = Array.isArray(s.stickersGiven) ? s.stickersGiven : [];
+    label = `Sticker „${k.name}“ gegeben`;
+  } else {
+    if (!text) { showToast('Bitte kurz schreiben, was besser werden soll', 'error'); return; }
+    entry = { id: uid(), date: today, text };
+    list = s.baustellen = Array.isArray(s.baustellen) ? s.baustellen : [];
+    label = 'Baustelle eingetragen';
+  }
+  list.push(entry);
+  giveState = null;
+  saveDB();
+  closeModal('modal-give-sticker');
+  refreshOpenProfile(s);
+  showUndoToast(label, () => { const i = list.indexOf(entry); if (i === -1) return; list.splice(i, 1); saveDB(); refreshOpenProfile(s); });
+}
+function closeGive() {
+  const typed = document.getElementById('gs-reason').value.trim();
+  if (typed && !confirm('Eingetipptes verwerfen?')) return;
+  giveState = null;
+  closeModal('modal-give-sticker');
+}
+// Baustelle geschafft (Sticker + XP) bzw. Eintrag entfernen (Verklicken: XP gehen mit), beides mit „Rückgängig“
+function finishBaustelle(groupId, studentId, b) {
+  const g = db.groups.find(x => x.id === groupId), s = findStudentIn(groupId, studentId);
+  if (!g || !s || !(s.baustellen || []).includes(b)) return;
+  b.done = formatDate(new Date());
+  b.xp = personalOf(g).bauXP;
+  saveDB();
+  refreshOpenProfile(s);
+  showUndoToast('Baustelle geschafft', () => { if (!(s.baustellen || []).includes(b)) return; delete b.done; delete b.xp; saveDB(); refreshOpenProfile(s); });
+}
+function removeStudentAppEntry(groupId, studentId, field, entry, label) {
+  const s = findStudentIn(groupId, studentId);
+  const list = s && s[field];
+  const i = Array.isArray(list) ? list.indexOf(entry) : -1;
+  if (i === -1) return;   // inzwischen weg (Sync): nichts löschen (Regel 9)
+  list.splice(i, 1);
+  saveDB();
+  refreshOpenProfile(s);
+  showUndoToast(label, () => { if (list.includes(entry)) return; list.splice(Math.min(i, list.length), 0, entry); saveDB(); refreshOpenProfile(s); });
+}
+
+// Sticker-Katalog und Regeln im Reiter „Schülerapp“
+function setPersonalList(groupId, field, list) {
+  const g = db.groups.find(x => x.id === groupId);
+  if (!g) return;
+  ensurePersonal(g)[field] = list;
+  saveDB();
+}
+function setPersonalBauXP(groupId, v) {
+  const g = db.groups.find(x => x.id === groupId);
+  if (!g) return;
+  ensurePersonal(g).bauXP = clampInt(v, 0, 200, SA_BAU_DEFAULT_XP);
+  saveDB();
+}
+const stickerTile = (icon, color) => `<span class="gs-tile" style="--stk:${escHtml(StudentShare.stickerColor(color))}">${StudentShare.stickerSvg(icon)}</span>`;
+const optionList = (obj, cur) => Object.entries(obj).map(([k, v]) => `<option value="${escHtml(k)}"${k === cur ? ' selected' : ''}>${escHtml(v)}</option>`).join('');
+const colorOptions = cur => SA_COLOR_NAMES.map((n, i) => `<option value="${i}"${i === cur ? ' selected' : ''}>${n}</option>`).join('');
+function stickerEditorHTML(p) {
+  return `<div class="form-group"><span class="group-label">Sticker von dir</span>
+      <div class="sa-stk-list" id="sa-stk-list">${p.stickers.map(x => `<div class="sa-stk-row" data-id="${escHtml(x.id)}">${stickerTile(x.icon, x.color)}
+        <input type="text" class="form-input" data-f="name" maxlength="30" value="${escHtml(x.name)}" aria-label="Name des Stickers">
+        <button type="button" class="btn-icon" data-del aria-label="Sticker ${escHtml(x.name)} entfernen">✕</button>
+        <div class="sa-stk-opts"><select class="form-input" data-f="icon" aria-label="Symbol">${optionList(SA_ICON_NAMES, x.icon)}</select>
+          <select class="form-input" data-f="color" aria-label="Farbe">${colorOptions(x.color)}</select>
+          <label class="sa-xp"><input type="number" class="form-input" data-f="xp" min="0" max="200" value="${x.xp}" aria-label="XP"> XP</label></div></div>`).join('')}</div>
+      <div class="sa-row-btns"><button type="button" class="btn-secondary" id="sa-stk-add">+ Sticker</button></div>
+      <p class="field-hint-muted">Vergibst du im Schüler-Fenster (Mehr → Schülerapp → Sticker geben), mit Grund. Schon vergebene bleiben, wie sie waren.</p></div>
+    <div class="form-group"><span class="group-label">Sticker, die von selbst kommen</span>
+      <div class="sa-stk-list" id="sa-auto-list">${p.autoStickers.map(x => `<div class="sa-stk-row is-auto" data-id="${escHtml(x.id)}">${stickerTile(x.icon, x.color)}
+        <input type="text" class="form-input" data-f="name" maxlength="30" value="${escHtml(x.name)}" aria-label="Name des Stickers">
+        <button type="button" class="btn-icon" data-del aria-label="Regel ${escHtml(x.name)} entfernen">✕</button>
+        <div class="sa-stk-opts"><span class="sa-rule">Wenn <input type="number" class="form-input" data-f="n" min="1" max="99" value="${x.n}" aria-label="Anzahl">×
+          <select class="form-input" data-f="kind" aria-label="Was zählt">${optionList(SA_AUTO_KINDS, x.kind)}</select>
+          <select class="form-input" data-f="mode" aria-label="Wie gezählt">${optionList(SA_AUTO_MODES, x.mode)}</select></span>
+          <select class="form-input" data-f="icon" aria-label="Symbol">${optionList(SA_ICON_NAMES, x.icon)}</select>
+          <select class="form-input" data-f="color" aria-label="Farbe">${colorOptions(x.color)}</select></div></div>`).join('')}</div>
+      <div class="sa-row-btns"><button type="button" class="btn-secondary" id="sa-auto-add">+ Regel</button></div>
+      <p class="field-hint-muted">Gezählt wird in Stunden der Klasse; ein Fehltag unterbricht keine Serie. Diese Sticker geben keine XP (die Plusse zählen schon).</p></div>
+    <div class="form-group sa-bau-xp"><label for="sa-bau-xp">Baustelle geschafft bringt</label><input type="number" id="sa-bau-xp" class="form-input" min="0" max="200" value="${p.bauXP}"> XP</div>`;
+}
+function wireStickerEditor(content, g) {
+  const read = (box, auto) => [...content.querySelectorAll(`#${box} .sa-stk-row`)].map(row => {
+    const f = k => row.querySelector(`[data-f="${k}"]`).value;
+    return auto ? cleanAuto({ id: row.dataset.id, name: f('name'), icon: f('icon'), color: f('color'), kind: f('kind'), n: f('n'), mode: f('mode') })
+      : cleanSticker({ id: row.dataset.id, name: f('name'), icon: f('icon'), color: f('color'), xp: f('xp') });
+  }).filter(Boolean);
+  [['sa-stk-list', 'stickers', false], ['sa-auto-list', 'autoStickers', true]].forEach(([box, field, auto]) => {
+    const el = content.querySelector('#' + box);
+    if (!el) return;
+    el.addEventListener('change', e => {
+      setPersonalList(g.id, field, read(box, auto));
+      if (e.target.matches('[data-f="icon"], [data-f="color"]')) renderStudentAppTab();   // Vorschau des Stickers
+    });
+    el.querySelectorAll('[data-del]').forEach(b => b.addEventListener('click', () => {
+      b.closest('.sa-stk-row').remove();
+      setPersonalList(g.id, field, read(box, auto));
+      renderStudentAppTab();
+    }));
+  });
+  content.querySelector('#sa-stk-add')?.addEventListener('click', () => {
+    setPersonalList(g.id, 'stickers', [...personalOf(g).stickers, { id: uid(), name: 'Neuer Sticker', icon: 'star', color: 5, xp: 20 }]);
+    renderStudentAppTab();
+  });
+  content.querySelector('#sa-auto-add')?.addEventListener('click', () => {
+    setPersonalList(g.id, 'autoStickers', [...personalOf(g).autoStickers, { id: uid(), name: 'Neue Regel', icon: 'medal', color: 3, kind: 'any', n: 5, mode: 'total' }]);
+    renderStudentAppTab();
+  });
+  content.querySelector('#sa-bau-xp')?.addEventListener('change', e => setPersonalBauXP(g.id, e.target.value));
+}
+
 // ── Anzeigen ──
 function personalCardHTML(g) {
   const p = personalOf(g), n = (db.students[g.id] || []).length, cls = escHtml(g.className);
@@ -12767,6 +12993,7 @@ function personalCardHTML(g) {
       <div class="form-group"><label for="sa-jokers">Joker, einer pro Zeile</label>
         <textarea id="sa-jokers" class="form-input sa-jokers" rows="5">${escHtml(p.jokers.join('\n'))}</textarea>
         <p class="field-hint-muted">Alle ${SA_JOKER_EVERY} Level gibt es einen Joker, höchstens ${SA_JOKER_MAX} im Schuljahr. Der Schüler sucht beim Einlösen aus, du hakst ihn im Schüler-Fenster ab.</p></div>
+      ${stickerEditorHTML(p)}
       <div class="sa-row-btns"><button type="button" class="btn-secondary" id="sa-cards">${icon('printer')}Kärtchen drucken (${n})</button></div>
       <p class="field-hint-muted">Einzeln zum Scannen: Schüler-Fenster → Mehr → Schülerapp → „Code zeigen“.</p>` : ''}
   </section>`;
@@ -12782,8 +13009,10 @@ function wirePersonalCard(content, g) {
   }));
   content.querySelector('#sa-jokers')?.addEventListener('change', e => setPersonalJokers(g.id, e.target.value));
   content.querySelector('#sa-cards')?.addEventListener('click', () => printStudentCards(g.id));
+  wireStickerEditor(content, g);   // AJ2b
 }
-// Schüler-Fenster, Abschnitt „Schülerapp“ (privat wie Noten, Regel 16/80)
+// Schüler-Fenster, Abschnitt „Schülerapp“: Geben offen (im Unterricht ohne „Anzeigen“), Level, Joker, Baustellen-Text
+// und vergebene Sticker erst nach „Anzeigen“ (data-private, Regel 16/80)
 function renderStudentAppSection(s) {
   const sec = document.getElementById('sw-sec-studentapp'), box = document.getElementById('sw-studentapp');
   if (!sec || !box) return;
@@ -12791,17 +13020,37 @@ function renderStudentAppSection(s) {
   const on = !!(g && personalActive(g));
   sec.hidden = !on;
   if (!on) { box.innerHTML = ''; return; }
-  const info = studentPersonalInfo(g, s);
-  const used = (s.jokersUsed || []).filter(j => j && isDateStr(j.date) && j.date >= schoolYearStart(formatDate(new Date())));
-  box.innerHTML = `<div class="sw-sa-line"><b>Level ${info.level}</b>${info.rank ? ` · ${escHtml(info.rank)}` : ''} · ${info.xp} XP <small>(noch ${info.next - info.xp} bis Level ${info.level + 1})</small></div>
-    <div class="sw-sa-line">Joker: <b>${info.jokers.open} frei</b> <small>(${info.jokers.earned} verdient, ${info.jokers.used} eingelöst)</small></div>
-    ${used.length ? `<div class="sw-sa-used">${used.slice().reverse().map(j => `<span>${escHtml(formatDateShort(j.date))}${j.text ? ': ' + escHtml(j.text) : ''}</span>`).join('')}</div>` : ''}
-    <div class="sa-row-btns">${info.jokers.open ? '<button type="button" class="btn-primary" id="sw-sa-joker">Joker einlösen</button>' : ''}
-      <button type="button" class="btn-secondary" id="sw-sa-code">${icon('qr')}Code zeigen</button>
-      <button type="button" class="btn-secondary" id="sw-sa-renew">${icon('refresh')}Neuer Link</button></div>`;
-  box.querySelector('#sw-sa-joker')?.addEventListener('click', () => redeemJoker(g.id, s.id));
+  const today = formatDate(new Date());
+  const info = studentPersonalInfo(g, s, today);
+  const used = yearList(s.jokersUsed, today);
+  const openBau = (s.baustellen || []).filter(b => b && !b.done && String(b.text || '').trim());
+  const given = yearList(s.stickersGiven, today).slice().sort((a, b) => b.date.localeCompare(a.date));
+  const doneBau = yearList(s.baustellen, today, 'done');
+  box.innerHTML = `<div class="sa-row-btns"><button type="button" class="btn-primary" id="sw-sa-sticker">${icon('star')}Sticker geben</button>
+      <button type="button" class="btn-secondary" id="sw-sa-bau">Baustelle geben</button>
+      <button type="button" class="btn-secondary" id="sw-sa-code">${icon('qr')}Code zeigen</button></div>
+    ${openBau.length ? `<p class="sw-sa-count">${openBau.length === 1 ? '1 Baustelle offen' : `${openBau.length} Baustellen offen`}</p>` : ''}
+    <div class="sw-sa-private" data-private>
+      <div class="sw-sa-line"><b>Level ${info.level}</b>${info.rank ? ` · ${escHtml(info.rank)}` : ''} · ${info.xp} XP <small>(noch ${info.next - info.xp} bis Level ${info.level + 1})</small></div>
+      <div class="sw-sa-line">Joker: <b>${info.jokers.open} frei</b> <small>(${info.jokers.earned} verdient, ${info.jokers.used} eingelöst)</small></div>
+      ${used.length ? `<div class="sw-sa-used">${used.slice().reverse().map(j => `<span>${escHtml(formatDateShort(j.date))}${j.text ? ': ' + escHtml(j.text) : ''}</span>`).join('')}</div>` : ''}
+      ${openBau.map((b, i) => `<div class="sw-sa-bau"><span>Baustelle seit ${escHtml(formatDateShort(b.date))}: <b>${escHtml(b.text)}</b></span>
+        <button type="button" class="btn-secondary" data-bau-done="${i}">Geschafft</button><button type="button" class="entry-item-delete" data-bau-del="${i}" aria-label="Baustelle entfernen">✕</button></div>`).join('')}
+      ${given.length || doneBau.length ? `<div class="entry-list sw-sa-given">${given.map((x, i) => `<div class="entry-item">${stickerTile(x.icon, x.color)}
+          <span class="entry-item-text"><b>${escHtml(x.name)}</b>${x.reason ? ` · ${escHtml(x.reason)}` : ''}</span><span class="entry-item-date">${escHtml(formatDateShort(x.date))}</span>
+          <button class="entry-item-delete" data-stk-del="${i}" aria-label="Sticker ${escHtml(x.name)} entfernen">✕</button></div>`).join('')}
+        ${doneBau.map(b => `<div class="entry-item">${stickerTile('crane', 1)}<span class="entry-item-text"><b>Baustelle geschafft</b> · ${escHtml(b.text)}</span><span class="entry-item-date">${escHtml(formatDateShort(b.done))}</span></div>`).join('')}</div>` : ''}
+      <div class="sa-row-btns">${info.jokers.open ? '<button type="button" class="btn-secondary" id="sw-sa-joker">Joker einlösen</button>' : ''}
+        <button type="button" class="btn-secondary" id="sw-sa-renew">${icon('refresh')}Neuer Link</button></div>
+    </div>`;
+  box.querySelector('#sw-sa-sticker').addEventListener('click', () => openGive('sticker', g.id, s.id));
+  box.querySelector('#sw-sa-bau').addEventListener('click', () => openGive('bau', g.id, s.id));
   box.querySelector('#sw-sa-code').addEventListener('click', () => showStudentCode(g.id, s.id));
+  box.querySelector('#sw-sa-joker')?.addEventListener('click', () => redeemJoker(g.id, s.id));
   box.querySelector('#sw-sa-renew').addEventListener('click', () => renewStudentAccess(g.id, s.id));
+  box.querySelectorAll('[data-bau-done]').forEach(b => b.addEventListener('click', () => finishBaustelle(g.id, s.id, openBau[Number(b.dataset.bauDone)])));
+  box.querySelectorAll('[data-bau-del]').forEach(b => b.addEventListener('click', () => removeStudentAppEntry(g.id, s.id, 'baustellen', openBau[Number(b.dataset.bauDel)], 'Baustelle entfernt')));
+  box.querySelectorAll('[data-stk-del]').forEach(b => b.addEventListener('click', () => removeStudentAppEntry(g.id, s.id, 'stickersGiven', given[Number(b.dataset.stkDel)], 'Sticker entfernt')));
 }
 
 // ─── Schuljahreswechsel (Y6) ─────────────────────────────────────────────────
@@ -12821,7 +13070,7 @@ function nextYearLabel(y) {
   const m = /^(\d{4})\/(\d{2})$/.exec(String(y || '').trim());
   return m ? `${Number(m[1]) + 1}/${String((Number(m[2]) + 1) % 100).padStart(2, '0')}` : y;
 }
-const YEAR_LISTS = ['grades', 'attendance', 'participation', 'homework', 'studentNotes', 'jokersUsed'];
+const YEAR_LISTS = ['grades', 'attendance', 'participation', 'homework', 'studentNotes', 'jokersUsed', 'stickersGiven', 'baustellen'];
 function hasYearData() {
   return Object.values(db.students || {}).some(l => (l || []).some(s => s && YEAR_LISTS.some(f => (s[f] || []).length)))
     || Object.keys(db.lessonData || {}).length > 0;

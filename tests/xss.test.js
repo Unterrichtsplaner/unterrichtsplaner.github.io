@@ -118,6 +118,18 @@ describe('Ansichten mit präparierten Daten', () => {
       app(`openStudentDetail(${S})`);
       expect(document.getElementById('sw-sec-studentapp').hidden).toBe(false);
       expect(injected()).toBe(0);
+      app(`db.students[${G}][0].stickersGiven = [{ id: ${JSON.stringify(X)}, date: "2026-09-21", name: ${JSON.stringify(X)}, icon: ${JSON.stringify(X)}, color: 1, xp: 20, reason: ${JSON.stringify(X)} }]`);
+      app(`db.students[${G}][0].baustellen = [{ id: ${JSON.stringify(X)}, date: "2026-09-21", text: ${JSON.stringify(X)} }]`);
+      app(`db.groups[0].studentApp.personal.stickers = [{ id: ${JSON.stringify(X)}, name: ${JSON.stringify(X)}, icon: "star", color: 1, xp: 20 }]`);
+      app(`closeModal("modal-seating-student"); openStudentDetail(${S})`);
+      expect(document.querySelector('#sw-studentapp .sw-sa-given')).not.toBeNull();   // AJ2b: Liste wirklich gezeichnet
+      expect(injected()).toBe(0); expect(brokenHandlers()).toEqual([]);
+      app(`openGive("sticker", ${G}, db.students[${G}][0].id)`);
+      expect(injected()).toBe(0);
+      app('closeModal("modal-give-sticker")');
+      app(`openGroupStudents(${G}, "studentapp")`);
+      expect(document.querySelector('#sa-stk-list .sa-stk-row')).not.toBeNull();
+      expect(injected()).toBe(0); expect(brokenHandlers()).toEqual([]);
       app(`closeModal("modal-seating-student"); window.print = () => {}; printStudentCards(${G})`);
       expect(document.querySelector('#print-area .sa-card-print')).not.toBeNull();
       expect(injected()).toBe(0);

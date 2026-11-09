@@ -219,6 +219,29 @@
       <div class="legend yr-legend">${[['pp', '++'], ['p', '+'], ['m', '−'], ['mm', '−−'], ['a', 'gefehlt'], ['none', 'nichts']].map(([c, l]) => `<span><i class="yr-c ${c}"></i>${l}</span>`).join('')}</div>
       <div class="yr-stats"><span><b>${cells.length}</b> Stunden</span><span><b>${plus}</b> mit Plus</span><span><b>${best}</b> längste Serie</span></div>`;
   }
+  // Sticker und Baustelle (AJ2b). Symbole und Farben aus student-share.js, Unbekanntes als Stern.
+  const stk = (icon, color, rot) => `<span class="s" style="--stk:${esc(StudentShare.stickerColor(color))};transform:rotate(${rot}deg)">${StudentShare.stickerSvg(icon)}</span>`;
+  const ROT = [-6, 3, -3, 5, -2, 4];
+  function bauHTML(d) {
+    const b = d.bau && typeof d.bau === 'object' && d.bau.text ? d.bau : null;
+    if (!b) return '';
+    return `<div class="card bau"><span class="ic">${StudentShare.stickerSvg('crane')}</span>
+      <div class="k">Deine Baustelle${isDate(b.since) ? ` seit ${esc(short(b.since).slice(3))}` : ''}</div>
+      <div class="bt"><span>${esc(b.text)}</span></div>
+      <div class="r">Schaffst du sie, gibt es den Sticker „Baustelle geschafft“ und ${Number(d.bauXP) || 0} XP.</div></div>`;
+  }
+  function giftsHTML(d) {
+    const gifts = list(d.gifts).filter(x => x && x.name && isDate(x.date)).slice(0, 6);
+    if (!gifts.length) return '';
+    return `<h2>Von ${esc(dativ(d.giver || 'deiner Lehrkraft'))}</h2><div class="gifts">` + gifts.map((x, i) => `<div class="gift">${stk(x.icon, x.color, ROT[i % ROT.length])}
+      <div><b>${esc(x.name)}</b>${x.reason ? `<div class="q">„${esc(x.reason)}“</div>` : ''}<div class="d">${esc(short(x.date).slice(3))}${Number(x.xp) ? `, +${Number(x.xp)} XP` : ''}</div></div></div>`).join('') + '</div>';
+  }
+  function albumHTML(d) {
+    const got = list(d.album).filter(x => x && x.name), locked = list(d.locked).filter(x => x && x.name);
+    if (!got.length && !locked.length) return '';
+    return `<h2>Sticker <small>${got.length} gesammelt</small></h2><div class="album">${got.map((x, i) => `<div class="stk">${stk(x.icon, x.color, ROT[i % ROT.length])}<b>${esc(x.name)}</b></div>`).join('')}
+      ${locked.map(x => `<div class="stk locked"><span class="s">${StudentShare.stickerSvg(x.icon)}</span><b>${esc(x.name)}</b>${esc(x.hint || '')}</div>`).join('')}</div>`;
+  }
   function buildMePage(d, now = new Date(), opts = {}) {
     const today = fmt(now);
     let html = meHead(d);
@@ -241,14 +264,17 @@
       ${Number(d.streak) > 0 ? `<div class="card streak"><div class="n">${Number(d.streak)}</div><div class="t"><b>${Number(d.streak) === 1 ? 'Stunde' : 'Stunden'} in Folge mit Plus</b>Bleib dran.</div></div>` : ''}
       <div class="card joker">${Number(j.open) > 0
         ? `<div class="t"><b>${Number(j.open) === 1 ? 'Ein Joker' : `${Number(j.open)} Joker`} frei</b>Zeig diese Seite deiner Lehrkraft und such dir aus:</div>${jl.length ? `<ul>${jl.map(x => `<li>${esc(x)}</li>`).join('')}</ul>` : ''}`
-        : `<div class="t"><b>Joker</b>${Number(j.earned) >= Number(j.max || 4) ? 'Alle Joker für dieses Schuljahr verdient.' : `Den nächsten gibt es bei Level ${(Math.floor(level / (Number(j.every) || 4)) + 1) * (Number(j.every) || 4)}.`}</div>`}</div>`;
+        : `<div class="t"><b>Joker</b>${Number(j.earned) >= Number(j.max || 4) ? 'Alle Joker für dieses Schuljahr verdient.' : `Den nächsten gibt es bei Level ${(Math.floor(level / (Number(j.every) || 4)) + 1) * (Number(j.every) || 4)}.`}</div>`}</div>
+      ${bauHTML(d)}`;
     const fb = list(d.feedback).filter(x => x && isDate(x.date) && PART[x.v]);
     const right = `<h2>Rückmeldung <small>deine letzten Stunden</small></h2>
       ${fb.length ? `<div class="fb">${fb.map(x => `<div><div class="sp ${PART[x.v][1]}">${PART[x.v][0]}</div><small>${esc(short(x.date).slice(3))}</small></div>`).join('')}</div>
         <div class="legend"><span><b>++</b> sehr gut</span><span><b>+</b> gut</span><span><b>−</b> wenig</span><span><b>−−</b> schwach</span></div>`
         : '<p class="empty" style="margin-top:0">Noch keine Einträge in diesem Schuljahr.</p>'}
+      ${giftsHTML(d)}
+      ${albumHTML(d)}
       ${yearMapHTML(list(d.year).filter(c => c && isDate(c.date)))}
-      <p class="hint"><b>So bekommst du XP:</b> + gibt 10, ++ gibt 20. Abgezogen wird nie etwas.</p>`;
+      <p class="hint"><b>So bekommst du XP:</b> + gibt 10, ++ gibt 20${d.giver ? `, Sticker von ${esc(dativ(d.giver))} und` : ', Sticker und'} geschaffte Baustellen bringen extra. Abgezogen wird nie etwas.</p>`;
     html += `<div class="spread"><div class="col">${left}</div><div class="col">${right}</div></div>`;
     const foot = [];
     if (d.at) { const a = new Date(d.at); foot.push(`Stand: ${fmt(a) === today ? 'heute' : short(fmt(a))}, ${pad2(a.getHours())}:${pad2(a.getMinutes())}.`); }

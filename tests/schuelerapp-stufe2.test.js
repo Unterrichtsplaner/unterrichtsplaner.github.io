@@ -197,7 +197,9 @@ describe('Schüler-Fenster: Abschnitt „Schülerapp“', () => {
     expect(sec().hidden).toBe(true);
     app('closeModal("modal-seating-student"); db.groups[0].studentApp.personal = { on: true, step: 10 }; openStudentDetail("a", "g1")');
     expect(sec().hidden).toBe(false);
-    expect(sec().hasAttribute('data-private')).toBe(true);
+    expect(sec().hasAttribute('data-private')).toBe(false);   // Geben geht ohne „Anzeigen“ (AJ2b) …
+    expect(sec().querySelector('.sw-sa-private').hasAttribute('data-private')).toBe(true);   // … Level, Joker, Texte nicht
+    expect(sec().querySelector('#sw-sa-sticker')).not.toBeNull();
     expect(sec().textContent).toMatch(/Level 10/);
     expect(sec().textContent).toMatch(/2 frei/);
     app('closeModal("modal-seating-student")');
@@ -247,5 +249,145 @@ describe('Abgleich zwischen Geräten (Regel 83)', () => {
     const r = app('mergeDB')(base, l, c);
     expect(r.merged.students.g1[0].jokersUsed.map(j => j.id).sort()).toEqual(['j1', 'j2']);
     expect(r.conflicts.map(q => q.what)).toEqual(['Ränge']);
+  });
+});
+
+describe('AJ2b: Sticker und Baustellen', () => {
+  beforeEach(() => app('db.groups[0].studentApp.personal = { on: true, step: 10 }'));
+  const info = () => app('studentPersonalInfo(db.groups[0], db.students.g1[0])');
+  const snap = () => app('studentPersonalSnapshot(db.groups[0], db.students.g1[0], new Date())');
+  const gs = id => document.getElementById(id);
+
+  it('Startwerte: drei Sticker von Hand (je 20 XP), drei Regeln, Baustelle 20 XP', () => {
+    const p = app('personalOf(db.groups[0])');
+    expect(p.stickers.map(x => [x.name, x.xp])).toEqual([['Erklärprofi', 20], ['Mutig gefragt', 20], ['Teamplayer', 20]]);
+    expect(p.autoStickers.map(x => x.name)).toEqual(['Erstes Plus', 'Doppelplus', 'Dranbleiben']);
+    expect(p.bauXP).toBe(20);
+  });
+
+  it('XP: Sticker von Hand und geschaffte Baustelle zählen mit dem Wert beim Vergeben; Löschen (Verklicken) nimmt sie mit', () => {
+    const base = info().xp;   // 90 aus Plussen
+    app('db.students.g1[0].stickersGiven = [{ id: "g1", date: "2026-11-02", name: "Erklärprofi", icon: "bubble", color: 3, xp: 25 }]');
+    app('db.students.g1[0].baustellen = [{ id: "b1", date: "2026-10-01", text: "Material", done: "2026-11-05", xp: 20 }, { id: "b2", date: "2026-11-01", text: "offen" }]');
+    expect(info().xp).toBe(base + 45);
+    app('db.students.g1[0].stickersGiven = []');
+    expect(info().xp).toBe(base + 20);
+  });
+
+  it('automatische Sticker: insgesamt, Doppelplus, Serie in Stunden (Fehltag unterbricht nicht), im Halbjahr', () => {
+    const earned = rule => app(`autoStickerEarned(${JSON.stringify(rule)}, db.students.g1[0], pastLessonDates(db.groups[0], new Date()), "${TODAY}")`);
+    expect(earned({ kind: 'any', n: 5, mode: 'total' })).toBe(true);
+    expect(earned({ kind: 'any', n: 7, mode: 'total' })).toBe(false);   // 6 Plusse (Referat zählt mit)
+    expect(earned({ kind: 'excellent', n: 3, mode: 'total' })).toBe(true);
+    expect(earned({ kind: 'any', n: 3, mode: 'streak' })).toBe(true);    // 12.10., (19.10. gefehlt), 26.10., 02.11.
+    expect(earned({ kind: 'any', n: 4, mode: 'streak' })).toBe(false);
+    app('db.settings.halfYearEnd = "2026-10-31"');                        // 2. Halbjahr seit 01.11.: nur der 02.11.
+    expect(earned({ kind: 'any', n: 2, mode: 'half' })).toBe(true);      // zwei Einträge am 02.11. (normal + Referat)
+    expect(earned({ kind: 'any', n: 3, mode: 'half' })).toBe(false);
+  });
+
+  it('Auszug: Geschenke mit Grund, Album, gesperrte Regeln mit Hinweis, offene Baustelle – nur eigene Daten', () => {
+    app('db.students.g1[0].stickersGiven = [{ id: "g1", date: "2026-11-02", name: "Erklärprofi", icon: "bubble", color: 3, xp: 20, reason: "hat Lisa geholfen" }]');
+    app('db.students.g1[0].baustellen = [{ id: "b1", date: "2026-10-26", text: "Material fehlt oft" }]');
+    app('db.students.g1[1].baustellen = [{ id: "b9", date: "2026-10-26", text: "Geheimer Text von Ben" }]');
+    const s = snap();
+    expect(s.gifts).toEqual([{ name: 'Erklärprofi', icon: 'bubble', color: 3, reason: 'hat Lisa geholfen', date: '2026-11-02', xp: 20 }]);
+    expect(s.album.map(x => x.name)).toEqual(['Erstes Plus', 'Doppelplus', 'Dranbleiben', 'Erklärprofi']);
+    expect(s.locked).toEqual([]);
+    expect(s.bau).toEqual({ text: 'Material fehlt oft', since: '2026-10-26' });
+    expect(s.giver).toBe('Erika Testmann');
+    expect(typeof s.from).toBe('number');   // XP am Anfang des Levels, nicht überschrieben
+    expect(JSON.stringify(s)).not.toContain('Geheimer Text');
+    app('db.students.g1[0].participation = []');
+    expect(snap().locked.map(x => x.hint)).toEqual(['1× Plus insgesamt', '1× Doppelplus insgesamt', '3× Plus in Folge']);
+  });
+
+  it('„Sticker geben“: offen ohne „Anzeigen“, Auswahl, Grund, mit XP-Wert gespeichert, „Rückgängig“', () => {
+    app('openSeatingStudentModal("a", "g1", "2026-11-09", { more: true })');
+    document.getElementById('sw-sa-sticker').click();
+    expect(gs('modal-give-sticker').classList.contains('hidden')).toBe(false);
+    expect(gs('gs-title').textContent).toBe('Sticker für Anna');
+    gs('gs-choices').querySelectorAll('[data-id]')[1].click();
+    gs('gs-reason').value = 'hat nachgefragt';
+    app('saveGive()');
+    expect(anna().stickersGiven).toEqual([expect.objectContaining({ date: TODAY, name: 'Mutig gefragt', icon: 'ask', xp: 20, reason: 'hat nachgefragt' })]);
+    expect(gs('modal-give-sticker').classList.contains('hidden')).toBe(true);
+    expect(document.getElementById('sw-studentapp').textContent).toMatch(/Mutig gefragt · hat nachgefragt/);
+    [...document.querySelectorAll('#toast-container button')].filter(b => /Rückgängig/.test(b.textContent)).pop().click();   // der neueste Hinweis
+    expect(anna().stickersGiven).toEqual([]);
+    app('closeModal("modal-seating-student")');
+  });
+
+  it('„Baustelle geben“: Vorschlag füllt das Feld, ohne Text nichts; „Geschafft“ gibt XP; Text nur im privaten Teil', () => {
+    app('openSeatingStudentModal("a", "g1", "2026-11-09", { more: true })');
+    document.getElementById('sw-sa-bau').click();
+    app('saveGive()');
+    expect(anna().baustellen || []).toEqual([]);
+    gs('gs-choices').querySelector('[data-text="Hausaufgaben"]').click();
+    expect(gs('gs-reason').value).toBe('Hausaufgaben');
+    app('saveGive()');
+    expect(anna().baustellen).toEqual([expect.objectContaining({ date: TODAY, text: 'Hausaufgaben' })]);
+    const box = document.getElementById('sw-studentapp');
+    expect(box.querySelector('.sw-sa-count').textContent).toBe('1 Baustelle offen');
+    expect(box.querySelector('[data-private]').textContent).toMatch(/Hausaufgaben/);
+    expect(box.querySelector('.sw-sa-count').textContent).not.toMatch(/Hausaufgaben/);
+    const before = info().xp;
+    box.querySelector('[data-bau-done="0"]').click();
+    expect(anna().baustellen[0]).toMatchObject({ done: TODAY, xp: 20 });
+    expect(info().xp).toBe(before + 20);
+    app('closeModal("modal-seating-student")');
+  });
+
+  it('Schließen mit eingetipptem Grund fragt nach (Regel 27)', () => {
+    app('openGive("sticker", "g1", "a")');
+    gs('gs-reason').value = 'angefangen';
+    let asked = false;
+    window.confirm = () => { asked = true; return false; };
+    app('closeModalLikeButton("modal-give-sticker")');
+    expect(asked).toBe(true);
+    expect(gs('modal-give-sticker').classList.contains('hidden')).toBe(false);
+    window.confirm = () => true;
+    app('closeModalLikeButton("modal-give-sticker")');
+    expect(gs('modal-give-sticker').classList.contains('hidden')).toBe(true);
+  });
+
+  it('Reiter: Sticker und Regeln anlegen, ändern, entfernen; XP für Baustellen', () => {
+    app('openGroupStudents("g1", "studentapp")');
+    const c = () => document.getElementById('overview-content');
+    c().querySelector('#sa-stk-add').click();
+    expect(app('personalOf(db.groups[0]).stickers.length')).toBe(4);
+    const name = c().querySelectorAll('#sa-stk-list [data-f="name"]')[3];
+    name.value = 'Superhirn'; name.dispatchEvent(new Event('change', { bubbles: true }));
+    expect(app('personalOf(db.groups[0]).stickers[3].name')).toBe('Superhirn');
+    c().querySelectorAll('#sa-stk-list [data-del]')[0].click();
+    expect(app('personalOf(db.groups[0]).stickers.map(x => x.name)')).toEqual(['Mutig gefragt', 'Teamplayer', 'Superhirn']);
+    c().querySelector('#sa-auto-add').click();
+    const n = c().querySelectorAll('#sa-auto-list [data-f="n"]')[3];
+    n.value = '10'; n.dispatchEvent(new Event('change', { bubbles: true }));
+    expect(app('personalOf(db.groups[0]).autoStickers[3]')).toMatchObject({ n: 10, kind: 'any', mode: 'total' });
+    const xp = c().querySelector('#sa-bau-xp');
+    xp.value = '30'; xp.dispatchEvent(new Event('change'));
+    expect(app('personalOf(db.groups[0]).bauXP')).toBe(30);
+  });
+
+  it('Schuljahreswechsel leert Sticker und Baustellen', () => {
+    app('db.students.g1[0].stickersGiven = [{ id: "x", date: "2026-10-01", name: "A", xp: 20 }]; db.students.g1[0].baustellen = [{ id: "y", date: "2026-10-01", text: "B" }]');
+    app('applyNewSchoolYear([{ id: "g1", action: "keep", name: "8b" }])');
+    expect(anna().stickersGiven).toEqual([]);
+    expect(anna().baustellen).toEqual([]);
+  });
+
+  it('Abgleich: Sticker auf zwei Geräten vergeben → beide; Baustelle hier geschafft, dort Text ergänzt → beides', () => {
+    const base = sampleDB();
+    base.students.g1[0].baustellen = [{ id: 'b', date: '2026-10-01', text: 'Material' }];
+    const l = JSON.parse(JSON.stringify(base)), c = JSON.parse(JSON.stringify(base));
+    l.students.g1[0].stickersGiven = [{ id: 's1', date: '2026-11-02', name: 'A', xp: 20 }];
+    c.students.g1[0].stickersGiven = [{ id: 's2', date: '2026-11-03', name: 'B', xp: 20 }];
+    l.students.g1[0].baustellen[0].done = '2026-11-05'; l.students.g1[0].baustellen[0].xp = 20;
+    c.students.g1[0].baustellen[0].text = 'Material\nund Heft';
+    const r = app('mergeDB')(base, l, c);
+    expect(r.conflicts).toEqual([]);
+    expect(r.merged.students.g1[0].stickersGiven.map(x => x.id).sort()).toEqual(['s1', 's2']);
+    expect(r.merged.students.g1[0].baustellen[0]).toMatchObject({ done: '2026-11-05', xp: 20, text: 'Material\nund Heft' });
   });
 });
