@@ -352,7 +352,7 @@
       const snap = await withTimeout(firebase.firestore().collection('shares').doc(access.id).get(), 12000);
       if (!snap.exists) {
         try { localStorage.removeItem(cacheKey); } catch (e) { /* egal */ }
-        message('Gerade nicht freigegeben', 'Deine Lehrkraft hat diese Seite ausgeschaltet oder einen neuen Code erzeugt.');
+        message('Gerade nicht freigegeben', 'Vielleicht ist die Seite noch nicht hochgeladen: Versuch es in ein paar Minuten noch einmal. Sonst hat deine Lehrkraft sie ausgeschaltet oder einen neuen Code erzeugt.', true);
         return;
       }
       doc = snap.data();

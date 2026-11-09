@@ -128,6 +128,17 @@ describe('Einschalten, Veröffentlichen, Löschen', () => {
     await app('publishStudentApps()');
     expect(cloud.publishes.length).toBe(n);
   });
+  it('Fehler 09.11.: Klassenseite schon veröffentlicht und unverändert → persönliche Seiten werden trotzdem veröffentlicht', async () => {
+    await app('publishStudentApps()');   // nur die Klassenseite (persönliche Seiten noch aus)
+    const classId = app('db.groups[0].studentApp.access.id');
+    expect(cloud.publishes).toEqual([classId]);
+    app('db.groups[0].studentApp.personal = { on: true, step: 15 }; db.students.g1.forEach(ensureStudentAccess)');
+    await app('publishStudentApps()');   // Klassenseite unverändert
+    const ids = app('db.students.g1.map(s => s.studentApp.access.id)');
+    ids.forEach(id => expect(cloud.publishes).toContain(id));
+    expect(cloud.publishes.filter(x => x === classId).length).toBe(1);   // Klassenseite nicht doppelt
+  });
+
   it('neuer Schüler ohne Link bekommt beim Veröffentlichen einen', async () => {
     app('db.groups[0].studentApp.personal = { on: true, step: 15 }');
     await app('publishStudentApps()');

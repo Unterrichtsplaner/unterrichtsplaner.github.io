@@ -12247,9 +12247,11 @@ async function publishStudentApps() {
       if (studentAppOn() && sa.on) {
         const snap = studentAppSnapshot(g);
         const hash = await contentHash(JSON.stringify(snap));
-        if ((saRead(markKey, {}) || {}).hash === hash) continue;
-        await SyncManager.publishShare(sa.access.id, await StudentShare.encrypt({ ...snap, at: Date.now() }, sa.access.key));
-        saWrite(markKey, { hash, at: Date.now() });
+        // Unveränderte Klassenseite nur überspringen, nicht die ganze Klasse: sonst kamen die persönlichen Seiten nie an (09.11.)
+        if ((saRead(markKey, {}) || {}).hash !== hash) {
+          await SyncManager.publishShare(sa.access.id, await StudentShare.encrypt({ ...snap, at: Date.now() }, sa.access.key));
+          saWrite(markKey, { hash, at: Date.now() });
+        }
       } else if (saRead(markKey, null)) {
         await SyncManager.deleteShare(sa.access.id);
         saWrite(markKey, null);
@@ -12798,6 +12800,8 @@ function showStudentCode(groupId, studentId) {
   document.getElementById('sa-beamer-qr').innerHTML = studentAppQR(studentAppLink(studentAccessOf(s)), 'Persönlicher Code für ' + s.firstName);
   document.getElementById('sa-beamer-hint').textContent = 'Nur dem Schüler zeigen, nicht am Beamer: Mit diesem Code sieht man seine persönliche Seite.';
   openModal('modal-studentapp-beamer');
+  // Von diesem Gerät noch nicht hochgeladen (z. B. eben erst eingeschaltet): gleich synchronisieren, dann veröffentlichen
+  if (!saRead(SA_PUB_PREFIX + studentAccessOf(s).id, null) && typeof triggerSyncInternal === 'function') triggerSyncInternal();
 }
 function renewStudentAccess(groupId, studentId) {
   const s = findStudentIn(groupId, studentId);
