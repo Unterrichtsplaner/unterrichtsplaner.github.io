@@ -16,6 +16,8 @@ function loadScript(relPath) {
 
 function loadApp() {
   loadScript('sync-merge.js');
+  loadScript('lib/qrcode.js');      // Schülerapp (AJ1): QR-Code für den Zugang
+  loadScript('student-share.js');   // Schülerapp (AJ1): Zugang, Verschlüsselung, Link
   loadScript('app.js');
 }
 

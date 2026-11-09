@@ -1,0 +1,125 @@
+/* Schülerapp (BUGS AJ1): Seite für die Klasse im Stil eines karierten Rechenhefts.
+   Eigene Gestaltung (nicht „Papier & Tinte“ der Lehrer-App): Karo, Heftrand, Textmarker als Fortschritt.
+   Schrift Archivo liegt in lib/fonts (OFL), damit die Handys der Schüler nichts von fremden Servern laden. */
+@font-face {
+  font-family: 'Archivo';
+  src: url('lib/fonts/archivo-wdth.woff2') format('woff2');
+  font-weight: 100 900;
+  font-stretch: 62% 125%;
+  font-display: swap;
+}
+:root {
+  --paper: #fbfcfe;
+  --grid: #d3dff0;
+  --margin: #e8a3a0;
+  --ink: #1c2a57;
+  --ink-2: #4a5684;
+  --ink-3: #6b7699;
+  --marker: #ffe24a;
+  --marker-ink: #1c2a57;
+  --red: #c4261f;
+  --card: #ffffff;
+  --shadow: #1c2a57;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --paper: #131a33;
+    --grid: rgba(173, 190, 235, 0.10);
+    --margin: rgba(232, 120, 116, 0.45);
+    --ink: #e9edff;
+    --ink-2: #b6bfdf;
+    --ink-3: #8f9aca;
+    --marker: #ffd83a;
+    --red: #ff8079;
+    --card: #1b2446;
+    --shadow: #05081a;
+  }
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { min-height: 100%; background: var(--paper); }
+body {
+  font-family: 'Archivo', system-ui, -apple-system, sans-serif;
+  color: var(--ink);
+  -webkit-font-smoothing: antialiased;
+  -webkit-text-size-adjust: 100%;
+}
+.heft {
+  min-height: 100vh; min-height: 100dvh;
+  background-color: var(--paper);
+  background-image: linear-gradient(var(--grid) 1px, transparent 1px), linear-gradient(90deg, var(--grid) 1px, transparent 1px);
+  background-size: 18px 18px;
+  background-position: -1px -1px;
+  position: relative;
+}
+.heft::before { content: ""; position: absolute; top: 0; bottom: 0; right: 22px; width: 2px; background: var(--margin); opacity: .6; }
+.pad { position: relative; max-width: 560px; margin: 0 auto; padding: max(24px, env(safe-area-inset-top)) 44px 40px 22px; }
+
+.class-name { font-size: 44px; font-weight: 900; font-stretch: 118%; line-height: .95; letter-spacing: -.01em; overflow-wrap: anywhere; }
+.class-sub { font-size: 15px; color: var(--ink-2); margin-top: 6px; }
+h2 { font-size: 20px; font-weight: 800; font-stretch: 108%; margin: 28px 0 10px; }
+h2 small { font-size: 13px; font-weight: 500; color: var(--ink-2); margin-left: 6px; font-stretch: 100%; }
+
+.card { background: var(--card); border: 2px solid var(--ink); border-radius: 14px; padding: 14px 16px; box-shadow: 4px 4px 0 var(--shadow); }
+.goal .t { font-size: 16px; font-weight: 700; }
+.goal .r { font-size: 14px; color: var(--ink-2); margin-top: 4px; line-height: 1.4; }
+.goal .r b { color: var(--ink); }
+
+/* Textmarker-Strich als Fortschritt */
+.hl { position: relative; height: 30px; margin-top: 10px; }
+.hl-track { position: absolute; inset: 7px 0; border-bottom: 2px dotted var(--ink-3); }
+.hl-fill { position: absolute; left: -4px; top: 2px; height: 26px; max-width: calc(100% + 4px); background: var(--marker);
+  border-radius: 3px 12px 5px 14px / 8px 14px 8px 12px; transform: skewX(-6deg) rotate(-.6deg); opacity: .92;
+  animation: mark 1.1s cubic-bezier(.3, .7, .2, 1) .2s both; }
+@keyframes mark { from { clip-path: inset(0 100% 0 0); } to { clip-path: inset(0 0 0 0); } }
+@media (prefers-reduced-motion: reduce) { .hl-fill { animation: none; } }
+.hl-text { position: relative; display: flex; justify-content: flex-end; align-items: center; height: 30px; padding: 0 6px; font-size: 13px; font-weight: 600; color: var(--ink-2); }
+
+/* Expedition: Stationen auf einem gepunkteten Weg */
+.map { position: relative; color: var(--ink); }
+.map svg.path { position: absolute; left: 0; top: 0; overflow: visible; pointer-events: none; }
+.st { position: absolute; left: 0; right: 0; display: flex; align-items: flex-start; gap: 10px; font-size: 14px; line-height: 1.25; }
+.st .lbl { padding-top: 5px; }
+.st.now .lbl { padding-top: 6px; }
+.st.boss .lbl { padding-top: 5px; }
+.dot { width: 28px; height: 28px; border-radius: 50%; flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 800; }
+.lbl { min-width: 0; overflow-wrap: anywhere; }
+.st.done .dot { background: var(--ink); color: var(--paper); }
+.st.done .lbl { color: var(--ink-2); }
+.st.now .dot { background: var(--marker); border: 2.5px solid var(--ink); width: 34px; height: 34px; }
+.st.now .lbl { font-weight: 700; font-size: 16px; }
+.lbl small { display: block; font-weight: 500; font-size: 13px; color: var(--ink-2); }
+.st.later .dot { background: var(--paper); border: 2px dashed var(--ink-3); }
+.st.later .lbl { color: var(--ink-3); }
+.st.boss .dot { width: 46px; height: 46px; background: var(--card); border: 3px solid var(--red); color: var(--red); font-size: 20px;
+  transform: rotate(-8deg); border-radius: 48% 52% 45% 55% / 55% 45% 55% 45%; }
+.st.boss .lbl { font-weight: 800; color: var(--red); font-size: 16px; }
+.st.boss .lbl small { color: var(--ink); }
+
+/* Aufträge (Hausaufgaben) und Termine */
+.quest { display: flex; gap: 12px; align-items: flex-start; padding: 10px 0; border-bottom: 1px solid var(--grid); }
+.quest:last-child { border-bottom: none; }
+.qbox { width: 24px; height: 24px; border: 2px solid var(--ink); border-radius: 5px; flex-shrink: 0; margin-top: 1px; background: var(--card);
+  display: flex; align-items: center; justify-content: center; cursor: pointer; padding: 0; color: var(--paper); font: inherit; font-size: 14px; font-weight: 900; }
+.qbox[aria-pressed="true"] { background: var(--ink); }
+.quest.is-done .q { text-decoration: line-through; color: var(--ink-3); }
+.quest .q { font-size: 15px; font-weight: 600; overflow-wrap: anywhere; }
+.quest .d { font-size: 13px; color: var(--ink-2); margin-top: 2px; }
+.term .tag { display: inline-block; font-size: 12px; font-weight: 700; color: var(--red); border: 1.5px solid var(--red); border-radius: 5px; padding: 0 5px; margin-right: 6px; }
+
+.empty { font-size: 15px; color: var(--ink-2); margin-top: 24px; line-height: 1.45; }
+.foot { font-size: 13px; color: var(--ink-2); line-height: 1.55; margin-top: 28px; }
+.foot p + p { margin-top: 6px; }
+.foot .muted { color: var(--ink-3); font-size: 12px; }
+.banner { margin-top: 16px; font-size: 13px; font-weight: 600; background: var(--marker); color: var(--marker-ink); padding: 6px 10px; border-radius: 6px; display: inline-block; }
+
+/* Meldungen (Link kaputt, nicht freigegeben, offline) */
+.msg { margin-top: 18vh; }
+.msg h1 { font-size: 30px; font-weight: 900; font-stretch: 112%; line-height: 1.05; }
+.msg-text { font-size: 16px; color: var(--ink-2); margin-top: 12px; line-height: 1.5; max-width: 34ch; }
+.msg button { margin-top: 20px; font: inherit; font-size: 15px; font-weight: 700; color: var(--ink); background: var(--card); border: 2px solid var(--ink);
+  border-radius: 10px; padding: 10px 16px; box-shadow: 3px 3px 0 var(--shadow); cursor: pointer; }
+:focus-visible { outline: 3px solid var(--ink-2); outline-offset: 2px; }
+
+@media (min-width: 720px) {
+  .pad { padding-top: 48px; }
+}

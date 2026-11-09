@@ -98,6 +98,20 @@ describe('Ansichten mit präparierten Daten', () => {
       app('seatingShowTrend = false');
     },
     'planung (klassenansicht)': () => app(`openGroupStudents(${G}); switchClassDashboardTab("plan")`),
+    'schülerapp (klassenansicht, einstellungen, beamer)': () => {   // AJ1
+      app('SyncManager.isInitialized = true; SyncManager.currentUser = { uid: "u1" }');
+      app(`db.settings.studentApp = { on: true, name: ${JSON.stringify(X)} }; setStudentAppOn(${G}, true); setStudentAppGoal(${G}, { target: 10, reward: ${JSON.stringify(X)} })`);
+      app(`openGroupStudents(${G}, "studentapp")`);
+      expect(document.querySelector('#overview-content .sa-qr svg')).not.toBeNull();   // Reiter wirklich gezeichnet
+      expect(injected()).toBe(0); expect(brokenHandlers()).toEqual([]);
+      app(`showStudentAppBeamer(${G})`);
+      expect(injected()).toBe(0);
+      app('closeModal("modal-studentapp-beamer"); openSettings(); showSettingsPane("studentapp")');
+      expect(document.getElementById('settings-studentapp-classes').querySelector('.sa-class-row')).not.toBeNull();
+      expect(injected()).toBe(0); expect(brokenHandlers()).toEqual([]);
+      // Der Auszug selbst geht verschlüsselt raus; escapen muss die Schülerseite (tests/schuelerseite.test.js)
+      app('closeModal("modal-settings"); SyncManager.isInitialized = false; SyncManager.currentUser = null');
+    },
     'planung thema-fenster': () => app(`openPlanTopicForm(${G}, db.groups[0].plan[0])`),
     'stundenplan klasse': () => {
       app(`switchView("timetable"); timetableClassGroupId = ${G}; setTimetableMode("class")`);

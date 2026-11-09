@@ -257,6 +257,27 @@ const SyncManager = {
     return this.db.collection('users_data').doc(this.currentUser.uid);
   },
 
+  // ── Schülerapp (BUGS AJ1) ──
+  // Je Freigabe ein kleines Dokument `shares/<id>`, getrennt von users_data (zählt nicht gegen dessen 1 MB).
+  // Inhalt ist schon mit dem Schlüssel der Freigabe verschlüsselt (StudentShare.encrypt); `owner` erlaubt
+  // laut firestore.rules nur dem Besitzer das Schreiben und Löschen. Lesen darf jeder, der die Kennung kennt.
+  async publishShare(id, encrypted) {
+    if (!this.isInitialized || !this.currentUser) throw new Error('Nicht angemeldet.');
+    await this.db.collection('shares').doc(id).set({
+      format: encrypted.format, iv: encrypted.iv, data: encrypted.data,
+      owner: this.currentUser.uid, updated: Date.now(),
+    });
+  },
+  // Gibt es das Dokument nicht (mehr), ist nichts zu tun – die Regeln erlaubten das Löschen dann auch nicht.
+  async deleteShare(id) {
+    if (!this.isInitialized || !this.currentUser) throw new Error('Nicht angemeldet.');
+    const ref = this.db.collection('shares').doc(id);
+    const snap = await ref.get();
+    if (!snap.exists) return false;
+    await ref.delete();
+    return true;
+  },
+
   /**
    * Holt den aktuellen Cloud-Datensatz direkt vom Server (nie aus dem Offline-Cache,
    * sonst würden Entscheidungen auf veralteten Daten getroffen).

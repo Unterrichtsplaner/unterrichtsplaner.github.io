@@ -43,6 +43,10 @@ Kalender mit Haken in Tinten-Blau `#2f55c9` auf Papier `#f5f1e9` (`icon.svg`, da
 
 Die Schülerliste besteht aus Zeilen mit Trennlinien (gleiche Angaben in festen Spalten untereinander), kein Kartenraster. Neue Listen genauso bauen; Karten nur, wo jedes Element eigenen, bildhaften Inhalt hat (Sitzplan, Stunden-Kacheln). **Ausnahme Klassenübersicht (AH8, Wunsch 03.11.):** Kacheln in Klassenfarbe wie die Stunde im Stundenplan (Grund 15 % Klassenfarbe, Name 26 px in der Farbe) – Klassen findet man an Farbe und Namen wieder, nicht an Spalten. Wählbar sind daneben „Liste“ (Zeilen wie die Schülerliste) und „Groß“ (eine Kachel über die ganze Breite mit nächster Stunde, Thema, Fälligem, Auffälligen; AH12). Aufbau von „Groß“ nach der Design-Prüfung (AH14): fester Stapel **wann** (14/600 in Klassenfarbe, relativ „Heute/Morgen“, laufend „jetzt“ im Akzent) → **Thema** (16/600, Inter, nie Buchschrift) → „Zuletzt: …“ leise → Plaketten (`--radius-xs`, rot nur „auffällig“, HA/Test neutral mit Symbol). Text auf Klassenfarbe nie in den normalen Grautönen, sondern über `--tint-text-2/3`, Notenfarben dort je Modus nachgemischt.
 
+## Schülerseite (AJ1)
+
+`schueler.html` gehört nicht zur Lehrer-App und hat eine eigene Gestaltung: **Karoheft** (kariertes Papier mit Heftrand, Füller-Blau, Textmarker-Gelb als Fortschritt, Korrektur-Rot für die Klassenarbeit), Schrift Archivo aus `lib/fonts` (breit für Titel). Auch hier keine fremden Schriften und Skripte. Ändern nur in `schueler.css`; im Planer erscheint die Seite unverändert als Vorschau.
+
 ## Noch offen
 
 

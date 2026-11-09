@@ -4,5 +4,20 @@ service cloud.firestore {
     match /users_data/{userId} {
       allow read, write: if request.auth != null && request.auth.uid == userId;
     }
+
+    // Schülerapp (BUGS AJ1): je freigegebene Klasse ein Dokument, Inhalt mit dem Schlüssel aus dem Link verschlüsselt.
+    // Lesen: wer die zufällige Kennung kennt (Link/Code der Klasse), ohne Konto. Auflisten: niemand.
+    // Schreiben/Löschen: nur das Konto, das in `owner` steht. Nur die bekannten Felder, Inhalt höchstens ~200 KB.
+    match /shares/{shareId} {
+      allow get: if shareId.matches('^[A-Za-z0-9_-]{22}$');
+      allow list: if false;
+      allow create, update: if request.auth != null
+        && shareId.matches('^[A-Za-z0-9_-]{22}$')
+        && request.resource.data.owner == request.auth.uid
+        && (resource == null || resource.data.owner == request.auth.uid)
+        && request.resource.data.keys().hasOnly(['format', 'iv', 'data', 'owner', 'updated'])
+        && request.resource.data.data is string && request.resource.data.data.size() < 200000;
+      allow delete: if request.auth != null && resource.data.owner == request.auth.uid;
+    }
   }
 }

@@ -25,5 +25,8 @@ const setVersion = (text) => text
 
 fs.writeFileSync(swPath, setVersion(sw));
 fs.writeFileSync(htmlPath, setVersion(fs.readFileSync(htmlPath, 'utf8')));
+// Schülerapp (AJ1): eigene Seite, ihre Dateien bekommen dieselbe Nummer
+const studentPath = path.join(root, 'schueler.html');
+if (fs.existsSync(studentPath)) fs.writeFileSync(studentPath, setVersion(fs.readFileSync(studentPath, 'utf8')));
 
 console.log(`Version: v${match[1]} → v${next} (sw.js + index.html)`);

@@ -12,18 +12,18 @@ beforeAll(() => { localStorage.setItem('lehrerapp_v3', JSON.stringify({ settings
 afterEach(() => { app('closeModal("modal-settings")'); });
 
 describe('Menü und Bereiche', () => {
-  it('acht Bereiche (seit AH48 „Leiste“), jeder mit Knopf; beim Öffnen immer „Allgemein“', () => {
-    expect(rail().map(b => b.textContent.trim())).toEqual(['Allgemein', 'Unterricht', 'Stundenzeiten', 'Ferien', 'Darstellung', 'Leiste', 'Daten & Cloud', 'Über die App']);
-    expect(panes().length).toBe(8);
+  it('neun Bereiche (seit AH48 „Leiste“, seit AJ1 „Schülerapp“), jeder mit Knopf; beim Öffnen immer „Allgemein“', () => {
+    expect(rail().map(b => b.textContent.trim())).toEqual(['Allgemein', 'Unterricht', 'Stundenzeiten', 'Ferien', 'Darstellung', 'Leiste', 'Schülerapp', 'Daten & Cloud', 'Über die App']);
+    expect(panes().length).toBe(9);
     app('openSettings()');
     expect(onPane()).toEqual(['general']);
     expect(rail()[0].getAttribute('aria-current')).toBe('true');
   });
   it('Antippen wechselt den Bereich, und nächstes Öffnen beginnt wieder oben', () => {
     app('openSettings()');
-    rail()[6].click();
+    rail()[7].click();
     expect(onPane()).toEqual(['data']);
-    expect(rail()[6].getAttribute('aria-current')).toBe('true');
+    expect(rail()[7].getAttribute('aria-current')).toBe('true');
     expect(rail()[0].getAttribute('aria-current')).toBe('false');
     app('closeModal("modal-settings"); openSettings()');
     expect(onPane()).toEqual(['general']);
@@ -36,6 +36,7 @@ describe('Menü und Bereiche', () => {
     expect(where('blocks-editor')).toBe('times');
     expect(where('sync-master-password')).toBe('data');
     expect(where('merge-restore-row')).toBe('data');
+    expect(where('settings-studentapp-on')).toBe('studentapp');   // AJ1
   });
   it('keine Karte außerhalb eines Bereichs', () => {
     expect(document.querySelectorAll('#modal-settings .set-body > :not(.set-pane)').length).toBe(0);

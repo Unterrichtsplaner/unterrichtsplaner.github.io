@@ -3083,6 +3083,8 @@ function deleteGroup(id) {
   const studentCount = (db.students[id] || []).length;
   const slotIds = new Set(getGroupSlots(id).map(s => s.id));
   if (!confirm(`Klasse ${g.className} (${g.subject}) mit ${studentCount} Schüler(n), allen Noten/Einträgen und ${slotIds.size} Stunde(n) im Stundenplan löschen?`)) return;
+  const shared = studentAppOf(g).access;   // Schülerseite der Klasse mit weg (AJ1, Regel 10)
+  if (shared) queueShareDeletion(shared.id);
   db.groups = db.groups.filter(x => x.id !== id);
   delete db.students[id];
   // Stunden der Klasse samt ihren Stundendaten (Schlüssel '<slotId>_<Datum>') entfernen
@@ -3130,7 +3132,8 @@ function switchClassDashboardTab(tabName) {
   const addColBtn = document.getElementById('btn-add-overview-col');
   const actionBtn = document.getElementById('btn-student-actions');
   
-  if (tabName === 'plan') {   // Unterrichtsplanung (AD3)
+  if (tabName === 'studentapp' && !studentAppOn()) tabName = 'students';   // Schülerapp aus: Reiter gibt es nicht (AJ1)
+  if (tabName === 'plan' || tabName === 'studentapp') {   // Unterrichtsplanung (AD3), Schülerapp (AJ1)
     studentsContainer.classList.add('hidden');
     overviewContent.classList.remove('hidden');
     if (addColBtn) addColBtn.classList.add('hidden');
@@ -3138,9 +3141,9 @@ function switchClassDashboardTab(tabName) {
     if (isStudentEditMode) toggleStudentEditMode();
     const bar = document.getElementById('mass-delete-bar');
     if (bar) bar.classList.add('hidden');
-    currentOverviewTab = 'plan';
+    currentOverviewTab = tabName;
     currentOverviewGroupId = currentGroupId;
-    renderPlanTab();
+    if (tabName === 'plan') renderPlanTab(); else renderStudentAppTab();
     updateClassGradesButton();
     return;
   }
@@ -3193,6 +3196,7 @@ function updateClassGradesButton() {
 function rerenderClassTab() {
   if (!document.getElementById('view-students').classList.contains('active')) return;
   if (currentClassDashboardTab === 'students') renderStudents();
+  else if (currentClassDashboardTab === 'studentapp') renderStudentAppTab();
   else if (currentClassDashboardTab !== 'plan') renderOverviewTable();
 }
 // Einstellung (AH24 c): Beamer-Schutz abschaltbar; Standard an, gespeichert wird nur „aus“ (classGradesProtect: false)
@@ -3288,6 +3292,7 @@ function renderOverviewTable() {
   closeParticipationPicker();   // hängt an einer Zelle, die gleich ersetzt wird
   if (!currentOverviewGroupId) return;
   if (currentOverviewTab === 'plan') { renderPlanTab(); return; } // Planung ist keine Tabelle
+  if (currentOverviewTab === 'studentapp') { renderStudentAppTab(); return; } // Schülerapp (AJ1) auch nicht
   const content = document.getElementById('overview-content');
   // Hat ein Feld der alten Tabelle noch den Fokus, entfernte das Ersetzen es, und der Browser feuerte dabei sein
   // change mitten im Ersetzen (NotFoundError). Deshalb vorher den Fokus nehmen: Eine laufende Eingabe wird dabei
@@ -4041,6 +4046,7 @@ function openGroupStudents(groupId, initialTab = 'students') {
   hideClassGrades();   // Beamer-Schutz: jede Klasse öffnet verborgen (AH24 c)
   setClassViewHeader(g);
   switchView('students');
+  updateStudentAppTabVisibility();   // Reiter „Schülerapp“ nur, wenn sie an ist (AJ1)
   switchClassDashboardTab(initialTab);
 }
 
@@ -5049,6 +5055,10 @@ function fillSettingsForm() {
   document.getElementById('settings-warn-homework').value = db.settings.warnHomework !== undefined ? db.settings.warnHomework : 3;
   document.getElementById('settings-warn-grade').value = db.settings.warnGrade !== undefined ? db.settings.warnGrade : 4.5;
   document.getElementById('settings-warn-points').value = db.settings.warnPoints !== undefined ? db.settings.warnPoints : 5;
+  document.getElementById('settings-studentapp-on').checked = studentAppOn();   // AJ1
+  document.getElementById('settings-studentapp-name').value = (db.settings.studentApp && db.settings.studentApp.name) || '';
+  document.getElementById('settings-studentapp-name').placeholder = db.settings.teacherName || 'z. B. Frau Müller';
+  renderSettingsStudentApps();
   
   loadThemeSelection();
   document.getElementById('settings-sort-order').value = db.settings.studentSortOrder || 'firstName';
@@ -5482,10 +5492,15 @@ function saveSettings() {
   const state = document.getElementById('settings-federal-state').value;
   if (FEDERAL_STATES[state]) db.settings.federalState = state; else delete db.settings.federalState;
   saveNavSettings();
+  // Schülerapp (AJ1): nur anlegen, wenn jemand sie benutzt (bei allen anderen bleibt die DB unverändert)
+  const saOn = document.getElementById('settings-studentapp-on').checked;
+  const saName = document.getElementById('settings-studentapp-name').value.trim().slice(0, 60);
+  if (saOn || saName || db.settings.studentApp) db.settings.studentApp = saName ? { on: saOn, name: saName } : { on: saOn };
 
   saveDB();
   closeModal('modal-settings');
   renderNav();
+  updateStudentAppTabVisibility();
   // Offene Ansicht mit den neuen Einstellungen zeichnen (Warnschwellen, Sortierung, Namensformat; BUGS M1/O4)
   renderScheduleViews();
   if (document.getElementById('view-students')?.classList.contains('active') && currentGroupId) refreshStudentViews(currentGroupId);
@@ -5630,6 +5645,7 @@ async function clearAllDataEverywhere() {
     // Kein pendingUpload (T4): Käme die Antwort nicht an, würde der nächste Sync sonst die Daten dieses Geräts
     // als „eigenen Stand“ wieder hochladen. So gibt es schlimmstenfalls den Konflikt-Dialog.
     const newTimestamp = cloud ? await SyncManager.saveToCloud(JSON.stringify(empty), cloud.cloudTimestamp) : null;
+    await deleteAllStudentShares();   // Klassenseiten der Schülerapp mit weg (AJ1)
 
     // Gerät leeren. Mit Sync-Stand der leeren Cloud: Das Gerät gilt dann nicht als neu, sondern als abgeglichen.
     wipeLocalData();
@@ -10965,6 +10981,7 @@ async function confirmDeleteAccount() {
       return;
     }
     try {
+      await deleteAllStudentShares();   // vorher: nach dem Löschen des Kontos darf niemand mehr ihre Dokumente löschen (AJ1)
       await SyncManager.deleteAccount();
     } catch (e) {
       alert('❌ Das Konto konnte nicht gelöscht werden: ' + e.message
@@ -11631,6 +11648,8 @@ async function triggerSyncInternal({ manual = false } = {}) {
       saveSyncBase(result.recovered.cloudTimestamp, result.recovered.data);
     }
     if (['uploaded', 'pulled', 'no_change'].includes(result.status)) syncErrorShown = false;
+    // Schülerapp (AJ1): Klassenseiten nach jedem erfolgreichen Sync auffrischen (schreibt nur bei Änderung)
+    if (['uploaded', 'pulled', 'no_change'].includes(result.status)) publishStudentApps();
 
     if (db !== dbAtStart) {
       // Während des Syncs wurde die ganze DB ersetzt („Alle Daten löschen“, Import, Cloud-Übernahme).
@@ -11848,6 +11867,385 @@ function settingsFormState() {
     .filter(el => el.id && !el.id.startsWith('sync-') && el.type !== 'file')
     .map(el => el.id + '=' + (el.type === 'checkbox' ? el.checked : el.value));
   return JSON.stringify([fields, blocksDraft, holidaysDraft, currentThemeBg, currentThemeAccent, currentThemeMode, navDraft]);
+}
+
+// ─── Schülerapp (BUGS AJ1), Stufe 1: Klassenseite ohne Personendaten ───────────────────────────────────────
+// Je Klasse ein Auszug (Expedition aus der Planung, Aufträge, Tests, nächste Stunden, Klassenziel), verschlüsselt mit dem
+// Schlüssel der Freigabe und als eigenes Dokument `shares/<id>` in die Cloud gelegt (student-share.js, SyncManager.publishShare).
+// Nie Namen, Noten, Fehlzeiten, Hinweise oder Notizen zu Schülern; das Klassenziel ist nur eine Summe.
+// In `db` stehen nur Einstellungen und Zugang (settings.studentApp, group.studentApp). Was dieses Gerät veröffentlicht hat
+// und was noch zu löschen ist, merkt sich das Gerät (localStorage, nie db): Veröffentlicht wird nach jedem Sync, nur bei Änderung.
+const SA_SHOW_DEFAULT = { expedition: true, upcoming: false, hw: true, tests: true, next: true };
+const SA_PUB_PREFIX = 'sa_pub_';            // + Kennung → { hash, at }: diesen Stand hat dieses Gerät veröffentlicht
+const SA_DELETE_QUEUE = 'sa_delete_queue';  // Kennungen, deren Dokument noch gelöscht werden muss (auch ohne Netz vorgemerkt)
+const SA_BASE_URL = 'https://unterrichtsplaner.github.io/schueler.html';
+let saPublishing = false, saPublishAgain = false;
+let studentAppProblem = null;   // null | 'rules' (Firestore-Regeln fehlen) | 'offline'
+
+const studentAppOn = () => !!(db.settings.studentApp && db.settings.studentApp.on);
+// Lesen mit Standardwerten, ohne zu schreiben (Regel 7: kaputte Werte nie still ersetzen, nur nicht benutzen)
+function studentAppOf(g) {
+  const sa = g && g.studentApp && typeof g.studentApp === 'object' ? g.studentApp : {};
+  const goal = sa.goal && typeof sa.goal === 'object' && Number(sa.goal.target) > 0 ? sa.goal : null;
+  return {
+    on: sa.on === true,
+    access: StudentShare.isAccess(sa.access) ? sa.access : null,
+    show: { ...SA_SHOW_DEFAULT, ...(sa.show && typeof sa.show === 'object' ? sa.show : {}) },
+    goal: goal ? { target: Math.round(Number(goal.target)), reward: String(goal.reward || ''), since: isDateStr(goal.since) ? goal.since : null } : null,
+  };
+}
+function ensureStudentApp(g) {
+  if (!g.studentApp || typeof g.studentApp !== 'object') g.studentApp = {};
+  return g.studentApp;
+}
+function studentAppTeacherName() {
+  const s = db.settings.studentApp;
+  return String((s && s.name) || db.settings.teacherName || '').trim();
+}
+function studentAppLink(access) {
+  let base = SA_BASE_URL;
+  try {
+    if (/^https?:$/.test(location.protocol)) base = new URL('schueler.html', location.href).href.split(/[?#]/)[0];
+  } catch (e) { /* Standardadresse */ }
+  return StudentShare.linkFor(access, base);
+}
+// Plusse der ganzen Klasse seit `since` (++ zählt doppelt, Minus gar nicht) – nur die Summe, keine Namen
+function classGoalCount(g, since) {
+  let n = 0;
+  (db.students[g.id] || []).forEach(s => (s.participation || []).forEach(p => {
+    if (!p || (since && String(p.date || '') < since)) return;
+    if (p.value === 'excellent') n += 2;
+    else if (p.value === 'positive') n += 1;
+  }));
+  return n;
+}
+
+// Der Auszug, den die Schülerseite zeigt. Ohne Zeitstempel, damit gleicher Inhalt gleich aussieht (nur dann wird geschrieben).
+// Relative Angaben („morgen“, „noch 10 Tage“) und was schon vorbei ist, rechnet die Schülerseite selbst aus.
+function studentAppSnapshot(g, now = new Date()) {
+  const sa = studentAppOf(g);
+  const todayStr = formatDate(now);
+  const nowMins = now.getHours() * 60 + now.getMinutes();
+  const ahead = groupLessons(g.id, todayStr, formatDate(addDays(parseDate(todayStr), 70))).filter(l => !l.ausfall);
+  const snap = { v: 1, cls: g.className || '', subject: g.subject || '', teacher: studentAppTeacherName(), color: g.color || '',
+    next: null, hw: null, tests: null, topics: null, goal: null };
+
+  if (sa.show.next) {
+    snap.next = ahead.filter(l => l.range).slice(0, 4)
+      .map(l => ({ date: l.dateStr, start: minsToTime(l.range.start), end: minsToTime(l.range.end), room: String(l.slot.room || '') }));
+  }
+  if (sa.show.hw || sa.show.tests) {
+    const seen = new Set(), hw = [], tests = [];
+    const add = (list, item, dateStr) => {
+      const text = String(item.text || '').trim();
+      const k = (item.id || text) + '|' + dateStr;
+      if (!text || seen.has(k)) return;
+      seen.add(k);
+      list.push({ date: dateStr, text });
+    };
+    ahead.forEach(l => {   // Fälligkeit nur über dueItemsFor (Regel 52)
+      const due = dueItemsFor(l.slot.id, l.dateStr);
+      due.hw.forEach(i => add(hw, i, l.dateStr));
+      due.tests.forEach(i => add(tests, i, l.dateStr));
+    });
+    if (sa.show.hw) snap.hw = hw.slice(0, 10);
+    if (sa.show.tests) snap.tests = tests.slice(0, 10);
+  }
+  if (sa.show.expedition) {
+    const plan = groupPlan(g);
+    if (plan.length) {
+      const { firstDate } = planAssignments(g, todayStr);
+      const done = plan.filter(t => t.done).sort((a, b) => String(a.done).localeCompare(String(b.done))).slice(-3)
+        .map(t => ({ title: String(t.title || '') }));
+      // Angefangene Themen zuerst, dann nach der ersten geplanten Stunde
+      const open = plan.filter(t => !t.done && (topicDoneCount(t) || firstDate.get(t)))
+        .map((t, i) => ({ t, i, d: firstDate.get(t) ? firstDate.get(t).dateStr : '9999' }))
+        .sort((a, b) => (topicDoneCount(b.t) ? 1 : 0) - (topicDoneCount(a.t) ? 1 : 0) || a.d.localeCompare(b.d) || a.i - b.i);
+      const cur = open[0];
+      snap.topics = {
+        done,
+        now: cur ? { title: String(cur.t.title || ''), unit: Math.min(topicLength(cur.t), topicDoneCount(cur.t) + 1), of: topicLength(cur.t) } : null,
+        next: sa.show.upcoming ? open.slice(1, 4).map(x => ({ title: String(x.t.title || '') })) : [],
+      };
+    } else {
+      // Ohne Planung: was zuletzt behandelt wurde („Was wurde behandelt“, erste Zeile)
+      const past = groupLessons(g.id, formatDate(addDays(parseDate(todayStr), -60)), todayStr)
+        .filter(l => !l.ausfall && (l.dateStr < todayStr || (l.range && l.range.start <= nowMins)))
+        .map(l => firstLine((db.lessonData[lessonKeyOf(l)] || {}).done)).filter(Boolean).slice(-4);
+      snap.topics = past.length
+        ? { done: past.slice(0, -1).map(title => ({ title })), now: { title: past[past.length - 1] }, next: [], fromLessons: true }
+        : { done: [], now: null, next: [], fromLessons: true };
+    }
+  }
+  if (sa.goal) snap.goal = { target: sa.goal.target, reward: sa.goal.reward, count: classGoalCount(g, sa.goal.since), since: sa.goal.since };
+  return snap;
+}
+
+const saRead = (k, fallback) => { try { const v = JSON.parse(localStorage.getItem(k)); return v === null ? fallback : v; } catch (e) { return fallback; } };
+const saWrite = (k, v) => { try { if (v === null) localStorage.removeItem(k); else localStorage.setItem(k, JSON.stringify(v)); } catch (e) { /* voll: nächstes Mal neu */ } };
+function queueShareDeletion(id) {
+  if (!id) return;
+  const q = saRead(SA_DELETE_QUEUE, []);
+  if (!q.includes(id)) saWrite(SA_DELETE_QUEUE, [...q, id]);
+  saWrite(SA_PUB_PREFIX + id, null);
+}
+async function processShareDeletions() {
+  for (const id of saRead(SA_DELETE_QUEUE, [])) {
+    await SyncManager.deleteShare(id);
+    saWrite(SA_DELETE_QUEUE, saRead(SA_DELETE_QUEUE, []).filter(x => x !== id));
+  }
+}
+// Nach jedem erfolgreichen Sync: vorgemerkte Löschungen, dann jede freigegebene Klasse, deren Auszug sich geändert hat.
+async function publishStudentApps() {
+  if (!SyncManager.isInitialized || !SyncManager.currentUser || typeof SyncManager.publishShare !== 'function') return;
+  if (saPublishing) { saPublishAgain = true; return; }
+  saPublishing = true;
+  try {
+    await processShareDeletions();
+    const dbAtStart = db;
+    for (const g of db.groups.slice()) {
+      if (db !== dbAtStart) break;   // DB ersetzt (Import, Pull): der nächste Durchlauf rechnet neu (Regel 32)
+      const sa = studentAppOf(g);
+      if (!sa.access) continue;
+      const markKey = SA_PUB_PREFIX + sa.access.id;
+      if (studentAppOn() && sa.on) {
+        const snap = studentAppSnapshot(g);
+        const hash = await contentHash(JSON.stringify(snap));
+        if ((saRead(markKey, {}) || {}).hash === hash) continue;
+        await SyncManager.publishShare(sa.access.id, await StudentShare.encrypt({ ...snap, at: Date.now() }, sa.access.key));
+        saWrite(markKey, { hash, at: Date.now() });
+      } else if (saRead(markKey, null)) {
+        await SyncManager.deleteShare(sa.access.id);
+        saWrite(markKey, null);
+      }
+    }
+    studentAppProblem = null;
+  } catch (e) {
+    studentAppProblem = e && e.code === 'permission-denied' ? 'rules' : 'offline';
+    console.warn('Schülerapp: Veröffentlichen hat nicht geklappt', e);
+  } finally {
+    saPublishing = false;
+    refreshStudentAppViews();
+    if (saPublishAgain) { saPublishAgain = false; publishStudentApps(); }
+  }
+}
+// Cloud leeren / Konto löschen: alle Schülerseiten mit weg (sonst blieben verschlüsselte, aber verwaiste Dokumente stehen)
+async function deleteAllStudentShares() {
+  db.groups.forEach(g => { const sa = studentAppOf(g); if (sa.access) queueShareDeletion(sa.access.id); });
+  if (!SyncManager.isInitialized || !SyncManager.currentUser || typeof SyncManager.deleteShare !== 'function') return;
+  try { await processShareDeletions(); } catch (e) { console.warn('Schülerapp: Löschen hat nicht geklappt', e); }
+}
+
+// ── Ändern (alles Nutzeränderungen → saveDB, Regel 2) ──
+function setStudentAppOn(groupId, on) {
+  const g = db.groups.find(x => x.id === groupId);
+  if (!g) return;
+  const sa = ensureStudentApp(g);
+  if (on && !StudentShare.isAccess(sa.access)) sa.access = StudentShare.newAccess();
+  sa.on = !!on;
+  if (!on && StudentShare.isAccess(sa.access)) queueShareDeletion(sa.access.id);
+  saveDB();
+  refreshStudentAppViews();
+}
+function renewStudentAppAccess(groupId, confirmed = false) {
+  const g = db.groups.find(x => x.id === groupId);
+  if (!g) return;
+  if (!confirmed && !confirm(`Neuen Link für die ${g.className} erzeugen?\n\nDer alte Link und der alte Code funktionieren dann nicht mehr. Die Klasse braucht den neuen Code.`)) return;
+  const sa = ensureStudentApp(g);
+  if (StudentShare.isAccess(sa.access)) queueShareDeletion(sa.access.id);
+  sa.access = StudentShare.newAccess();
+  saveDB();
+  refreshStudentAppViews();
+  if (!confirmed) showToast('Neuer Link erzeugt ✓');
+}
+function setStudentAppShow(groupId, key, value) {
+  const g = db.groups.find(x => x.id === groupId);
+  if (!g || !(key in SA_SHOW_DEFAULT)) return;
+  const sa = ensureStudentApp(g);
+  sa.show = { ...studentAppOf(g).show, [key]: !!value };
+  saveDB();
+  refreshStudentAppPreview();
+}
+function setStudentAppGoal(groupId, changes) {
+  const g = db.groups.find(x => x.id === groupId);
+  if (!g) return;
+  const cur = studentAppOf(g).goal || { target: 0, reward: '', since: null };
+  const next = { ...cur, ...changes };
+  next.target = Math.max(0, Math.min(10000, Math.round(Number(next.target) || 0)));
+  next.reward = String(next.reward || '').trim().slice(0, 120);
+  if (!isDateStr(next.since)) next.since = formatDate(new Date());
+  const sa = ensureStudentApp(g);
+  if (next.target > 0) sa.goal = next; else delete sa.goal;
+  saveDB();
+  renderStudentAppTab();
+}
+function restartStudentAppGoal(groupId) {
+  const g = db.groups.find(x => x.id === groupId);
+  const goal = g && studentAppOf(g).goal;
+  if (!goal) return;
+  if (!confirm('Neues Klassenziel beginnen?\n\nGezählt wird dann ab heute wieder von vorn.')) return;
+  setStudentAppGoal(groupId, { since: formatDate(new Date()) });
+}
+async function copyStudentAppLink(groupId) {
+  const g = db.groups.find(x => x.id === groupId);
+  const sa = g && studentAppOf(g);
+  if (!sa || !sa.access) return;
+  try { await navigator.clipboard.writeText(studentAppLink(sa.access)); showToast('Link kopiert ✓'); }
+  catch (e) { showToast('Kopieren hat nicht geklappt. Zeig den Code am Beamer', 'error'); }
+}
+
+// ── Anzeigen ──
+function studentAppQR(text, label) {
+  if (typeof qrcode !== 'function') return '';
+  const q = qrcode(0, 'M');
+  q.addData(text);
+  q.make();
+  return q.createSvgTag({ cellSize: 4, margin: 2, scalable: true, alt: label });
+}
+function updateStudentAppTabVisibility() {
+  const b = document.getElementById('overview-tab-studentapp');
+  if (!b) return;
+  b.classList.toggle('hidden', !studentAppOn());
+  if (!studentAppOn() && currentClassDashboardTab === 'studentapp'
+      && document.getElementById('view-students').classList.contains('active')) switchClassDashboardTab('students');
+}
+function studentAppStatusText(sa) {
+  if (!sa.on) return 'Nicht freigegeben. Die Klasse sieht nichts.';
+  if (studentAppProblem === 'rules') return 'Die Cloud lehnt die Freigabe ab: Die Firestore-Regeln für die Schülerapp fehlen noch.';
+  const mark = sa.access && saRead(SA_PUB_PREFIX + sa.access.id, null);
+  if (studentAppProblem === 'offline') return 'Gerade keine Verbindung zur Cloud. Die Seite wird beim nächsten Sync aktualisiert.';
+  if (mark && mark.at) {
+    const d = new Date(mark.at);
+    const day = formatDate(d) === formatDate(new Date()) ? 'heute' : formatWeekdayShort(formatDate(d));
+    return `Freigegeben. Aktualisiert sich bei jedem Sync, zuletzt ${day} um ${minsToTime(d.getHours() * 60 + d.getMinutes())}.`;
+  }
+  return 'Freigegeben. Die Seite erscheint mit dem nächsten Sync.';
+}
+function renderStudentAppTab() {
+  const content = document.getElementById('overview-content');
+  const g = db.groups.find(x => x.id === currentOverviewGroupId);
+  if (!content || !g || currentOverviewTab !== 'studentapp') return;
+  const sa = studentAppOf(g);
+  const cls = escHtml(g.className);
+  if (!SyncManager.isInitialized || !SyncManager.currentUser) {
+    content.innerHTML = `<div class="sa-wrap"><section class="set-card sa-card"><h3 class="sa-title">Schülerapp für die ${cls}</h3>
+      <p class="sa-status">Die Schülerapp braucht die Cloud: Die Seite der Klasse liegt verschlüsselt dort. Melde dich unter Einstellungen → Daten &amp; Cloud an.</p>
+      <div><button type="button" class="btn-secondary" id="sa-open-cloud">${icon('cloud')}Zur Anmeldung</button></div></section></div>`;
+    content.querySelector('#sa-open-cloud').addEventListener('click', () => { openSettings(); showSettingsPane('data'); });
+    return;
+  }
+  const goal = sa.goal;
+  const count = goal ? classGoalCount(g, goal.since) : 0;
+  const pct = goal ? Math.min(100, Math.round(count / goal.target * 100)) : 0;
+  const checks = [
+    ['expedition', 'Expedition', 'Themen aus der Planung als Stationen, sonst aus „Was wurde behandelt“'],
+    ['upcoming', 'Kommende Themen zeigen', 'sonst nur bis zum aktuellen Thema'],
+    ['hw', 'Hausaufgaben als Aufträge', ''],
+    ['tests', 'Tests und Klassenarbeiten', 'die nächste als Endgegner'],
+    ['next', 'Nächste Stunde', 'Tag, Zeit, Raum'],
+  ];
+  content.innerHTML = `<div class="sa-wrap"><div class="sa-grid"><div class="sa-col">
+    <section class="set-card sa-card">
+      <div class="sa-head"><div><h3 class="sa-title">Schülerapp für die ${cls}</h3><p class="sa-status" id="sa-status">${escHtml(studentAppStatusText(sa))}</p></div>
+        <label class="toggle-switch" title="Für die Klasse freigeben"><input type="checkbox" id="sa-on" aria-label="Für die ${cls} freigeben"${sa.on ? ' checked' : ''}><span class="toggle-slider"></span></label></div>
+    </section>
+    ${sa.on && sa.access ? `<section class="set-card sa-card">
+      <h3 class="sa-subtitle">Zugang für die Klasse</h3>
+      <div class="sa-access"><div class="sa-qr">${studentAppQR(studentAppLink(sa.access), 'Code für die ' + g.className)}</div>
+        <div class="sa-btns">
+          <button type="button" class="btn-primary" id="sa-beamer">${icon('panel')}Am Beamer zeigen</button>
+          <button type="button" class="btn-secondary" id="sa-copy">${icon('copy')}Link kopieren</button>
+          <button type="button" class="btn-secondary" id="sa-renew">${icon('refresh')}Neuen Link erzeugen</button>
+        </div></div>
+      <p class="field-hint-muted">Ein Link für alle, ohne Namen und Noten. Ein neuer Link macht den alten sofort ungültig.</p>
+    </section>
+    <section class="set-card sa-card">
+      <h3 class="sa-subtitle">Klassenziel</h3>
+      <div class="sa-goal">
+        <div class="form-group"><label for="sa-goal-target">Ziel in Plussen</label><input type="number" inputmode="numeric" min="0" max="10000" class="form-input" id="sa-goal-target" value="${goal ? goal.target : ''}" placeholder="z. B. 150"></div>
+        <div class="form-group"><label for="sa-goal-reward">Belohnung, wenn es geschafft ist</label><input type="text" maxlength="120" class="form-input" id="sa-goal-reward" value="${goal ? escHtml(goal.reward) : ''}" placeholder="z. B. eine Stunde Rätsel"></div>
+      </div>
+      ${goal ? `<div class="sa-progress"><span>Gesammelt seit ${escHtml(formatDateDE(parseDate(goal.since)))}: <b>${count}</b></span><span>${count >= goal.target ? 'geschafft' : `noch ${goal.target - count}`}</span></div>
+        <div class="sa-bar" role="img" aria-label="${count} von ${goal.target} Plussen"><i style="width:${pct}%"></i></div>
+        <div><button type="button" class="btn-secondary" id="sa-goal-restart">Neues Ziel beginnen</button></div>`
+        : '<p class="field-hint-muted">Plusse der ganzen Klasse, ++ zählt doppelt. Leer lassen: kein Klassenziel.</p>'}
+    </section>
+    <section class="set-card sa-card">
+      <h3 class="sa-subtitle">Sichtbar für die Klasse</h3>
+      <div class="sa-checks">${checks.map(([k, label, hint]) => `<label class="print-check sa-check"><input type="checkbox" data-show="${k}"${sa.show[k] ? ' checked' : ''}><span>${label}${hint ? `<small>${escHtml(hint)}</small>` : ''}</span></label>`).join('')}</div>
+    </section>` : ''}
+  </div>
+  ${sa.on && sa.access ? `<aside class="sa-preview"><h3 class="sa-subtitle">So sieht es die ${cls}</h3>
+    <div class="sa-phone"><iframe id="sa-preview-frame" src="schueler.html?vorschau" title="Vorschau der Schülerapp"></iframe></div></aside>` : ''}
+  </div></div>`;
+  content.querySelector('#sa-on').addEventListener('change', e => setStudentAppOn(g.id, e.target.checked));
+  if (!(sa.on && sa.access)) return;
+  content.querySelector('#sa-beamer').addEventListener('click', () => showStudentAppBeamer(g.id));
+  content.querySelector('#sa-copy').addEventListener('click', () => copyStudentAppLink(g.id));
+  content.querySelector('#sa-renew').addEventListener('click', () => renewStudentAppAccess(g.id));
+  content.querySelector('#sa-goal-target').addEventListener('change', e => setStudentAppGoal(g.id, { target: e.target.value }));
+  content.querySelector('#sa-goal-reward').addEventListener('change', e => setStudentAppGoal(g.id, { reward: e.target.value }));
+  const restart = content.querySelector('#sa-goal-restart');
+  if (restart) restart.addEventListener('click', () => restartStudentAppGoal(g.id));
+  content.querySelectorAll('input[data-show]').forEach(el => el.addEventListener('change', () => setStudentAppShow(g.id, el.dataset.show, el.checked)));
+  const frame = content.querySelector('#sa-preview-frame');
+  frame.addEventListener('load', () => refreshStudentAppPreview());
+}
+// Vorschau: dieselbe Schülerseite im Rahmen, mit dem Auszug von hier statt aus der Cloud
+function refreshStudentAppPreview() {
+  const frame = document.getElementById('sa-preview-frame');
+  const g = db.groups.find(x => x.id === currentOverviewGroupId);
+  if (!frame || !g) return;
+  try {
+    const w = frame.contentWindow;
+    if (w && typeof w.renderStudentPage === 'function') w.renderStudentPage({ ...studentAppSnapshot(g), at: Date.now() });
+  } catch (e) { /* Rahmen noch nicht geladen */ }
+}
+function refreshStudentAppViews() {
+  updateStudentAppTabVisibility();
+  const view = document.getElementById('view-students');
+  if (view && view.classList.contains('active') && currentOverviewTab === 'studentapp' && !document.getElementById('overview-content').classList.contains('hidden')) {
+    // Nur den Status neu schreiben, wenn sich sonst nichts geändert hat: Neuzeichnen nähme den Fokus aus den Feldern
+    const g = db.groups.find(x => x.id === currentOverviewGroupId);
+    const status = document.getElementById('sa-status');
+    const on = document.getElementById('sa-on');
+    if (g && status && on && on.checked === studentAppOf(g).on && !!document.getElementById('sa-beamer') === !!(studentAppOf(g).on && studentAppOf(g).access)) {
+      status.textContent = studentAppStatusText(studentAppOf(g));
+      refreshStudentAppPreview();
+    } else {
+      renderStudentAppTab();
+    }
+  }
+  const list = document.getElementById('settings-studentapp-classes');
+  if (list && !document.getElementById('modal-settings').classList.contains('hidden')) renderSettingsStudentApps();
+}
+function showStudentAppBeamer(groupId) {
+  const g = db.groups.find(x => x.id === groupId);
+  const sa = g && studentAppOf(g);
+  if (!sa || !sa.access) return;
+  document.getElementById('sa-beamer-title').textContent = [g.className, g.subject].filter(Boolean).join(' · ');
+  document.getElementById('sa-beamer-qr').innerHTML = studentAppQR(studentAppLink(sa.access), 'Code für die ' + g.className);
+  openModal('modal-studentapp-beamer');
+}
+// Einstellungen → Schülerapp: Klassenliste mit Stand und „Öffnen“
+function renderSettingsStudentApps() {
+  const el = document.getElementById('settings-studentapp-classes');
+  if (!el) return;
+  if (!db.groups.length) { el.innerHTML = '<p class="field-hint-muted">Noch keine Klassen.</p>'; return; }
+  el.innerHTML = db.groups.map(g => {
+    const sa = studentAppOf(g);
+    const state = !sa.on ? 'nicht freigegeben' : sa.goal ? `freigegeben, ${classGoalCount(g, sa.goal.since)} von ${sa.goal.target} Plussen` : 'freigegeben';
+    return `<div class="sa-class-row" data-id="${escHtml(g.id)}"><span class="sa-dot" style="--dot:${escHtml(g.color || '#888')}"></span>
+      <span class="sa-class-name">${escHtml(g.className)}<small>${escHtml(g.subject || '')}</small></span>
+      <span class="sa-class-state">${escHtml(state)}</span>
+      <button type="button" class="btn-secondary">Öffnen</button></div>`;
+  }).join('');
+  el.querySelectorAll('.sa-class-row').forEach(row => row.querySelector('button').addEventListener('click', () => {
+    closeModalLikeButton('modal-settings');   // fragt bei ungespeicherten Änderungen (Regel 27)
+    if (!document.getElementById('modal-settings').classList.contains('hidden')) return;
+    if (!studentAppOn()) { showToast('Erst die Schülerapp einschalten und speichern', 'error'); return; }
+    openGroupStudents(row.dataset.id, 'studentapp');
+  }));
 }
 
 // Starte Sync-Initialisierung beim Laden

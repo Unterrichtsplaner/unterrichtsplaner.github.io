@@ -1,22 +1,24 @@
-const CACHE_NAME = 'lehrer-app-v460';
+const CACHE_NAME = 'lehrer-app-v461';
 const ASSETS = [
   './',
   './index.html',
-  './sync-merge.js?v=460',
-  './app.js?v=460',
-  './style.css?v=460',
+  './sync-merge.js?v=461',
+  './app.js?v=461',
+  './style.css?v=461',
   './manifest.json',
   './icon.svg',
   './icon-180.png',
   './icon-192.png',
   './icon-512.png',
   './lib/crypto-js.min.js',
-  './crypto-helper.js?v=460',
+  './crypto-helper.js?v=461',
   './lib/firebase-app-compat.js',
   './lib/firebase-auth-compat.js',
   './lib/firebase-firestore-compat.js',
-  './firebase-config.js?v=460',
-  './sync-manager.js?v=460'
+  './firebase-config.js?v=461',
+  './sync-manager.js?v=461',
+  './lib/qrcode.js',
+  './student-share.js?v=461'
 ];
 
 self.addEventListener('install', event => {
@@ -54,7 +56,10 @@ const NAVIGATION_TIMEOUT_MS = 3000;
 // Die frische index.html wird NICHT in den Cache gelegt: sie verweist auf neue ?v=-Dateien, die in diesem
 // Cache fehlen – offline passte dann nichts mehr zusammen. Den neuen Stand cacht der neue Service Worker.
 function networkFirstPage(request) {
-  const fromCache = () => caches.match(request).then(r => r || caches.match('./index.html'));
+  // Auf index.html zurückfallen nur für die App selbst. Die Schülerseite (schueler.html, AJ1) bekäme sonst offline die
+  // Planer-App – in der Vorschau liefe dann eine zweite App in denselben Daten.
+  const isApp = /\/(index\.html)?$/.test(new URL(request.url).pathname);
+  const fromCache = () => caches.match(request).then(r => r || (isApp ? caches.match('./index.html') : undefined));
   return new Promise(resolve => {
     let done = false;
     const finish = (responsePromise) => { if (!done) { done = true; resolve(responsePromise); } };

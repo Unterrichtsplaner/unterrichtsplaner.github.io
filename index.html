@@ -40,7 +40,7 @@
       }
     })();
   </script>
-  <link rel="stylesheet" href="style.css?v=460" />
+  <link rel="stylesheet" href="style.css?v=461" />
   <script>
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
@@ -247,6 +247,7 @@
           <button class="tab-btn" id="overview-tab-attendance" onclick="switchClassDashboardTab('attendance')"><i data-icon="attendance"></i><span class="tab-long">Fehlzeiten</span><span class="tab-short">Fehlzeiten</span></button>
           <button class="tab-btn" id="overview-tab-homework" onclick="switchClassDashboardTab('homework')"><i data-icon="homework"></i><span class="tab-long">Hausaufgaben</span><span class="tab-short">HA</span></button>
           <button class="tab-btn" id="overview-tab-plan" onclick="switchClassDashboardTab('plan')"><i data-icon="list"></i><span class="tab-long">Planung</span><span class="tab-short">Plan</span></button>
+          <button class="tab-btn hidden" id="overview-tab-studentapp" onclick="switchClassDashboardTab('studentapp')"><i data-icon="student"></i><span class="tab-long">Schülerapp</span><span class="tab-short">App</span></button>
         </div>
       </div>
       <div id="mass-delete-bar" class="hidden" style="background:var(--danger-soft); padding: var(--space-2) var(--space-6); display:flex; justify-content:space-between; align-items:center;">
@@ -857,6 +858,7 @@
       <button type="button" data-pane="holidays" aria-current="false"><i data-icon="calendar-x"></i>Ferien</button>
       <button type="button" data-pane="look" aria-current="false"><i data-icon="eye"></i>Darstellung</button>
       <button type="button" data-pane="nav" aria-current="false"><i data-icon="panel"></i>Leiste</button>
+      <button type="button" data-pane="studentapp" aria-current="false"><i data-icon="student"></i>Schülerapp</button>
       <button type="button" data-pane="data" aria-current="false"><i data-icon="cloud"></i>Daten & Cloud</button>
       <button type="button" data-pane="about" aria-current="false"><i data-icon="info"></i>Über die App</button>
     </nav>
@@ -1045,6 +1047,30 @@
       </div>
 </section>
       </div>
+      <div class="set-pane" data-pane="studentapp">
+<section class="set-card">
+<div class="settings-section">
+        <label class="print-check" for="settings-studentapp-on"><input type="checkbox" id="settings-studentapp-on" /> Schülerapp verwenden</label>
+        <p class="field-hint-muted">Eine Seite für deine Klassen mit Thema, Hausaufgaben, Tests und Klassenziel, ohne Namen und Noten. Braucht die Cloud. Freigeben kannst du jede Klasse einzeln in der Klassenansicht unter „Schülerapp“.</p>
+        <div class="form-group" style="margin-top:var(--space-3);">
+          <label for="settings-studentapp-name">So stehst du in der App</label>
+          <input type="text" id="settings-studentapp-name" class="form-input" maxlength="60" />
+        </div>
+      </div>
+</section>
+<section class="set-card">
+<div class="settings-section">
+        <h3 style="margin-bottom:var(--space-3);font-size:14px;">Klassen</h3>
+        <div id="settings-studentapp-classes"></div>
+      </div>
+</section>
+<section class="set-card">
+<div class="settings-section">
+        <h3 style="margin-bottom:var(--space-3);font-size:14px;">Was Schüler sehen</h3>
+        <p class="field-hint-muted">Nur, was du je Klasse freigibst: Thema der Stunden, Hausaufgaben, Tests, nächste Stunde und die Summe der Plusse für das Klassenziel. Nie Namen, Noten, Fehlzeiten, Hinweise oder Notizen zu Schülern. Die Seite liegt verschlüsselt in der Cloud; lesen kann sie nur, wer den Link oder Code hat. Schreib in Hausaufgaben und Themen deshalb keine Namen.</p>
+      </div>
+</section>
+      </div>
       <div class="set-pane" data-pane="data">
 <section class="set-card">
 <!-- Cloud-Synchronisierung (E2EE) -->
@@ -1199,13 +1225,27 @@
     </div>
     </div>
     <div class="modal-footer">
-      <span class="settings-footer-hint">Namen, Warnschwellen, Darstellung und Stundenzeiten gelten erst mit „Speichern“.</span>
+      <span class="settings-footer-hint">Namen, Warnschwellen, Darstellung, Stundenzeiten und Schülerapp gelten erst mit „Speichern“.</span>
       <button class="btn-primary" onclick="saveSettings()">Speichern</button>
     </div>
   </div>
 </div>
 
 <!-- Datenschutzhinweise (BUGS Y1). Nach den Einstellungen im Markup: liegt über ihnen (Escape schließt das oberste). -->
+<!-- Schülerapp (AJ1): großer Code für die Klasse am Beamer -->
+<div id="modal-studentapp-beamer" class="modal-overlay hidden" onclick="closeModalOnOverlay(event,'modal-studentapp-beamer')">
+  <div class="modal sa-beamer" onclick="event.stopPropagation()">
+    <div class="modal-header">
+      <h2 id="sa-beamer-title">Schülerapp</h2>
+      <button class="modal-close" aria-label="Schließen" onclick="closeModal('modal-studentapp-beamer')">✕</button>
+    </div>
+    <div class="sa-beamer-body">
+      <div class="sa-beamer-qr" id="sa-beamer-qr"></div>
+      <p class="sa-beamer-text">Scannt den Code: Thema, Hausaufgaben und Tests findet ihr ab jetzt immer dort.</p>
+    </div>
+  </div>
+</div>
+
 <div id="modal-privacy" class="modal-overlay hidden" onclick="closeModalOnOverlay(event,'modal-privacy')">
   <div class="modal" onclick="event.stopPropagation()">
     <div class="modal-header">
@@ -1236,6 +1276,7 @@
         <li>Gespeichert werden: deine E-Mail-Adresse bzw. dein Google-Konto für die Anmeldung und ein verschlüsseltes Datenpaket (AES-256-GCM, Schlüssel aus dem Master-Passwort per PBKDF2) mit dem Zeitpunkt der letzten Änderung.</li>
         <li>Wie jeder Server-Dienst verarbeitet Google dabei technische Daten wie deine IP-Adresse. Eine Übermittlung in die USA ist dabei nicht ausgeschlossen. Schülerdaten sind davon nur verschlüsselt betroffen.</li>
         <li>Jedes Konto kann nur sein eigenes Datenpaket lesen und schreiben.</li>
+        <li>Schülerapp (nur wenn du sie einschaltest): Für jede freigegebene Klasse liegt ein eigenes kleines Datenpaket in Firestore, verschlüsselt mit einem Schlüssel, der nur im Link bzw. Code für die Klasse steht. Es enthält Thema, Hausaufgaben, Tests, nächste Stunden und die Summe der Plusse, nie Namen oder Noten. Lesen kann es, wer den Link hat; ändern und löschen nur dein Konto. Abschalten oder ein neuer Link löscht es.</li>
         <li>Deine Cloud-Daten und dein Konto löschen: selbst unter Einstellungen → Cloud-Synchronisierung → „Cloud-Konto löschen“ (nur die Cloud-Daten: Datenverwaltung → „Alles löschen, auch in der Cloud“). Klappt das nicht, genügt eine kurze E-Mail an den Betreiber (siehe unten).</li>
       </ul>
 
@@ -1724,13 +1765,15 @@
   </div>
 
   <script src="lib/crypto-js.min.js"></script>
-  <script src="crypto-helper.js?v=460"></script>
+  <script src="crypto-helper.js?v=461"></script>
   <script src="lib/firebase-app-compat.js"></script>
   <script src="lib/firebase-auth-compat.js"></script>
   <script src="lib/firebase-firestore-compat.js"></script>
-  <script src="firebase-config.js?v=460"></script>
-  <script src="sync-manager.js?v=460"></script>
-  <script src="sync-merge.js?v=460"></script>
-  <script src="app.js?v=460"></script>
+  <script src="firebase-config.js?v=461"></script>
+  <script src="sync-manager.js?v=461"></script>
+  <script src="sync-merge.js?v=461"></script>
+  <script src="lib/qrcode.js"></script>
+  <script src="student-share.js?v=461"></script>
+  <script src="app.js?v=461"></script>
 </body>
 </html>

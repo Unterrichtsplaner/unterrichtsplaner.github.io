@@ -37,12 +37,15 @@ lib/crypto-js.min.js → crypto-helper.js → lib/firebase-*-compat.js → fireb
 | `index.html` | Gesamtes Markup inkl. aller Modals (`modal-*`) und Views (`view-dashboard/timetable/classes/students/seating`) |
 | `sync-manager.js` | Firebase-Auth + Firestore, Sync-Entscheidung (`decideSync`), Passwort-Probe, Upload per Transaktion |
 | `sync-merge.js` | Drei-Wege-Abgleich als reine Funktionen (`mergeDB`, `finishMerge`, `describeDifferences`), ohne Zugriff auf die App |
+| `student-share.js` | Schülerapp (AJ1): Zugang (Kennung + Schlüssel), Ver-/Entschlüsseln, Link. Gemeinsam für Planer und Schülerseite, ohne Zugriff auf `db` |
+| `schueler.html`, `schueler.js`, `schueler.css` | Schülerapp (AJ1): Seite für die Klasse, nur zum Lesen, eigene Gestaltung „Karoheft“. Lädt `shares/<id>` ohne Konto und entschlüsselt im Browser; im Planer als Vorschau (`?vorschau`, `renderStudentPage`) |
 | `crypto-helper.js` | E2EE: verschlüsselt die komplette DB mit dem Master-Passwort, bevor sie in die Cloud geht |
 | `sw.js` | Service Worker: die Seite (index.html) network-first mit Cache-Fallback, alle anderen eigenen Dateien cache-first. Cache-Liste `ASSETS` muss exakt zu den URLs in index.html passen |
 | `firestore.rules` | Kopie der Firestore-Sicherheitsregeln (jeder Nutzer nur sein eigenes Dokument). Änderungen hier **und** in der Firebase-Konsole machen |
 | `firebase-config.js` | Öffentliche Firebase-Web-Config. Die ist absichtlich öffentlich, Schutz passiert über Firestore-Regeln + E2EE |
 | `lib/` | Fremdbibliotheken (vendored). **Nicht anfassen.** |
 | `server.js` | Nur Dev-Server (`npm run serve`), liefert keine versteckten Dateien aus |
+| `lib/qrcode.js`, `lib/fonts/` | QR-Code (qrcode-generator, MIT) und Schrift Archivo (OFL) für die Schülerapp, siehe `lib/LIZENZEN.txt` |
 
 ## Datenmodell
 
@@ -74,6 +77,7 @@ db = {
              studentNotes: [{ text, date }] }] },
   supervisions: [{ id, day, start, end /*HH:MM*/, place, recurring, startDate?, specificDate? }], // Pausenaufsicht (AA4), wie eine Stunde → slotOccursOn
   todos?: [{ id, text, created, groupId?, due? /*YYYY-MM-DD*/, done?, doneAt? }], // Merkzettel (AH18), fehlt bei Altdaten
+  // Schülerapp (AJ1): settings.studentApp? = { on, name? }; groups[].studentApp? = { on, access: { id, key }, show?: { expedition, upcoming, hw, tests, next }, goal?: { target, reward, since } }
   syncSettings: { lastSyncedCloudTimestamp, syncedLocalModified },
   acknowledgedWarnings: { '<studentId>_absences': n, … },
 }
@@ -225,6 +229,7 @@ Datumswerte sind Strings `YYYY-MM-DD` in **lokaler** Zeit (`formatDate()`). Nie 
 93. **Menüpunkte nur über `navOrder()`/`renderNav()` anordnen, Schnellzugriffe nur über `quickLinksOf()`** (überspringt kaputte Einträge und gelöschte Klassen, AH48). Welcher Punkt markiert ist, entscheidet `markNavActive()` (läuft am Ende von `switchView` und beim Klassenwechsel im Sitzplan): ein passender Schnellzugriff statt des Menüpunkts, nie beide. Ein neuer Menüpunkt gehört in `NAV_VIEWS`/`NAV_NAMES`; gespeicherte Reihenfolgen bekommen ihn von selbst hinten dran. Wer eine Klasse löscht, entfernt ihre Schnellzugriffe.
 
 94. **Mitarbeit hat vier Stufen, nur über `PART_LEVELS`** (AH52): gespeichert das Wort (`excellent`, `positive`, `neutral`, `negative`), angezeigt das Zeichen über `partSignHTML` (++ + − −−, Farbe je Stufe), gezählt über `partCounts`/`partCountsHTML` (nur „schwach“ rot), Wörter „sehr gut · gut · wenig · schwach“ überall gleich. Nie eigene Listen mit Werten oder Gesichtern anlegen; eine neue Stufe braucht auch einen Eintrag in `MERGE_FACE_WORDS`. Alte App-Versionen kennen `excellent` nicht: Werte nie umbenennen.
+95. **Schülerapp nur über `studentAppOf(g)` lesen und über die `set…`-Funktionen ändern** (AJ1). Der Auszug für die Schüler entsteht nur in `studentAppSnapshot(g, now)`: **nie** Namen, Noten, Fehlzeiten, Hinweise oder Notizen zu Schülern, das Klassenziel nur als Summe (`classGoalCount`); Fälligkeit über `dueItemsFor` (Regel 52). Er hat keinen Zeitstempel, damit gleicher Inhalt gleich aussieht; veröffentlicht wird nach jedem erfolgreichen Sync nur bei neuem Inhalt (`publishStudentApps`, Merker `sa_pub_<id>` nur auf dem Gerät). Wer einen Zugang aufgibt (Klasse aus, neuer Link, Klasse löschen, Cloud leeren, Konto löschen), merkt seine Kennung zum Löschen vor (`queueShareDeletion`), die Warteschlange überlebt fehlendes Netz. Relative Angaben („morgen“, „vorbei“) rechnet nur die Schülerseite. Neue Inhalte für Schüler: erst Regel 16/67 prüfen, dann Häkchen in „Sichtbar für die Klasse“. Ein neues Format der Schülerseite braucht `StudentShare.FORMAT` + 1 (Regel 15). `firestore.rules` ändern heißt: auch in der Firebase-Konsole einfügen.
 
 ## Arbeitsablauf
 

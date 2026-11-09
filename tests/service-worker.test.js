@@ -50,10 +50,10 @@ describe('Service Worker fängt nur eigene Dateien ab', () => {
 });
 
 // Aufruf der Seite (Navigation): liefert die Antwort des Service Workers als Text
-async function navigate(env) {
+async function navigate(env, path = '/') {
   const { fetch: onFetch } = loadServiceWorker(env);
   let responsePromise;
-  onFetch({ request: { url: ORIGIN + '/', method: 'GET', mode: 'navigate' }, respondWith: p => { responsePromise = p; } });
+  onFetch({ request: { url: ORIGIN + path, method: 'GET', mode: 'navigate' }, respondWith: p => { responsePromise = p; } });
   expect(responsePromise).toBeDefined();
   return (await responsePromise).text();
 }
@@ -77,6 +77,13 @@ describe('Seite selbst: zuerst aus dem Netz, offline aus dem Cache (G2)', () => 
     expect(text).toBe('index vom Server');
     // Nicht in den alten Cache schreiben: die neue index.html verweist auf Dateien, die dort fehlen
     expect(puts).toEqual([]);
+  });
+
+  it('Schülerseite (AJ1) bekommt offline nie die Planer-App: sonst liefe in der Vorschau eine zweite App in denselben Daten', async () => {
+    const off = await navigate({ caches: fakeCaches(), fetch: async () => { throw new TypeError('offline'); } }, '/schueler.html?vorschau');
+    expect(off).not.toBe('index aus dem Cache');   // Response.error(): leere Fehlerantwort statt der App
+    const err = await navigate({ caches: fakeCaches(), fetch: async () => new Response('weg', { status: 404 }) }, '/schueler.html');
+    expect(err).toBe('weg');
   });
 
   it('offline: index.html aus dem Cache', async () => {

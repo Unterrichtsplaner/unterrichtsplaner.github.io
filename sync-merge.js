@@ -123,6 +123,14 @@ const MERGE_SPEC = {
             },
           },
           classNotes: { list: n => n.id, onDelete: 'ask', title: n => `Klassennotiz „${n.text || ''}“`, item: { fields: { text: MERGE_TEXT } } },
+          // Schülerapp (AJ1): Zugang und Klassenziel nur als Ganzes (ein halber Zugang aus zwei Geräten taugt nichts)
+          studentApp: {
+            fields: {
+              access: { atomic: 'ask', what: 'Zugang zur Schülerapp', show: a => (a && a.id ? `Link …${String(a.id).slice(-4)}` : 'kein Link') },
+              goal: { atomic: 'ask', what: 'Klassenziel', show: gl => (gl && gl.target ? `${gl.target} Plusse${gl.reward ? `: ${gl.reward}` : ''}` : 'keins') },
+            },
+            other: MERGE_LOCAL,
+          },
         },
       },
     },
