@@ -164,7 +164,7 @@ details.row .more { padding: 0 0 14px 32px; }
 .rank-badge.t-gold { background: linear-gradient(135deg, #ffe680, #d4a017); color: #3a2a00; }
 .rank-badge.t-platinum { background: linear-gradient(135deg, #f4fcff, #9fc6d4); color: #12354a; }
 .rank-badge.t-diamond { background: linear-gradient(135deg, #dff8ff, #3fbbe8); color: #0b3550; }
-.me-top { display: flex; flex-direction: column; gap: 14px; }
+.me-top { display: flex; flex-direction: column; gap: 14px; margin-bottom: 18px; }   /* Abstand zur ersten Karte (Wunsch 09.11.) */
 .me-cls { font-size: 36px; }
 .tabs { display: flex; gap: 4px; background: rgba(28, 42, 87, .07); border-radius: 10px; padding: 3px; max-width: 420px; }
 @media (prefers-color-scheme: dark) { .tabs { background: rgba(233, 237, 255, .08); } }
@@ -176,6 +176,7 @@ details.row .more { padding: 0 0 14px 32px; }
 .lvl small { font-size: 11px; font-weight: 700; margin-top: 4px; }
 .lvl b { font-size: 34px; font-weight: 900; font-stretch: 120%; line-height: .9; }
 .player .who { font-size: 26px; font-weight: 900; font-stretch: 112%; line-height: 1; overflow-wrap: anywhere; }
+.player .who.long { font-size: 21px; } .player .who.xlong { font-size: 17px; }
 .player .rank { font-size: 14px; color: var(--ink-2); margin-top: 4px; }
 .hl-text span { font-weight: 600; }
 .me-next { font-size: 13px; color: var(--ink-2); margin-top: 6px; }
@@ -234,6 +235,11 @@ details.row .more { padding: 0 0 14px 32px; }
 .hero .player { margin-top: 0; }
 .hero-sub { display: flex; flex-wrap: wrap; gap: 4px 16px; margin-top: 10px; font-size: 13px; color: var(--ink-2); }
 .hero-sub b { color: var(--ink); }
+/* Rückmeldung in der Level-Karte (Wunsch 09.11.): XP und Plusse gehören zusammen */
+.hero-fb { margin-top: 14px; padding-top: 12px; border-top: 1.5px dashed var(--grid); }
+.hero-fb h3 { font-size: 15px; font-weight: 800; margin-bottom: 10px; }
+.hero-fb h3 small { font-size: 12px; font-weight: 500; color: var(--ink-2); margin-left: 6px; }
+@media (min-width: 760px) { .me-ich { grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); } .me-ich .col > :first-child { margin-top: 0; } }
 .newrw { margin-top: 18px; display: flex; align-items: center; gap: 12px; }
 .newrw .t { flex: 1; font-size: 14px; line-height: 1.4; color: var(--ink-2); }
 .newrw .t b { display: block; font-size: 15px; color: var(--ink); }

@@ -389,6 +389,30 @@ describe('Belohnungen zum Aussuchen (AJ3b, ersetzt AJ2d)', () => {
     expect(page().querySelector('.yr')).toBeNull();
     expect(page().querySelector('.card.joker')).toBeNull();   // kein Joker frei: nichts dazu auf „Ich“
   });
+
+  it('„Ich“ geordnet (Wunsch 09.11.): XP und Rückmeldung eine Karte oben, dann Baustelle, dann Joker', () => {
+    const d = me(4);
+    d.feedback = [{ date: '2026-11-02', v: 'positive' }];
+    d.jokers = { open: 1, list: ['Platz wählen'] };
+    d.bau = { text: 'Material', since: '2026-11-01' };
+    window.renderStudentPage(d);
+    const cards = [...page().querySelectorAll('.card')];
+    expect(cards[0].classList.contains('hero')).toBe(true);
+    expect(cards[0].querySelector('.fb .sp')).not.toBeNull();   // Rückmeldung steckt in der Level-Karte
+    expect(page().querySelectorAll('.fb').length).toBe(1);
+    expect(cards.map(c => ['hero', 'bau', 'joker'].find(k => c.classList.contains(k))).filter(Boolean)).toEqual(['hero', 'bau', 'joker']);
+  });
+
+  it('lange Vornamen werden kleiner statt im Wort umzubrechen', () => {
+    const d = me(4); d.first = 'Maximilian';
+    window.renderStudentPage(d);
+    expect(page().querySelector('.who').className).toContain('long');
+  });
+
+  it('Abstand zwischen Reitern und erster Karte', () => {
+    const css = fs.readFileSync(path.join(__dirname, '..', 'schueler.css'), 'utf8');
+    expect(css).toMatch(/\.me-top \{[^}]*margin-bottom: \d+px/);
+  });
 });
 
 describe('Fühlt sich an wie eine App (Wunsch 09.11.)', () => {
