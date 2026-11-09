@@ -235,9 +235,10 @@ describe('Persönliche Seite (AJ2)', () => {
     const t = page().textContent;
     expect(page().querySelector('.lvl b').textContent).toBe('6');
     expect(page().querySelector('.who').textContent).toBe('Anna');
-    expect(t).toMatch(/Füller · 90 XP/);
+    expect(page().querySelector('.rank-badge').textContent).toBe('Füller');   // Rang als Plakette (09.11.)
+    expect(t).toMatch(/90 XP/);
     expect(t).toMatch(/noch 10 XP bis Level 7/);
-    expect(t).toMatch(/Ab Level 9: Textmarker/);
+    expect(t).toMatch(/Ab Level 7: Textmarker/);   // Stufe aus dem Level: 6 → nächster Rang bei 7
     expect(t).toMatch(/2\s*Stunden in Folge mit Plus/);
     expect(t).toMatch(/Ein Joker frei/);
     expect([...page().querySelectorAll('.joker li')].map(li => li.textContent)).toEqual(['Song vorschlagen', 'Platz wählen']);
@@ -400,5 +401,30 @@ describe('Fühlt sich an wie eine App (Wunsch 09.11.)', () => {
   });
   it('kein seitliches Verschieben', () => {
     expect(css).toMatch(/html, body \{[^}]*overflow-x: hidden/);
+  });
+});
+
+describe('Farben (Wunsch 09.11.): kein Lila, Ränge in Rangfarben', () => {
+  const css = fs.readFileSync(path.join(__dirname, '..', 'schueler.css'), 'utf8');
+  const share = fs.readFileSync(path.join(__dirname, '..', 'student-share.js'), 'utf8');
+  const me = (level, rank) => ({ v: 1, kind: 'me', first: 'Anna', cls: '7b', level, xp: 10, from: 0, next: 20, jokers: {}, feedback: [], year: [], ...(rank ? { rank } : {}) });
+  afterEach(() => window.renderStudentPage({ v: 2, cls: '7b' }));
+
+  it('kein Lila in Schülerseite und Sticker-Farben', () => {
+    ['#6a3db8', '#b79cff', '#8e5cf6'].forEach(c => { expect(css).not.toContain(c); expect(share).not.toContain(c); });
+  });
+
+  it('Rang als farbige Plakette: Stufe aus dem Level (alle 2 Level), Name aus der Klasse oder die Farbe selbst', () => {
+    const tier = l => { window.renderStudentPage(me(l)); const b = page().querySelector('.rank-badge'); return [b.className.replace('rank-badge ', ''), b.textContent]; };
+    expect(tier(1)).toEqual(['t-bronze', 'Bronze']);
+    expect(tier(4)).toEqual(['t-silver', 'Silber']);
+    expect(tier(6)).toEqual(['t-gold', 'Gold']);
+    expect(tier(8)).toEqual(['t-platinum', 'Platin']);
+    expect(tier(10)).toEqual(['t-diamond', 'Diamant']);
+    expect(tier(11)).toEqual(['t-rainbow', 'Regenbogen']);
+    expect(tier(30)).toEqual(['t-rainbow', 'Regenbogen']);
+    window.renderStudentPage(me(6, 'Füller'));
+    expect(page().querySelector('.rank-badge').textContent).toBe('Füller');
+    expect(page().querySelector('.rank-badge').className).toContain('t-gold');
   });
 });

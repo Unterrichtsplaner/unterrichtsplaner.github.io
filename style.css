@@ -2097,6 +2097,14 @@ button.sw-hint-text{cursor:pointer;}
 .sw-sec[hidden]{display:none;}
 .sa-privacy{margin:0;font-size:12px;line-height:1.45;color:var(--text-secondary);background:var(--bg-elevated);border:1px solid var(--border);border-radius:var(--radius-sm);padding:var(--space-2) var(--space-3);}
 .sa-ranks{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:var(--space-2);}
+.sa-rank{display:flex;align-items:center;gap:var(--space-2);min-width:0;}
+.sa-rank input{flex:1;min-width:0;}
+.rank-chip{width:14px;height:14px;border-radius:50%;flex-shrink:0;display:inline-flex;align-items:center;justify-content:center;gap:1px;border:1px solid var(--border);}
+.rank-chip.t-bronze{background:#b87333;} .rank-chip.t-silver{background:#b8c0c8;} .rank-chip.t-gold{background:#d4a017;}
+.rank-chip.t-platinum{background:#a9d0dc;} .rank-chip.t-diamond{background:#3fbbe8;}
+.rank-chip.t-rainbow{width:auto;border:none;}
+.rank-chip.t-rainbow i{width:6px;height:6px;border-radius:50%;}
+.rank-chip.t-rainbow i:nth-child(1){background:#ff6b6b;} .rank-chip.t-rainbow i:nth-child(2){background:#ffe24a;} .rank-chip.t-rainbow i:nth-child(3){background:#3a8ee6;}
 .sa-row-btns{display:flex;flex-wrap:wrap;gap:var(--space-2);}
 textarea.sa-jokers{min-height:120px;padding:var(--space-2) var(--space-3);resize:vertical;font:inherit;font-size:14px;line-height:1.45;}
 .sw-sa-line{font-size:14px;color:var(--text-primary);}

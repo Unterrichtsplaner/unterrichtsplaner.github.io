@@ -67,7 +67,7 @@ const StudentShare = (() => {
     check: '<path d="M5 12.5l4.5 4.5L19 7.5"/>',
     crane: '<rect x="2.5" y="7" width="19" height="7" rx="1"/><path d="M7 7l-3.5 7M12.5 7l-3.5 7M18 7l-3.5 7"/><path d="M5 14v6M19 14v6"/>',
   };
-  const STICKER_COLORS = ['#ff8a3d', '#2fb37a', '#e84d8a', '#3a8ee6', '#8e5cf6', '#e0a800'];
+  const STICKER_COLORS = ['#ff8a3d', '#2fb37a', '#e84d8a', '#3a8ee6', '#14a3b8', '#e0a800'];   // Nr. 4 Türkis statt Lila (Wunsch 09.11.)
   const stickerSvg = icon => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${STICKER_ICONS[icon] || STICKER_ICONS.star}</svg>`;
   const stickerColor = c => STICKER_COLORS[Number(c)] || STICKER_COLORS[0];
 

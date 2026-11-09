@@ -155,8 +155,16 @@ details.row .more { padding: 0 0 14px 32px; }
 }
 
 /* Persönliche Seite (AJ2): Reiter, Spielerkarte, Rückmeldung, Joker */
-:root { --stamp: #6a3db8; }
-@media (prefers-color-scheme: dark) { :root { --stamp: #b79cff; } }
+:root { --stamp: #0e7c86; }   /* Petrol statt Lila (Wunsch 09.11.) */
+@media (prefers-color-scheme: dark) { :root { --stamp: #4fd1c5; } }
+/* Ränge in Rangfarben (Wunsch 09.11.): Stufe aus dem Level, Name aus der Klasse oder die Farbe selbst */
+.rank-badge { display: inline-block; font-size: 12px; font-weight: 800; line-height: 1.5; padding: 0 8px; border-radius: 6px; border: 1.5px solid rgba(28, 42, 87, .25); margin-right: 6px; vertical-align: 1px; }
+.rank-badge.t-bronze { background: linear-gradient(135deg, #f0b47a, #a8662f); color: #fff; }
+.rank-badge.t-silver { background: linear-gradient(135deg, #f4f6f8, #a9b2bc); color: #1c2a57; }
+.rank-badge.t-gold { background: linear-gradient(135deg, #ffe680, #d4a017); color: #3a2a00; }
+.rank-badge.t-platinum { background: linear-gradient(135deg, #f4fcff, #9fc6d4); color: #12354a; }
+.rank-badge.t-diamond { background: linear-gradient(135deg, #dff8ff, #3fbbe8); color: #0b3550; }
+.rank-badge.t-rainbow { background: linear-gradient(90deg, #ff6b6b, #ffa94d, #ffe24a, #5fd38d, #4cc3f0, #3a8ee6); color: #1c2a57; }
 .me-top { display: flex; flex-direction: column; gap: 14px; }
 .me-cls { font-size: 36px; }
 .tabs { display: flex; gap: 4px; background: rgba(28, 42, 87, .07); border-radius: 10px; padding: 3px; max-width: 420px; }
