@@ -435,6 +435,7 @@ function switchView(name) {
   if (name !== 'seating') closeToolPops();   // Timer-/Stoppuhr-Feld (AH50)
   if (name !== 'seating' && typeof gradeRound !== 'undefined' && gradeRound) endGradeRound();   // Notenrunde (AH28)
   if (name !== 'students') hideClassGrades();   // Beamer-Schutz (AH24 c)
+  if (name !== 'seating') hideSeatingGrades();   // „Noten zeigen“ gilt nur im Sitzplan (W1, Regel 16)
   if (typeof closeParticipationPicker === 'function') closeParticipationPicker();
   document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
   document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
@@ -8012,7 +8013,8 @@ function openSeatingStudentModal(studentId, groupId, dateStr, opts = {}) {
   currentStudentId = studentId;
   // Beamer: aus dem Sitzplan nur, wenn dort die Noten eingeblendet sind; aus der Klassenansicht wie dort (AH24 c)
   const fromClassView = document.getElementById('view-students').classList.contains('active') && currentGroupId === groupId;
-  if (!same) { swShown = fromClassView ? classGradesShown : seatingShowGrades; swHintShown = false; }
+  const fromSeating = document.getElementById('view-seating').classList.contains('active');   // sonst gilt der Sitzplan-Schalter nie (W1)
+  if (!same) { swShown = fromClassView ? classGradesShown : fromSeating && seatingShowGrades; swHintShown = false; }
 
   const range = viewPeriod();   // Halbjahr wie in der Klassenansicht (Y7)
   const partN = partCounts(periodList(s.participation, range));
