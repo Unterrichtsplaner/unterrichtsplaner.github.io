@@ -11955,13 +11955,36 @@ function studentAppSnapshot(g, now = new Date()) {
     const plan = groupPlan(g);
     if (plan.length) {
       const { firstDate } = planAssignments(g, todayStr);
-      const done = plan.filter(t => t.done).sort((a, b) => String(a.done).localeCompare(String(b.done))).slice(-3)
-        .map(t => ({ title: String(t.title || '') }));
       // Angefangene Themen zuerst, dann nach der ersten geplanten Stunde
       const open = plan.filter(t => !t.done && (topicDoneCount(t) || firstDate.get(t)))
         .map((t, i) => ({ t, i, d: firstDate.get(t) ? firstDate.get(t).dateStr : '9999' }))
         .sort((a, b) => (topicDoneCount(b.t) ? 1 : 0) - (topicDoneCount(a.t) ? 1 : 0) || a.d.localeCompare(b.d) || a.i - b.i);
       const cur = open[0];
+      // Erledigt = was in vergangenen Stunden behandelt wurde: abgehaktes Thema, sonst die erste Zeile von „Was wurde
+      // behandelt“. Dazu ganz erledigte Themen ohne Stunde (älter, von Hand). Ein eingetipptes, nicht abgehaktes Thema
+      // rutscht in der Planung weiter (planAssignments) und gilt darum hier wie dort als noch offen.
+      const stations = [], used = new Set();
+      const station = (t, title, date) => {
+        if (t && (t === (cur && cur.t) || used.has(t))) return;
+        if (t) used.add(t);
+        title = String(title || '').trim();
+        if (title) stations.push({ title, date });
+      };
+      groupLessons(g.id, formatDate(addDays(parseDate(todayStr), -60)), todayStr)
+        .filter(l => !l.ausfall && (l.dateStr < todayStr || (l.range && l.range.start <= nowMins)))
+        .forEach(l => {
+          const key = lessonKeyOf(l);
+          const t = topicDoneIn(g, key);
+          if (t) station(t, t.title, l.dateStr);
+          else station(null, firstLine((db.lessonData[key] || {}).done), l.dateStr);
+        });
+      plan.filter(t => t.done && !used.has(t)).forEach(t => {
+        const last = topicDoneCount(t) ? t.doneLessons[t.doneLessons.length - 1].slice(-10) : '';
+        station(t, t.title, last || (typeof t.done === 'string' ? t.done : t.doneAt) || '');
+      });
+      stations.sort((a, b) => String(a.date).localeCompare(String(b.date)));
+      const done = stations.filter((s, i) => !i || s.title.toLowerCase() !== stations[i - 1].title.toLowerCase())
+        .slice(-3).map(s => ({ title: s.title }));
       snap.topics = {
         done,
         now: cur ? { title: String(cur.t.title || ''), unit: Math.min(topicLength(cur.t), topicDoneCount(cur.t) + 1), of: topicLength(cur.t) } : null,
@@ -12138,7 +12161,7 @@ function renderStudentAppTab() {
   const count = goal ? classGoalCount(g, goal.since) : 0;
   const pct = goal ? Math.min(100, Math.round(count / goal.target * 100)) : 0;
   const checks = [
-    ['expedition', 'Expedition', 'Themen aus der Planung als Stationen, sonst aus „Was wurde behandelt“'],
+    ['expedition', 'Expedition', 'Themen als Stationen: was in den Stunden behandelt wurde, was gerade und was als Nächstes dran ist'],
     ['upcoming', 'Kommende Themen zeigen', 'sonst nur bis zum aktuellen Thema'],
     ['hw', 'Hausaufgaben als Aufträge', ''],
     ['tests', 'Tests und Klassenarbeiten', 'die nächste als Endgegner'],

@@ -153,6 +153,32 @@ describe('Auszug der Klasse (studentAppSnapshot)', () => {
     expect(t.next.map(x => x.title)).toEqual(['Gleichungen', 'Textaufgaben']);
   });
 
+  it('mit Planung: „Was wurde behandelt“ vergangener Stunden zählt als erledigte Station', () => {
+    // Nutzer (09.11.): Planung vorhanden, in den letzten Stunden nur „Was wurde behandelt“ ausgefüllt; heute ist um 10 Uhr vorbei
+    app('db.lessonData["s2_2026-11-05"] = { done: "Wiederholung" }');
+    app('db.lessonData["s1_2026-11-09"].done = "Übung Terme\\nNotiz"');
+    const t = snap().topics;
+    expect(t.done.map(x => x.title)).toEqual(['Brüche', 'Wiederholung', 'Übung Terme']);
+    expect(t.now).toMatchObject({ title: 'Terme', unit: 2, of: 3 });   // angefangenes Thema bleibt „jetzt“, nicht doppelt
+  });
+
+  it('eingetipptes, nicht abgehaktes Thema einer vergangenen Stunde rutscht weiter wie in der Planung, nie doppelt', () => {
+    app('db.groups[0].plan = [{ id: "x0", title: "Liedanalyse", pinned: "2026-11-05", pinnedSlot: "s2" }, { id: "x1", title: "Rhythmus", lessons: 2 }]');
+    const t = snap().topics;
+    expect(t.done.map(x => x.title)).toEqual(['Terme vereinfachen']);   // nur „Was wurde behandelt“ vom 02.11.
+    expect(t.now.title).toBe('Liedanalyse');
+  });
+
+  it('erledigte Stationen: höchstens drei, gleiche hintereinander nur einmal, ausgefallene Stunden zählen nicht', () => {
+    app('db.lessonData["s2_2026-10-29"] = { done: "Test" }');
+    app('db.lessonData["s1_2026-11-02"].done = "anderes"');   // hat abgehaktes Thema „Terme“ → Thema gilt, Text nicht
+    app('db.lessonData["s2_2026-11-05"] = { done: "test" }');
+    app('db.lessonData["s1_2026-11-09"].done = "Test"');
+    app('db.lessonData["s2_2026-10-22"] = { done: "Ausgefallen", ausfall: true }');
+    const t = snap().topics;
+    expect(t.done.map(x => x.title)).toEqual(['Brüche', 'Test']);
+  });
+
   it('ohne Planung: Themen aus „Was wurde behandelt“ (erste Zeile)', () => {
     app('db.groups[0].plan = []');
     const t = snap().topics;
