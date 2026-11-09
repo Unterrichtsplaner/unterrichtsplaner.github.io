@@ -276,8 +276,8 @@
     const pct = Math.max(0, Math.min(100, Math.round((xp - from) / Math.max(1, next - from) * 100)));
     const j = d.jokers && typeof d.jokers === 'object' ? d.jokers : {};
     const jl = list(j.list).filter(Boolean);
-    const left = `<div class="player"><div class="lvl" aria-label="Level ${level}"><small>Level</small><b>${level}</b></div>
-        <div><div class="who">${esc(d.first || 'Ich')}</div><div class="rank">${d.rank ? `${esc(d.rank)} · ` : ''}${xp} XP</div></div></div>
+    const left = `<div class="player"><div class="lvl" aria-label="Level ${level}"><small>Level</small><b${level >= 10 ? ' class="two"' : ''}>${level}</b></div>
+        <div><div class="who">${esc(d.first || 'Ich')}</div><div class="rank"><span class="lvl-word">Level ${level} · </span>${d.rank ? `${esc(d.rank)} · ` : ''}${xp} XP</div></div></div>
       <div class="hl" role="img" aria-label="${xp - from} von ${next - from} XP bis Level ${level + 1}"><div class="hl-track"></div><div class="hl-fill" style="width:${pct}%"></div>
         <div class="hl-text"><span>noch ${Math.max(0, next - xp)} XP bis Level ${level + 1}</span></div></div>
       ${d.nextRank && d.nextRank.name ? `<p class="me-next">Ab Level ${esc(d.nextRank.level)}: <b>${esc(d.nextRank.name)}</b></p>` : ''}
