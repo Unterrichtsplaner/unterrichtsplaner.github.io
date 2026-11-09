@@ -242,6 +242,26 @@
     return `<h2>Sticker <small>${got.length} gesammelt</small></h2><div class="album">${got.map((x, i) => `<div class="stk">${stk(x.icon, x.color, ROT[i % ROT.length])}<b>${esc(x.name)}</b></div>`).join('')}
       ${locked.map(x => `<div class="stk locked"><span class="s">${StudentShare.stickerSvg(x.icon)}</span><b>${esc(x.name)}</b>${esc(x.hint || '')}</div>`).join('')}</div>`;
   }
+  // Freischaltungen im Heft (AJ2d): nur aus dem Level berechnet. Spätere ersetzen frühere derselben Art (pink statt grün,
+  // Millimeterpapier statt Punktraster).
+  const UNLOCKS = [
+    { level: 3, cls: 'u-green', kind: 'marker', text: 'grüner Textmarker' },
+    { level: 5, cls: 'u-star', kind: 'stamp', text: 'Stern-Stempel' },
+    { level: 7, cls: 'u-dots', kind: 'paper', text: 'Punktraster' },
+    { level: 9, cls: 'u-pink', kind: 'marker', text: 'pinker Textmarker' },
+    { level: 12, cls: 'u-gold', kind: 'frame', text: 'goldener Rand' },
+    { level: 15, cls: 'u-mm', kind: 'paper', text: 'Millimeterpapier' },
+  ];
+  function unlockClasses(level) {
+    const byKind = {};
+    UNLOCKS.forEach(u => { if (level >= u.level) byKind[u.kind] = u.cls; });
+    return Object.values(byKind);
+  }
+  function unlocksHTML(level) {
+    const next = UNLOCKS.find(u => level < u.level);
+    return `<h2>Dein Heft</h2><div class="unlocks">${UNLOCKS.map(u => `<div class="ul${level >= u.level ? ' on' : u === next ? ' next' : ''}">
+      <span class="ul-l">Level ${u.level}</span><span class="ul-t">${esc(u.text)}</span><span class="ul-s">${level >= u.level ? '✓' : u === next ? 'als Nächstes' : ''}</span></div>`).join('')}</div>`;
+  }
   function buildMePage(d, now = new Date(), opts = {}) {
     const today = fmt(now);
     let html = meHead(d);
@@ -265,7 +285,8 @@
       <div class="card joker">${Number(j.open) > 0
         ? `<div class="t"><b>${Number(j.open) === 1 ? 'Ein Joker' : `${Number(j.open)} Joker`} frei</b>Zeig diese Seite deiner Lehrkraft und such dir aus:</div>${jl.length ? `<ul>${jl.map(x => `<li>${esc(x)}</li>`).join('')}</ul>` : ''}`
         : `<div class="t"><b>Joker</b>${Number(j.earned) >= Number(j.max || 4) ? 'Alle Joker für dieses Schuljahr verdient.' : `Den nächsten gibt es bei Level ${(Math.floor(level / (Number(j.every) || 4)) + 1) * (Number(j.every) || 4)}.`}</div>`}</div>
-      ${bauHTML(d)}`;
+      ${bauHTML(d)}
+      ${unlocksHTML(level)}`;
     const fb = list(d.feedback).filter(x => x && isDate(x.date) && PART[x.v]);
     const right = `<h2>Rückmeldung <small>deine letzten Stunden</small></h2>
       ${fb.length ? `<div class="fb">${fb.map(x => `<div><div class="sp ${PART[x.v][1]}">${PART[x.v][0]}</div><small>${esc(short(x.date).slice(3))}</small></div>`).join('')}</div>
@@ -288,6 +309,11 @@
     const page = document.getElementById('page');
     const me = data.kind === 'me';
     page.innerHTML = me ? buildMePage(data, new Date(), opts) : buildClassPage(data, new Date(), opts);
+    const heft = page.closest('.heft');   // Freischaltungen gelten für die ganze persönliche Seite (AJ2d)
+    if (heft) {
+      [...heft.classList].filter(c => c.startsWith('u-')).forEach(c => heft.classList.remove(c));
+      if (me) unlockClasses(Math.max(1, Number(data.level) || 1)).forEach(c => heft.classList.add(c));
+    }
     document.title = me ? `${data.first || 'Ich'} · ${data.cls || ''}`.trim() : [data.cls, data.subject].filter(Boolean).join(' ') || 'Klasse';
     page.querySelectorAll('[data-tab]').forEach(b => b.addEventListener('click', () => { meTab = b.dataset.tab; draw(current.data, current.opts); }));
     if (me) data = data.klasse && typeof data.klasse === 'object' ? data.klasse : {};   // Aufträge und Kalender: aus der Klassenseite

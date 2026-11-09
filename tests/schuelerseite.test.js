@@ -296,3 +296,36 @@ describe('Persönliche Seite (AJ2)', () => {
     expect(page().textContent).toContain(`Peter's "Test"`);
   });
 });
+
+describe('Freischaltungen im Heft (AJ2d)', () => {
+  const me = level => ({ v: 1, kind: 'me', first: 'Anna', cls: '7b', subject: 'Mathe', level, xp: 10 * level, from: 10 * level - 5, next: 10 * level + 5, jokers: {}, feedback: [], year: [] });
+  const heft = () => document.querySelector('.heft');
+  afterEach(() => window.renderStudentPage({ v: 2, cls: '7b' }));
+
+  it('Level 1: nichts freigeschaltet, nächste Freischaltung bei Level 3', () => {
+    window.renderStudentPage(me(1));
+    expect([...heft().classList].filter(c => c.startsWith('u-'))).toEqual([]);
+    expect(page().querySelector('.unlocks').textContent).toMatch(/Level 3.*grüner Textmarker/s);
+    expect(page().querySelectorAll('.unlocks .ul.on').length).toBe(0);
+  });
+
+  it('Level 9: grün wird pink, Stern-Stempel, Punktraster', () => {
+    window.renderStudentPage(me(9));
+    expect([...heft().classList].filter(c => c.startsWith('u-')).sort()).toEqual(['u-dots', 'u-pink', 'u-star']);
+    expect(page().querySelectorAll('.unlocks .ul.on').length).toBe(4);
+    expect(page().querySelector('.unlocks .ul.next').textContent).toMatch(/Level 12/);
+  });
+
+  it('Level 15: Millimeterpapier ersetzt das Punktraster, goldener Rand; alles freigeschaltet', () => {
+    window.renderStudentPage(me(15));
+    expect([...heft().classList].filter(c => c.startsWith('u-')).sort()).toEqual(['u-gold', 'u-mm', 'u-pink', 'u-star']);
+    expect(page().querySelectorAll('.unlocks .ul.on').length).toBe(6);
+    expect(page().querySelector('.unlocks .ul.next')).toBeNull();
+  });
+
+  it('Klassenseite (ohne persönlichen Link): immer das normale Heft', () => {
+    window.renderStudentPage(me(15));
+    window.renderStudentPage({ v: 2, cls: '7b' });
+    expect([...heft().classList].filter(c => c.startsWith('u-'))).toEqual([]);
+  });
+});
