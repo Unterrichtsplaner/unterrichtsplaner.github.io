@@ -10695,8 +10695,13 @@ document.addEventListener('keydown', e => {
   if (e.key === 'Escape' && document.querySelector('.tool-pop:not(.hidden)')) closeToolPops();
 });
 
+// Läuft der Timer, verschiebt +/− sein Ende (W9: vorher tat „+1 Min“ ohne Rückmeldung nichts); nie unter jetzt
 function adjustTimer(mins) {
-  if (timerIsRunning) return;
+  if (timerIsRunning) {
+    timerEndsAt = Math.max(Date.now(), timerEndsAt + mins * 60000);
+    timerTick();
+    return;
+  }
   document.getElementById('timer-display').classList.remove('timer-done');
   timerDone = false;
   timerSeconds += mins * 60;
@@ -10761,18 +10766,23 @@ function toggleTimer() {
     // Nach +/− gilt die neue Anzeige, sonst die genaue Restzeit der Pause
     const ms = timerRemainingMs !== null && Math.ceil(timerRemainingMs / 1000) === timerSeconds ? timerRemainingMs : timerSeconds * 1000;
     timerRemainingMs = null;
+    if (timerFresh) { timerPreset = timerSeconds; timerFresh = false; }   // „Zurücksetzen“ springt hierher (W9)
     timerEndsAt = Date.now() + ms;
     setPlayButton('btn-timer-toggle', true, 'Timer');
     timerInterval = setInterval(timerTick, 250);
   }
 }
 
+// Zurück auf die Zeit, mit der der Timer zuletzt gestartet wurde (W9: vorher immer 5:00); ein zweites Mal auf 5:00
+let timerPreset = 300, timerFresh = true;
 function resetTimer() {
   document.getElementById('timer-display').classList.remove('timer-done');
   timerDone = false;
   clearInterval(timerInterval);
   timerIsRunning = false;
-  timerSeconds = 300;
+  timerRemainingMs = null;
+  timerSeconds = timerFresh ? 300 : timerPreset;
+  timerFresh = true;
   setPlayButton('btn-timer-toggle', false, 'Timer');
   updateTimerDisplay();
 }

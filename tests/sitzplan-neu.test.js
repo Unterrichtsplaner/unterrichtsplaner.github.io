@@ -259,6 +259,8 @@ describe('Unten: vier gleiche Knöpfe', () => {
     vi.advanceTimersByTime(61000);
     expect(lab()).toBe('04:59');
     expect($('btn-tool-timer').classList.contains('on')).toBe(true);
+    app('resetTimer()');   // W9: zurück auf die Startzeit, ein zweites Mal auf 5:00
+    expect(lab()).toBe('06:00');
     app('resetTimer()');
     expect(lab()).toBe('Timer');
     expect($('btn-tool-timer').classList.contains('on')).toBe(false);

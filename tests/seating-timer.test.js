@@ -11,7 +11,33 @@ beforeAll(() => {
   loadApp();
 });
 afterAll(() => vi.useRealTimers());
-beforeEach(() => { app('resetTimer()'); app('resetStopwatch()'); });
+beforeEach(() => { app('resetTimer(); resetTimer()'); app('resetStopwatch()'); });
+
+describe('W9: +1 Min im Lauf, Zurücksetzen auf die eingestellte Zeit', () => {
+  it('„+1 Min“ während der Timer läuft verlängert ihn', () => {
+    app('toggleTimer()');
+    vi.advanceTimersByTime(10_000);
+    app('adjustTimer(1)');
+    expect(display()).toBe('05:50');
+    vi.advanceTimersByTime(5_000);
+    expect(display()).toBe('05:45');
+    app('adjustTimer(-10)');   // nie unter null: läuft sofort ab
+    vi.advanceTimersByTime(500);
+    expect(display()).toBe('00:00');
+    expect(app('timerDone')).toBe(true);
+  });
+
+  it('„Zurücksetzen“ springt auf die Startzeit, ein zweites Mal auf 5:00', () => {
+    app('resetTimer(); adjustTimer(5)');   // 10:00 eingestellt
+    app('toggleTimer()');
+    vi.advanceTimersByTime(30_000);
+    app('resetTimer()');
+    expect(display()).toBe('10:00');
+    expect(app('timerIsRunning')).toBe(false);
+    app('resetTimer()');
+    expect(display()).toBe('05:00');
+  });
+});
 
 describe('G6: Timer', () => {
   it('läuft normal herunter', () => {

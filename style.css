@@ -212,6 +212,7 @@ input[type="date"] { min-height: 1.2em; } /* Fix iOS Safari date input collapse 
 @media (hover: hover){.tt-empty-cell:hover{border-color:var(--accent);background:var(--accent-soft);}}
 @media (hover: hover){.tt-empty-cell:hover .tt-add-icon{color:var(--accent);}}
 .tt-empty-cell:active{transform:scale(.97);}
+.timetable-grid.day-view .tt-add-icon{color:var(--text-muted);}   /* Tagesansicht (Handy): ohne Darüberfahren sonst unsichtbar (X5) */
 
 /* Split Block Layout */
 .tt-split-container {
@@ -408,10 +409,10 @@ button.cr-name:focus-visible{outline:2px solid var(--accent);outline-offset:3px;
 .indicator-dot{width:7px;height:7px;border-radius:50%;}
 
 /* ─── Modals ─────────────────────────── */
-.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.72);backdrop-filter:blur(7px);z-index:1000;display:flex;align-items:center;justify-content:center;animation:fadeIn .18s ease;}
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.72);backdrop-filter:blur(7px);z-index:1000;display:flex;overflow-y:auto;animation:fadeIn .18s ease;}   /* Fenster mittig per margin:auto (Regel 56, W7) */
 .modal-overlay.hidden{display:none;}
 @keyframes fadeIn{from{opacity:0}to{opacity:1}}
-.modal{background:var(--bg-secondary);border-radius:var(--radius-xl);border:1px solid var(--border);box-shadow:var(--shadow-lg);display:flex;flex-direction:column;animation:slideUp .16s ease-out;max-height:92vh;overflow:hidden;}
+.modal{background:var(--bg-secondary);border-radius:var(--radius-xl);border:1px solid var(--border);box-shadow:var(--shadow-lg);display:flex;flex-direction:column;animation:slideUp .16s ease-out;max-height:92vh;max-height:92dvh;margin:auto;overflow:hidden;}
 @keyframes slideUp{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
 .modal-small{width:min(520px,calc(100vw - var(--space-6)));}
 #modal-add-column .modal {
@@ -733,6 +734,7 @@ input[name="new-lesson-part"]:checked + .duration-btn {
 .settings-footer-hint{margin-right:auto;font-size:12px;color:var(--text-muted);}
 .color-swatch{width:26px;height:26px;border-radius:var(--radius-sm);cursor:pointer;border:2.5px solid transparent;transition:background-color var(--transition),color var(--transition),border-color var(--transition),box-shadow var(--transition),opacity var(--transition),transform var(--transition);position:relative;}
 @media (hover: hover){.color-swatch:hover{box-shadow:0 0 0 2px var(--border-active);}}
+@media (pointer: coarse){.color-swatch{width:var(--control-h);height:var(--control-h);}}   /* 26 px war zum Antippen zu klein (W12) */
 .color-swatch.selected{border-color:white !important;box-shadow:0 0 0 2px var(--swatch-color);}
 .color-swatch.selected::after{content:'✓';position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:white;}
 /* Helle Farben (BUGS AA6): weißes Häkchen wäre unsichtbar */
@@ -1267,7 +1269,7 @@ button.date-chip{font-family:inherit;padding:0;}
 @keyframes timerDone{50%{opacity:.35;}}
 /* Toast mit „Rückgängig“ muss antippbar sein (Container lässt Klicks sonst durch) */
 .toast-undo{pointer-events:auto;}
-.toast-undo button{margin-left:var(--space-2);padding:var(--space-1) var(--space-3);border-radius:var(--radius-sm);border:1px solid currentColor;background:transparent;color:inherit;font:inherit;font-weight:700;cursor:pointer;}
+.toast-undo button{margin-left:var(--space-2);min-height:var(--control-h);box-sizing:border-box;padding:0 var(--space-3);border-radius:var(--radius-sm);border:1px solid currentColor;background:transparent;color:inherit;font:inherit;font-weight:700;cursor:pointer;}
 /* Touch (iPad): Tippflächen mindestens 44 px (BUGS N11) */
 @media (pointer: coarse){
   .date-chip, .date-chip.active{width:44px;height:44px;}
@@ -1281,6 +1283,7 @@ button.date-chip{font-family:inherit;padding:0;}
 
 /* Zufallsauswahl: die Karten im Sitzplan leuchten mit, also nicht abdunkeln/verwischen (BUGS S11) */
 #modal-seating-randomizer{background:transparent;backdrop-filter:none;-webkit-backdrop-filter:none;align-items:flex-end;padding-bottom:var(--space-5);}
+#modal-seating-randomizer .modal{margin:auto auto 0;}   /* unten wie bisher: margin:auto der Fenster (W7) zöge es in die Mitte */
 /* Datenschutzhinweise (BUGS Y1) */
 .privacy-notice{font-size:13px;line-height:1.5;color:var(--text-secondary);}
 .privacy-notice h3{font-size:14px;color:var(--text-primary);margin:var(--space-4) 0 var(--space-1);}
