@@ -110,11 +110,12 @@ describe('Cockpit-Leiste', () => {
     expect(cockpit().querySelectorAll('.cockpit-count').length).toBe(4);
   });
 
-  it('Zähler, Thema und Zeit öffnen das Fenster „Heute“ mit allen Namen und Texten', () => {
+  it('Zähler und Zeit öffnen das Fenster „Heute“ mit allen Namen und Texten (das Thema sein eigenes, AI2)', () => {
     at(8, 0);
     openSeating();
-    [...cockpit().querySelectorAll('.cockpit-count'), cockpit().querySelector('.cockpit-topic'), cockpit().querySelector('.cockpit-time')]
+    [...cockpit().querySelectorAll('.cockpit-count'), cockpit().querySelector('.cockpit-time')]
       .forEach(b => expect(b.getAttribute('onclick')).toBe('openSeatingToday()'));
+    expect(cockpit().querySelector('.cockpit-topic').getAttribute('onclick')).toBe('openLessonTopic()');
     app('openSeatingToday()');
     const m = document.getElementById('modal-seating-today');
     expect(m.classList.contains('hidden')).toBe(false);

@@ -5973,6 +5973,7 @@ function seatingTodayInfo(groupId, info) {
   const absent = absentOn(dateStr);
   return {
     topic: firstLine(data.done),
+    planned: plannedTopicOf(groupId, lesson),
     prevTopic: firstLine(prevData.done), prev,
     due: dueItemsFor(lesson.slot.id, dateStr),
     absent,
@@ -5980,6 +5981,26 @@ function seatingTodayInfo(groupId, info) {
     missed: prev && prev.dateStr !== dateStr ? absentOn(prev.dateStr).filter(s => !absent.includes(s)) : [],
     birthdays: students.map(s => ({ s, b: birthdayInfo(s, dateStr) })).filter(x => x.b),
   };
+}
+// Thema der Unterrichtsplanung für eine Stunde (heute oder später): erledigt oder geplant, mit „Stunde n von m“ (AI1).
+// Die Leiste zeichnet alle 5 s neu: die Verteilung nur neu rechnen, wenn sich Daten oder Tag geändert haben.
+let planCache = { db: null, stamp: null, day: '', byGroup: new Map() };
+function cachedPlanAssignments(g, todayStr = formatDate(new Date())) {
+  if (planCache.db !== db || planCache.stamp !== db.settings.lastModified || planCache.day !== todayStr) {
+    planCache = { db, stamp: db.settings.lastModified, day: todayStr, byGroup: new Map() };
+  }
+  if (!planCache.byGroup.has(g.id)) planCache.byGroup.set(g.id, planAssignments(g, todayStr).byKey);
+  return planCache.byGroup.get(g.id);
+}
+function plannedTopicOf(groupId, lesson, todayStr = formatDate(new Date())) {
+  const g = db.groups.find(x => x.id === groupId);
+  if (!g || !lesson) return null;
+  const key = lessonKeyOf(lesson);
+  const doneT = topicDoneIn(g, key);
+  if (doneT) return { topic: doneT, done: true, unit: doneT.doneLessons.indexOf(key) + 1, of: topicLength(doneT) };
+  if (lesson.dateStr < todayStr) return null;
+  const a = cachedPlanAssignments(g, todayStr).get(key);
+  return a ? { topic: a.topic, done: false, unit: a.unit, of: a.of } : null;
 }
 // Leiste mit fester Höhe (eine Zeile): Zeit, Thema, Zähler. Was zu einzelnen Schülern gehört (fehlt,
 // Geburtstag, letzte Stunde gefehlt), steht auf den Karten; die Namen im Fenster „Heute“ (Zähler antippen).
@@ -6069,9 +6090,14 @@ function setCockpitHTML(el, html) {
 }
 function cockpitMainHTML(t, ownLabel) {
   // Mitte: Überschrift, Thema in voller Breite, darunter die Zähler
-  const topicLabel = t.topic ? ownLabel : t.prevTopic ? `Letzte Stunde · ${formatWeekdayShort(t.prev.dateStr)}` : 'Thema';
+  // Reihenfolge (AI1): eingetragener Unterrichtsinhalt → geplantes Thema → was letzte Stunde war
+  const p = !t.topic && t.planned && String(t.planned.topic.title || '').trim() ? t.planned : null;
+  const unitText = p && p.of > 1 ? ` · Stunde ${p.unit} von ${p.of}` : '';
+  const topicLabel = t.topic ? ownLabel : p ? `${p.done ? 'Erledigt' : 'Geplant'}${unitText}`
+    : t.prevTopic ? `Letzte Stunde · ${formatWeekdayShort(t.prev.dateStr)}` : 'Thema';
+  const topicText = t.topic || (p ? firstLine(p.topic.title) : t.prevTopic);
   const topicHTML = `<span class="cockpit-topic-label">${escHtml(topicLabel)}</span>`
-    + `<span class="cockpit-topic-text">${t.topic || t.prevTopic ? escHtml(t.topic || t.prevTopic) : '<span class="cockpit-empty">Noch kein Thema eingetragen</span>'}</span>`;
+    + `<span class="cockpit-topic-text">${topicText ? escHtml(topicText) : '<span class="cockpit-empty">Noch kein Thema eingetragen</span>'}</span>`;
   const counts = [];
   if (t.due.hw.length) counts.push(cockpitCount('hw', 'homework', t.due.hw.length > 1 ? t.due.hw.length : null, 'HA', `${t.due.hw.length} ${plural(t.due.hw.length, 'Hausaufgabe', 'Hausaufgaben')} fällig`));
   if (t.due.tests.length) counts.push(cockpitCount('test', 'test', t.due.tests.length > 1 ? t.due.tests.length : null, 'Test', `${t.due.tests.length} ${plural(t.due.tests.length, 'Test', 'Tests')} angekündigt`));
@@ -6079,7 +6105,7 @@ function cockpitMainHTML(t, ownLabel) {
   if (t.missed.length) counts.push(cockpitCount('missed', 'calendar-x', t.missed.length, 'nachholen', `${t.missed.length} ${plural(t.missed.length, 'hat', 'haben')} letzte Stunde gefehlt`));
   if (t.birthdays.length) counts.push(cockpitCount('bday', 'cake', t.birthdays.length, 'Geb.', `${t.birthdays.length} ${plural(t.birthdays.length, 'Geburtstag', 'Geburtstage')}`));
   return `<div class="cockpit-main">
-      <button type="button" class="cockpit-topic" onclick="openSeatingToday()" title="Alles zu dieser Stunde">${topicHTML}</button>
+      <button type="button" class="cockpit-topic" onclick="openLessonTopic()" title="Thema dieser Stunde">${topicHTML}</button>
       ${counts.length ? `<div class="cockpit-counts">${counts.join('')}</div>` : ''}
     </div>
     ${seatingSwitchOfferHTML()}
@@ -6129,6 +6155,104 @@ function openCockpitLesson() {
   closeModal('modal-seating-today');
   openLessonDetail(cockpitLesson.slotId, cockpitLesson.dateStr);
 }
+// ─── Fenster „Thema der Stunde“ aus der Sitzplan-Leiste (AI2) ──────────────
+// Letzte Stunde (Unterrichtsinhalt), Thema dieser Stunde (Planung, wie die Thema-Karte im Stunden-Fenster) und ihr
+// Unterrichtsinhalt – alles änderbar. Schließen übernimmt Eingetipptes (Regel 27), gespeichert wird nur bei Änderung.
+let lessonTopicCtx = null;   // { slotId, dateStr, groupId, prevKey, shownPrev, shownDone }
+let lessonTopicShown = null; // wie lessonPlanShown, für commitLessonTopic
+function openLessonTopic() {
+  if (!cockpitLesson) return;
+  const slot = db.lessonSlots.find(x => x.id === cockpitLesson.slotId);
+  const g = slot && db.groups.find(x => x.id === slot.groupId);
+  if (!slot || !g) return;
+  const dateStr = cockpitLesson.dateStr;
+  const own = lessonsOnDate(dateStr).find(l => l.slot.id === slot.id);
+  const prev = previousLessonOfGroup(g.id, dateStr, own && own.range ? own.range.start : 0);
+  const prevKey = prev ? lessonKeyOf(prev) : null;
+  const key = slot.id + '_' + dateStr;
+  lessonTopicCtx = { slotId: slot.id, dateStr, groupId: g.id, prevKey,
+    shownPrev: prevKey ? String((db.lessonData[prevKey] || {}).done || '') : '',
+    shownDone: String((db.lessonData[key] || {}).done || '') };
+  const title = lessonTitle(slot);
+  const today = dateStr === formatDate(new Date());
+  document.getElementById('lesson-topic-title').textContent = `Thema · ${title.main}${title.sub ? ' ' + title.sub : ''}`;
+  document.getElementById('lt-prev-group').classList.toggle('hidden', !prevKey);
+  document.getElementById('lt-prev-label').textContent = prev ? `Letzte Stunde · ${formatWeekdayShort(prev.dateStr)}` : 'Letzte Stunde';
+  document.getElementById('lt-prev-done').value = lessonTopicCtx.shownPrev;
+  document.getElementById('lt-this-label').textContent = `${today ? 'Diese Stunde' : formatWeekdayShort(dateStr)}${own ? ' · ' + own.block.label : ''}`;
+  document.getElementById('lt-done').value = lessonTopicCtx.shownDone;
+  renderLessonTopicRow();
+  openModal('modal-lesson-topic');
+}
+// Zeile „Thema“ (geplant/erledigt) neu zeichnen; die Textfelder darunter bleiben, wie sie sind
+function renderLessonTopicRow() {
+  const ctx = lessonTopicCtx;
+  const slot = ctx && db.lessonSlots.find(x => x.id === ctx.slotId);
+  if (!slot) return;
+  const p = plannedTopicOf(ctx.groupId, { slot, dateStr: ctx.dateStr });
+  const t = p ? p.topic : null;
+  const done = !!(p && p.done);
+  lessonTopicShown = done ? null : { slotId: slot.id, dateStr: ctx.dateStr, groupId: ctx.groupId, topic: t };
+  document.getElementById('lt-topic-label').textContent = `${done ? 'Erledigt' : t ? 'Geplant' : 'Thema'}${t && topicLength(t) > 1 ? ` · Stunde ${p.unit} von ${p.of}` : ''}`;
+  const input = document.getElementById('lt-topic');
+  input.value = t ? String(t.title || '') : '';
+  input.disabled = done;
+  const btn = document.getElementById('lt-topic-done');
+  btn.textContent = done ? '✓ Erledigt' : 'Erledigt';
+  btn.className = done ? 'btn-secondary' : 'btn-primary';
+  btn.setAttribute('aria-pressed', done ? 'true' : 'false');
+  const note = document.getElementById('lt-topic-note');
+  note.textContent = t && t.note ? t.note : '';
+  note.classList.toggle('hidden', !(t && t.note));
+}
+const refreshLessonTopicRow = () => { if (!document.getElementById('modal-lesson-topic').classList.contains('hidden')) renderLessonTopicRow(); };
+// „Erledigt“: Thema übernehmen (neu oder geändert → geplant für diese Stunde), dann als erledigt markieren bzw. zurücknehmen
+function lessonTopicDone() {
+  const ctx = lessonTopicCtx;
+  const slot = ctx && db.lessonSlots.find(x => x.id === ctx.slotId);
+  if (!slot) return;
+  const p = plannedTopicOf(ctx.groupId, { slot, dateStr: ctx.dateStr });
+  const topic = p && p.done ? p.topic : commitLessonTopic('lt-topic', lessonTopicShown, refreshLessonTopicRow);
+  if (!topic) { if (!document.getElementById('lt-topic').value.trim()) showToast('Bitte zuerst ein Thema eintragen', 'error'); return; }
+  toggleLessonTopicDone(slot, ctx.dateStr, topic, 'lt-done', renderLessonTopicRow);
+}
+// Eingetipptes übernehmen (Schließen, „Ganze Planung“, App verlassen); speichert nur bei Änderungen
+function storeLessonTopicForm() {
+  const ctx = lessonTopicCtx;
+  if (!ctx) return;
+  if (lessonTopicShown && !document.getElementById('lt-topic').disabled) commitLessonTopic('lt-topic', lessonTopicShown, refreshLessonTopicRow);
+  const prevText = document.getElementById('lt-prev-done').value;
+  const doneText = document.getElementById('lt-done').value;
+  let changed = false;
+  const write = (key, text, shown) => {
+    if (!key || text === shown) return;
+    if (!db.lessonData[key]) { if (!text) return; db.lessonData[key] = {}; }
+    db.lessonData[key].done = text;
+    changed = true;
+  };
+  write(ctx.prevKey, prevText, ctx.shownPrev);
+  write(ctx.slotId + '_' + ctx.dateStr, doneText, ctx.shownDone);
+  if (!changed) return;
+  ctx.shownPrev = prevText; ctx.shownDone = doneText;   // gespeicherter Stand = neuer Vergleichsstand (Fenster kann offen bleiben)
+  saveDB();
+  renderScheduleViews();
+  refreshSeatingCockpit();
+}
+function closeLessonTopic() {
+  storeLessonTopicForm();
+  closeModal('modal-lesson-topic');
+  lessonTopicCtx = null;
+  lessonTopicShown = null;
+}
+function openLessonTopicPlan() {
+  const groupId = lessonTopicCtx && lessonTopicCtx.groupId;
+  closeLessonTopic();
+  if (groupId && db.groups.some(g => g.id === groupId)) openPlanForGroup(groupId);
+}
+document.getElementById('lt-topic')?.addEventListener('keydown', e => {
+  if (e.key === 'Enter') { e.preventDefault(); commitLessonTopic('lt-topic', lessonTopicShown, refreshLessonTopicRow); }
+});
+
 // Timer / nach Änderungen: Leiste aktualisieren; erscheint oder verschwindet sie, das Raster neu einpassen
 function refreshSeatingCockpit() {
   if (!document.getElementById('view-seating')?.classList.contains('active') || seatingEditMode) return;
@@ -8456,6 +8580,7 @@ const MODAL_CLOSE_ACTIONS = {
   'modal-whats-new': () => closeWhatsNew(),          // Wegdrücken zählt als gelesen
   'modal-plan-topic': () => cancelPlanTopic(),       // bei Änderungen fragen (Regel 55)
   'modal-class-notes': () => closeClassNotes(),      // Eingetipptes übernehmen, nicht verwerfen (AD15)
+  'modal-lesson-topic': () => closeLessonTopic(),    // Eingetipptes übernehmen, nicht verwerfen (AI2)
   'modal-add-student': () => leaveGuardedForm('modal-add-student'),         // bei Änderungen fragen (W2)
   'modal-import-students': () => leaveGuardedForm('modal-import-students'),
   'modal-add-group': () => leaveGuardedForm('modal-add-group'),
@@ -9244,9 +9369,9 @@ function lessonPrevHTML(slot, dateStr) {
 // Eingetipptes Thema übernehmen. Liefert das Thema, das danach in dieser Stunde liegt (oder null).
 // Neu bzw. anders als geplant → eigenes Thema mit festem Termin für genau diese Stunde; die Reihe rutscht dahinter.
 // Ein Thema nur für diese Stunde (fester Termin heute, eine Stunde) wird umbenannt bzw. beim Leeren gelöscht.
-function commitLessonTopic() {
-  const input = document.getElementById('lesson-plan-input');
-  const shown = lessonPlanShown;
+// Auch für das Fenster „Thema der Stunde“ (AI2): anderes Feld, anderer Stand, anderes Neuzeichnen.
+function commitLessonTopic(inputId = 'lesson-plan-input', shown = lessonPlanShown, refresh = refreshLessonPlanBox) {
+  const input = document.getElementById(inputId);
   if (!input || !shown) return null;
   const text = input.value.trim().replace(/\s+/g, ' ');
   const g = db.groups.find(x => x.id === shown.groupId);
@@ -9268,7 +9393,7 @@ function commitLessonTopic() {
       ensurePlan(g).splice(Math.min(i, g.plan.length), 0, topic);
       saveDB();
       refreshPlanViews(g.id);
-      refreshLessonPlanBox(shown);
+      refresh(shown);
     });
   } else if (text) {
     result = { id: uid(), title: text, pinned: shown.dateStr, pinnedSlot: shown.slotId };
@@ -9287,7 +9412,7 @@ function commitLessonTopic() {
   }
   saveDB();
   refreshPlanViews(g.id);
-  refreshLessonPlanBox(shown);
+  refresh(shown);
   return result;
 }
 // Thema-Kachel neu zeichnen, wenn das Stunden-Fenster noch dieselbe Stunde zeigt
@@ -9443,12 +9568,13 @@ document.getElementById('lc-reset')?.addEventListener('click', () => {
 });
 // Haken in der Stunde: Thema (bzw. eine seiner Stunden) erledigt. Schreibt den Titel ins Feld „Unterrichtsinhalt“
 // des offenen Fensters (wird mit ihm gespeichert) – nie direkt in lessonData, sonst überschriebe das Fenster es.
-function toggleLessonTopicDone(slot, dateStr, t) {
+// Fenster „Thema der Stunde“ (AI2): eigenes Feld und eigenes Neuzeichnen.
+function toggleLessonTopicDone(slot, dateStr, t, doneFieldId = 'lesson-done-text', rerender = () => renderLessonPlanBox(slot, dateStr)) {
   const g = db.groups.find(x => x.id === slot.groupId);
   if (!g || !groupPlan(g).includes(t)) { showToast('Dieses Thema gibt es nicht mehr (z. B. durch Sync)', 'error'); return; }
   const key = slot.id + '_' + dateStr;
   t.doneLessons = Array.isArray(t.doneLessons) ? t.doneLessons : [];
-  const ta = document.getElementById('lesson-done-text');
+  const ta = document.getElementById(doneFieldId);
   const i = t.doneLessons.indexOf(key);
   if (i >= 0) {
     t.doneLessons.splice(i, 1);
@@ -9461,7 +9587,7 @@ function toggleLessonTopicDone(slot, dateStr, t) {
     if (ta && !ta.value.trim()) ta.value = t.title;
   }
   saveDB();
-  renderLessonPlanBox(slot, dateStr);
+  rerender();
   refreshPlanViews(g.id);
 }
 
@@ -11194,6 +11320,7 @@ function onAppHidden() {
   if (classGradesShown) { hideClassGrades(); rerenderClassTab(); }   // Beamer-Schutz: nach der Pause wieder verborgen (AH24 c)
   if (!document.getElementById('modal-lesson').classList.contains('hidden')) storeLessonForm();
   if (!document.getElementById('modal-seating-student').classList.contains('hidden')) commitSeatingStudentForm();
+  if (!document.getElementById('modal-lesson-topic').classList.contains('hidden')) storeLessonTopicForm();
   flushPendingSync();
 }
 document.addEventListener('visibilitychange', () => { if (document.hidden) onAppHidden(); });

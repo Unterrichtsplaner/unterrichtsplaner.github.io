@@ -40,7 +40,7 @@
       }
     })();
   </script>
-  <link rel="stylesheet" href="style.css?v=459" />
+  <link rel="stylesheet" href="style.css?v=460" />
   <script>
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
@@ -1525,6 +1525,39 @@
   </div>
 
   <!-- Unterrichtsplanung: Thema (AD3) -->
+  <!-- Thema der Stunde: aus der Sitzplan-Leiste (AI2) -->
+  <div id="modal-lesson-topic" class="modal-overlay hidden" onclick="closeModalOnOverlay(event,'modal-lesson-topic')">
+    <div class="modal modal-small" onclick="event.stopPropagation()">
+      <div class="modal-header">
+        <h2 id="lesson-topic-title">Thema</h2>
+        <button class="modal-close" aria-label="Schließen" onclick="closeModalLikeButton('modal-lesson-topic')">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group" id="lt-prev-group">
+          <label for="lt-prev-done" id="lt-prev-label">Letzte Stunde</label>
+          <textarea id="lt-prev-done" class="form-input" rows="2" placeholder="Was letzte Stunde gemacht wurde"></textarea>
+        </div>
+        <h3 class="lt-this" id="lt-this-label">Diese Stunde</h3>
+        <div class="form-group">
+          <label for="lt-topic" id="lt-topic-label">Thema</label>
+          <div class="lt-topic-row">
+            <input type="text" id="lt-topic" class="form-input" maxlength="200" placeholder="Thema für diese Stunde" />
+            <button type="button" id="lt-topic-done" class="btn-primary" onclick="lessonTopicDone()">Erledigt</button>
+          </div>
+          <p id="lt-topic-note" class="field-hint-muted hidden"></p>
+        </div>
+        <div class="form-group">
+          <label for="lt-done">Unterrichtsinhalt</label>
+          <textarea id="lt-done" class="form-input" rows="3" placeholder="Was in dieser Stunde gemacht wurde"></textarea>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-secondary" onclick="openLessonTopicPlan()"><i data-icon="list"></i>Ganze Planung</button>
+        <button class="btn-primary" onclick="closeLessonTopic()">Fertig</button>
+      </div>
+    </div>
+  </div>
+
   <div id="modal-plan-topic" class="modal-overlay hidden" onclick="closeModalOnOverlay(event,'modal-plan-topic')">
     <div class="modal modal-small" onclick="event.stopPropagation()">
       <div class="modal-header">
@@ -1691,13 +1724,13 @@
   </div>
 
   <script src="lib/crypto-js.min.js"></script>
-  <script src="crypto-helper.js?v=459"></script>
+  <script src="crypto-helper.js?v=460"></script>
   <script src="lib/firebase-app-compat.js"></script>
   <script src="lib/firebase-auth-compat.js"></script>
   <script src="lib/firebase-firestore-compat.js"></script>
-  <script src="firebase-config.js?v=459"></script>
-  <script src="sync-manager.js?v=459"></script>
-  <script src="sync-merge.js?v=459"></script>
-  <script src="app.js?v=459"></script>
+  <script src="firebase-config.js?v=460"></script>
+  <script src="sync-manager.js?v=460"></script>
+  <script src="sync-merge.js?v=460"></script>
+  <script src="app.js?v=460"></script>
 </body>
 </html>

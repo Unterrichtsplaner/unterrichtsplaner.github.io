@@ -1132,6 +1132,10 @@ select option{background:var(--bg-secondary);}
 .cockpit-count.test,.cockpit-count.absent{border-color:var(--danger);}
 .cockpit-count.bday{border-color:var(--accent);background:var(--accent-soft);}
 .cockpit-lesson-btn{flex-shrink:0;align-self:center;display:flex;align-items:center;gap:var(--space-1);min-height:44px;}
+.lt-this{margin:var(--space-2) 0 var(--space-2);font-size:14px;font-weight:700;color:var(--text-primary);}
+.lt-topic-row{display:flex;gap:var(--space-2);align-items:center;}
+.lt-topic-row .form-input{flex:1;min-width:0;}
+.lt-topic-row button{flex-shrink:0;}
 .cockpit-switch-btn{flex-shrink:0;align-self:center;display:flex;align-items:center;gap:var(--space-1);max-width:180px;}
 .cockpit-switch-btn span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 /* iPad hochkant: Zähler nur mit Symbol + Zahl */
