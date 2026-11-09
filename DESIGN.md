@@ -47,6 +47,8 @@ Die Schülerliste besteht aus Zeilen mit Trennlinien (gleiche Angaben in festen 
 
 `schueler.html` gehört nicht zur Lehrer-App und hat eine eigene Gestaltung: **Karoheft** (kariertes Papier mit Heftrand, Füller-Blau, Textmarker-Gelb als Fortschritt, Korrektur-Rot für die Klassenarbeit), Schrift Archivo aus `lib/fonts` (breit für Titel). Auch hier keine fremden Schriften und Skripte. Ändern nur in `schueler.css`; im Planer erscheint die Seite unverändert als Vorschau.
 
+Aufbau (AJ5/AJ6): Klassenziel mit Stempelkarte (ein Stempel je Stunde, beste Stunde gelb, Stunde ohne Plus gestrichelt), Aufträge, **Inhaltsverzeichnis** wie vorne im Heft (Kapitel mit gepunkteter Führungslinie bis zur Stundenzahl, erledigt ✓, aktuelles Thema mit Textmarker, kommende grau, Klassenarbeit rot an ihrer Stelle im Stoff), Termine. Aufklappen nur über `<details>` (Thema → Stunden mit Text, Arbeit → Countdown, „Das kommt dran“, Kalender). Ab 760 px Doppelseite: links Ziel und Aufträge, rechts Verzeichnis und Termine. Klassen auf der Seite nicht mit allgemeinen Namen kollidieren lassen (`.empty` ist der Leer-Hinweis).
+
 ## Noch offen
 
 

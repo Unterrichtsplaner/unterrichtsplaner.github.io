@@ -40,7 +40,7 @@
       }
     })();
   </script>
-  <link rel="stylesheet" href="style.css?v=464" />
+  <link rel="stylesheet" href="style.css?v=471" />
   <script>
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
@@ -1276,7 +1276,7 @@
         <li>Gespeichert werden: deine E-Mail-Adresse bzw. dein Google-Konto für die Anmeldung und ein verschlüsseltes Datenpaket (AES-256-GCM, Schlüssel aus dem Master-Passwort per PBKDF2) mit dem Zeitpunkt der letzten Änderung.</li>
         <li>Wie jeder Server-Dienst verarbeitet Google dabei technische Daten wie deine IP-Adresse. Eine Übermittlung in die USA ist dabei nicht ausgeschlossen. Schülerdaten sind davon nur verschlüsselt betroffen.</li>
         <li>Jedes Konto kann nur sein eigenes Datenpaket lesen und schreiben.</li>
-        <li>Schülerapp (nur wenn du sie einschaltest): Für jede freigegebene Klasse liegt ein eigenes kleines Datenpaket in Firestore, verschlüsselt mit einem Schlüssel, der nur im Link bzw. Code für die Klasse steht. Es enthält Thema, Hausaufgaben, Tests, nächste Stunden und die Summe der Plusse, nie Namen oder Noten. Lesen kann es, wer den Link hat; ändern und löschen nur dein Konto. Abschalten oder ein neuer Link löscht es.</li>
+        <li>Schülerapp (nur wenn du sie einschaltest): Für jede freigegebene Klasse liegt ein eigenes kleines Datenpaket in Firestore, verschlüsselt mit einem Schlüssel, der nur im Link bzw. Code für die Klasse steht. Es enthält die Themen mit dem Text aus „Was wurde behandelt“ (nie die Stundennotizen), Hausaufgaben, Tests, nächste Stunden und die Plusse der ganzen Klasse je Stunde, nie Namen oder Noten. Lesen kann es, wer den Link hat; ändern und löschen nur dein Konto. Abschalten oder ein neuer Link löscht es.</li>
         <li>Deine Cloud-Daten und dein Konto löschen: selbst unter Einstellungen → Cloud-Synchronisierung → „Cloud-Konto löschen“ (nur die Cloud-Daten: Datenverwaltung → „Alles löschen, auch in der Cloud“). Klappt das nicht, genügt eine kurze E-Mail an den Betreiber (siehe unten).</li>
       </ul>
 
@@ -1765,15 +1765,15 @@
   </div>
 
   <script src="lib/crypto-js.min.js"></script>
-  <script src="crypto-helper.js?v=464"></script>
+  <script src="crypto-helper.js?v=471"></script>
   <script src="lib/firebase-app-compat.js"></script>
   <script src="lib/firebase-auth-compat.js"></script>
   <script src="lib/firebase-firestore-compat.js"></script>
-  <script src="firebase-config.js?v=464"></script>
-  <script src="sync-manager.js?v=464"></script>
-  <script src="sync-merge.js?v=464"></script>
+  <script src="firebase-config.js?v=471"></script>
+  <script src="sync-manager.js?v=471"></script>
+  <script src="sync-merge.js?v=471"></script>
   <script src="lib/qrcode.js"></script>
-  <script src="student-share.js?v=464"></script>
-  <script src="app.js?v=464"></script>
+  <script src="student-share.js?v=471"></script>
+  <script src="app.js?v=471"></script>
 </body>
 </html>

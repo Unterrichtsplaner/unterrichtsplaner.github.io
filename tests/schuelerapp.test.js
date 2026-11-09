@@ -143,59 +143,85 @@ describe('Auszug der Klasse (studentAppSnapshot)', () => {
     expect(s.next[0]).toMatchObject({ date: TODAY, start: '07:45', end: '09:15', room: 'R 104' });
   });
 
-  it('Expedition: erledigte Themen, aktuelles mit „Stunde n von m“, kommende nur wenn freigegeben', () => {
-    let t = snap().topics;
-    expect(t.done.map(x => x.title)).toEqual(['Brüche']);
-    expect(t.now).toMatchObject({ title: 'Terme', unit: 2, of: 3 });
-    expect(t.next).toEqual([]);
+  const toc = () => snap().toc;
+  const titles = items => items.map(x => `${x.state}:${x.title}`);
+
+  it('Inhaltsverzeichnis: erledigte Themen, aktuelles mit „Stunde n von m“, kommende nur wenn freigegeben (AJ5)', () => {
+    let t = toc();
+    expect(t.fromLessons).toBe(false);
+    expect(titles(t.items)).toEqual(['done:Brüche', 'now:Terme']);
+    expect(t.items[1]).toMatchObject({ unit: 2, of: 3 });
     app('ensureStudentApp(db.groups[0]).show = { upcoming: true }');
-    t = snap().topics;
-    expect(t.next.map(x => x.title)).toEqual(['Gleichungen', 'Textaufgaben']);
+    t = toc();
+    expect(titles(t.items)).toEqual(['done:Brüche', 'now:Terme', 'later:Gleichungen', 'later:Textaufgaben']);
+    expect(t.items[2]).toMatchObject({ of: 2, from: '2026-11-16' });   // Terme belegt noch 09.11. und 12.11.
   });
 
-  it('mit Planung: „Was wurde behandelt“ vergangener Stunden zählt als erledigte Station', () => {
+  it('Thema antippen: jede Stunde mit dem ganzen Text aus „Was wurde behandelt“, nie die Stundennotizen (AJ6 a)', () => {
+    app('db.lessonData["s1_2026-11-02"].notes = "Max hat gestört"');
+    const now = toc().items.find(x => x.state === 'now');
+    expect(now.lessons).toEqual([{ date: '2026-11-02', text: 'Terme vereinfachen\nzweite Zeile' }]);
+    expect(JSON.stringify(snap())).not.toContain('Max hat gestört');
+  });
+
+  it('alle erledigten Themen des Schuljahrs, auch ganz alte (Wunsch 09.11.: „alle“)', () => {
+    app('db.groups[0].plan.unshift(...Array.from({ length: 8 }, (_, i) => ({ id: "a" + i, title: "Altes Thema " + i, done: "2026-09-" + String(10 + i) })))');
+    expect(toc().items.filter(x => x.state === 'done').length).toBe(9);
+  });
+
+  it('mit Planung: „Was wurde behandelt“ ohne abgehaktes Thema steht als eigener Eintrag dazwischen (AJ3)', () => {
     // Nutzer (09.11.): Planung vorhanden, in den letzten Stunden nur „Was wurde behandelt“ ausgefüllt; heute ist um 10 Uhr vorbei
     app('db.lessonData["s2_2026-11-05"] = { done: "Wiederholung" }');
     app('db.lessonData["s1_2026-11-09"].done = "Übung Terme\\nNotiz"');
-    const t = snap().topics;
-    expect(t.done.map(x => x.title)).toEqual(['Brüche', 'Wiederholung', 'Übung Terme']);
-    expect(t.now).toMatchObject({ title: 'Terme', unit: 2, of: 3 });   // angefangenes Thema bleibt „jetzt“, nicht doppelt
+    const t = toc();
+    expect(titles(t.items)).toEqual(['done:Brüche', 'done:Wiederholung', 'done:Übung Terme', 'now:Terme']);
+    expect(t.items[2].lessons).toEqual([{ date: '2026-11-09', text: 'Übung Terme\nNotiz' }]);
   });
 
   it('eingetipptes, nicht abgehaktes Thema einer vergangenen Stunde rutscht weiter wie in der Planung, nie doppelt', () => {
     app('db.groups[0].plan = [{ id: "x0", title: "Liedanalyse", pinned: "2026-11-05", pinnedSlot: "s2" }, { id: "x1", title: "Rhythmus", lessons: 2 }]');
-    const t = snap().topics;
-    expect(t.done.map(x => x.title)).toEqual(['Terme vereinfachen']);   // nur „Was wurde behandelt“ vom 02.11.
-    expect(t.now.title).toBe('Liedanalyse');
+    expect(titles(toc().items)).toEqual(['done:Terme vereinfachen', 'now:Liedanalyse']);   // „Was wurde behandelt“ vom 02.11.
   });
 
-  it('erledigte Stationen: höchstens drei, gleiche hintereinander nur einmal, ausgefallene Stunden zählen nicht', () => {
+  it('gleiche lose Einträge hintereinander werden einer, ausgefallene Stunden zählen nicht', () => {
     app('db.lessonData["s2_2026-10-29"] = { done: "Test" }');
-    app('db.lessonData["s1_2026-11-02"].done = "anderes"');   // hat abgehaktes Thema „Terme“ → Thema gilt, Text nicht
+    app('db.lessonData["s1_2026-11-02"].done = "anderes"');   // hat abgehaktes Thema „Terme“ → gehört zu Terme
     app('db.lessonData["s2_2026-11-05"] = { done: "test" }');
     app('db.lessonData["s1_2026-11-09"].done = "Test"');
     app('db.lessonData["s2_2026-10-22"] = { done: "Ausgefallen", ausfall: true }');
-    const t = snap().topics;
-    expect(t.done.map(x => x.title)).toEqual(['Brüche', 'Test']);
+    const t = toc();
+    expect(titles(t.items)).toEqual(['done:Brüche', 'done:Test', 'now:Terme']);
+    expect(t.items[1].lessons.map(l => l.date)).toEqual(['2026-10-29', '2026-11-05', '2026-11-09']);
+    expect(t.items[2].lessons).toEqual([{ date: '2026-11-02', text: 'anderes' }]);
   });
 
-  it('ohne Planung: Themen aus „Was wurde behandelt“ (erste Zeile)', () => {
+  it('ohne Planung: jede Stunde mit Text, Titel aus der ersten Zeile', () => {
     app('db.groups[0].plan = []');
-    const t = snap().topics;
+    const t = toc();
     expect(t.fromLessons).toBe(true);
-    expect(t.now.title).toBe('Terme vereinfachen');
+    expect(t.items).toEqual([{ title: 'Terme vereinfachen', state: 'done', lessons: [{ date: '2026-11-02', text: 'Terme vereinfachen\nzweite Zeile' }] }]);
   });
 
-  it('Klassenziel: Plusse seit dem Startdatum, ++ zählt doppelt, Minus zählt nicht', () => {
+  it('Klassenarbeit: ausgewählte Themen als Titel in der Reihenfolge der Planung, gelöschte fallen weg (AJ6 b)', () => {
+    app('db.lessonData["s1_2026-11-09"].testItems[0].topics = ["p3", "weg", "p2"]');
+    expect(snap().tests[0]).toEqual({ date: '2026-11-19', text: 'Klassenarbeit Brüche', topics: ['Terme', 'Gleichungen'] });
+    app('delete db.lessonData["s1_2026-11-09"].testItems[0].topics');
+    expect(snap().tests[0]).toEqual({ date: '2026-11-19', text: 'Klassenarbeit Brüche' });
+  });
+
+  it('Klassenziel: Plusse seit dem Startdatum, ++ zählt doppelt, Minus zählt nicht; Stempel je Stunde (AJ6 c)', () => {
     expect(snap().goal).toBeNull();
     app('ensureStudentApp(db.groups[0]).goal = { target: 50, reward: "Spielestunde", since: "2026-11-01" }');
-    expect(snap().goal).toEqual({ target: 50, reward: 'Spielestunde', count: 3, since: '2026-11-01' });
+    const goal = snap().goal;
+    expect(goal).toMatchObject({ target: 50, reward: 'Spielestunde', count: 3, since: '2026-11-01' });
+    // Stunden: Mo 02.11. (++), Do 05.11. (+ und −), Mo 09.11. (vorbei, nichts) – nur Summen, keine Namen
+    expect(goal.stamps).toEqual([{ date: '2026-11-02', n: 2 }, { date: '2026-11-05', n: 1 }, { date: '2026-11-09', n: 0 }]);
   });
 
   it('abgewählte Inhalte fehlen ganz', () => {
     app('ensureStudentApp(db.groups[0]).show = { expedition: false, hw: false, tests: false, next: false }');
     const s = snap();
-    expect(s.topics).toBeNull(); expect(s.hw).toBeNull(); expect(s.tests).toBeNull(); expect(s.next).toBeNull();
+    expect(s.toc).toBeNull(); expect(s.hw).toBeNull(); expect(s.tests).toBeNull(); expect(s.next).toBeNull();
   });
 });
 
@@ -368,6 +394,51 @@ describe('Reiter „Schülerapp“ in der Klassenansicht', () => {
   });
 });
 
+describe('Themen einer Arbeit im Stunden-Fenster (AJ6 b)', () => {
+  const list = () => document.getElementById('test-items-list');
+  const item = () => app('db.lessonData["s1_2026-11-09"].testItems[0]');
+  afterEach(() => app('closeModal("modal-lesson")'));
+
+  it('ohne Schülerapp kein Knopf (andere Lehrkräfte sehen nichts Neues)', () => {
+    app('openLessonDetail("s1", "2026-11-09")');
+    expect(list().textContent).toContain('Klassenarbeit Brüche');
+    expect(list().querySelector('.test-topics-btn')).toBeNull();
+  });
+
+  it('mit Schülerapp: „Was kommt dran?“ klappt die Themen der Planung auf, Antippen wählt und speichert', () => {
+    app('db.settings.studentApp = { on: true }; ensureStudentApp(db.groups[0]).on = true');
+    app('openLessonDetail("s1", "2026-11-09")');
+    const btn = () => list().querySelector('.test-topics-btn');
+    expect(btn().textContent).toMatch(/Was kommt dran/);
+    btn().click();
+    const chips = () => [...list().querySelectorAll('[data-topic]')];
+    expect(chips().map(b => b.textContent)).toEqual(['Brüche', 'Terme', 'Gleichungen', 'Textaufgaben']);
+    const before = app('db.settings.lastModified');
+    chips()[1].click();
+    chips()[0].click();
+    expect(item().topics).toEqual(['p2', 'p1']);
+    expect(app('db.settings.lastModified')).not.toBe(before);
+    expect(chips()[0].getAttribute('aria-pressed')).toBe('true');
+    expect(btn().textContent).toMatch(/Kommt dran \(2\)/);
+    btn().click();   // zugeklappt: gewählte Themen darunter, in der Reihenfolge der Planung
+    expect(list().querySelector('.test-topics-chosen').textContent).toBe('Brüche, Terme');
+    btn().click();
+    expect(app('studentAppSnapshot(db.groups[0], new Date()).tests[0].topics')).toEqual(['Brüche', 'Terme']);
+    chips()[0].click(); chips()[1].click();
+    expect(item().topics).toBeUndefined();   // nichts gewählt: Feld fällt weg
+  });
+
+  it('Test inzwischen weg (Sync): Hinweis statt Fehler, nichts wird angelegt', () => {
+    app('db.settings.studentApp = { on: true }; ensureStudentApp(db.groups[0]).on = true');
+    app('openLessonDetail("s1", "2026-11-09")');
+    list().querySelector('.test-topics-btn').click();
+    const chip = list().querySelector('[data-topic]');
+    app('db.lessonData["s1_2026-11-09"].testItems = []');
+    chip.click();
+    expect(app('db.lessonData["s1_2026-11-09"].testItems')).toEqual([]);
+  });
+});
+
 describe('Einstellungen → Schülerapp', () => {
   it('Schalter und Anzeigename werden mit „Speichern“ übernommen, Klassen stehen in der Liste', () => {
     app('openSettings(); showSettingsPane("studentapp")');
@@ -381,6 +452,16 @@ describe('Einstellungen → Schülerapp', () => {
 });
 
 describe('Abgleich zwischen Geräten (Regel 83)', () => {
+  it('Themen einer Arbeit: auf zwei Geräten verschieden gewählt → beide bleiben, nie eine Rückfrage mit rohem Feldnamen', () => {
+    const base = sampleDB();
+    const local = JSON.parse(JSON.stringify(base)), cloud = JSON.parse(JSON.stringify(base));
+    local.lessonData['s1_2026-11-09'].testItems[0].topics = ['p1'];
+    cloud.lessonData['s1_2026-11-09'].testItems[0].topics = ['p2'];
+    const r = app('mergeDB')(base, local, cloud);
+    expect(r.conflicts).toEqual([]);
+    expect(r.merged.lessonData['s1_2026-11-09'].testItems[0].topics.sort()).toEqual(['p1', 'p2']);
+  });
+
   it('studentApp hat einen Eintrag in MERGE_SPEC: Zugang und Klassenziel als Ganzes', () => {
     const spec = app('MERGE_SPEC').fields.groups.item.fields.studentApp;
     expect(spec).toBeDefined();

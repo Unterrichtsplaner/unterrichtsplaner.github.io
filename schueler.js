@@ -28,45 +28,106 @@
   const tickKey = (it) => 'sa_tick_' + it.date + '_' + String(it.text).slice(0, 80);
   const ticked = it => { try { return localStorage.getItem(tickKey(it)) === '1'; } catch (e) { return false; } };
 
-  // Stationen der Expedition: erledigt (✓), jetzt, kommend, am Ende die nächste Klassenarbeit
-  function stations(d, today) {
-    const out = [];
+  // Name der Lehrkraft im Satz „Mathe bei …“: „Herr X“ → „Herrn X“ (Dativ)
+  const dativ = t => String(t || '').replace(/^Herr\s/, 'Herrn ');
+
+  // Inhaltsverzeichnis (AJ5). Neuer Auszug: d.toc = { items: [{ title, state: done|now|later, unit, of, from, lessons: [{ date, text }] }],
+  // fromLessons }. Ältere Planer schicken d.topics (AJ1) – das wird hier umgebaut (Regel 15).
+  function tocOf(d) {
+    if (d.toc && Array.isArray(d.toc.items)) return { items: d.toc.items.filter(x => x && x.title), fromLessons: !!d.toc.fromLessons };
     const t = d.topics;
-    if (t) {
-      list(t.done).forEach(x => out.push({ kind: 'done', title: x.title }));
-      if (t.now && t.now.title) {
-        const of = Number(t.now.of) > 1 ? `Stunde ${t.now.unit} von ${t.now.of}, ` : '';
-        out.push({ kind: 'now', title: t.now.title, sub: t.fromLessons ? 'Zuletzt im Unterricht' : `${of}hier seid ihr gerade` });
-      }
-      list(t.next).forEach(x => out.push({ kind: 'later', title: x.title }));
-    }
-    const boss = list(d.tests).filter(x => isDate(x.date) && x.date >= today)[0];
-    if (boss) {
-      const n = daysBetween(today, boss.date);
-      out.push({ kind: 'boss', title: boss.text, sub: `${short(boss.date)}, ${n === 0 ? 'heute' : n === 1 ? 'morgen' : `noch ${n} Tage`}` });
-    }
-    return out;
+    if (!t) return null;
+    const items = [];
+    list(t.done).forEach(x => items.push({ title: x.title, state: 'done', lessons: [] }));
+    if (t.now && t.now.title) items.push({ title: t.now.title, state: 'now', unit: t.now.unit, of: t.now.of, lessons: [] });
+    list(t.next).forEach(x => items.push({ title: x.title, state: 'later', lessons: [] }));
+    return { items: items.filter(x => x.title), fromLessons: !!t.fromLessons };
   }
-  function mapHTML(st) {
-    const STEP = 76, X = [0, 34, 70, 34];
-    const pos = st.map((s, i) => ({ s, x: X[i % X.length], y: i * STEP }));
-    const size = s => (s.kind === 'boss' ? 46 : s.kind === 'now' ? 34 : 28);
-    const pts = pos.map(p => [p.x + size(p.s) / 2, p.y + size(p.s) / 2]);
-    let path = '';
-    pts.forEach(([x, y], i) => {
-      if (!i) { path = `M${x} ${y}`; return; }
-      const [px, py] = pts[i - 1], my = (py + y) / 2;
-      path += ` C ${px} ${my}, ${x} ${my}, ${x} ${y}`;
+  // Klassenarbeiten stehen im Verzeichnis dort, wo sie im Stoff liegen: vor dem ersten Thema, das erst danach beginnt
+  function tocRows(toc, tests) {
+    const rows = toc.items.map(x => ({ kind: 'topic', x }));
+    tests.forEach(test => {
+      let at = rows.findIndex(r => r.kind === 'topic' && r.x.state === 'later' && isDate(r.x.from) && r.x.from > test.date);
+      if (at < 0) at = rows.findIndex(r => r.kind === 'topic' && r.x.state === 'later' && !isDate(r.x.from));
+      rows.splice(at < 0 ? rows.length : at, 0, { kind: 'test', x: test });
     });
-    // Unten Platz für die Beschriftung der letzten Station (aktuelles Thema/Klassenarbeit haben bis zu drei Zeilen)
-    const last = pos[pos.length - 1];
-    const h = last ? last.y + (last.s.kind === 'now' || last.s.kind === 'boss' ? 92 : 48) : 0;
-    return `<div class="map" style="height:${h}px">
-      <svg class="path" width="160" height="${h}" aria-hidden="true"><path d="${path}" fill="none" stroke="currentColor" stroke-width="2.2" stroke-dasharray="1 7" stroke-linecap="round"/></svg>
-      ${pos.map(p => `<div class="st ${p.s.kind}" style="top:${p.y}px;padding-left:${p.x}px">
-        <div class="dot" aria-hidden="true">${p.s.kind === 'done' ? '✓' : p.s.kind === 'boss' ? '!' : ''}</div>
-        <div class="lbl">${esc(p.s.title)}${p.s.sub ? `<small>${esc(p.s.sub)}</small>` : ''}</div></div>`).join('')}
-    </div>`;
+    return rows;
+  }
+  const countdown = (date, today) => { const n = daysBetween(today, date); return n === 0 ? 'heute' : n === 1 ? 'morgen' : `noch ${n} Tage`; };
+  const lessonsHTML = ls => `<ol class="lessons">${ls.map(l => `<li><span class="ld">${esc(short(l.date))}</span>
+    <span class="lt">${esc(l.text).replace(/\n/g, '<br>')}</span></li>`).join('')}</ol>`;
+  function topicRow(x, n, today) {
+    const ls = list(x.lessons).filter(l => isDate(l.date) && l.text);
+    const right = x.state === 'now' && Number(x.of) > 1 ? `${x.unit}/${x.of}` : Number(x.of) > 0 ? `${x.of} Std.` : ls.length ? `${ls.length} Std.` : '';
+    const sub = x.state === 'now' ? (Number(x.of) > 1 ? `Stunde ${x.unit} von ${x.of}, hier seid ihr gerade` : 'hier seid ihr gerade')
+      : x.state === 'later' && isDate(x.from) ? `ab ${short(x.from)}` : '';
+    const head = `<span class="no">${n}</span><span class="tt"><span class="tx">${esc(x.title)}</span>${sub ? `<small>${esc(sub)}</small>` : ''}</span>
+      <span class="lead" aria-hidden="true"></span><span class="pg">${esc(right)}</span>`;
+    if (!ls.length) return `<div class="row ${x.state}">${head}</div>`;
+    return `<details class="row ${x.state}"><summary>${head}</summary>
+      <div class="more"><p class="more-h">Das habt ihr gemacht</p>${lessonsHTML(ls)}</div></details>`;
+  }
+  function testRow(x, today) {
+    const topics = list(x.topics).filter(Boolean);
+    return `<details class="row test"><summary><span class="no">!</span><span class="tt"><span class="tx">${esc(x.text)}</span>
+      <small>${esc(countdown(x.date, today))}</small></span><span class="lead" aria-hidden="true"></span><span class="pg">${esc(short(x.date))}</span></summary>
+      <div class="more"><div class="cd"><b>${Math.max(0, daysBetween(today, x.date))}</b><span>${daysBetween(today, x.date) === 1 ? 'Tag' : 'Tage'}<br>bis zur Arbeit</span></div>
+      ${topics.length ? `<p class="more-h">Das kommt dran</p><ul class="chips">${topics.map(t => `<li>${esc(t)}</li>`).join('')}</ul>` : ''}
+      <button type="button" class="cal" data-cal="${esc(x.date)}">In meinen Kalender</button></div></details>`;
+  }
+  // Ohne Planung: die letzten Stunden, jede mit dem, was behandelt wurde
+  function lessonRows(toc) {
+    const ls = toc.items.flatMap(x => list(x.lessons)).filter(l => isDate(l.date) && l.text);
+    if (!ls.length) return '';
+    return lessonsHTML(ls.slice().reverse());
+  }
+
+  // Klassenziel mit Stempelkarte (AJ6 c): eine Zelle je Stunde seit dem Start, darin die Plusse dieser Stunde
+  function goalHTML(g, today) {
+    const target = Number(g.target), count = Math.max(0, Number(g.count) || 0);
+    const pct = Math.min(100, Math.round(count / target * 100));
+    const done = count >= target;
+    const stamps = list(g.stamps).filter(x => isDate(x.date));
+    const best = stamps.reduce((m, x) => Math.max(m, Number(x.n) || 0), 0);
+    const halfway = !done && count >= target / 2;
+    const head = `<div class="t">${count} von ${target} Plussen</div>
+      <div class="hl" role="img" aria-label="${count} von ${target} Plussen"><div class="hl-track"></div><div class="hl-fill" style="width:${pct}%"></div>
+        <i class="mile" style="left:50%" aria-hidden="true"></i><div class="hl-text">${done ? 'geschafft' : `noch ${target - count}`}</div></div>
+      ${g.reward ? `<div class="r">${done ? 'Geschafft, es gibt' : 'Dann gibt es'}: <b>${esc(g.reward)}</b></div>` : ''}`;
+    if (!stamps.length) return `<div class="card goal">${head}</div>`;
+    return `<details class="card goal"><summary>${head}<span class="open-hint">Stempelkarte</span></summary>
+      <div class="more">
+        <div class="stamps">${stamps.map(x => {
+          const n = Number(x.n) || 0;
+          return `<div class="stamp${n ? "" : " none"}${n && n === best ? ' best' : ''}" title="${esc(short(x.date))}: ${n}">
+            <b>${n ? '+' + n : ''}</b><span>${esc(short(x.date).slice(3))}</span></div>`;
+        }).join('')}</div>
+        <p class="more-note">${halfway ? 'Halbzeit geschafft. ' : ''}${best ? `Beste Stunde: +${best}. ` : ''}Jede Stunde ein Stempel, darin die Plusse der ganzen Klasse.</p>
+      </div></details>`;
+  }
+
+  // Kalender-Datei (AJ6 d): Termine als ganztägige Einträge, entsteht auf dem Handy, geht an keinen Server
+  function icsFor(items, d) {
+    const stamp = new Date().toISOString().replace(/[-:]/g, '').replace(/\.\d+/, '');
+    const escI = t => String(t).replace(/[\\,;]/g, m => '\\' + m).replace(/\n/g, '\\n');
+    const lines = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Unterrichtsplaner//Schuelerseite//DE', 'CALSCALE:GREGORIAN'];
+    items.forEach((it, i) => {
+      const day = it.date.replace(/-/g, ''), next = fmt(new Date(dateOf(it.date).getTime() + 864e5)).replace(/-/g, '');
+      lines.push('BEGIN:VEVENT', `UID:${day}-${i}-${encodeURIComponent(it.text).slice(0, 40)}@unterrichtsplaner`, `DTSTAMP:${stamp}`,
+        `DTSTART;VALUE=DATE:${day}`, `DTEND;VALUE=DATE:${next}`, `SUMMARY:${escI([d.subject, it.text].filter(Boolean).join(': '))}`,
+        'BEGIN:VALARM', 'TRIGGER:-P1D', 'ACTION:DISPLAY', `DESCRIPTION:${escI(it.text)}`, 'END:VALARM', 'END:VEVENT');
+    });
+    lines.push('END:VCALENDAR');
+    return lines.join('\r\n');
+  }
+  function saveIcs(items, d) {
+    if (!items.length) return;
+    const blob = new Blob([icsFor(items, d)], { type: 'text/calendar;charset=utf-8' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `${[d.cls, d.subject].filter(Boolean).join(' ') || 'Termine'}.ics`;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 4000);
   }
 
   // Die Seite aus dem Auszug. `now` als Parameter (Regel 21), damit „heute“ testbar ist.
@@ -74,44 +135,48 @@
     const today = fmt(now);
     const hhmm = `${pad2(now.getHours())}:${pad2(now.getMinutes())}`;
     let html = `<header><div class="class-name">${esc(d.cls || 'Klasse')}</div>`;
-    const sub = [d.subject, d.teacher ? `bei ${d.teacher}` : ''].filter(Boolean).join(' ');
+    const sub = [d.subject, d.teacher ? `bei ${dativ(d.teacher)}` : ''].filter(Boolean).join(' ');
     if (sub) html += `<div class="class-sub">${esc(sub)}</div>`;
     html += '</header>';
     if (opts.offline) html += '<div class="banner">Offline: zuletzt geladener Stand</div>';
 
-    let shown = 0;
-    if (d.goal && Number(d.goal.target) > 0) {
-      const target = Number(d.goal.target), count = Math.max(0, Number(d.goal.count) || 0);
-      const pct = Math.min(100, Math.round(count / target * 100));
-      const done = count >= target;
-      html += `<h2>Klassenziel</h2><div class="card goal">
-        <div class="t">${count} von ${target} Plussen</div>
-        <div class="hl" role="img" aria-label="${count} von ${target} Plussen"><div class="hl-track"></div><div class="hl-fill" style="width:${pct}%"></div><div class="hl-text">${done ? 'geschafft' : `noch ${target - count}`}</div></div>
-        ${d.goal.reward ? `<div class="r">${done ? 'Geschafft, es gibt' : 'Dann gibt es'}: <b>${esc(d.goal.reward)}</b></div>` : ''}
-      </div>`;
-      shown++;
-    }
-    const st = stations(d, today);
-    if (st.length) {
-      html += `<h2>Expedition</h2>${mapHTML(st)}`;
-      shown++;
-    }
+    const tests = list(d.tests).filter(x => isDate(x.date) && x.date >= today);
     const hw = list(d.hw).filter(x => isDate(x.date) && x.date >= today);
+    const toc = tocOf(d);
+    let left = '', right = '', shown = 0;
+
+    if (d.goal && Number(d.goal.target) > 0) { left += `<section><h2>Klassenziel</h2>${goalHTML(d.goal, today)}</section>`; shown++; }
     if (d.hw) {
-      html += '<h2>Aufträge</h2>';
-      html += hw.length ? hw.map((x, i) => {
+      left += '<section><h2>Aufträge</h2>' + (hw.length ? hw.map((x, i) => {
         const on = ticked(x);
         return `<div class="quest${on ? ' is-done' : ''}"><button type="button" class="qbox" data-tick="${i}" aria-pressed="${on}" aria-label="Für dich abhaken: ${esc(x.text)}">${on ? '✓' : ''}</button>
           <div><div class="q">${esc(x.text)}</div><div class="d">bis ${esc(short(x.date))}, ${esc(rel(x.date, today))}</div></div></div>`;
-      }).join('') : '<p class="empty" style="margin-top:0">Gerade nichts auf.</p>';
+      }).join('') : '<p class="empty" style="margin-top:0">Gerade nichts auf.</p>') + '</section>';
       shown++;
     }
-    const tests = list(d.tests).filter(x => isDate(x.date) && x.date >= today);
-    if (tests.length > 1) {
-      html += '<h2>Weitere Termine</h2>' + tests.slice(1).map(x => `<div class="quest term"><div><div class="q"><span class="tag">Test</span>${esc(x.text)}</div>
-        <div class="d">${esc(short(x.date))}, ${esc(rel(x.date, today))}</div></div></div>`).join('');
+    if (toc && (toc.items.length || tests.length)) {
+      if (toc.fromLessons) {
+        const rows = lessonRows(toc);
+        right += `<section><h2>Zuletzt im Unterricht</h2>${rows ? `<div class="card toc">${rows}</div>` : '<p class="empty" style="margin-top:0">Noch nichts eingetragen.</p>'}</section>`;
+        if (tests.length) right += `<section><h2>Klassenarbeit</h2><div class="card toc">${testRow(tests[0], today)}</div></section>`;
+      } else {
+        let n = 0;
+        right += `<section><h2>Inhaltsverzeichnis</h2><div class="card toc">${tocRows(toc, tests.slice(0, 1)).map(r =>
+          r.kind === 'test' ? testRow(r.x, today) : topicRow(r.x, ++n, today)).join('')}</div></section>`;
+      }
+      shown++;
+    } else if (tests.length) {
+      right += `<section><h2>Klassenarbeit</h2><div class="card toc">${testRow(tests[0], today)}</div></section>`;
+      shown++;
+    }
+    const cal = [...tests.map(x => ({ date: x.date, text: x.text })), ...hw.map(x => ({ date: x.date, text: x.text }))];
+    if (tests.length > 1 || cal.length) {
+      right += '<section><h2>Termine</h2>' + tests.slice(1).map(x => `<div class="quest term"><div><div class="q"><span class="tag">Test</span>${esc(x.text)}</div>
+        <div class="d">${esc(short(x.date))}, ${esc(rel(x.date, today))}</div></div></div>`).join('')
+        + `<button type="button" class="cal wide" data-cal="all">Alle Termine in meinen Kalender</button></section>`;
     }
     if (!shown) html += '<p class="empty">Gerade steht hier nichts. Schau später noch einmal rein.</p>';
+    else html += `<div class="spread"><div class="col">${left}</div><div class="col">${right}</div></div>`;
 
     const next = list(d.next).find(n => isDate(n.date) && (n.date > today || (n.date === today && String(n.end) > hhmm)));
     const foot = [];
@@ -132,6 +197,12 @@
     page.innerHTML = buildClassPage(data, new Date(), opts);
     document.title = [data.cls, data.subject].filter(Boolean).join(' ') || 'Klasse';
     const hw = list(data.hw).filter(x => isDate(x.date) && x.date >= fmt(new Date()));
+    const today = fmt(new Date());
+    const tests = list(data.tests).filter(x => isDate(x.date) && x.date >= today);
+    page.querySelectorAll('[data-cal]').forEach(b => b.addEventListener('click', () => {
+      const all = [...tests, ...hw].map(x => ({ date: x.date, text: x.text }));
+      saveIcs(b.dataset.cal === 'all' ? all : all.filter(x => x.date === b.dataset.cal).slice(0, 1), data);
+    }));
     page.querySelectorAll('[data-tick]').forEach(b => b.addEventListener('click', () => {
       const it = hw[Number(b.dataset.tick)];
       if (!it) return;
@@ -187,7 +258,7 @@
   const preview = /[?&]vorschau\b/.test(location.search);
   // Vorschau im Planer: Inhalt kommt vom Planer, nichts wird geladen
   window.renderStudentPage = data => { if (data && typeof data === 'object') draw(data, {}); };
-  window.SchuelerSeite = { buildClassPage, rel };
+  window.SchuelerSeite = { buildClassPage, rel, icsFor };
   if (preview) { message('Vorschau', 'Wird gleich gezeigt.'); return; }
   load();
   // Zurück in die App oder neuer Tag: frisch laden bzw. „heute/morgen“ neu rechnen

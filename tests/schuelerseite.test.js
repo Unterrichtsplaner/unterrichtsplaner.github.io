@@ -7,7 +7,28 @@ const { loadScript } = require('./helpers/load-app');
 const X = `Peter's "Test" <img data-xss src=x>`;
 const html = fs.readFileSync(path.join(__dirname, '..', 'schueler.html'), 'utf8');
 
+// Auszug, wie ihn der Planer seit AJ5/AJ6 schickt (v2): Inhaltsverzeichnis, Themen der Arbeit, Stempel
 function sample() {
+  return {
+    v: 2, cls: '7b', subject: 'Mathematik', teacher: 'Frau T.', at: new Date(2026, 10, 9, 14, 20).getTime(),
+    next: [
+      { date: '2026-11-09', start: '07:45', end: '09:15', room: 'R 104' },   // heute, schon vorbei
+      { date: '2026-11-12', start: '09:45', end: '11:15', room: 'R 104' },
+    ],
+    hw: [{ date: '2026-11-05', text: 'Alte Aufgabe' }, { date: '2026-11-10', text: 'S. 42 Nr. 3' }, { date: '2026-11-11', text: 'AB fertig' }],
+    tests: [{ date: '2026-11-19', text: 'Klassenarbeit Brüche', topics: ['Brüche', 'Terme'] }, { date: '2026-12-02', text: 'Kurztest' }],
+    toc: { fromLessons: false, items: [
+      { title: 'Brüche', state: 'done', of: 2, lessons: [{ date: '2026-10-26', text: 'Kürzen\nS. 30' }, { date: '2026-10-29', text: 'Erweitern' }] },
+      { title: 'Wiederholung', state: 'done', lessons: [{ date: '2026-11-02', text: 'Wiederholung' }] },
+      { title: 'Terme', state: 'now', unit: 2, of: 3, from: '2026-11-05', lessons: [{ date: '2026-11-05', text: 'Terme vereinfachen' }] },
+      { title: 'Gleichungen', state: 'later', of: 2, from: '2026-11-23', lessons: [] },
+    ] },
+    goal: { target: 200, reward: 'Spielestunde', count: 162, since: '2026-11-01',
+      stamps: [{ date: '2026-11-02', n: 9 }, { date: '2026-11-05', n: 0 }, { date: '2026-11-09', n: 14 }] },
+  };
+}
+// Auszug einer älteren Planer-Version (AJ1, v1): muss weiter lesbar sein (Regel 15)
+function sampleV1() {
   return {
     v: 1, cls: '7b', subject: 'Mathematik', teacher: 'Frau T.', at: new Date(2026, 10, 9, 14, 20).getTime(),
     next: [
@@ -45,12 +66,79 @@ describe('Schülerseite', () => {
     expect(t).toMatch(/Dann gibt es: Spielestunde/);
   });
 
-  it('Expedition: erledigt, jetzt (mit Stunde n von m), kommend, am Ende die nächste Klassenarbeit', () => {
-    document.getElementById('page').innerHTML = build(sample());
-    const st = [...page().querySelectorAll('.st')].map(e => [e.className.replace('st ', ''), e.querySelector('.lbl').firstChild.textContent]);
-    expect(st).toEqual([['done', 'Brüche'], ['now', 'Terme'], ['later', 'Gleichungen'], ['boss', 'Klassenarbeit Brüche']]);
-    expect(page().querySelector('.st.now small').textContent).toMatch(/Stunde 2 von 3/);
-    expect(page().querySelector('.st.boss small').textContent).toBe('Do 19.11., noch 10 Tage');
+  const rows = () => [...page().querySelectorAll('.toc .row')].map(e => `${e.className.replace(/^row /, '')}:${e.querySelector('.tx').textContent}`);
+
+  it('Inhaltsverzeichnis: Kapitel der Reihe nach, die Klassenarbeit dort, wo sie im Stoff liegt (AJ5)', () => {
+    page().innerHTML = build(sample());
+    expect(page().textContent).toMatch(/Inhaltsverzeichnis/);
+    expect(page().querySelector('.map')).toBeNull();   // keine Expedition mehr
+    expect(rows()).toEqual(['done:Brüche', 'done:Wiederholung', 'now:Terme', 'test:Klassenarbeit Brüche', 'later:Gleichungen']);
+    expect(page().querySelector('.row.now small').textContent).toBe('Stunde 2 von 3, hier seid ihr gerade');
+    expect(page().querySelector('.row.now .pg').textContent).toBe('2/3');
+    expect(page().querySelector('.row.later small').textContent).toBe('ab Mo 23.11.');
+  });
+
+  it('Thema antippen: jede Stunde mit Datum und dem ganzen Text (AJ6 a)', () => {
+    page().innerHTML = build(sample());
+    const bruch = page().querySelector('details.row.done');
+    expect(bruch.open).toBe(false);
+    const ls = [...bruch.querySelectorAll('.lessons li')].map(li => `${li.querySelector('.ld').textContent} ${li.querySelector('.lt').innerHTML}`);
+    expect(ls).toEqual(['Mo 26.10. Kürzen<br>S. 30', 'Do 29.10. Erweitern']);
+    expect(page().querySelector('div.row.later')).not.toBeNull();   // ohne Stunden: nichts zum Aufklappen
+  });
+
+  it('Klassenarbeit antippen: Countdown, was drankommt, Kalender (AJ6 b, d)', () => {
+    page().innerHTML = build(sample());
+    const t = page().querySelector('details.row.test');
+    expect(t.querySelector('summary small').textContent).toBe('noch 10 Tage');
+    expect(t.querySelector('.pg').textContent).toBe('Do 19.11.');
+    expect(t.querySelector('.cd b').textContent).toBe('10');
+    expect([...t.querySelectorAll('.chips li')].map(li => li.textContent)).toEqual(['Brüche', 'Terme']);
+    expect(t.querySelector('[data-cal="2026-11-19"]')).not.toBeNull();
+  });
+
+  it('weitere Tests stehen unter „Termine“, mit Knopf für alle Termine in den Kalender', () => {
+    page().innerHTML = build(sample());
+    expect(page().textContent).toMatch(/Termine/);
+    expect(page().textContent).toMatch(/Kurztest/);
+    expect(page().querySelector('[data-cal="all"]')).not.toBeNull();
+  });
+
+  it('Kalender-Datei: ganztägig, Fach im Titel, Erinnerung am Vortag, Sonderzeichen geschützt', () => {
+    const ics = window.SchuelerSeite.icsFor([{ date: '2026-11-19', text: 'Arbeit; Brüche, Terme' }], { subject: 'Mathe' });
+    expect(ics).toMatch(/^BEGIN:VCALENDAR\r\n/);
+    expect(ics).toContain('DTSTART;VALUE=DATE:20261119\r\nDTEND;VALUE=DATE:20261120');
+    expect(ics).toContain('SUMMARY:Mathe: Arbeit\\; Brüche\\, Terme');
+    expect(ics).toContain('TRIGGER:-P1D');
+  });
+
+  it('Klassenziel: Stempelkarte zum Aufklappen, beste Stunde markiert, Stunde ohne Plus leer (AJ6 c)', () => {
+    page().innerHTML = build(sample());
+    const goal = page().querySelector('details.goal');
+    expect(goal.querySelector('.open-hint').textContent).toBe('Stempelkarte');
+    const st = [...goal.querySelectorAll('.stamp')].map(e => `${e.className}|${e.querySelector('b').textContent}`);
+    expect(st).toEqual(['stamp|+9', 'stamp none|', 'stamp best|+14']);
+    expect(goal.textContent).toMatch(/Halbzeit geschafft/);
+  });
+
+  it('ohne Planung: die Stunden mit Datum und Text, neueste zuerst', () => {
+    const d = sample();
+    d.toc = { fromLessons: true, items: [
+      { title: 'Lied A', state: 'done', lessons: [{ date: '2026-11-02', text: 'Lied A' }] },
+      { title: 'Lied B', state: 'done', lessons: [{ date: '2026-11-05', text: 'Lied B\nRhythmus' }] }] };
+    page().innerHTML = build(d);
+    expect(page().textContent).toMatch(/Zuletzt im Unterricht/);
+    expect([...page().querySelectorAll('.toc .lessons .ld')].map(e => e.textContent)).toEqual(['Do 05.11.', 'Mo 02.11.']);
+  });
+
+  it('ältere Planer-Version (v1 mit „topics“): wird als Inhaltsverzeichnis gezeigt (Regel 15)', () => {
+    page().innerHTML = build(sampleV1());
+    expect(rows()).toEqual(['done:Brüche', 'now:Terme', 'test:Klassenarbeit Brüche', 'later:Gleichungen']);
+  });
+
+  it('„Herr …“ wird im Satz zu „bei Herrn …“', () => {
+    page().innerHTML = build({ ...sample(), teacher: 'Herr Winderlich' });
+    expect(page().querySelector('.class-sub').textContent).toBe('Mathematik bei Herrn Winderlich');
   });
 
   it('Aufträge: Vergangenes fällt weg, „morgen/übermorgen“ stimmen', () => {
@@ -66,14 +154,8 @@ describe('Schülerseite', () => {
     expect(page().textContent).toMatch(/Stand: heute, 14:20\./);
   });
 
-  it('weitere Tests nach der Klassenarbeit stehen unter „Weitere Termine“', () => {
-    document.getElementById('page').innerHTML = build(sample());
-    expect(page().textContent).toMatch(/Weitere Termine/);
-    expect(page().textContent).toMatch(/Kurztest/);
-  });
-
   it('abgewählte Bereiche fehlen ganz; ganz ohne Inhalt ein freundlicher Hinweis', () => {
-    document.getElementById('page').innerHTML = build({ cls: '7b', subject: 'Mathe', next: null, hw: null, tests: null, topics: null, goal: null });
+    document.getElementById('page').innerHTML = build({ cls: '7b', subject: 'Mathe', next: null, hw: null, tests: null, toc: null, goal: null });
     expect(page().querySelector('.map')).toBeNull();
     expect(page().textContent).not.toMatch(/Aufträge|Klassenziel/);
     expect(page().textContent).toMatch(/Gerade steht hier nichts/);
@@ -88,8 +170,10 @@ describe('Schülerseite', () => {
     const d = sample();
     d.cls = X; d.subject = X; d.teacher = X;
     d.hw = [{ date: '2026-11-10', text: X }]; d.tests = [{ date: '2026-11-19', text: X }, { date: '2026-11-20', text: X }];
-    d.topics = { done: [{ title: X }], now: { title: X, unit: X, of: 3 }, next: [{ title: X }] };
-    d.goal = { target: 10, reward: X, count: 1 };
+    d.tests[0].topics = [X];
+    d.toc = { fromLessons: false, items: [{ title: X, state: 'done', of: X, lessons: [{ date: '2026-11-02', text: X }] },
+      { title: X, state: 'now', unit: X, of: 3, from: X, lessons: [] }, { title: X, state: 'later', from: '2026-12-01' }] };
+    d.goal = { target: 10, reward: X, count: 1, stamps: [{ date: '2026-11-02', n: X }] };
     d.next = [{ date: '2026-11-12', start: X, end: '99:99', room: X }];
     window.renderStudentPage(d);
     expect(document.querySelectorAll('[data-xss]').length).toBe(0);

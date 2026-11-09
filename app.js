@@ -2290,19 +2290,29 @@ function renderItemList(listId, items, type, incoming, incomingId) {
   const list = document.getElementById(listId);
   list.innerHTML = '';
 
+  // Themen einer Arbeit wählen (AJ6 b): nur bei Tests einer Klasse mit Planung und eingeschalteter Schülerapp
+  const plan = type === 'test' ? testTopicChoices() : [];
   if (!items.length) {
     list.innerHTML = `<div style="color:var(--text-muted);font-size:12px;padding:var(--space-1) 0">Noch keine Einträge.</div>`;
   } else {
     items.forEach(item => {
       const el = document.createElement('div');
-      el.className = 'entry-item';
+      el.className = 'entry-item' + (plan.length ? ' has-topics' : '');
       const targetLabel = item.targetDate ? `<span class="entry-item-target">${formatDateLong(item.targetDate)}</span>` : '';
       el.innerHTML = `
         <span class="entry-item-text">${escHtml(item.text)}</span>
         ${targetLabel}
         <button class="entry-item-delete" aria-label="Löschen">✕</button>
+        ${plan.length ? testTopicsHTML(item, plan) : ''}
       `;
       el.querySelector('.entry-item-delete').onclick = () => removeItem(type, item); // per Referenz (Regel 9, BUGS M15)
+      if (plan.length) {
+        el.querySelector('.test-topics-btn').onclick = () => {
+          testTopicsOpenFor = testTopicsOpenFor === item ? null : item;
+          renderTestItems(items, incoming);
+        };
+        el.querySelectorAll('[data-topic]').forEach(b => { b.onclick = () => toggleTestTopic(item, b.dataset.topic); });
+      }
       list.appendChild(el);
     });
   }
@@ -2324,6 +2334,36 @@ function renderItemList(listId, items, type, incoming, incomingId) {
     incomingEl.classList.add('hidden');
     incomingEl.innerHTML = '';
   }
+}
+
+// Themen einer Arbeit (AJ6 b). Gemerkt wird die Kennung des Themas (item.topics), angezeigt der aktuelle Titel.
+// Welche Arbeit gerade aufgeklappt ist, ist Ansichtszustand (Regel 19), nie in db.
+let testTopicsOpenFor = null;
+function testTopicChoices() {
+  const slot = db.lessonSlots.find(s => s.id === activeLessonId);
+  const g = slot && db.groups.find(x => x.id === slot.groupId);
+  return g && studentAppOn() && studentAppOf(g).on ? groupPlan(g).filter(t => t && t.id && String(t.title || '').trim()) : [];
+}
+function testTopicsHTML(item, plan) {
+  const ids = Array.isArray(item.topics) ? item.topics : [];
+  const chosen = plan.filter(t => ids.includes(t.id)).map(t => String(t.title).trim());
+  const open = testTopicsOpenFor === item;
+  return `<div class="test-topics">
+    <button type="button" class="btn-secondary test-topics-btn" aria-expanded="${open}">${icon('list')}${chosen.length ? `Kommt dran (${chosen.length})` : 'Was kommt dran?'}</button>
+    ${chosen.length && !open ? `<p class="test-topics-chosen">${escHtml(chosen.join(', '))}</p>` : ''}
+    ${open ? `<div class="sw-chips" role="group" aria-label="Themen der Arbeit, für die Schülerapp">${plan.map(t =>
+      `<button type="button" data-topic="${escHtml(t.id)}" class="${ids.includes(t.id) ? 'on' : ''}" aria-pressed="${ids.includes(t.id)}">${escHtml(String(t.title).trim())}</button>`).join('')}</div>
+      <p class="field-hint-muted">Steht in der Schülerapp bei der Arbeit unter „Das kommt dran“.</p>` : ''}
+  </div>`;
+}
+function toggleTestTopic(item, topicId) {
+  const data = db.lessonData[currentLessonDataKey];
+  if (!data || !(data.testItems || []).includes(item)) { showToast('Diesen Test gibt es nicht mehr (z. B. durch Sync)', 'error'); return; }
+  const ids = Array.isArray(item.topics) ? item.topics : [];
+  const next = ids.includes(topicId) ? ids.filter(x => x !== topicId) : [...ids, topicId];
+  if (next.length) item.topics = next; else delete item.topics;
+  saveDB();
+  renderTestItems(data.testItems, getIncomingItems(activeLessonId, activeLessonDate).tests);
 }
 
 // Liegt an diesem Datum eine Stunde der Klasse? Sonst wäre eine HA/ein Test nirgends fällig (BUGS R13).
@@ -11870,7 +11910,7 @@ function settingsFormState() {
 }
 
 // ─── Schülerapp (BUGS AJ1), Stufe 1: Klassenseite ohne Personendaten ───────────────────────────────────────
-// Je Klasse ein Auszug (Expedition aus der Planung, Aufträge, Tests, nächste Stunden, Klassenziel), verschlüsselt mit dem
+// Je Klasse ein Auszug (Inhaltsverzeichnis aus der Planung, Aufträge, Tests, nächste Stunden, Klassenziel), verschlüsselt mit dem
 // Schlüssel der Freigabe und als eigenes Dokument `shares/<id>` in die Cloud gelegt (student-share.js, SyncManager.publishShare).
 // Nie Namen, Noten, Fehlzeiten, Hinweise oder Notizen zu Schülern; das Klassenziel ist nur eine Summe.
 // In `db` stehen nur Einstellungen und Zugang (settings.studentApp, group.studentApp). Was dieses Gerät veröffentlicht hat
@@ -11920,6 +11960,71 @@ function classGoalCount(g, since) {
   return n;
 }
 
+// Stempelkarte des Klassenziels (AJ6 c): je vergangene Stunde seit dem Start die Plusse der ganzen Klasse an diesem Tag
+// (++ zählt doppelt). Plusse an Tagen ohne Stunde bekommen einen eigenen Stempel. Nur Summen, keine Namen.
+function classGoalStamps(g, since, todayStr, nowMins) {
+  if (!isDateStr(since) || since > todayStr) return [];
+  const per = new Map();
+  groupLessons(g.id, since, todayStr).filter(l => !l.ausfall && (l.dateStr < todayStr || (l.range && l.range.start <= nowMins)))
+    .forEach(l => per.set(l.dateStr, 0));
+  (db.students[g.id] || []).forEach(s => (s.participation || []).forEach(p => {
+    const d = p && String(p.date || '');
+    if (!isDateStr(d) || d < since || d > todayStr) return;
+    const n = p.value === 'excellent' ? 2 : p.value === 'positive' ? 1 : 0;
+    if (n || per.has(d)) per.set(d, (per.get(d) || 0) + n);
+  }));
+  return [...per].sort((a, b) => a[0].localeCompare(b[0])).slice(-80).map(([date, n]) => ({ date, n }));
+}
+
+// Inhaltsverzeichnis der Schülerseite (AJ5): alle erledigten Themen des Schuljahrs mit ihren Stunden und dem ganzen Text
+// aus „Was wurde behandelt“ (eigene Notizen stehen in den Stundennotizen und gehen nie mit), das laufende Thema,
+// kommende nur wenn freigegeben. Erledigt heißt wie in der Planung: abgehakt (Regel 69). Stunden mit Text, aber ohne
+// abgehaktes Thema stehen als eigene Einträge dazwischen (AJ3). Ohne Planung: jede Stunde mit Text.
+function studentAppToc(g, sa, todayStr, nowMins) {
+  const text = l => String((db.lessonData[lessonKeyOf(l)] || {}).done || '').trim().slice(0, 600);
+  const past = groupLessons(g.id, schoolYearStart(todayStr), todayStr)
+    .filter(l => !l.ausfall && (l.dateStr < todayStr || (l.range && l.range.start <= nowMins)));
+  const plan = groupPlan(g);
+  if (!plan.length) {
+    return { items: past.map(l => ({ date: l.dateStr, text: text(l) })).filter(x => x.text)
+      .map(x => ({ title: firstLine(x.text), state: 'done', lessons: [x] })), fromLessons: true };
+  }
+  const { firstDate } = planAssignments(g, todayStr);
+  // Angefangene Themen zuerst, dann nach der ersten geplanten Stunde
+  const open = plan.filter(t => !t.done && (topicDoneCount(t) || firstDate.get(t)))
+    .map((t, i) => ({ t, i, d: firstDate.get(t) ? firstDate.get(t).dateStr : '9999' }))
+    .sort((a, b) => (topicDoneCount(b.t) ? 1 : 0) - (topicDoneCount(a.t) ? 1 : 0) || a.d.localeCompare(b.d) || a.i - b.i);
+  const byTopic = new Map(), loose = [];
+  past.forEach(l => {
+    const t = topicDoneIn(g, lessonKeyOf(l)), tx = text(l);
+    if (t) { if (!byTopic.has(t)) byTopic.set(t, []); if (tx) byTopic.get(t).push({ date: l.dateStr, text: tx }); }
+    else if (tx) loose.push({ date: l.dateStr, title: firstLine(tx), lessons: [{ date: l.dateStr, text: tx }] });
+  });
+  const lessonsOf = t => byTopic.get(t) || [];
+  const done = plan.filter(t => t.done).map(t => {
+    const last = topicDoneCount(t) ? t.doneLessons[t.doneLessons.length - 1].slice(-10) : '';
+    return { date: last || (typeof t.done === 'string' ? t.done : t.doneAt) || '', title: String(t.title || ''), of: topicLength(t), lessons: lessonsOf(t), topic: true };
+  });
+  // Zeitlich ordnen; gleiche lose Einträge hintereinander (zweimal „Übung“) werden einer
+  const merged = [];
+  [...done, ...loose].sort((a, b) => String(a.date).localeCompare(String(b.date))).forEach(x => {
+    const prev = merged[merged.length - 1];
+    if (prev && !prev.topic && !x.topic && prev.title.toLowerCase() === x.title.toLowerCase()) prev.lessons.push(...x.lessons);
+    else merged.push({ ...x, lessons: [...x.lessons] });
+  });
+  const items = merged.map(x => ({ title: x.title, state: 'done', ...(x.topic ? { of: x.of } : {}), lessons: x.lessons }));
+  const from = t => (firstDate.get(t) ? firstDate.get(t).dateStr : '');
+  const cur = open[0];
+  if (cur) {
+    items.push({ title: String(cur.t.title || ''), state: 'now', unit: Math.min(topicLength(cur.t), topicDoneCount(cur.t) + 1),
+      of: topicLength(cur.t), from: from(cur.t), lessons: lessonsOf(cur.t) });
+  }
+  if (sa.show.upcoming) {
+    open.slice(1).forEach(x => items.push({ title: String(x.t.title || ''), state: 'later', of: topicLength(x.t), from: from(x.t), lessons: lessonsOf(x.t) }));
+  }
+  return { items: items.filter(x => x.title.trim()), fromLessons: false };
+}
+
 // Der Auszug, den die Schülerseite zeigt. Ohne Zeitstempel, damit gleicher Inhalt gleich aussieht (nur dann wird geschrieben).
 // Relative Angaben („morgen“, „noch 10 Tage“) und was schon vorbei ist, rechnet die Schülerseite selbst aus.
 function studentAppSnapshot(g, now = new Date()) {
@@ -11927,8 +12032,8 @@ function studentAppSnapshot(g, now = new Date()) {
   const todayStr = formatDate(now);
   const nowMins = now.getHours() * 60 + now.getMinutes();
   const ahead = groupLessons(g.id, todayStr, formatDate(addDays(parseDate(todayStr), 70))).filter(l => !l.ausfall);
-  const snap = { v: 1, cls: g.className || '', subject: g.subject || '', teacher: studentAppTeacherName(), color: g.color || '',
-    next: null, hw: null, tests: null, topics: null, goal: null };
+  const snap = { v: 2, cls: g.className || '', subject: g.subject || '', teacher: studentAppTeacherName(), color: g.color || '',
+    next: null, hw: null, tests: null, toc: null, goal: null };
 
   if (sa.show.next) {
     snap.next = ahead.filter(l => l.range).slice(0, 4)
@@ -11936,12 +12041,18 @@ function studentAppSnapshot(g, now = new Date()) {
   }
   if (sa.show.hw || sa.show.tests) {
     const seen = new Set(), hw = [], tests = [];
+    const plan = groupPlan(g);
     const add = (list, item, dateStr) => {
       const text = String(item.text || '').trim();
       const k = (item.id || text) + '|' + dateStr;
       if (!text || seen.has(k)) return;
       seen.add(k);
-      list.push({ date: dateStr, text });
+      const entry = { date: dateStr, text };
+      // Themen einer Arbeit (AJ6 b): von der Lehrkraft beim Test ausgewählt, als Titel in der Reihenfolge der Planung
+      const ids = Array.isArray(item.topics) ? item.topics : [];
+      const topics = plan.filter(t => ids.includes(t.id)).map(t => String(t.title || '').trim()).filter(Boolean);
+      if (topics.length) entry.topics = topics;
+      list.push(entry);
     };
     ahead.forEach(l => {   // Fälligkeit nur über dueItemsFor (Regel 52)
       const due = dueItemsFor(l.slot.id, l.dateStr);
@@ -11951,56 +12062,11 @@ function studentAppSnapshot(g, now = new Date()) {
     if (sa.show.hw) snap.hw = hw.slice(0, 10);
     if (sa.show.tests) snap.tests = tests.slice(0, 10);
   }
-  if (sa.show.expedition) {
-    const plan = groupPlan(g);
-    if (plan.length) {
-      const { firstDate } = planAssignments(g, todayStr);
-      // Angefangene Themen zuerst, dann nach der ersten geplanten Stunde
-      const open = plan.filter(t => !t.done && (topicDoneCount(t) || firstDate.get(t)))
-        .map((t, i) => ({ t, i, d: firstDate.get(t) ? firstDate.get(t).dateStr : '9999' }))
-        .sort((a, b) => (topicDoneCount(b.t) ? 1 : 0) - (topicDoneCount(a.t) ? 1 : 0) || a.d.localeCompare(b.d) || a.i - b.i);
-      const cur = open[0];
-      // Erledigt = was in vergangenen Stunden behandelt wurde: abgehaktes Thema, sonst die erste Zeile von „Was wurde
-      // behandelt“. Dazu ganz erledigte Themen ohne Stunde (älter, von Hand). Ein eingetipptes, nicht abgehaktes Thema
-      // rutscht in der Planung weiter (planAssignments) und gilt darum hier wie dort als noch offen.
-      const stations = [], used = new Set();
-      const station = (t, title, date) => {
-        if (t && (t === (cur && cur.t) || used.has(t))) return;
-        if (t) used.add(t);
-        title = String(title || '').trim();
-        if (title) stations.push({ title, date });
-      };
-      groupLessons(g.id, formatDate(addDays(parseDate(todayStr), -60)), todayStr)
-        .filter(l => !l.ausfall && (l.dateStr < todayStr || (l.range && l.range.start <= nowMins)))
-        .forEach(l => {
-          const key = lessonKeyOf(l);
-          const t = topicDoneIn(g, key);
-          if (t) station(t, t.title, l.dateStr);
-          else station(null, firstLine((db.lessonData[key] || {}).done), l.dateStr);
-        });
-      plan.filter(t => t.done && !used.has(t)).forEach(t => {
-        const last = topicDoneCount(t) ? t.doneLessons[t.doneLessons.length - 1].slice(-10) : '';
-        station(t, t.title, last || (typeof t.done === 'string' ? t.done : t.doneAt) || '');
-      });
-      stations.sort((a, b) => String(a.date).localeCompare(String(b.date)));
-      const done = stations.filter((s, i) => !i || s.title.toLowerCase() !== stations[i - 1].title.toLowerCase())
-        .slice(-3).map(s => ({ title: s.title }));
-      snap.topics = {
-        done,
-        now: cur ? { title: String(cur.t.title || ''), unit: Math.min(topicLength(cur.t), topicDoneCount(cur.t) + 1), of: topicLength(cur.t) } : null,
-        next: sa.show.upcoming ? open.slice(1, 4).map(x => ({ title: String(x.t.title || '') })) : [],
-      };
-    } else {
-      // Ohne Planung: was zuletzt behandelt wurde („Was wurde behandelt“, erste Zeile)
-      const past = groupLessons(g.id, formatDate(addDays(parseDate(todayStr), -60)), todayStr)
-        .filter(l => !l.ausfall && (l.dateStr < todayStr || (l.range && l.range.start <= nowMins)))
-        .map(l => firstLine((db.lessonData[lessonKeyOf(l)] || {}).done)).filter(Boolean).slice(-4);
-      snap.topics = past.length
-        ? { done: past.slice(0, -1).map(title => ({ title })), now: { title: past[past.length - 1] }, next: [], fromLessons: true }
-        : { done: [], now: null, next: [], fromLessons: true };
-    }
+  if (sa.show.expedition) snap.toc = studentAppToc(g, sa, todayStr, nowMins);
+  if (sa.goal) {
+    snap.goal = { target: sa.goal.target, reward: sa.goal.reward, count: classGoalCount(g, sa.goal.since), since: sa.goal.since,
+      stamps: classGoalStamps(g, sa.goal.since, todayStr, nowMins) };
   }
-  if (sa.goal) snap.goal = { target: sa.goal.target, reward: sa.goal.reward, count: classGoalCount(g, sa.goal.since), since: sa.goal.since };
   return snap;
 }
 
@@ -12091,9 +12157,12 @@ function setStudentAppShow(groupId, key, value) {
 }
 // Beginn des laufenden Halbjahrs (AJ4): Tag nach dem eingestellten Halbjahresende, wenn es schon vorbei ist,
 // sonst Beginn des Schuljahrs (1. August, wie beim Laden der Ferien). Ab dann zählt ein neues Klassenziel.
-function halfYearStart(todayStr = formatDate(new Date())) {
+function schoolYearStart(todayStr = formatDate(new Date())) {
   const d = parseDate(todayStr);
-  const yearStart = `${d.getMonth() >= 7 ? d.getFullYear() : d.getFullYear() - 1}-08-01`;
+  return `${d.getMonth() >= 7 ? d.getFullYear() : d.getFullYear() - 1}-08-01`;
+}
+function halfYearStart(todayStr = formatDate(new Date())) {
+  const yearStart = schoolYearStart(todayStr);
   const hy = db.settings.halfYearEnd;
   return isDateStr(hy) && hy >= yearStart && hy < todayStr ? formatDate(addDays(parseDate(hy), 1)) : yearStart;
 }
@@ -12169,10 +12238,10 @@ function renderStudentAppTab() {
   const count = goal ? classGoalCount(g, goal.since) : 0;
   const pct = goal ? Math.min(100, Math.round(count / goal.target * 100)) : 0;
   const checks = [
-    ['expedition', 'Expedition', 'Themen als Stationen: was in den Stunden behandelt wurde, was gerade und was als Nächstes dran ist'],
+    ['expedition', 'Inhaltsverzeichnis', 'Themen mit ihren Stunden und dem Text aus „Was wurde behandelt“ (Stundennotizen nie)'],
     ['upcoming', 'Kommende Themen zeigen', 'sonst nur bis zum aktuellen Thema'],
     ['hw', 'Hausaufgaben als Aufträge', ''],
-    ['tests', 'Tests und Klassenarbeiten', 'die nächste als Endgegner'],
+    ['tests', 'Tests und Klassenarbeiten', 'mit Countdown und „Das kommt dran“ (beim Test im Stunden-Fenster wählen)'],
     ['next', 'Nächste Stunde', 'Tag, Zeit, Raum'],
   ];
   content.innerHTML = `<div class="sa-wrap"><div class="sa-grid"><div class="sa-col">

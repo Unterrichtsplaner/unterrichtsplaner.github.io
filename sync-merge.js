@@ -40,7 +40,7 @@ const MERGE_FIELD_NAMES = {
   firstName: 'Vorname', lastName: 'Nachname', birthday: 'Geburtstag', title: 'Thema', lessons: 'Dauer', pinned: 'Fester Termin',
   until: 'Gilt bis', due: 'Frist', text: 'Text', date: 'Datum', ausfall: 'Stunde fällt aus', movedTo: 'Verlegung', movedFrom: 'Verlegung',
   validFrom: 'Gültig ab', validUntil: 'Gültig bis', startDate: 'Startdatum', specificDate: 'Datum', targetDate: 'Fällig am',
-  start: 'Beginn', end: 'Ende', place: 'Ort', done: 'Erledigt', label: 'Titel', value: 'Wert', type: 'Art', note: 'Bemerkung',
+  topics: 'Themen der Arbeit', start: 'Beginn', end: 'Ende', place: 'Ort', done: 'Erledigt', label: 'Titel', value: 'Wert', type: 'Art', note: 'Bemerkung',
 };
 const mergeShortDate = d => (typeof d === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(d) ? `${d.slice(8, 10)}.${d.slice(5, 7)}.` : d);
 function mergeShow(v) {
@@ -100,7 +100,7 @@ const MERGE_SPEC = {
         fields: {
           done: MERGE_TEXT, notes: MERGE_TEXT, hwEnabled: MERGE_LOCAL, testEnabled: MERGE_LOCAL,
           hwItems: { list: i => i.id, onDelete: 'keep', item: { fields: { text: MERGE_TEXT } } },
-          testItems: { list: i => i.id, onDelete: 'keep', item: { fields: { text: MERGE_TEXT } } },
+          testItems: { list: i => i.id, onDelete: 'keep', item: { fields: { text: MERGE_TEXT, topics: { list: k => k, onDelete: 'keep' } } } },   // topics: AJ6
           movedTo: { atomic: 'ask' },
         },
       },

@@ -619,6 +619,9 @@ input[name="new-lesson-part"]:checked + .duration-btn {
 .entry-item{display:flex;align-items:center;gap:var(--space-2);padding:var(--space-2) var(--space-3);background:var(--bg-card);border-radius:var(--radius-sm);border:1px solid var(--border);animation:slideIn .16s ease;}
 @keyframes slideIn{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:translateY(0)}}
 .entry-item-text{flex:1;font-size:13px;}
+.entry-item.has-topics{flex-wrap:wrap;}
+.test-topics{flex-basis:100%;display:flex;flex-direction:column;align-items:flex-start;gap:var(--space-2);min-width:0;}
+.test-topics-chosen{margin:0;font-size:13px;color:var(--text-secondary);overflow-wrap:anywhere;}
 .entry-item-date{font-size:11px;color:var(--text-muted);flex-shrink:0;}
 .entry-item-target{font-size:10px;font-weight:600;padding:1px var(--space-2);border-radius:var(--radius-xs);background:var(--bg-elevated);color:var(--text-secondary);flex-shrink:0;}
 .entry-item-delete{width:22px;height:22px;border-radius:var(--radius-xs);background:transparent;border:none;color:var(--text-muted);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:12px;transition:background-color var(--transition),color var(--transition),border-color var(--transition),box-shadow var(--transition),opacity var(--transition),transform var(--transition);flex-shrink:0;}
