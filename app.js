@@ -12089,6 +12089,14 @@ function setStudentAppShow(groupId, key, value) {
   saveDB();
   refreshStudentAppPreview();
 }
+// Beginn des laufenden Halbjahrs (AJ4): Tag nach dem eingestellten Halbjahresende, wenn es schon vorbei ist,
+// sonst Beginn des Schuljahrs (1. August, wie beim Laden der Ferien). Ab dann zählt ein neues Klassenziel.
+function halfYearStart(todayStr = formatDate(new Date())) {
+  const d = parseDate(todayStr);
+  const yearStart = `${d.getMonth() >= 7 ? d.getFullYear() : d.getFullYear() - 1}-08-01`;
+  const hy = db.settings.halfYearEnd;
+  return isDateStr(hy) && hy >= yearStart && hy < todayStr ? formatDate(addDays(parseDate(hy), 1)) : yearStart;
+}
 function setStudentAppGoal(groupId, changes) {
   const g = db.groups.find(x => x.id === groupId);
   if (!g) return;
@@ -12096,7 +12104,7 @@ function setStudentAppGoal(groupId, changes) {
   const next = { ...cur, ...changes };
   next.target = Math.max(0, Math.min(10000, Math.round(Number(next.target) || 0)));
   next.reward = String(next.reward || '').trim().slice(0, 120);
-  if (!isDateStr(next.since)) next.since = formatDate(new Date());
+  if (!isDateStr(next.since)) next.since = halfYearStart();
   const sa = ensureStudentApp(g);
   if (next.target > 0) sa.goal = next; else delete sa.goal;
   saveDB();
@@ -12187,11 +12195,12 @@ function renderStudentAppTab() {
       <div class="sa-goal">
         <div class="form-group"><label for="sa-goal-target">Ziel in Plussen</label><input type="number" inputmode="numeric" min="0" max="10000" class="form-input" id="sa-goal-target" value="${goal ? goal.target : ''}" placeholder="z. B. 150"></div>
         <div class="form-group"><label for="sa-goal-reward">Belohnung, wenn es geschafft ist</label><input type="text" maxlength="120" class="form-input" id="sa-goal-reward" value="${goal ? escHtml(goal.reward) : ''}" placeholder="z. B. eine Stunde Rätsel"></div>
+        ${goal ? `<div class="form-group"><label for="sa-goal-since">Zählt ab</label><input type="date" class="form-input" id="sa-goal-since" value="${escHtml(goal.since)}"></div>` : ''}
       </div>
       ${goal ? `<div class="sa-progress"><span>Gesammelt seit ${escHtml(formatDateDE(parseDate(goal.since)))}: <b>${count}</b></span><span>${count >= goal.target ? 'geschafft' : `noch ${goal.target - count}`}</span></div>
         <div class="sa-bar" role="img" aria-label="${count} von ${goal.target} Plussen"><i style="width:${pct}%"></i></div>
         <div><button type="button" class="btn-secondary" id="sa-goal-restart">Neues Ziel beginnen</button></div>`
-        : '<p class="field-hint-muted">Plusse der ganzen Klasse, ++ zählt doppelt. Leer lassen: kein Klassenziel.</p>'}
+        : '<p class="field-hint-muted">Plusse der ganzen Klasse seit Beginn des Halbjahrs, ++ zählt doppelt. Leer lassen: kein Klassenziel.</p>'}
     </section>
     <section class="set-card sa-card">
       <h3 class="sa-subtitle">Sichtbar für die Klasse</h3>
@@ -12208,6 +12217,8 @@ function renderStudentAppTab() {
   content.querySelector('#sa-renew').addEventListener('click', () => renewStudentAppAccess(g.id));
   content.querySelector('#sa-goal-target').addEventListener('change', e => setStudentAppGoal(g.id, { target: e.target.value }));
   content.querySelector('#sa-goal-reward').addEventListener('change', e => setStudentAppGoal(g.id, { reward: e.target.value }));
+  const since = content.querySelector('#sa-goal-since');
+  if (since) since.addEventListener('change', e => setStudentAppGoal(g.id, { since: e.target.value }));
   const restart = content.querySelector('#sa-goal-restart');
   if (restart) restart.addEventListener('click', () => restartStudentAppGoal(g.id));
   content.querySelectorAll('input[data-show]').forEach(el => el.addEventListener('change', () => setStudentAppShow(g.id, el.dataset.show, el.checked)));

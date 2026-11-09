@@ -322,10 +322,34 @@ describe('Reiter „Schülerapp“ in der Klassenansicht', () => {
     target.value = '120'; target.dispatchEvent(new Event('change'));
     const reward = content().querySelector('#sa-goal-reward');
     reward.value = 'Rätselstunde'; reward.dispatchEvent(new Event('change'));
-    expect(app('studentAppOf(db.groups[0]).goal')).toMatchObject({ target: 120, reward: 'Rätselstunde', since: TODAY });
+    // AJ4: neues Ziel zählt ab Beginn des Halbjahrs (Schuljahr ab 1. August), nicht erst ab heute
+    expect(app('studentAppOf(db.groups[0]).goal')).toMatchObject({ target: 120, reward: 'Rätselstunde', since: '2026-08-01' });
     const hw = content().querySelector('input[data-show="hw"]');
     hw.checked = false; hw.dispatchEvent(new Event('change'));
     expect(app('studentAppOf(db.groups[0]).show.hw')).toBe(false);
+  });
+
+  it('Klassenziel zählt nachgetragene Plusse mit; „zählt ab“ lässt sich ändern (AJ4)', () => {
+    // Nutzer (09.11.): erst Plusse für vergangene Stunden eingetragen, dann das Ziel angelegt → stand auf 0
+    app('db.settings.studentApp = { on: true }; setStudentAppOn("g1", true); openGroupStudents("g1", "studentapp")');
+    const target = content().querySelector('#sa-goal-target');
+    target.value = '150'; target.dispatchEvent(new Event('change'));
+    expect(app('studentAppSnapshot(db.groups[0], new Date()).goal.count')).toBe(4);   // ++ 02.11., + 05.11., + 01.10.
+    const since = content().querySelector('#sa-goal-since');
+    expect(since.value).toBe('2026-08-01');
+    since.value = '2026-11-03'; since.dispatchEvent(new Event('change'));
+    expect(app('studentAppOf(db.groups[0]).goal.since')).toBe('2026-11-03');
+    expect(app('studentAppSnapshot(db.groups[0], new Date()).goal.count')).toBe(1);
+    expect(content().textContent).toMatch(/Gesammelt seit 03\.11\.: 1/);
+  });
+
+  it('nach dem Halbjahr zählt ein neues Ziel ab dem Tag nach dem Halbjahresende (AJ4)', () => {
+    app('db.settings.halfYearEnd = "2026-10-30"');
+    app('setStudentAppGoal("g1", { target: 50 })');
+    expect(app('studentAppOf(db.groups[0]).goal.since')).toBe('2026-10-31');
+    app('db.settings.halfYearEnd = "2027-02-12"');   // Halbjahr läuft noch → Schuljahresbeginn
+    app('delete db.groups[0].studentApp.goal; setStudentAppGoal("g1", { target: 50 })');
+    expect(app('studentAppOf(db.groups[0]).goal.since')).toBe('2026-08-01');
   });
 
   it('„Am Beamer zeigen“ öffnet den großen Code mit Klasse und Fach', () => {

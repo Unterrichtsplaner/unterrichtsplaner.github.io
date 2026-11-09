@@ -2041,7 +2041,8 @@ button.sw-hint-text{cursor:pointer;}
 .sa-qr{width:120px;height:120px;padding:var(--space-1);background:#fff;border:1px solid var(--border);border-radius:var(--radius-sm);}
 .sa-qr svg,.sa-beamer-qr svg{display:block;width:100%;height:100%;}
 .sa-btns{display:flex;flex-direction:column;gap:var(--space-2);}
-.sa-goal{display:grid;grid-template-columns:140px minmax(0,1fr);gap:var(--space-3);}
+.sa-goal{display:grid;grid-template-columns:140px minmax(0,1fr) 170px;gap:var(--space-3);align-items:end;}
+.sa-goal:not(:has(#sa-goal-since)){grid-template-columns:140px minmax(0,1fr);}
 .sa-goal .form-group{margin:0;}
 .sa-progress{display:flex;justify-content:space-between;gap:var(--space-2);font-size:13px;color:var(--text-secondary);}
 .sa-bar{height:8px;border-radius:var(--radius-xs);background:var(--border);overflow:hidden;}
