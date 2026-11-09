@@ -82,6 +82,7 @@ cards: '<rect x="3" y="3" width="8" height="8" rx="1"/><rect x="13" y="3" width=
   grid:         '<rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="3" x2="9" y2="21"/><line x1="15" y1="3" x2="15" y2="21"/>',
   'arrow-up':   '<line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/>',
   'arrow-down': '<line x1="12" y1="5" x2="12" y2="19"/><polyline points="19 12 12 19 5 12"/>',
+  'arrow-right': '<line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/>',
   pin:          '<line x1="12" y1="17" x2="12" y2="22"/><path d="M5 17h14v-1.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V6h1a2 2 0 0 0 0-4H8a2 2 0 0 0 0 4h1v4.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24Z"/>',
   'calendar-x': '<rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><line x1="10" y1="14" x2="14" y2="18"/><line x1="14" y1="14" x2="10" y2="18"/>',
 };
@@ -5758,6 +5759,7 @@ function initSeatingPlan() {
     currentSeatingGroupId = nextLessonGroupId() || firstSeatingGroupId();
   }
   seatingAutoLast = getSuggestedSeatingGroupId(); // ab hier nur bei einem Wechsel der Stunde automatisch umschalten
+  seatingSwitchOffer = null;
   
   renderSeatingGroupSelect();
   renderSeatingDateStrip();
@@ -5818,6 +5820,7 @@ function renderSeatingGroupSelect() {
         if (g.id !== currentSeatingGroupId) hideSeatingGrades();
         currentSeatingGroupId = g.id;
         seatingAutoLast = getSuggestedSeatingGroupId(); // von Hand gewählt: erst bei der nächsten Stunde wieder wechseln
+        seatingSwitchOffer = null;
         menu.classList.add('hidden');
         renderSeatingGroupSelect();
         renderSeatingDateStrip();
@@ -6079,6 +6082,7 @@ function cockpitMainHTML(t, ownLabel) {
       <button type="button" class="cockpit-topic" onclick="openSeatingToday()" title="Alles zu dieser Stunde">${topicHTML}</button>
       ${counts.length ? `<div class="cockpit-counts">${counts.join('')}</div>` : ''}
     </div>
+    ${seatingSwitchOfferHTML()}
     <button type="button" class="btn-secondary cockpit-lesson-btn" onclick="openCockpitLesson()" aria-label="Diese Stunde: Inhalt, Notiz, Hausaufgabe">${icon('edit')}<span>Stunde</span></button>`;
 }
 let cockpitToday = null, cockpitHTML = '';
@@ -6135,29 +6139,63 @@ function refreshSeatingCockpit() {
 // Offener Sitzplan wechselt zur nächsten Klasse (Einstellung, Standard an). Nur beim Wechsel der Stunde – nicht
 // gegen eine Klasse, die man gerade von Hand gewählt hat –, nie mitten in einer laufenden Stunde der angezeigten
 // Klasse, nie bei offenem Fenster, im Bearbeiten-Modus oder wenn ein anderer Tag gewählt ist.
+// Wer in den letzten Minuten im Sitzplan etwas angetippt hat (Mitarbeit nach dem Klingeln), trägt noch ein: dann nicht
+// wechseln, sondern in der Leiste „Weiter zu …“ anbieten; nach der Ruhezeit doch wechseln, mit „Rückgängig“ (AI3).
 let seatingAutoLast = null;
+let seatingLastTouch = null;      // Date.now() beim letzten Antippen im Sitzplan (auch in Fenstern darüber)
+let seatingSwitchOffer = null;    // Klasse, die die Leiste mit „Weiter zu …“ anbietet
+const SEATING_SWITCH_QUIET_MINS = 3;
+function noteSeatingTouch() {
+  if (document.getElementById('view-seating')?.classList.contains('active')) seatingLastTouch = Date.now();
+}
+document.addEventListener('pointerdown', noteSeatingTouch, true);
+document.addEventListener('keydown', noteSeatingTouch, true);
 function maybeAutoSwitchSeatingClass(now = new Date()) {
-  if (db.settings.seatingAutoSwitch === false || seatingEditMode || gradeRound) return false;
+  if (db.settings.seatingAutoSwitch === false || seatingEditMode || gradeRound) { seatingSwitchOffer = null; return false; }
   if (!document.getElementById('view-seating')?.classList.contains('active')) return false;
   if (document.querySelector('.modal-overlay:not(.hidden)')) return false;
-  if (currentSeatingDateStr !== formatDate(now)) return false;
+  if (currentSeatingDateStr !== formatDate(now)) { seatingSwitchOffer = null; return false; }
   const sug = getSuggestedSeatingGroupId(now);
-  if (!sug || sug === currentSeatingGroupId) { seatingAutoLast = sug; return false; }
-  if (sug === seatingAutoLast) return false;   // diese Stunde hat man bewusst eine andere Klasse gewählt
+  if (!sug || sug === currentSeatingGroupId) { seatingAutoLast = sug; seatingSwitchOffer = null; return false; }
+  if (sug === seatingAutoLast) { seatingSwitchOffer = null; return false; }   // diese Stunde hat man bewusst eine andere Klasse gewählt
   const nowMins = now.getHours() * 60 + now.getMinutes();
   const stillRunning = lessonsOnDate(formatDate(now)).some(l => l.slot.groupId === currentSeatingGroupId && !l.ausfall
     && l.range && l.range.start <= nowMins && nowMins < l.range.end);
   if (stillRunning) return false;              // später noch einmal versuchen (nicht merken)
+  if (!db.groups.some(x => x.id === sug)) return false;
+  if (seatingLastTouch !== null && now.getTime() - seatingLastTouch < SEATING_SWITCH_QUIET_MINS * 60000) {
+    seatingSwitchOffer = sug;                  // man trägt noch ein: nur anbieten
+    return false;
+  }
+  const from = currentSeatingGroupId;
+  switchSeatingClassTo(sug);
   const g = db.groups.find(x => x.id === sug);
-  if (!g) return false;
+  showUndoToast(`Sitzplan: ${g.className}${g.subject ? ' ' + g.subject : ''} (nächste Stunde)`, () => {
+    if (!db.groups.some(x => x.id === from) || !document.getElementById('view-seating')?.classList.contains('active')) return;
+    switchSeatingClassTo(from);                // seatingAutoLast bleibt: in dieser Stunde nicht noch einmal wechseln
+  }, 'seating-switch');
+  return true;
+}
+function switchSeatingClassTo(groupId) {
   hideSeatingGrades();
-  currentSeatingGroupId = sug;
-  seatingAutoLast = sug;
+  currentSeatingGroupId = groupId;
+  seatingAutoLast = getSuggestedSeatingGroupId();
+  seatingSwitchOffer = null;
   renderSeatingGroupSelect();
   renderSeatingDateStrip();
   renderSeatingPlan();
-  showToast(`Sitzplan: ${g.className}${g.subject ? ' ' + g.subject : ''} (nächste Stunde)`);
-  return true;
+}
+// Knopf „Weiter zu …“ in der Leiste
+function switchToOfferedSeatingClass() {
+  const sug = seatingSwitchOffer;
+  if (!sug || !db.groups.some(x => x.id === sug)) { seatingSwitchOffer = null; renderSeatingCockpit(); return; }
+  switchSeatingClassTo(sug);
+}
+function seatingSwitchOfferHTML() {
+  const g = seatingSwitchOffer && seatingSwitchOffer !== currentSeatingGroupId && db.groups.find(x => x.id === seatingSwitchOffer);
+  if (!g) return '';
+  const name = g.className || g.subject || 'nächste Klasse';
+  return `<button type="button" class="btn-primary cockpit-switch-btn" onclick="switchToOfferedSeatingClass()" aria-label="${escHtml('Weiter zur nächsten Stunde: ' + name)}">${icon('arrow-right')}<span><span class="switch-long">Weiter zu </span>${escHtml(name)}</span></button>`;
 }
 
 // Während des Unterrichts direkt im Sitzplan starten (Einstellung, Standard an): beim Öffnen der App und

@@ -1132,6 +1132,8 @@ select option{background:var(--bg-secondary);}
 .cockpit-count.test,.cockpit-count.absent{border-color:var(--danger);}
 .cockpit-count.bday{border-color:var(--accent);background:var(--accent-soft);}
 .cockpit-lesson-btn{flex-shrink:0;align-self:center;display:flex;align-items:center;gap:var(--space-1);min-height:44px;}
+.cockpit-switch-btn{flex-shrink:0;align-self:center;display:flex;align-items:center;gap:var(--space-1);max-width:180px;}
+.cockpit-switch-btn span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 /* iPad hochkant: Zähler nur mit Symbol + Zahl */
 @container seating (max-width: 820px) {
   .cockpit-count-label{display:none;}
@@ -2142,7 +2144,7 @@ input, textarea, [contenteditable="true"]{-webkit-user-select:text;user-select:t
   .cockpit-mins b{font-size:26px;}
   .cockpit-main{align-self:center;}
 }
-@container seating (min-width: 521px) and (max-width: 820px){.cockpit-time{width:170px;}}
+@container seating (min-width: 521px) and (max-width: 820px){.cockpit-time{width:170px;}.cockpit-switch-btn .switch-long{display:none;}}
 
 /* Raster ohne Rahmen und Fläche: die Karten stehen auf dem Papier */
 #seating-canvas-wrapper{flex:1;display:flex;overflow:hidden;padding:var(--space-3) var(--page-x);}

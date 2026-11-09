@@ -105,6 +105,69 @@ describe('Offener Sitzplan wechselt zur nächsten Klasse', () => {
   });
 });
 
+describe('AI3: kein Wechsel mitten im Eintragen', () => {
+  const tap = () => document.getElementById('view-seating').dispatchEvent(new Event('pointerdown', { bubbles: true }));
+  const offerBtn = () => document.querySelector('#seating-cockpit .cockpit-switch-btn');
+  beforeEach(() => app('seatingLastTouch = null'));
+
+  it('wer in den letzten 3 Minuten etwas angetippt hat, bleibt; die Leiste bietet „Weiter zu …“ an', () => {
+    at(8, 10); app('switchView("seating")');
+    at(8, 29); tap();
+    at(8, 30); app('refreshSeatingCockpit()');
+    expect(shown()).toBe('g7a');
+    expect(offerBtn()).not.toBe(null);
+    expect(offerBtn().textContent).toContain('9c');
+    expect(document.getElementById('toast-container').textContent).toBe('');
+    at(8, 31); app('refreshSeatingCockpit()');
+    expect(shown()).toBe('g7a');                 // erst 3 Minuten nach dem letzten Antippen
+  });
+
+  it('nach 3 Minuten Ruhe wechselt er doch, mit „Rückgängig“', () => {
+    at(8, 10); app('switchView("seating")');
+    at(8, 29); tap();
+    at(8, 30); app('refreshSeatingCockpit()');
+    expect(shown()).toBe('g7a');
+    at(8, 31); app('refreshSeatingCockpit()');
+    expect(shown()).toBe('g7a');
+    at(8, 32); app('refreshSeatingCockpit()');
+    expect(shown()).toBe('g9c');
+    expect(offerBtn()).toBe(null);
+    const undo = document.querySelector('#toast-container .toast-undo button');
+    expect(undo).not.toBe(null);
+    undo.click();
+    expect(shown()).toBe('g7a');
+    at(8, 40); app('refreshSeatingCockpit()');   // zurückgeholt: in dieser Stunde nicht noch einmal
+    expect(shown()).toBe('g7a');
+  });
+
+  it('„Weiter zu …“ wechselt sofort', () => {
+    at(8, 10); app('switchView("seating")');
+    at(8, 29); tap();
+    at(8, 30); app('refreshSeatingCockpit()');
+    expect(offerBtn().getAttribute('onclick')).toBe('switchToOfferedSeatingClass()');
+    app('switchToOfferedSeatingClass()');
+    expect(shown()).toBe('g9c');
+    expect(offerBtn()).toBe(null);
+  });
+
+  it('Antippen in einem Fenster über dem Sitzplan zählt auch', () => {
+    at(8, 10); app('switchView("seating")');
+    app('openSeatingStudentModal("s1", "g7a", "2026-11-02")');
+    at(8, 29); document.getElementById('modal-seating-student').dispatchEvent(new Event('pointerdown', { bubbles: true }));
+    app('closeModal("modal-seating-student")');
+    at(8, 30); app('refreshSeatingCockpit()');
+    expect(shown()).toBe('g7a');
+  });
+
+  it('Antippen in einer anderen Ansicht zählt nicht', () => {
+    at(8, 10); app('switchView("timetable")');
+    at(8, 29); document.getElementById('view-timetable').dispatchEvent(new Event('pointerdown', { bubbles: true }));
+    app('switchView("seating")');
+    at(8, 30); app('refreshSeatingCockpit()');
+    expect(shown()).toBe('g9c');
+  });
+});
+
 describe('Während des Unterrichts im Sitzplan starten', () => {
   it('im Unterricht ja, sonst nein; ausschaltbar', () => {
     at(8, 0);  expect(app('shouldStartInSeating()')).toBe(true);
