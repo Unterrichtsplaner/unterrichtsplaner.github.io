@@ -4468,19 +4468,16 @@ function importStudentsFromText() {
       const [last, ...rest] = line.split(',');
       lastName = last.trim();
       firstName = rest.join(' ').trim().replace(/\s+/g, ' ');
-    } else if (line.includes('\t')) {
-      const cols = line.split('\t').map(c => c.trim()).filter(c => c);
-      lastName = cols.pop();
-      firstName = cols.join(' ');
     } else {
-      const parts = line.split(/\s+/);
-      lastName = parts.pop();
+      // Ein einzelner Name ist der Vorname (Wunsch 09.11.: Listen tippt man meist nur mit Vornamen)
+      const parts = line.includes('\t') ? line.split('\t').map(c => c.trim()).filter(c => c) : line.split(/\s+/);
+      lastName = parts.length > 1 ? parts.pop() : '';
       firstName = parts.join(' ');
     }
-    if (lastName) {
+    if (firstName || lastName) {
       if (skipDups) {
         const exists = before.some(existing => 
-          existing.firstName === (firstName || '') && existing.lastName === lastName
+          existing.firstName === (firstName || '') && (existing.lastName || '') === lastName
         );
         if (exists) return;
       }

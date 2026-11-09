@@ -112,7 +112,16 @@ describe('C2: Schüler mit nur einem Namen', () => {
     document.getElementById('import-skip-duplicates').checked = true;
     app('importStudentsFromText()');
     const names = app('db').students.g2.map(s => `${s.firstName}|${s.lastName}`);
-    expect(names).toEqual(['Anna Maria|Huber', '|Max', 'Leo|Berger']);
+    expect(names).toEqual(['Anna Maria|Huber', 'Max|', 'Leo|Berger']);   // ein Name allein ist der Vorname (Wunsch 09.11.)
+  });
+
+  it('Liste nur mit Vornamen: alles landet im Vornamen, auch einzelne Spalte aus Excel', () => {
+    app('openGroupStudents("g2")');
+    app('db').students.g2 = [];
+    document.getElementById('import-text').value = 'Lena\nTom\t\nMüller, Jonas';
+    document.getElementById('import-skip-duplicates').checked = false;
+    app('importStudentsFromText()');
+    expect(app('db').students.g2.map(s => `${s.firstName}|${s.lastName}`)).toEqual(['Lena|', 'Tom|', 'Jonas|Müller']);
   });
 });
 
