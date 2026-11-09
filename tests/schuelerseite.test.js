@@ -87,6 +87,22 @@ describe('Schülerseite', () => {
     expect(page().querySelector('div.row.later')).not.toBeNull();   // ohne Stunden: nichts zum Aufklappen
   });
 
+  it('Thema aufklappen zeigt nie nur den Titel noch einmal (Rückmeldung 09.11.)', () => {
+    const d = sample();
+    d.toc.items = [
+      { title: 'test', state: 'done', lessons: [{ date: '2026-11-02', text: 'test' }] },                         // nur der Titel
+      { title: 'Lied A', state: 'done', lessons: [{ date: '2026-11-05', text: 'Lied A\nRhythmus klatschen' }] },   // Titel + mehr
+      { title: 'Brüche', state: 'done', of: 2, lessons: [{ date: '2026-10-26', text: 'Brüche' }, { date: '2026-10-29', text: 'Erweitern' }] },
+    ];
+    page().innerHTML = build(d);
+    const rows = [...page().querySelectorAll('.toc .row')];
+    expect(rows[0].tagName).toBe('DIV');                                  // nicht aufklappbar …
+    expect(rows[0].querySelector('small').textContent).toBe('am Mo 02.11.');   // … aber mit Datum
+    expect(rows[1].tagName).toBe('DETAILS');
+    expect([...rows[1].querySelectorAll('.lt')].map(e => e.textContent)).toEqual(['Rhythmus klatschen']);
+    expect([...rows[2].querySelectorAll('.lessons li')].map(li => li.querySelector('.lt').textContent)).toEqual(['Erweitern']);
+  });
+
   it('Klassenarbeit antippen: Countdown, was drankommt, Kalender (AJ6 b, d)', () => {
     page().innerHTML = build(sample());
     const t = page().querySelector('details.row.test');

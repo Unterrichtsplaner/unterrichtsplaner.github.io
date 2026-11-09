@@ -56,11 +56,15 @@
   const countdown = (date, today) => { const n = daysBetween(today, date); return n === 0 ? 'heute' : n === 1 ? 'morgen' : `noch ${n} Tage`; };
   const lessonsHTML = ls => `<ol class="lessons">${ls.map(l => `<li><span class="ld">${esc(short(l.date))}</span>
     <span class="lt">${esc(l.text).replace(/\n/g, '<br>')}</span></li>`).join('')}</ol>`;
+  // Beim Aufklappen nur, was mehr sagt als der Titel: Zeilen, die nur den Titel wiederholen, fallen weg (Rückmeldung 09.11.)
+  const sameText = (a, b) => String(a || '').trim().toLowerCase() === String(b || '').trim().toLowerCase();
   function topicRow(x, n, today) {
-    const ls = list(x.lessons).filter(l => isDate(l.date) && l.text);
-    const right = x.state === 'now' && Number(x.of) > 1 ? `${x.unit}/${x.of}` : Number(x.of) > 0 ? `${x.of} Std.` : ls.length ? `${ls.length} Std.` : '';
+    const all = list(x.lessons).filter(l => isDate(l.date) && l.text);
+    const ls = all.map(l => ({ date: l.date, text: String(l.text).split('\n').filter(line => line.trim() && !sameText(line, x.title)).join('\n') })).filter(l => l.text);
+    const right = x.state === 'now' && Number(x.of) > 1 ? `${x.unit}/${x.of}` : Number(x.of) > 0 ? `${x.of} Std.` : all.length > 1 ? `${all.length} Std.` : '';
     const sub = x.state === 'now' ? (Number(x.of) > 1 ? `Stunde ${x.unit} von ${x.of}, hier seid ihr gerade` : 'hier seid ihr gerade')
-      : x.state === 'later' && isDate(x.from) ? `ab ${short(x.from)}` : '';
+      : x.state === 'later' && isDate(x.from) ? `ab ${short(x.from)}`
+        : all.length === 1 && !ls.length ? `am ${short(all[0].date)}` : '';
     const head = `<span class="no">${n}</span><span class="tt"><span class="tx">${esc(x.title)}</span>${sub ? `<small>${esc(sub)}</small>` : ''}</span>
       <span class="lead" aria-hidden="true"></span><span class="pg">${esc(right)}</span>`;
     if (!ls.length) return `<div class="row ${x.state}">${head}</div>`;
