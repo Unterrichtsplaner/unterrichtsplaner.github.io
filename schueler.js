@@ -190,12 +190,60 @@
     return html;
   }
 
+  // ── Persönliche Seite (AJ2): Reiter „Ich“ und „Klasse“ ──
+  const PART = { excellent: ['++', 'pp'], positive: ['+', 'p'], neutral: ['−', 'm'], negative: ['−−', 'mm'] };
+  let meTab = 'ich';   // nur Ansicht, nie gespeichert
+  function meHead(d) {
+    const sub = [d.subject, d.teacher ? `bei ${dativ(d.teacher)}` : ''].filter(Boolean).join(' ');
+    return `<header class="me-top"><div><div class="class-name me-cls">${esc(d.cls || 'Klasse')}</div>${sub ? `<div class="class-sub">${esc(sub)}</div>` : ''}</div>
+      <div class="tabs" role="tablist">${[['ich', 'Ich'], ['klasse', 'Klasse']].map(([k, l]) =>
+        `<button type="button" role="tab" data-tab="${k}" aria-selected="${meTab === k}" class="${meTab === k ? 'on' : ''}">${l}</button>`).join('')}</div></header>`;
+  }
+  function buildMePage(d, now = new Date(), opts = {}) {
+    const today = fmt(now);
+    let html = meHead(d);
+    if (opts.offline) html += '<div class="banner">Offline: zuletzt geladener Stand</div>';
+    if (meTab === 'klasse') {
+      const k = d.klasse && typeof d.klasse === 'object' ? d.klasse : null;
+      // Klassenseite ohne ihren eigenen Kopf (der steht schon oben)
+      return html + (k ? buildClassPage(k, now, opts).replace(/^<header>[\s\S]*?<\/header>/, '') : '<p class="empty">Die Klassenseite ist gerade nicht freigegeben.</p>');
+    }
+    const level = Math.max(1, Number(d.level) || 1), xp = Math.max(0, Number(d.xp) || 0);
+    const from = Number(d.from) || 0, next = Number(d.next) || from + 10;
+    const pct = Math.max(0, Math.min(100, Math.round((xp - from) / Math.max(1, next - from) * 100)));
+    const j = d.jokers && typeof d.jokers === 'object' ? d.jokers : {};
+    const jl = list(j.list).filter(Boolean);
+    const left = `<div class="player"><div class="lvl" aria-label="Level ${level}"><small>Level</small><b>${level}</b></div>
+        <div><div class="who">${esc(d.first || 'Ich')}</div><div class="rank">${d.rank ? `${esc(d.rank)} · ` : ''}${xp} XP</div></div></div>
+      <div class="hl" role="img" aria-label="${xp - from} von ${next - from} XP bis Level ${level + 1}"><div class="hl-track"></div><div class="hl-fill" style="width:${pct}%"></div>
+        <div class="hl-text"><span>noch ${Math.max(0, next - xp)} XP bis Level ${level + 1}</span></div></div>
+      ${d.nextRank && d.nextRank.name ? `<p class="me-next">Ab Level ${esc(d.nextRank.level)}: <b>${esc(d.nextRank.name)}</b></p>` : ''}
+      ${Number(d.streak) > 0 ? `<div class="card streak"><div class="n">${Number(d.streak)}</div><div class="t"><b>${Number(d.streak) === 1 ? 'Stunde' : 'Stunden'} in Folge mit Plus</b>Bleib dran.</div></div>` : ''}
+      <div class="card joker">${Number(j.open) > 0
+        ? `<div class="t"><b>${Number(j.open) === 1 ? 'Ein Joker' : `${Number(j.open)} Joker`} frei</b>Zeig diese Seite deiner Lehrkraft und such dir aus:</div>${jl.length ? `<ul>${jl.map(x => `<li>${esc(x)}</li>`).join('')}</ul>` : ''}`
+        : `<div class="t"><b>Joker</b>${Number(j.earned) >= Number(j.max || 4) ? 'Alle Joker für dieses Schuljahr verdient.' : `Den nächsten gibt es bei Level ${(Math.floor(level / (Number(j.every) || 4)) + 1) * (Number(j.every) || 4)}.`}</div>`}</div>`;
+    const fb = list(d.feedback).filter(x => x && isDate(x.date) && PART[x.v]);
+    const right = `<h2>Rückmeldung <small>deine letzten Stunden</small></h2>
+      ${fb.length ? `<div class="fb">${fb.map(x => `<div><div class="sp ${PART[x.v][1]}">${PART[x.v][0]}</div><small>${esc(short(x.date).slice(3))}</small></div>`).join('')}</div>
+        <div class="legend"><span><b>++</b> sehr gut</span><span><b>+</b> gut</span><span><b>−</b> wenig</span><span><b>−−</b> schwach</span></div>`
+        : '<p class="empty" style="margin-top:0">Noch keine Einträge in diesem Schuljahr.</p>'}
+      <p class="hint"><b>So bekommst du XP:</b> + gibt 10, ++ gibt 20. Abgezogen wird nie etwas.</p>`;
+    html += `<div class="spread"><div class="col">${left}</div><div class="col">${right}</div></div>`;
+    const foot = [];
+    if (d.at) { const a = new Date(d.at); foot.push(`Stand: ${fmt(a) === today ? 'heute' : short(fmt(a))}, ${pad2(a.getHours())}:${pad2(a.getMinutes())}.`); }
+    html += `<footer class="foot">${foot.map(f => `<p>${esc(f)}</p>`).join('')}<p class="muted">Diese Seite gehört nur dir. Gib den Link nicht weiter. Noten stehen hier nie.</p></footer>`;
+    return html;
+  }
+
   let current = null;   // { data, offline } für Neuzeichnen und Abhaken
   function draw(data, opts = {}) {
     current = { data, opts };
     const page = document.getElementById('page');
-    page.innerHTML = buildClassPage(data, new Date(), opts);
-    document.title = [data.cls, data.subject].filter(Boolean).join(' ') || 'Klasse';
+    const me = data.kind === 'me';
+    page.innerHTML = me ? buildMePage(data, new Date(), opts) : buildClassPage(data, new Date(), opts);
+    document.title = me ? `${data.first || 'Ich'} · ${data.cls || ''}`.trim() : [data.cls, data.subject].filter(Boolean).join(' ') || 'Klasse';
+    page.querySelectorAll('[data-tab]').forEach(b => b.addEventListener('click', () => { meTab = b.dataset.tab; draw(current.data, current.opts); }));
+    if (me) data = data.klasse && typeof data.klasse === 'object' ? data.klasse : {};   // Aufträge und Kalender: aus der Klassenseite
     const hw = list(data.hw).filter(x => isDate(x.date) && x.date >= fmt(new Date()));
     const today = fmt(new Date());
     const tests = list(data.tests).filter(x => isDate(x.date) && x.date >= today);
@@ -258,7 +306,7 @@
   const preview = /[?&]vorschau\b/.test(location.search);
   // Vorschau im Planer: Inhalt kommt vom Planer, nichts wird geladen
   window.renderStudentPage = data => { if (data && typeof data === 'object') draw(data, {}); };
-  window.SchuelerSeite = { buildClassPage, rel, icsFor };
+  window.SchuelerSeite = { buildClassPage, buildMePage, rel, icsFor, setMeTab: t => { meTab = t; } };
   if (preview) { message('Vorschau', 'Wird gleich gezeigt.'); return; }
   load();
   // Zurück in die App oder neuer Tag: frisch laden bzw. „heute/morgen“ neu rechnen

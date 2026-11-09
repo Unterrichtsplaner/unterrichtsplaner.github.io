@@ -203,3 +203,53 @@ describe('Schülerseite', () => {
     expect(html).toMatch(/noindex/);
   });
 });
+
+describe('Persönliche Seite (AJ2)', () => {
+  const me = () => ({
+    v: 1, kind: 'me', first: 'Anna', cls: '7b', subject: 'Mathematik', teacher: 'Herr T.', at: new Date(2026, 10, 9, 14, 20).getTime(),
+    xp: 90, level: 6, from: 85, next: 100, rank: 'Füller', nextRank: { name: 'Textmarker', level: 9 },
+    jokers: { earned: 1, used: 0, open: 1, max: 4, every: 4, list: ['Song vorschlagen', 'Platz wählen'] },
+    feedback: [{ date: '2026-10-26', v: 'positive' }, { date: '2026-11-02', v: 'negative' }, { date: '2026-11-05', v: 'excellent' }, { date: '2026-11-06', v: 'neutral' }],
+    streak: 2, klasse: sample(),
+  });
+  afterEach(() => window.SchuelerSeite.setMeTab('ich'));
+
+  it('Reiter „Ich“: Level, Vorname, Rang, XP bis zum nächsten Level, Serie, Joker, Rückmeldung mit allen vier Stufen', () => {
+    page().innerHTML = window.SchuelerSeite.buildMePage(me(), NOW);
+    const t = page().textContent;
+    expect(page().querySelector('.lvl b').textContent).toBe('6');
+    expect(page().querySelector('.who').textContent).toBe('Anna');
+    expect(t).toMatch(/Füller · 90 XP/);
+    expect(t).toMatch(/noch 10 XP bis Level 7/);
+    expect(t).toMatch(/Ab Level 9: Textmarker/);
+    expect(t).toMatch(/2\s*Stunden in Folge mit Plus/);
+    expect(t).toMatch(/Ein Joker frei/);
+    expect([...page().querySelectorAll('.joker li')].map(li => li.textContent)).toEqual(['Song vorschlagen', 'Platz wählen']);
+    expect([...page().querySelectorAll('.fb .sp')].map(e => e.textContent)).toEqual(['+', '−−', '++', '−']);   // gut, schwach, sehr gut, wenig
+    expect(t).toMatch(/Abgezogen wird nie etwas/);
+    expect(t.replace('Noten stehen hier nie', '')).not.toMatch(/Note/);
+  });
+
+  it('Reiter „Klasse“ zeigt die Klassenseite ohne doppelten Kopf', () => {
+    window.SchuelerSeite.setMeTab('klasse');
+    page().innerHTML = window.SchuelerSeite.buildMePage(me(), NOW);
+    expect(page().querySelectorAll('.class-name').length).toBe(1);
+    expect(page().textContent).toMatch(/Inhaltsverzeichnis/);
+  });
+
+  it('Reiter wechseln per Antippen; Titel mit Vorname', () => {
+    window.renderStudentPage(me());
+    expect(document.title).toBe('Anna · 7b');
+    page().querySelector('[data-tab="klasse"]').click();
+    expect(page().querySelector('[data-tab="klasse"]').getAttribute('aria-selected')).toBe('true');
+    expect(page().textContent).toMatch(/Aufträge/);
+  });
+
+  it('präparierte Inhalte werden escaped', () => {
+    const d = me();
+    d.first = X; d.rank = X; d.nextRank = { name: X, level: X }; d.jokers.list = [X]; d.cls = X;
+    window.renderStudentPage(d);
+    expect(document.querySelectorAll('[data-xss]').length).toBe(0);
+    expect(page().textContent).toContain(`Peter's "Test"`);
+  });
+});

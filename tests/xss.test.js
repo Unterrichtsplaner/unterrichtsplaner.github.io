@@ -109,8 +109,21 @@ describe('Ansichten mit präparierten Daten', () => {
       app('closeModal("modal-studentapp-beamer"); openSettings(); showSettingsPane("studentapp")');
       expect(document.getElementById('settings-studentapp-classes').querySelector('.sa-class-row')).not.toBeNull();
       expect(injected()).toBe(0); expect(brokenHandlers()).toEqual([]);
+      // Stufe 2a (AJ2): Karte „Persönliche Seiten“, Abschnitt im Schüler-Fenster, Kärtchen
+      app(`db.groups[0].studentApp.personal = { on: true, step: 10, ranks: [${JSON.stringify(X)}], jokers: [${JSON.stringify(X)}] }`);
+      app('closeModal("modal-settings")');
+      app(`openGroupStudents(${G}, "studentapp")`);
+      expect(document.querySelector('#sa-personal [data-rank]')).not.toBeNull();
+      expect(injected()).toBe(0); expect(brokenHandlers()).toEqual([]);
+      app(`openStudentDetail(${S})`);
+      expect(document.getElementById('sw-sec-studentapp').hidden).toBe(false);
+      expect(injected()).toBe(0);
+      app(`closeModal("modal-seating-student"); window.print = () => {}; printStudentCards(${G})`);
+      expect(document.querySelector('#print-area .sa-card-print')).not.toBeNull();
+      expect(injected()).toBe(0);
+      document.getElementById('print-area').innerHTML = '';
       // Der Auszug selbst geht verschlüsselt raus; escapen muss die Schülerseite (tests/schuelerseite.test.js)
-      app('closeModal("modal-settings"); SyncManager.isInitialized = false; SyncManager.currentUser = null');
+      app('SyncManager.isInitialized = false; SyncManager.currentUser = null');
     },
     'neues schuljahr (alle schritte, vorlagen)': () => {   // Y6
       app('exportData = () => {}; openNewYear()');

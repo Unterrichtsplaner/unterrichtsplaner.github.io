@@ -128,6 +128,13 @@ const MERGE_SPEC = {
             fields: {
               access: { atomic: 'ask', what: 'Zugang zur Schülerapp', show: a => (a && a.id ? `Link …${String(a.id).slice(-4)}` : 'kein Link') },
               goal: { atomic: 'ask', what: 'Klassenziel', show: gl => (gl && gl.target ? `${gl.target} Plusse${gl.reward ? `: ${gl.reward}` : ''}` : 'keins') },
+              // Persönliche Seiten (AJ2): Tempo samt XP je Level gehört zusammen, Ränge und Joker als Ganzes
+              personal: {
+                together: [{ fields: ['level', 'step'], what: 'Tempo der Level', show: p => (p.level || 'normal') }],
+                fields: { ranks: { atomic: 'ask', what: 'Ränge', show: r => (r || []).filter(Boolean).join(', ') || 'keine' },
+                  jokers: { atomic: 'ask', what: 'Joker', show: j => (j || []).join(', ') || 'keine' } },
+                other: MERGE_LOCAL,
+              },
             },
             other: MERGE_LOCAL,
           },
@@ -165,6 +172,9 @@ const MERGE_SPEC = {
             studentNotes: {
               list: n => `${n.date || ''}|${n.text || ''}`, ignore: ['id'], onDelete: 'keep', item: { other: MERGE_LOCAL },
             },
+            // Schülerapp Stufe 2a (AJ2): persönlicher Link als Ganzes, eingelöste Joker als Liste
+            studentApp: { fields: { access: { atomic: 'ask', what: 'Persönlicher Link', show: a => (a && a.id ? `Link …${String(a.id).slice(-4)}` : 'kein Link') } }, other: MERGE_LOCAL },
+            jokersUsed: { list: j => j.id, onDelete: 'ask', what: j => `Joker vom ${mergeShortDate(j.date)}`, item: { other: MERGE_LOCAL } },
           },
         },
       },

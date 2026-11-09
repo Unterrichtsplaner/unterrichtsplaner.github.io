@@ -40,7 +40,7 @@
       }
     })();
   </script>
-  <link rel="stylesheet" href="style.css?v=479" />
+  <link rel="stylesheet" href="style.css?v=481" />
   <script>
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
@@ -1248,20 +1248,6 @@
 </div>
 
 <!-- Datenschutzhinweise (BUGS Y1). Nach den Einstellungen im Markup: liegt über ihnen (Escape schließt das oberste). -->
-<!-- Schülerapp (AJ1): großer Code für die Klasse am Beamer -->
-<div id="modal-studentapp-beamer" class="modal-overlay hidden" onclick="closeModalOnOverlay(event,'modal-studentapp-beamer')">
-  <div class="modal sa-beamer" onclick="event.stopPropagation()">
-    <div class="modal-header">
-      <h2 id="sa-beamer-title">Schülerapp</h2>
-      <button class="modal-close" aria-label="Schließen" onclick="closeModal('modal-studentapp-beamer')">✕</button>
-    </div>
-    <div class="sa-beamer-body">
-      <div class="sa-beamer-qr" id="sa-beamer-qr"></div>
-      <p class="sa-beamer-text">Scannt den Code: Thema, Hausaufgaben und Tests findet ihr ab jetzt immer dort.</p>
-    </div>
-  </div>
-</div>
-
 <div id="modal-privacy" class="modal-overlay hidden" onclick="closeModalOnOverlay(event,'modal-privacy')">
   <div class="modal" onclick="event.stopPropagation()">
     <div class="modal-header">
@@ -1292,7 +1278,7 @@
         <li>Gespeichert werden: deine E-Mail-Adresse bzw. dein Google-Konto für die Anmeldung und ein verschlüsseltes Datenpaket (AES-256-GCM, Schlüssel aus dem Master-Passwort per PBKDF2) mit dem Zeitpunkt der letzten Änderung.</li>
         <li>Wie jeder Server-Dienst verarbeitet Google dabei technische Daten wie deine IP-Adresse. Eine Übermittlung in die USA ist dabei nicht ausgeschlossen. Schülerdaten sind davon nur verschlüsselt betroffen.</li>
         <li>Jedes Konto kann nur sein eigenes Datenpaket lesen und schreiben.</li>
-        <li>Schülerapp (nur wenn du sie einschaltest): Für jede freigegebene Klasse liegt ein eigenes kleines Datenpaket in Firestore, verschlüsselt mit einem Schlüssel, der nur im Link bzw. Code für die Klasse steht. Es enthält die Themen mit dem Text aus „Was wurde behandelt“ (nie die Stundennotizen), Hausaufgaben, Tests, nächste Stunden und die Plusse der ganzen Klasse je Stunde, nie Namen oder Noten. Lesen kann es, wer den Link hat; ändern und löschen nur dein Konto. Abschalten oder ein neuer Link löscht es.</li>
+        <li>Schülerapp (nur wenn du sie einschaltest): Für jede freigegebene Klasse liegt ein eigenes kleines Datenpaket in Firestore, verschlüsselt mit einem Schlüssel, der nur im Link bzw. Code für die Klasse steht. Es enthält die Themen mit dem Text aus „Was wurde behandelt“ (nie die Stundennotizen), Hausaufgaben, Tests, nächste Stunden und die Plusse der ganzen Klasse je Stunde, nie Namen oder Noten. Schaltest du persönliche Seiten ein, kommt je Schüler ein eigenes Paket dazu (eigener Schlüssel im Link des Schülers): Vorname, Level, Rückmeldung zur Mitarbeit, Rang und Joker, nie Noten oder Fehlzeiten. Das vorher mit der Schulleitung bzw. Datenschutzbeauftragten klären. Lesen kann es, wer den Link hat; ändern und löschen nur dein Konto. Abschalten oder ein neuer Link löscht es.</li>
         <li>Deine Cloud-Daten und dein Konto löschen: selbst unter Einstellungen → Cloud-Synchronisierung → „Cloud-Konto löschen“ (nur die Cloud-Daten: Datenverwaltung → „Alles löschen, auch in der Cloud“). Klappt das nicht, genügt eine kurze E-Mail an den Betreiber (siehe unten).</li>
       </ul>
 
@@ -1527,6 +1513,10 @@
             <h3 class="seating-hint-title"><i data-icon="participation"></i>Mitarbeit</h3>
             <div id="seating-student-participation-summary" class="seating-part-summary"></div>
             <div class="entry-list" id="participation-list"></div>
+          </section>
+          <section id="sw-sec-studentapp" class="sw-sec" data-private hidden>
+            <h3 class="seating-hint-title"><i data-icon="student"></i>Schülerapp</h3>
+            <div id="sw-studentapp"></div>
           </section>
           <section id="sw-sec-attendance" class="sw-sec">
             <h3 class="seating-hint-title"><i data-icon="attendance"></i>Fehlzeiten</h3>
@@ -1779,6 +1769,21 @@
     </div>
   </div>
 
+<!-- Schülerapp (AJ1): großer Code für die Klasse am Beamer, auch persönlicher Code eines Schülers (AJ2).
+     Steht spät im Markup: liegt über dem Schüler-Fenster, aus dem es geöffnet wird. -->
+<div id="modal-studentapp-beamer" class="modal-overlay hidden" onclick="closeModalOnOverlay(event,'modal-studentapp-beamer')">
+  <div class="modal sa-beamer" onclick="event.stopPropagation()">
+    <div class="modal-header">
+      <h2 id="sa-beamer-title">Schülerapp</h2>
+      <button class="modal-close" aria-label="Schließen" onclick="closeModal('modal-studentapp-beamer')">✕</button>
+    </div>
+    <div class="sa-beamer-body">
+      <div class="sa-beamer-qr" id="sa-beamer-qr"></div>
+      <p class="sa-beamer-text" id="sa-beamer-hint">Scannt den Code: Thema, Hausaufgaben und Tests findet ihr ab jetzt immer dort.</p>
+    </div>
+  </div>
+</div>
+
   <div id="modal-choice" class="modal-overlay hidden" onclick="closeModalOnOverlay(event,'modal-choice')">
     <div class="modal modal-small" onclick="event.stopPropagation()" style="max-width:460px;">
       <div class="modal-header">
@@ -1793,15 +1798,15 @@
   </div>
 
   <script src="lib/crypto-js.min.js"></script>
-  <script src="crypto-helper.js?v=479"></script>
+  <script src="crypto-helper.js?v=481"></script>
   <script src="lib/firebase-app-compat.js"></script>
   <script src="lib/firebase-auth-compat.js"></script>
   <script src="lib/firebase-firestore-compat.js"></script>
-  <script src="firebase-config.js?v=479"></script>
-  <script src="sync-manager.js?v=479"></script>
-  <script src="sync-merge.js?v=479"></script>
+  <script src="firebase-config.js?v=481"></script>
+  <script src="sync-manager.js?v=481"></script>
+  <script src="sync-merge.js?v=481"></script>
   <script src="lib/qrcode.js"></script>
-  <script src="student-share.js?v=479"></script>
-  <script src="app.js?v=479"></script>
+  <script src="student-share.js?v=481"></script>
+  <script src="app.js?v=481"></script>
 </body>
 </html>

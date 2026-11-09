@@ -46,6 +46,7 @@ cards: '<rect x="3" y="3" width="8" height="8" rx="1"/><rect x="13" y="3" width=
   'check-circle':'<path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/>',
   late:         '<circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>',
   plus:         '<line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>',
+  qr:           '<rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><path d="M14 14h3v3h-3zM21 14v.01M14 21h3M21 17v4h-4"/>',
   list:         '<line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/>',
   download:     '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>',
   upload:       '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>',
@@ -3211,6 +3212,7 @@ function removeGroupData(id) {
   const slotIds = new Set(getGroupSlots(id).map(s => s.id));
   const shared = studentAppOf(g).access;   // Schülerseite der Klasse mit weg (AJ1, Regel 10)
   if (shared) queueShareDeletion(shared.id);
+  queueStudentShares(g);                    // und die persönlichen Seiten (AJ2)
   db.groups = db.groups.filter(x => x.id !== id);
   delete db.students[id];
   // Stunden der Klasse samt ihren Stundendaten (Schlüssel '<slotId>_<Datum>') entfernen
@@ -4542,6 +4544,7 @@ function openStudentDetail(studentId, initialTab = 'grades') {
 }
 // Alle Listen im offenen Schülerprofil neu zeichnen (z. B. nach „Rückgängig“)
 function renderStudentDetailLists(s) {
+  renderStudentAppSection(s);   // Schülerapp Stufe 2a (AJ2)
   renderGradesList(s);
   renderStudentNotesList(s);
   renderAttendanceList(s);
@@ -7784,6 +7787,7 @@ function cleanUpDeletedStudents(groupId, removed) {
       if (!twin) replaceAbsenceNoteLines(groupId, a.date, s, null);
     }));
   const ids = new Set(removed.map(s => s.id));
+  removed.forEach(s => { const a = studentAccessOf(s); if (a) queueShareDeletion(a.id); });   // persönliche Seite mit weg (AJ2)
   const group = db.groups.find(g => g.id === groupId);
   if (group && group.seatingPlan) group.seatingPlan = group.seatingPlan.filter(item => !ids.has(item.studentId));
   const ack = db.acknowledgedWarnings;
@@ -12239,6 +12243,7 @@ async function publishStudentApps() {
         await SyncManager.deleteShare(sa.access.id);
         saWrite(markKey, null);
       }
+      await publishPersonalPages(g, personalActive(g));   // Stufe 2a (AJ2)
     }
     studentAppProblem = null;
   } catch (e) {
@@ -12252,7 +12257,7 @@ async function publishStudentApps() {
 }
 // Cloud leeren / Konto löschen: alle Schülerseiten mit weg (sonst blieben verschlüsselte, aber verwaiste Dokumente stehen)
 async function deleteAllStudentShares() {
-  db.groups.forEach(g => { const sa = studentAppOf(g); if (sa.access) queueShareDeletion(sa.access.id); });
+  db.groups.forEach(g => { const sa = studentAppOf(g); if (sa.access) queueShareDeletion(sa.access.id); queueStudentShares(g); });
   if (!SyncManager.isInitialized || !SyncManager.currentUser || typeof SyncManager.deleteShare !== 'function') return;
   try { await processShareDeletions(); } catch (e) { console.warn('Schülerapp: Löschen hat nicht geklappt', e); }
 }
@@ -12265,6 +12270,7 @@ function setStudentAppOn(groupId, on) {
   if (on && !StudentShare.isAccess(sa.access)) sa.access = StudentShare.newAccess();
   sa.on = !!on;
   if (!on && StudentShare.isAccess(sa.access)) queueShareDeletion(sa.access.id);
+  if (!on) queueStudentShares(g);   // persönliche Seiten hängen an der Klassenseite (AJ2)
   saveDB();
   refreshStudentAppViews();
 }
@@ -12406,7 +12412,8 @@ function renderStudentAppTab() {
     <section class="set-card sa-card">
       <h3 class="sa-subtitle">Sichtbar für die Klasse</h3>
       <div class="sa-checks">${checks.map(([k, label, hint]) => `<label class="print-check sa-check"><input type="checkbox" data-show="${k}"${sa.show[k] ? ' checked' : ''}><span>${label}${hint ? `<small>${escHtml(hint)}</small>` : ''}</span></label>`).join('')}</div>
-    </section>` : ''}
+    </section>
+    ${personalCardHTML(g)}` : ''}
   </div>
   ${sa.on && sa.access ? `<aside class="sa-preview"><h3 class="sa-subtitle">So sieht es die ${cls}</h3>
     <div class="sa-phone"><iframe id="sa-preview-frame" src="schueler.html?vorschau" title="Vorschau der Schülerapp"></iframe></div></aside>` : ''}
@@ -12423,6 +12430,7 @@ function renderStudentAppTab() {
   const restart = content.querySelector('#sa-goal-restart');
   if (restart) restart.addEventListener('click', () => restartStudentAppGoal(g.id));
   content.querySelectorAll('input[data-show]').forEach(el => el.addEventListener('change', () => setStudentAppShow(g.id, el.dataset.show, el.checked)));
+  wirePersonalCard(content, g);   // Stufe 2a (AJ2)
   const frame = content.querySelector('#sa-preview-frame');
   frame.addEventListener('load', () => refreshStudentAppPreview());
 }
@@ -12460,6 +12468,7 @@ function showStudentAppBeamer(groupId) {
   if (!sa || !sa.access) return;
   document.getElementById('sa-beamer-title').textContent = [g.className, g.subject].filter(Boolean).join(' · ');
   document.getElementById('sa-beamer-qr').innerHTML = studentAppQR(studentAppLink(sa.access), 'Code für die ' + g.className);
+  document.getElementById('sa-beamer-hint').textContent = 'Scannt den Code: Thema, Hausaufgaben und Tests findet ihr ab jetzt immer dort.';
   openModal('modal-studentapp-beamer');
 }
 // Einstellungen → Schülerapp: Klassenliste mit Stand und „Öffnen“
@@ -12483,6 +12492,296 @@ function renderSettingsStudentApps() {
   }));
 }
 
+// ─── Schülerapp Stufe 2a: persönliche Seiten (AJ2) ───────────────────────────
+// Je Schüler ein eigener Link (students[].studentApp.access, Dokument shares/<id> wie die Klassenseite). Seite „Ich“:
+// Level und XP aus den Plussen des Schuljahrs (+ 10, ++ 20; berechnet, nie gespeichert, nie Abzug außer Korrektur),
+// Rückmeldung der letzten Stunden mit allen vier Stufen, Serie, Rang (je Klasse benannt), Joker (alle 4 Level, höchstens
+// 4 im Jahr; eingelöst wird im Schüler-Fenster, students[].jokersUsed). Nie Noten, Fehlzeiten, Hinweise, Notizen oder
+// andere Schüler; nur der eigene Vorname. Dazu die Klassenseite als zweiter Reiter.
+const SA_LEVELS = { easy: 14, normal: 12, hard: 11 };   // Ziel-Level der Mittleren am Schuljahresende (Punkte-Rechner 09.11.)
+const SA_LEVEL_NAMES = { easy: 'entspannt', normal: 'normal', hard: 'sportlich' };
+const SA_RANK_PRESETS = {
+  heft: ['Bleistift', 'Buntstift', 'Fineliner', 'Füller', 'Textmarker', 'Goldfüller'],
+  gaming: ['Neuling', 'Entdecker', 'Durchblicker', 'Taktiker', 'Mastermind', 'Legende'],
+};
+const SA_JOKERS_DEFAULT = ['Sitzplatz für eine Stunde aussuchen', 'Song zum Analysieren vorschlagen', 'Aufgabe aussuchen', 'Partner wählen', 'Rätsel der Stunde stellen'];
+const SA_XP = { positive: 10, excellent: 20 };
+const SA_FIRST_LEVEL_XP = 10;              // Level 2 mit dem ersten Plus
+const SA_JOKER_EVERY = 4, SA_JOKER_MAX = 4;
+const SA_MIDDLE_XP_PER_LESSON = 4.7;       // mittlere Schüler, gemessen im Punkte-Rechner (170 XP bei 36 Stunden)
+
+function personalOf(g) {
+  const sa = g && g.studentApp && typeof g.studentApp === 'object' ? g.studentApp : {};
+  const p = sa.personal && typeof sa.personal === 'object' ? sa.personal : {};
+  const ranks = (Array.isArray(p.ranks) ? p.ranks : []).slice(0, 6).map(x => String(x || '').trim());
+  while (ranks.length < 6) ranks.push('');
+  return {
+    on: p.on === true,
+    level: SA_LEVELS[p.level] ? p.level : 'normal',
+    step: Number(p.step) >= 5 ? Math.round(Number(p.step)) : null,
+    ranks,
+    jokers: Array.isArray(p.jokers) ? p.jokers.map(x => String(x || '').trim()).filter(Boolean).slice(0, 12) : SA_JOKERS_DEFAULT.slice(),
+  };
+}
+const personalActive = g => studentAppOn() && studentAppOf(g).on && !!studentAppOf(g).access && personalOf(g).on;
+const studentAccessOf = s => (s && s.studentApp && StudentShare.isAccess(s.studentApp.access) ? s.studentApp.access : null);
+function ensureStudentAccess(s) {
+  if (studentAccessOf(s)) return false;
+  s.studentApp = { ...(s.studentApp && typeof s.studentApp === 'object' ? s.studentApp : {}), access: StudentShare.newAccess() };
+  return true;
+}
+// Stunden pro Woche aus dem Stundenplan (zweiwöchentlich zählt halb), mindestens 1
+function weeklyLessons(g, todayStr = formatDate(new Date())) {
+  const n = db.lessonSlots.filter(s => s.groupId === g.id && !isOneOffSlot(s) && (!s.validUntil || s.validUntil >= todayStr))
+    .reduce((sum, s) => sum + (s.recurring === 'biweekly' ? 0.5 : 1), 0);
+  return Math.max(1, n);
+}
+// XP je Level: Mittlere erreichen bis Schuljahresende das Ziel-Level; gleich große Schritte (bestehen alle Prüfungen)
+function personalStepFor(g, level) {
+  const yearXP = weeklyLessons(g) * 36 * SA_MIDDLE_XP_PER_LESSON;
+  return Math.max(5, Math.round(yearXP / (SA_LEVELS[level] - 2) / 5) * 5);
+}
+const personalStep = g => personalOf(g).step || personalStepFor(g, personalOf(g).level);
+function yearParticipation(s, todayStr) {
+  const from = schoolYearStart(todayStr);
+  return (s.participation || []).filter(p => p && isDateStr(p.date) && p.date >= from && p.date <= todayStr);
+}
+const studentXP = (s, todayStr = formatDate(new Date())) => yearParticipation(s, todayStr).reduce((n, p) => n + (SA_XP[p.value] || 0), 0);
+function levelInfo(xp, step) {
+  if (xp < SA_FIRST_LEVEL_XP) return { level: 1, from: 0, next: SA_FIRST_LEVEL_XP };
+  const k = Math.floor((xp - SA_FIRST_LEVEL_XP) / step);
+  return { level: 2 + k, from: SA_FIRST_LEVEL_XP + k * step, next: SA_FIRST_LEVEL_XP + (k + 1) * step };
+}
+const rankIndex = level => Math.min(5, Math.floor((level - 1) / 2));   // alle 2 Level ein neuer Rang, der letzte ab Level 11
+function studentPersonalInfo(g, s, todayStr = formatDate(new Date())) {
+  const p = personalOf(g), step = personalStep(g), xp = studentXP(s, todayStr), li = levelInfo(xp, step);
+  const r = rankIndex(li.level);
+  const nextRank = r < 5 && p.ranks[r + 1] ? { name: p.ranks[r + 1], level: 2 * (r + 1) + 1 } : null;
+  const earned = Math.min(SA_JOKER_MAX, Math.floor(li.level / SA_JOKER_EVERY));
+  const used = (Array.isArray(s.jokersUsed) ? s.jokersUsed : []).filter(j => j && isDateStr(j.date) && j.date >= schoolYearStart(todayStr)).length;
+  return { xp, step, ...li, rank: p.ranks[r] || '', nextRank, jokers: { earned, used, open: Math.max(0, earned - used) } };
+}
+// Vergangene Stunden der Klasse im Schuljahr (neueste zuerst, je Tag einmal) – einmal je Klasse rechnen
+function pastLessonDates(g, now) {
+  const todayStr = formatDate(now), nowMins = now.getHours() * 60 + now.getMinutes();
+  return [...new Set(groupLessons(g.id, schoolYearStart(todayStr), todayStr)
+    .filter(l => !l.ausfall && (l.dateStr < todayStr || (l.range && l.range.start <= nowMins))).map(l => l.dateStr))].reverse();
+}
+// Stunden in Folge mit Plus; ein Fehltag und die heutige Stunde ohne Eintrag unterbrechen nicht
+function studentStreak(s, lessonDates, todayStr) {
+  const plus = new Set(yearParticipation(s, todayStr).filter(p => SA_XP[p.value]).map(p => p.date));
+  const absent = new Set((s.attendance || []).filter(a => a && (a.type === 'abwesend' || a.type === 'entschuldigt')).map(a => a.date));
+  let n = 0;
+  for (const d of lessonDates) {
+    if (plus.has(d)) n++;
+    else if (d === todayStr || absent.has(d)) continue;
+    else break;
+  }
+  return n;
+}
+// Auszug für die persönliche Seite. Ohne Zeitstempel (wie die Klassenseite): gleicher Inhalt → kein neues Schreiben.
+function studentPersonalSnapshot(g, s, now = new Date(), ctx = null) {
+  const todayStr = formatDate(now);
+  ctx = ctx || { lessons: pastLessonDates(g, now), klasse: studentAppSnapshot(g, now) };
+  const p = personalOf(g), info = studentPersonalInfo(g, s, todayStr);
+  const feedback = yearParticipation(s, todayStr).filter(x => !x.label && partLevel(x.value))
+    .sort((a, b) => a.date.localeCompare(b.date)).slice(-12).map(x => ({ date: x.date, v: x.value }));
+  return {
+    v: 1, kind: 'me', first: String(s.firstName || '').trim(),
+    cls: g.className || '', subject: g.subject || '', teacher: studentAppTeacherName(), color: g.color || '',
+    xp: info.xp, level: info.level, from: info.from, next: info.next, rank: info.rank, nextRank: info.nextRank,
+    jokers: { ...info.jokers, max: SA_JOKER_MAX, every: SA_JOKER_EVERY, list: p.jokers },
+    feedback, streak: studentStreak(s, ctx.lessons, todayStr), klasse: ctx.klasse,
+  };
+}
+// Veröffentlichen je Schüler (aus publishStudentApps); fehlt ein Zugang (neuer Schüler), wird er angelegt
+async function publishPersonalPages(g, active) {
+  const students = db.students[g.id] || [];
+  if (active && students.map(ensureStudentAccess).includes(true)) saveDB();
+  const ctx = active ? { lessons: pastLessonDates(g, new Date()), klasse: studentAppSnapshot(g) } : null;
+  for (const st of students) {
+    const acc = studentAccessOf(st);
+    if (!acc) continue;
+    const markKey = SA_PUB_PREFIX + acc.id;
+    if (active) {
+      const snap = studentPersonalSnapshot(g, st, new Date(), ctx);
+      const hash = await contentHash(JSON.stringify(snap));
+      if ((saRead(markKey, {}) || {}).hash === hash) continue;
+      await SyncManager.publishShare(acc.id, await StudentShare.encrypt({ ...snap, at: Date.now() }, acc.key));
+      saWrite(markKey, { hash, at: Date.now() });
+    } else if (saRead(markKey, null)) {
+      await SyncManager.deleteShare(acc.id);
+      saWrite(markKey, null);
+    }
+  }
+}
+const queueStudentShares = g => (db.students[g.id] || []).forEach(st => { const a = studentAccessOf(st); if (a) queueShareDeletion(a.id); });
+
+// ── Ändern (Nutzeränderungen → saveDB) ──
+function ensurePersonal(g) {
+  const sa = ensureStudentApp(g);
+  if (!sa.personal || typeof sa.personal !== 'object') sa.personal = {};
+  return sa.personal;
+}
+async function setPersonalOn(groupId, on) {
+  const g = db.groups.find(x => x.id === groupId);
+  if (!g) return;
+  if (on) {
+    const ok = await askChoice('Persönliche Seiten einschalten?',
+      'Jeder Schüler bekommt einen eigenen Link mit Vorname, Level, Rückmeldung zur Mitarbeit (auch − und −−), Rang und Jokern. Keine Noten, keine Fehlzeiten. '
+      + 'Die Seiten liegen verschlüsselt in der Cloud, lesen kann sie nur, wer den Link hat. Es sind trotzdem Daten über einzelne Schüler: '
+      + 'Kläre das vorher mit der Schulleitung bzw. der/dem Datenschutzbeauftragten und informiere die Eltern.',
+      [{ label: 'Abbrechen', value: null }, { label: 'Ist geklärt, einschalten', value: 'on', primary: true }]);
+    if (!ok || !db.groups.includes(g)) { refreshStudentAppViews(); return; }   // Regel 43: nach dem await prüfen
+  }
+  const p = ensurePersonal(g);
+  p.on = !!on;
+  if (on) {
+    if (!(Number(p.step) >= 5)) p.step = personalStepFor(g, personalOf(g).level);   // fest fürs Jahr, sonst sänken Level
+    (db.students[g.id] || []).forEach(ensureStudentAccess);
+  } else queueStudentShares(g);
+  saveDB();
+  refreshStudentAppViews();
+}
+function setPersonalLevel(groupId, level) {
+  const g = db.groups.find(x => x.id === groupId);
+  if (!g || !SA_LEVELS[level]) return;
+  const anyXP = (db.students[g.id] || []).some(st => studentXP(st) > 0);
+  if (anyXP && !confirm('Das Tempo ändert, wie viele XP ein Level braucht. Die Level der Schüler ändern sich dadurch sofort (sie können auch sinken).\n\nTrotzdem ändern?')) { refreshStudentAppViews(); return; }
+  const p = ensurePersonal(g);
+  p.level = level;
+  p.step = personalStepFor(g, level);
+  saveDB();
+  refreshStudentAppViews();
+}
+function setPersonalRanks(groupId, ranks) {
+  const g = db.groups.find(x => x.id === groupId);
+  if (!g) return;
+  const list = (ranks || []).slice(0, 6).map(x => String(x || '').trim().slice(0, 24));
+  const p = ensurePersonal(g);
+  if (list.some(Boolean)) p.ranks = list; else delete p.ranks;
+  saveDB();
+}
+function setPersonalJokers(groupId, text) {
+  const g = db.groups.find(x => x.id === groupId);
+  if (!g) return;
+  ensurePersonal(g).jokers = String(text || '').split('\n').map(x => x.trim().slice(0, 80)).filter(Boolean).slice(0, 12);
+  saveDB();
+}
+function findStudentIn(groupId, studentId) { return (db.students[groupId] || []).find(x => x.id === studentId) || null; }
+async function redeemJoker(groupId, studentId) {
+  const g = db.groups.find(x => x.id === groupId), s = findStudentIn(groupId, studentId);
+  if (!g || !s) return;
+  if (!studentPersonalInfo(g, s).jokers.open) { showToast('Gerade kein Joker frei', 'error'); return; }
+  const list = personalOf(g).jokers;
+  const text = await askChoice(`Joker für ${s.firstName}`, 'Was hat sich der Schüler ausgesucht?',
+    [...list.map((t, i) => ({ label: t, value: t, primary: i === 0 })), { label: 'Ohne Angabe', value: '-' }]);
+  if (!text || !findStudentIn(groupId, studentId)) return;
+  const entry = { id: uid(), date: formatDate(new Date()), ...(text !== '-' ? { text } : {}) };
+  (s.jokersUsed = Array.isArray(s.jokersUsed) ? s.jokersUsed : []).push(entry);
+  saveDB();
+  refreshOpenProfile(s);
+  showUndoToast('Joker eingelöst', () => {
+    const i = (s.jokersUsed || []).indexOf(entry);
+    if (i === -1) return;
+    s.jokersUsed.splice(i, 1);
+    saveDB();
+    refreshOpenProfile(s);
+  });
+}
+function showStudentCode(groupId, studentId) {
+  const g = db.groups.find(x => x.id === groupId), s = findStudentIn(groupId, studentId);
+  if (!g || !s) return;
+  if (ensureStudentAccess(s)) saveDB();
+  document.getElementById('sa-beamer-title').textContent = `${s.firstName} ${s.lastName}`.trim();
+  document.getElementById('sa-beamer-qr').innerHTML = studentAppQR(studentAppLink(studentAccessOf(s)), 'Persönlicher Code für ' + s.firstName);
+  document.getElementById('sa-beamer-hint').textContent = 'Nur dem Schüler zeigen, nicht am Beamer: Mit diesem Code sieht man seine persönliche Seite.';
+  openModal('modal-studentapp-beamer');
+}
+function renewStudentAccess(groupId, studentId) {
+  const s = findStudentIn(groupId, studentId);
+  if (!s || !confirm(`Neuen Link für ${s.firstName}?\n\nDer alte Link (Kärtchen) funktioniert dann nicht mehr.`)) return;
+  const old = studentAccessOf(s);
+  if (old) queueShareDeletion(old.id);
+  s.studentApp = { ...(s.studentApp || {}), access: StudentShare.newAccess() };
+  saveDB();
+  refreshOpenProfile(s);
+  showToast('Neuer Link erzeugt. Er gilt nach dem nächsten Sync.');
+}
+// Kärtchen zum Ausschneiden: je Schüler Name, Klasse, Code
+function printStudentCards(groupId) {
+  const g = db.groups.find(x => x.id === groupId);
+  if (!g) return;
+  const students = sortStudents(db.students[groupId] || []);
+  if (!students.length) { showToast('Keine Schüler in dieser Klasse', 'error'); return; }
+  if (students.map(ensureStudentAccess).includes(true)) saveDB();
+  document.getElementById('print-area').innerHTML = `<div class="sa-cards">${students.map(st => `<div class="sa-card-print">
+      <div class="sa-cp-qr">${studentAppQR(studentAppLink(studentAccessOf(st)), 'Code für ' + st.firstName)}</div>
+      <div class="sa-cp-text"><b>${escHtml(`${st.firstName} ${st.lastName}`.trim())}</b><span>${escHtml([g.className, g.subject].filter(Boolean).join(' · '))}</span>
+        <small>Mit der Handy-Kamera scannen. Deine Seite gehört nur dir: Gib den Code nicht weiter.</small></div></div>`).join('')}</div>`;
+  const prev = document.title;
+  document.title = `Schülerapp_Kaertchen_${g.className}`.replace(/[\\/:*?"<>|\s]+/g, '_');
+  window.print();
+  document.title = prev;
+}
+
+// ── Anzeigen ──
+function personalCardHTML(g) {
+  const p = personalOf(g), n = (db.students[g.id] || []).length, cls = escHtml(g.className);
+  const step = personalStep(g);
+  const rankPh = i => i < 5 ? `Level ${2 * i + 1}–${2 * i + 2}` : 'ab Level 11';
+  return `<section class="set-card sa-card" id="sa-personal">
+    <div class="sa-head"><div><h3 class="sa-subtitle">Persönliche Seiten</h3>
+      <p class="sa-status">Jeder Schüler bekommt einen eigenen Link: Level, Rückmeldung zur Mitarbeit, Rang und Joker. Keine Noten, keine Fehlzeiten.</p></div>
+      <label class="toggle-switch" title="Persönliche Seiten"><input type="checkbox" id="sa-personal-on" aria-label="Persönliche Seiten für die ${cls}"${p.on ? ' checked' : ''}><span class="toggle-slider"></span></label></div>
+    <p class="sa-privacy">Datenschutz: Das sind Daten über einzelne Schüler (verschlüsselt in der Cloud, lesbar nur mit dem Link). Vorher mit Schulleitung bzw. Datenschutzbeauftragten klären und die Eltern informieren.</p>
+    ${p.on ? `<div class="form-group"><label for="sa-level">Tempo der Level</label>
+        <select id="sa-level" class="form-input">${Object.keys(SA_LEVELS).map(k => `<option value="${k}"${k === p.level ? ' selected' : ''}>${SA_LEVEL_NAMES[k]}</option>`).join('')}</select>
+        <p class="field-hint-muted">Mittlere Schüler erreichen bis zum Schuljahresende etwa Level ${SA_LEVELS[p.level]}. Ein Level braucht ${step} XP; + gibt 10, ++ gibt 20. Abgezogen wird nie etwas.</p></div>
+      <div class="form-group"><span class="group-label">Ränge (alle 2 Level ein neuer)</span>
+        <div class="sa-ranks">${p.ranks.map((r, i) => `<input type="text" class="form-input" data-rank="${i}" maxlength="24" value="${escHtml(r)}" placeholder="${rankPh(i)}" aria-label="Rang ${rankPh(i)}">`).join('')}</div>
+        <div class="sa-row-btns"><button type="button" class="btn-secondary" data-preset="heft">Vorlage Heft</button><button type="button" class="btn-secondary" data-preset="gaming">Vorlage Gaming</button><button type="button" class="btn-secondary" data-preset="">Leeren</button></div>
+        <p class="field-hint-muted">Leer heißt: nur „Level N“. Alle in der Klasse sehen dieselben Namen.</p></div>
+      <div class="form-group"><label for="sa-jokers">Joker, einer pro Zeile</label>
+        <textarea id="sa-jokers" class="form-input sa-jokers" rows="5">${escHtml(p.jokers.join('\n'))}</textarea>
+        <p class="field-hint-muted">Alle ${SA_JOKER_EVERY} Level gibt es einen Joker, höchstens ${SA_JOKER_MAX} im Schuljahr. Der Schüler sucht beim Einlösen aus, du hakst ihn im Schüler-Fenster ab.</p></div>
+      <div class="sa-row-btns"><button type="button" class="btn-secondary" id="sa-cards">${icon('printer')}Kärtchen drucken (${n})</button></div>
+      <p class="field-hint-muted">Einzeln zum Scannen: Schüler-Fenster → Mehr → Schülerapp → „Code zeigen“.</p>` : ''}
+  </section>`;
+}
+function wirePersonalCard(content, g) {
+  content.querySelector('#sa-personal-on')?.addEventListener('change', e => setPersonalOn(g.id, e.target.checked));
+  content.querySelector('#sa-level')?.addEventListener('change', e => setPersonalLevel(g.id, e.target.value));
+  const rankInputs = [...content.querySelectorAll('[data-rank]')];
+  rankInputs.forEach(el => el.addEventListener('change', () => setPersonalRanks(g.id, rankInputs.map(x => x.value))));
+  content.querySelectorAll('[data-preset]').forEach(b => b.addEventListener('click', () => {
+    setPersonalRanks(g.id, SA_RANK_PRESETS[b.dataset.preset] || []);
+    renderStudentAppTab();
+  }));
+  content.querySelector('#sa-jokers')?.addEventListener('change', e => setPersonalJokers(g.id, e.target.value));
+  content.querySelector('#sa-cards')?.addEventListener('click', () => printStudentCards(g.id));
+}
+// Schüler-Fenster, Abschnitt „Schülerapp“ (privat wie Noten, Regel 16/80)
+function renderStudentAppSection(s) {
+  const sec = document.getElementById('sw-sec-studentapp'), box = document.getElementById('sw-studentapp');
+  if (!sec || !box) return;
+  const g = db.groups.find(x => x.id === profileGroupId);
+  const on = !!(g && personalActive(g));
+  sec.hidden = !on;
+  if (!on) { box.innerHTML = ''; return; }
+  const info = studentPersonalInfo(g, s);
+  const used = (s.jokersUsed || []).filter(j => j && isDateStr(j.date) && j.date >= schoolYearStart(formatDate(new Date())));
+  box.innerHTML = `<div class="sw-sa-line"><b>Level ${info.level}</b>${info.rank ? ` · ${escHtml(info.rank)}` : ''} · ${info.xp} XP <small>(noch ${info.next - info.xp} bis Level ${info.level + 1})</small></div>
+    <div class="sw-sa-line">Joker: <b>${info.jokers.open} frei</b> <small>(${info.jokers.earned} verdient, ${info.jokers.used} eingelöst)</small></div>
+    ${used.length ? `<div class="sw-sa-used">${used.slice().reverse().map(j => `<span>${escHtml(formatDateShort(j.date))}${j.text ? ': ' + escHtml(j.text) : ''}</span>`).join('')}</div>` : ''}
+    <div class="sa-row-btns">${info.jokers.open ? '<button type="button" class="btn-primary" id="sw-sa-joker">Joker einlösen</button>' : ''}
+      <button type="button" class="btn-secondary" id="sw-sa-code">${icon('qr')}Code zeigen</button>
+      <button type="button" class="btn-secondary" id="sw-sa-renew">${icon('refresh')}Neuer Link</button></div>`;
+  box.querySelector('#sw-sa-joker')?.addEventListener('click', () => redeemJoker(g.id, s.id));
+  box.querySelector('#sw-sa-code').addEventListener('click', () => showStudentCode(g.id, s.id));
+  box.querySelector('#sw-sa-renew').addEventListener('click', () => renewStudentAccess(g.id, s.id));
+}
+
 // ─── Schuljahreswechsel (Y6) ─────────────────────────────────────────────────
 // Einstellungen → Daten & Cloud → „Neues Schuljahr beginnen“: 1. sichern, 2. je Klasse übernehmen (neuer Name, Schüler
 // bleiben mit Hinweisen, Geburtstag und Sitzplatz) oder löschen, Planung auf Wunsch als Vorlage, 3. Zusammenfassung.
@@ -12500,7 +12799,7 @@ function nextYearLabel(y) {
   const m = /^(\d{4})\/(\d{2})$/.exec(String(y || '').trim());
   return m ? `${Number(m[1]) + 1}/${String((Number(m[2]) + 1) % 100).padStart(2, '0')}` : y;
 }
-const YEAR_LISTS = ['grades', 'attendance', 'participation', 'homework', 'studentNotes'];
+const YEAR_LISTS = ['grades', 'attendance', 'participation', 'homework', 'studentNotes', 'jokersUsed'];
 function hasYearData() {
   return Object.values(db.students || {}).some(l => (l || []).some(s => s && YEAR_LISTS.some(f => (s[f] || []).length)))
     || Object.keys(db.lessonData || {}).length > 0;
@@ -12538,7 +12837,12 @@ function applyNewSchoolYear(choices, todayStr = formatDate(new Date())) {
       if (sa.access && sa.access.id) { queueShareDeletion(sa.access.id); sa.access = StudentShare.newAccess(); }
       delete sa.goal;
     }
-    (db.students[g.id] || []).forEach(st => { if (st) YEAR_LISTS.forEach(f => { st[f] = []; }); });   // Hinweise, Geburtstag, Sitzplatz bleiben
+    (db.students[g.id] || []).forEach(st => {
+      if (!st) return;
+      YEAR_LISTS.forEach(f => { st[f] = []; });   // Hinweise, Geburtstag, Sitzplatz bleiben
+      const acc = studentAccessOf(st);            // persönliche Seite: neuer Link wie die Klasse (AJ2)
+      if (acc) { queueShareDeletion(acc.id); st.studentApp = { ...st.studentApp, access: StudentShare.newAccess() }; }
+    });
     out.kept++;
   });
   db.lessonSlots = [];

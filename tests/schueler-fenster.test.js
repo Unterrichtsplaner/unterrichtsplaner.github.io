@@ -135,8 +135,9 @@ describe('AH28 Schritt 2: „Mehr zu …“ ersetzt das Profil', () => {
   it('Abschnitte untereinander, ohne Reiter; Noten, Mitarbeit, Notizen, Hinweise privat; ein „Anzeigen“', () => {
     openAnna();
     const secs = [...document.querySelectorAll('#sw-more .sw-sec')].map(s => s.id.replace('sw-sec-', ''));
-    expect(secs).toEqual(['hints', 'grades', 'participation', 'attendance', 'homework', 'notes']);
-    expect([...document.querySelectorAll('#sw-more [data-private]')].map(s => s.id.replace('sw-sec-', ''))).toEqual(['hints', 'grades', 'participation', 'notes']);
+    expect(secs).toEqual(['hints', 'grades', 'participation', 'studentapp', 'attendance', 'homework', 'notes']);   // studentapp: AJ2, nur mit persönlichen Seiten sichtbar
+    expect([...document.querySelectorAll('#sw-more [data-private]')].map(s => s.id.replace('sw-sec-', ''))).toEqual(['hints', 'grades', 'participation', 'studentapp', 'notes']);
+    expect(document.getElementById('sw-sec-studentapp').hidden).toBe(true);
     expect(M().querySelectorAll('.tab-btn').length).toBe(0);
     expect(M().querySelectorAll('#sw-reveal').length).toBe(1);
     q('#sw-more-btn').click();
