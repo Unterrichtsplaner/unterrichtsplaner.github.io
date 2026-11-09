@@ -421,8 +421,9 @@ describe('Farben (Wunsch 09.11.): kein Lila, Ränge in Rangfarben', () => {
     expect(tier(6)).toEqual(['t-gold', 'Gold']);
     expect(tier(8)).toEqual(['t-platinum', 'Platin']);
     expect(tier(10)).toEqual(['t-diamond', 'Diamant']);
-    expect(tier(11)).toEqual(['t-rainbow', 'Regenbogen']);
-    expect(tier(30)).toEqual(['t-rainbow', 'Regenbogen']);
+    expect(tier(11)).toEqual(['t-diamond', 'Diamant']);   // kein Regenbogen (Wunsch 09.11.): Diamant bleibt
+    expect(tier(30)).toEqual(['t-diamond', 'Diamant']);
+    expect(css).not.toContain('rainbow');
     window.renderStudentPage(me(6, 'Füller'));
     expect(page().querySelector('.rank-badge').textContent).toBe('Füller');
     expect(page().querySelector('.rank-badge').className).toContain('t-gold');

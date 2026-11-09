@@ -12514,8 +12514,8 @@ function renderSettingsStudentApps() {
 const SA_LEVELS = { easy: 14, normal: 12, hard: 11 };   // Ziel-Level der Mittleren am Schuljahresende (Punkte-Rechner 09.11.)
 const SA_LEVEL_NAMES = { easy: 'entspannt', normal: 'normal', hard: 'sportlich' };
 const SA_RANK_PRESETS = {
-  heft: ['Bleistift', 'Buntstift', 'Fineliner', 'Füller', 'Textmarker', 'Goldfüller'],
-  gaming: ['Neuling', 'Entdecker', 'Durchblicker', 'Taktiker', 'Mastermind', 'Legende'],
+  heft: ['Bleistift', 'Buntstift', 'Fineliner', 'Füller', 'Goldfüller'],
+  gaming: ['Neuling', 'Entdecker', 'Durchblicker', 'Taktiker', 'Legende'],
 };
 const SA_JOKERS_DEFAULT = ['Sitzplatz für eine Stunde aussuchen', 'Song zum Analysieren vorschlagen', 'Aufgabe aussuchen', 'Partner wählen', 'Rätsel der Stunde stellen'];
 const SA_XP = { positive: 10, excellent: 20 };
@@ -12551,8 +12551,8 @@ const cleanAuto = x => x && x.id && String(x.name || '').trim()
 function personalOf(g) {
   const sa = g && g.studentApp && typeof g.studentApp === 'object' ? g.studentApp : {};
   const p = sa.personal && typeof sa.personal === 'object' ? sa.personal : {};
-  const ranks = (Array.isArray(p.ranks) ? p.ranks : []).slice(0, 6).map(x => String(x || '').trim());
-  while (ranks.length < 6) ranks.push('');
+  const ranks = (Array.isArray(p.ranks) ? p.ranks : []).slice(0, 5).map(x => String(x || '').trim());
+  while (ranks.length < 5) ranks.push('');
   return {
     on: p.on === true,
     level: SA_LEVELS[p.level] ? p.level : 'normal',
@@ -12614,14 +12614,14 @@ function levelInfo(xp, step) {
   const k = Math.floor((xp - SA_FIRST_LEVEL_XP) / step);
   return { level: 2 + k, from: SA_FIRST_LEVEL_XP + k * step, next: SA_FIRST_LEVEL_XP + (k + 1) * step };
 }
-const rankIndex = level => Math.min(5, Math.floor((level - 1) / 2));   // alle 2 Level ein neuer Rang, der letzte ab Level 11
+const rankIndex = level => Math.min(4, Math.floor((level - 1) / 2));   // alle 2 Level ein neuer Rang, der letzte (Diamant) ab Level 9
 // Rangfarben (Wunsch 09.11.): ohne eigenen Namen heißt der Rang wie seine Farbe; gleiche Reihenfolge wie auf der Schülerseite
-const SA_TIERS = [['bronze', 'Bronze'], ['silver', 'Silber'], ['gold', 'Gold'], ['platinum', 'Platin'], ['diamond', 'Diamant'], ['rainbow', 'Regenbogen']];
+const SA_TIERS = [['bronze', 'Bronze'], ['silver', 'Silber'], ['gold', 'Gold'], ['platinum', 'Platin'], ['diamond', 'Diamant']];   // ohne Regenbogen (Wunsch 09.11.)
 const rankName = (p, i) => p.ranks[i] || SA_TIERS[i][1];
 function studentPersonalInfo(g, s, todayStr = formatDate(new Date())) {
   const p = personalOf(g), step = personalStep(g), xp = studentXP(s, todayStr), li = levelInfo(xp, step);
   const r = rankIndex(li.level);
-  const nextRank = r < 5 ? { name: rankName(p, r + 1), level: 2 * (r + 1) + 1 } : null;
+  const nextRank = r < 4 ? { name: rankName(p, r + 1), level: 2 * (r + 1) + 1 } : null;
   const earned = Math.min(SA_JOKER_MAX, Math.floor(li.level / SA_JOKER_EVERY));
   const used = (Array.isArray(s.jokersUsed) ? s.jokersUsed : []).filter(j => j && isDateStr(j.date) && j.date >= schoolYearStart(todayStr)).length;
   return { xp, step, ...li, rank: rankName(p, r), tier: r, nextRank, jokers: { earned, used, open: Math.max(0, earned - used) } };
@@ -12763,7 +12763,7 @@ function setPersonalLevel(groupId, level) {
 function setPersonalRanks(groupId, ranks) {
   const g = db.groups.find(x => x.id === groupId);
   if (!g) return;
-  const list = (ranks || []).slice(0, 6).map(x => String(x || '').trim().slice(0, 24));
+  const list = (ranks || []).slice(0, 5).map(x => String(x || '').trim().slice(0, 24));
   const p = ensurePersonal(g);
   if (list.some(Boolean)) p.ranks = list; else delete p.ranks;
   saveDB();
@@ -12993,7 +12993,7 @@ function wireStickerEditor(content, g) {
 function personalCardHTML(g) {
   const p = personalOf(g), n = (db.students[g.id] || []).length, cls = escHtml(g.className);
   const step = personalStep(g);
-  const rankPh = i => i < 5 ? `Level ${2 * i + 1}–${2 * i + 2}` : 'ab Level 11';
+  const rankPh = i => i < 4 ? `Level ${2 * i + 1}–${2 * i + 2}` : 'ab Level 9';
   return `<section class="set-card sa-card" id="sa-personal">
     <div class="sa-head"><div><h3 class="sa-subtitle">Persönliche Seiten</h3>
       <p class="sa-status">Jeder Schüler bekommt einen eigenen Link: Level, Rückmeldung zur Mitarbeit, Rang und Joker. Keine Noten, keine Fehlzeiten.</p></div>
@@ -13003,10 +13003,10 @@ function personalCardHTML(g) {
         <select id="sa-level" class="form-input">${Object.keys(SA_LEVELS).map(k => `<option value="${k}"${k === p.level ? ' selected' : ''}>${SA_LEVEL_NAMES[k]}</option>`).join('')}</select>
         <p class="field-hint-muted">Mittlere Schüler erreichen bis zum Schuljahresende etwa Level ${SA_LEVELS[p.level]}. Ein Level braucht ${step} XP; + gibt 10, ++ gibt 20. Abgezogen wird nie etwas.</p></div>
       <div class="form-group"><span class="group-label">Ränge (alle 2 Level ein neuer)</span>
-        <div class="sa-ranks">${p.ranks.map((r, i) => `<label class="sa-rank"><span class="rank-chip t-${SA_TIERS[i][0]}" title="${SA_TIERS[i][1]}">${i === 5 ? '<i></i><i></i><i></i>' : ''}</span>
+        <div class="sa-ranks">${p.ranks.map((r, i) => `<label class="sa-rank"><span class="rank-chip t-${SA_TIERS[i][0]}" title="${SA_TIERS[i][1]}"></span>
           <input type="text" class="form-input" data-rank="${i}" maxlength="24" value="${escHtml(r)}" placeholder="${SA_TIERS[i][1]} (${rankPh(i)})" aria-label="Rang ${SA_TIERS[i][1]}, ${rankPh(i)}"></label>`).join('')}</div>
         <div class="sa-row-btns"><button type="button" class="btn-secondary" data-preset="heft">Vorlage Heft</button><button type="button" class="btn-secondary" data-preset="gaming">Vorlage Gaming</button><button type="button" class="btn-secondary" data-preset="">Leeren</button></div>
-        <p class="field-hint-muted">Jeder Rang hat seine Farbe (Bronze bis Regenbogen). Leer lassen heißt: der Rang heißt wie seine Farbe. Alle in der Klasse sehen dieselben Namen.</p></div>
+        <p class="field-hint-muted">Jeder Rang hat seine Farbe (Bronze, Silber, Gold, Platin, Diamant). Leer lassen heißt: der Rang heißt wie seine Farbe. Alle in der Klasse sehen dieselben Namen.</p></div>
       <div class="form-group"><label for="sa-jokers">Joker, einer pro Zeile</label>
         <textarea id="sa-jokers" class="form-input sa-jokers" rows="5">${escHtml(p.jokers.join('\n'))}</textarea>
         <p class="field-hint-muted">Alle ${SA_JOKER_EVERY} Level gibt es einen Joker, höchstens ${SA_JOKER_MAX} im Schuljahr. Der Schüler sucht beim Einlösen aus, du hakst ihn im Schüler-Fenster ab.</p></div>

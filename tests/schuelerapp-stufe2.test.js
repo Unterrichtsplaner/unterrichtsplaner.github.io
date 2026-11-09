@@ -63,9 +63,9 @@ describe('Level, XP, Rang, Joker (berechnet, nie gespeichert)', () => {
     expect(app('personalStepFor(db.groups[0], "normal")')).toBe(35);
   });
   it('Rang je Klasse, Joker alle 4 Level, eingelöste abgezogen', () => {
-    app('db.groups[0].studentApp.personal = { on: true, step: 10, ranks: ["Bleistift","Buntstift","Fineliner","Füller","Textmarker","Goldfüller"] }');
+    app('db.groups[0].studentApp.personal = { on: true, step: 10, ranks: ["Bleistift","Buntstift","Fineliner","Füller","Goldfüller"] }');
     const i = app('studentPersonalInfo(db.groups[0], db.students.g1[0])');   // 90 XP, Schritt 10 → Level 10
-    expect(i).toMatchObject({ xp: 90, level: 10, rank: 'Textmarker', nextRank: { name: 'Goldfüller', level: 11 } });
+    expect(i).toMatchObject({ xp: 90, level: 10, rank: 'Goldfüller', tier: 4, nextRank: null });
     expect(i.jokers).toEqual({ earned: 2, used: 0, open: 2 });
     app('db.students.g1[0].jokersUsed = [{ id: "j1", date: "2026-10-20" }, { id: "j0", date: "2026-06-01" }]');
     expect(app('studentPersonalInfo(db.groups[0], db.students.g1[0]).jokers')).toEqual({ earned: 2, used: 1, open: 1 });
@@ -183,7 +183,7 @@ describe('Reiter „Schülerapp“: Karte „Persönliche Seiten“', () => {
   it('Ränge: Vorlage übernehmen und einzeln ändern; Joker zeilenweise', () => {
     app('db.groups[0].studentApp.personal = { on: true, step: 15 }; openGroupStudents("g1", "studentapp")');
     content().querySelector('[data-preset="gaming"]').click();
-    expect(app('personalOf(db.groups[0]).ranks')).toEqual(['Neuling', 'Entdecker', 'Durchblicker', 'Taktiker', 'Mastermind', 'Legende']);
+    expect(app('personalOf(db.groups[0]).ranks')).toEqual(['Neuling', 'Entdecker', 'Durchblicker', 'Taktiker', 'Legende']);
     const r = content().querySelector('[data-rank="0"]');
     r.value = 'Rookie'; r.dispatchEvent(new Event('change'));
     expect(app('personalOf(db.groups[0]).ranks[0]')).toBe('Rookie');

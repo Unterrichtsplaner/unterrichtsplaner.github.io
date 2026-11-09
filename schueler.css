@@ -164,7 +164,6 @@ details.row .more { padding: 0 0 14px 32px; }
 .rank-badge.t-gold { background: linear-gradient(135deg, #ffe680, #d4a017); color: #3a2a00; }
 .rank-badge.t-platinum { background: linear-gradient(135deg, #f4fcff, #9fc6d4); color: #12354a; }
 .rank-badge.t-diamond { background: linear-gradient(135deg, #dff8ff, #3fbbe8); color: #0b3550; }
-.rank-badge.t-rainbow { background: linear-gradient(90deg, #ff6b6b, #ffa94d, #ffe24a, #5fd38d, #4cc3f0, #3a8ee6); color: #1c2a57; }
 .me-top { display: flex; flex-direction: column; gap: 14px; }
 .me-cls { font-size: 36px; }
 .tabs { display: flex; gap: 4px; background: rgba(28, 42, 87, .07); border-radius: 10px; padding: 3px; max-width: 420px; }

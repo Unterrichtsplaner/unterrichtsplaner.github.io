@@ -79,7 +79,7 @@ db = {
   todos?: [{ id, text, created, groupId?, due? /*YYYY-MM-DD*/, done?, doneAt? }], // Merkzettel (AH18), fehlt bei Altdaten
   planTemplates?: [{ id, name, year?, created, topics: [{ id, title, lessons?, note? }] }], // Vorlagen der Planung aus dem Schuljahreswechsel (Y6)
   // Schülerapp (AJ1): settings.studentApp? = { on, name? }; groups[].studentApp? = { on, access: { id, key }, show?: { expedition, upcoming, hw, tests, next }, goal?: { target, reward, since },
-  //   personal?: { on, level: 'easy'|'normal'|'hard', step /*XP je Level, fest*/, ranks?: [6], jokers?: [Text],
+  //   personal?: { on, level: 'easy'|'normal'|'hard', step /*XP je Level, fest*/, ranks?: [5] /*Bronze … Diamant, ältere Stände mit 6: der 6. wird ignoriert*/, jokers?: [Text],
   //     stickers?: [{ id, name, icon, color, xp }], autoStickers?: [{ id, name, icon, color, kind: 'any'|'excellent', n, mode: 'streak'|'total'|'half' }], bauXP? } (AJ2, AJ2b) };
   //   students[gid][i].studentApp? = { access: { id, key } } (persönlicher Link), students[gid][i].jokersUsed? = [{ id, date, text? }] (AJ2)
   //   students[gid][i].stickersGiven? = [{ id, date, name, icon, color, xp, reason? }] (Werte beim Vergeben), students[gid][i].baustellen? = [{ id, date, text, done?, xp? }] (AJ2b)

@@ -264,8 +264,8 @@
     { level: 27, kind: 'stamp', id: 'gem', name: 'Diamant' }, { level: 29, kind: 'color', id: 'sky', name: 'Himmelblau' },
   ];
   // Ränge in Rangfarben (Wunsch 09.11.): alle 2 Level eine Stufe, wie im Planer (rankIndex)
-  const TIERS = [['bronze', 'Bronze'], ['silver', 'Silber'], ['gold', 'Gold'], ['platinum', 'Platin'], ['diamond', 'Diamant'], ['rainbow', 'Regenbogen']];
-  const tierOf = level => Math.min(5, Math.floor((Math.max(1, level) - 1) / 2));
+  const TIERS = [['bronze', 'Bronze'], ['silver', 'Silber'], ['gold', 'Gold'], ['platinum', 'Platin'], ['diamond', 'Diamant']];
+  const tierOf = level => Math.min(4, Math.floor((Math.max(1, level) - 1) / 2));
   const rankBadge = (tier, name) => `<span class="rank-badge t-${TIERS[tier][0]}">${esc(name || TIERS[tier][1])}</span>`;
   const pageKey = () => { const a = StudentShare.parseHash(location.hash); return a ? a.id : 'vorschau'; };
   const lsGet = k => { try { return JSON.parse(localStorage.getItem(k)); } catch (e) { return null; } };
@@ -329,8 +329,8 @@
         <div><div class="who">${esc(d.first || 'Ich')}</div><div class="rank">${rankBadge(tierOf(level), d.rank)}<span class="lvl-word">Level ${level} · </span>${xp} XP</div></div></div>
       <div class="hl" role="img" aria-label="${xp - from} von ${next - from} XP bis Level ${level + 1}"><div class="hl-track"></div><div class="hl-fill" style="width:${pct}%"></div>
         <div class="hl-text"><span>noch ${Math.max(0, next - xp)} XP bis Level ${level + 1}</span></div></div>
-      ${Number(d.streak) > 0 || tierOf(level) < 5 ? `<div class="hero-sub">${Number(d.streak) > 0 ? `<span><b>${Number(d.streak)}</b> ${Number(d.streak) === 1 ? 'Stunde' : 'Stunden'} in Folge mit Plus</span>` : ''}
-        ${tierOf(level) < 5 ? `<span>Ab Level ${2 * (tierOf(level) + 1) + 1}: ${rankBadge(tierOf(level) + 1, d.nextRank && d.nextRank.name)}</span>` : ''}</div>` : ''}</div>`;
+      ${Number(d.streak) > 0 || tierOf(level) < 4 ? `<div class="hero-sub">${Number(d.streak) > 0 ? `<span><b>${Number(d.streak)}</b> ${Number(d.streak) === 1 ? 'Stunde' : 'Stunden'} in Folge mit Plus</span>` : ''}
+        ${tierOf(level) < 4 ? `<span>Ab Level ${2 * (tierOf(level) + 1) + 1}: ${rankBadge(tierOf(level) + 1, d.nextRank && d.nextRank.name)}</span>` : ''}</div>` : ''}</div>`;
     const now2 = `${newRewardHTML(level)}
       ${Number(j.open) > 0 ? `<div class="card joker"><div class="t"><b>${Number(j.open) === 1 ? 'Ein Joker' : `${Number(j.open)} Joker`} frei</b>Zeig diese Seite deiner Lehrkraft und such dir aus:</div>${jl.length ? `<ul>${jl.map(x => `<li>${esc(x)}</li>`).join('')}</ul>` : ''}</div>` : ''}
       ${bauHTML(d)}`;
