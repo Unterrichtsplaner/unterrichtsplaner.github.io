@@ -124,7 +124,7 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .soon-go { display: inline-block; margin-top: var(--s3); font-size: 16px; font-weight: 800; text-decoration: underline; text-underline-offset: 4px; text-decoration-thickness: 2px; }
 
 /* Ich: Baustelle, Joker, neue Farbe */
-.bau .bt { font-size: 44px; font-weight: 800; font-stretch: 62%; text-transform: uppercase; line-height: 1; margin-top: var(--s2); overflow-wrap: break-word; }
+.bau .bt { font-size: 32px; font-weight: 800; font-stretch: 100%; line-height: 1.1; margin-top: var(--s2); overflow-wrap: break-word; }   /* eingetippter Text: normale Schreibung, nie Großbuchstaben */
 .bau .r { font-size: 17px; margin-top: var(--s3); }
 .joker ul { list-style: none; margin-top: var(--s4); }
 .joker li { padding: var(--s3) 0; border-top: 2px dashed var(--c-ink); font-size: 20px; font-weight: 700; }

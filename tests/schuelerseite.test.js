@@ -593,6 +593,11 @@ describe('Gestaltung Farbflächen (AJ3l, ersetzt AJ3j)', () => {
     expect(page().querySelector('.album').previousElementSibling.textContent).toMatch(/2 gesammelt/);
   });
 
+  it('Texte der Lehrkraft (Baustelle) in normaler Schreibung, nicht in Großbuchstaben', () => {
+    const rule = css.slice(css.indexOf('.bau .bt {'), css.indexOf('}', css.indexOf('.bau .bt {')));
+    expect(rule).not.toMatch(/text-transform/);
+  });
+
   it('Sticker als runde Aufkleber mit hellem Rand', () => {
     expect(css).toMatch(/\.gift \.s, \.stk \.s \{[^}]*border-radius: 50%[^}]*border: 4px solid var\(--c-paper\)/);
   });
