@@ -400,7 +400,7 @@ describe('Belohnungen zum Aussuchen (AJ3b, ersetzt AJ2d)', () => {
     const hero = page().querySelector('.card.hero');
     expect(hero.querySelector('.fb .sp')).not.toBeNull();   // Rückmeldung steckt in der Level-Karte
     expect(page().querySelectorAll('.fb').length).toBe(1);
-    expect(cards.map(c => ['hero', 'bau', 'joker'].find(k => c.classList.contains(k))).filter(Boolean)).toEqual(['joker', 'hero', 'bau']);   // Joker als Gutschein oben (AJ3i)
+    expect(cards.map(c => ['hero', 'bau', 'joker'].find(k => c.classList.contains(k))).filter(Boolean)).toEqual(['hero', 'bau', 'joker']);   // Level und Plusse ganz oben, Joker nach der Baustelle (Wunsch 10.11.)
   });
 
   it('Rückmeldung (AJ3g): Zählung je Stufe, „Alle anzeigen“ klappt alle Einträge nach Monaten auf (neueste oben)', () => {
@@ -454,7 +454,7 @@ describe('Belohnungen zum Aussuchen (AJ3b, ersetzt AJ2d)', () => {
     expect(t).toMatch(/09:45/);
     expect(t).toMatch(/R 104/);
     expect(t).toMatch(/Klassenarbeit Brüche.*in 16 Tagen/);
-    expect(page().querySelector('.spread').compareDocumentPosition(soon) & Node.DOCUMENT_POSITION_PRECEDING).toBeTruthy();   // steht vor allem anderen
+    expect(page().querySelector('.card.hero').compareDocumentPosition(soon) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();   // nach der Level-Karte (Wunsch 10.11.)
     localStorage.setItem('sa_tick_2026-11-11_S. 42 Nr. 3', '1');   // für sich abgehakt → nächste offene
     window.renderStudentPage(d);
     expect(page().querySelector('.soon').textContent).toMatch(/AB fertig/);

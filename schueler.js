@@ -358,7 +358,7 @@
       return html + `<div class="spread"><div class="col">${rewardsHTML(level)}${jokerInfoHTML(d, level)}</div>
         <div class="col">${giftsHTML(d)}${albumHTML(d)}${yearMapHTML(list(d.year).filter(c => c && isDate(c.date)))}</div></div>` + footer;
     }
-    // Reiter „Ich“ (Wunsch 09.11.): eine Karte mit Level, XP und Rückmeldung ganz oben, dann Baustelle, dann Joker
+    // Reiter „Ich“ (Wunsch 09./10.11.): Karte mit Level, XP und Rückmeldung ganz oben, dann „Als Nächstes“, Baustelle, Joker
     const j = d.jokers && typeof d.jokers === 'object' ? d.jokers : {};
     const jl = list(j.list).filter(Boolean);
     const fbAllList = list(d.feedback).filter(x => x && isDate(x.date) && PART[x.v]).sort((a, b) => a.date.localeCompare(b.date));
@@ -374,12 +374,12 @@
       ${Number(d.streak) > 0 || tierOf(level) < 4 ? `<div class="hero-sub">${Number(d.streak) > 0 ? `<span><b>${Number(d.streak)}</b> ${Number(d.streak) === 1 ? 'Stunde' : 'Stunden'} in Folge mit Plus</span>` : ''}
         ${tierOf(level) < 4 ? `<span>Ab Level ${2 * (tierOf(level) + 1) + 1}: ${rankBadge(tierOf(level) + 1, d.nextRank && d.nextRank.name)}</span>` : ''}</div>` : ''}
       ${fbHTML}</div>`;
-    // Joker als Gutschein ganz oben (AJ3i): der schönste Moment der Seite, die Auswahl als Abreiß-Streifen
+    // Joker als Gutschein (AJ3i), Auswahl als Abreiß-Streifen; steht nach der Baustelle (Wunsch 10.11.: Level und Plusse ganz oben)
     const joker = Number(j.open) > 0 ? `<div class="card joker voucher"><div class="t"><b>${Number(j.open) === 1 ? 'Ein Joker frei' : `${Number(j.open)} Joker frei`}</b>Zeig das deiner Lehrkraft und such dir aus:</div>${jl.length ? `<ul>${jl.map(x => `<li>${esc(x)}</li>`).join('')}</ul>` : ''}</div>` : '';
-    const rest = `${bauHTML(d)}
+    const rest = `${soonHTML(d.klasse, now)}${bauHTML(d)}${joker}
       ${newRewardHTML(level)}
       <p class="hint"><b>So bekommst du XP:</b> + gibt 10, ++ gibt 20${d.giver ? `, Sticker von ${esc(dativ(d.giver))} und` : ', Sticker und'} geschaffte Baustellen bringen extra. Abgezogen wird nie etwas.</p>`;
-    return html + soonHTML(d.klasse, now) + `<div class="spread me-ich"><div class="col">${joker}${hero}</div><div class="col">${rest}</div></div>` + footer;
+    return html + `<div class="spread me-ich"><div class="col">${hero}</div><div class="col">${rest}</div></div>` + footer;
   }
 
   let current = null;   // { data, offline } für Neuzeichnen und Abhaken
