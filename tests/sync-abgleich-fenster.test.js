@@ -118,11 +118,11 @@ describe('Sicherheitsnetz', () => {
   it('Auch ältere Stände sind erreichbar', async () => {
     await store.put('merge_backups', [rec(2000, 'neu'), rec(1000, 'alt')]);
     const run = app('restoreMergeBackup')();
-    await new Promise(r => setTimeout(r, 0));
+    await vi.waitFor(() => expect(document.querySelectorAll('#modal-choice-buttons button').length).toBeGreaterThan(0));
     let buttons = [...document.querySelectorAll('#modal-choice-buttons button')];
-    expect(buttons.length).toBe(3);   // zwei Stände + Abbrechen
+    expect(buttons.filter(b => /Auf diesem Gerät/.test(b.textContent)).length).toBe(2);   // zwei Stände des Geräts (dazu evtl. Cloud-Sicherungen, Z4)
     buttons[1].click();
-    await new Promise(r => setTimeout(r, 0));
+    await vi.waitFor(() => expect(document.getElementById('modal-choice-title').textContent).toBe('Stand vor dem Zusammenführen'));
     buttons = [...document.querySelectorAll('#modal-choice-buttons button')];
     buttons[0].click();               // Stand dieses Geräts
     await run;
@@ -131,7 +131,10 @@ describe('Sicherheitsnetz', () => {
   it('Stände eines anderen Kontos werden nicht angeboten', async () => {
     await store.put('merge_backups', [{ ...rec(2000, 'fremd'), uid: 'jemand' }]);
     document.getElementById('merge-restore-row').classList.remove('hidden');
+    const pw = app('SyncManager').masterPassword;
+    app('SyncManager').masterPassword = '';   // ohne Cloud: nur Stände dieses Kontos zählen
     await app('refreshMergeRestoreButton')();
     expect(document.getElementById('merge-restore-row').classList.contains('hidden')).toBe(true);
+    app('SyncManager').masterPassword = pw;
   });
 });

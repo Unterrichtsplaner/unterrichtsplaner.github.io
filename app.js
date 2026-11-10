@@ -5775,6 +5775,8 @@ async function clearAllDataEverywhere() {
     // als „eigenen Stand“ wieder hochladen. So gibt es schlimmstenfalls den Konflikt-Dialog.
     const newTimestamp = cloud ? await SyncManager.saveToCloud(JSON.stringify(empty), cloud.cloudTimestamp) : null;
     await deleteAllStudentShares();   // Klassenseiten der Schülerapp mit weg (AJ1)
+    let versionsLeft = false;   // Z4: auch die Tages-Sicherungen
+    try { await SyncManager.deleteCloudVersions(); } catch (e) { versionsLeft = true; console.warn('Cloud-Sicherungen nicht gelöscht:', e.message); }
 
     // Gerät leeren. Mit Sync-Stand der leeren Cloud: Das Gerät gilt dann nicht als neu, sondern als abgeglichen.
     wipeLocalData();
@@ -5786,7 +5788,7 @@ async function clearAllDataEverywhere() {
     SyncManager.updateStatus('synced');
     closeModal('modal-settings');
     updateSyncUI();
-    showToast('Alles gelöscht, auf diesem Gerät und in der Cloud.');
+    showToast(versionsLeft ? 'Alles gelöscht. Die Cloud-Sicherungen der letzten Tage ließen sich gerade nicht löschen: bitte mit Internet noch einmal „Alles löschen, auch in der Cloud“' : 'Alles gelöscht, auf diesem Gerät und in der Cloud.', versionsLeft ? 'error' : undefined);
   } catch (e) {
     if (e.name === 'WrongPasswordError') {
       rejectMasterPassword();
@@ -11760,23 +11762,57 @@ async function confirmMergeAnswers(conflictInfo, out, answers, at) {
 async function refreshMergeRestoreButton() {
   const row = document.getElementById('merge-restore-row');
   if (!row) return;
-  row.classList.toggle('hidden', !(await mergeBackupsOfAccount()).length);
+  // Mit Cloud gibt es (ab dem zweiten Tag) auch Cloud-Sicherungen (Z4): dann immer anbieten
+  const cloudOn = !!(SyncManager.isInitialized && SyncManager.currentUser && SyncManager.masterPassword);
+  row.classList.toggle('hidden', !cloudOn && !(await mergeBackupsOfAccount()).length);
+  const hint = document.getElementById('cloud-versions-hint');
+  if (hint) hint.classList.toggle('hidden', !(cloudOn && SyncManager.versionsProblem === 'rules'));
 }
 async function restoreMergeBackup() {
   const list = await mergeBackupsOfAccount();
-  if (!list.length) { showToast('Es gibt keinen früheren Stand', 'error'); return; }
-  const whenOf = x => new Date(x.time).toLocaleString('de-DE') + (x.kind === 'newYear' ? ' (vor dem neuen Schuljahr)' : '');
+  // Cloud-Sicherungen der letzten 14 Tage dazu (Z4); ohne Anmeldung oder Netz nur die Stände dieses Geräts
+  let cloudList = [];
+  if (SyncManager.isInitialized && SyncManager.currentUser && SyncManager.masterPassword && typeof SyncManager.listCloudVersions === 'function') {
+    try { cloudList = await SyncManager.listCloudVersions(); } catch (e) { cloudList = []; }
+  }
+  if (!list.length && !cloudList.length) { showToast('Es gibt keinen früheren Stand', 'error'); return; }
+  const whenOf = x => new Date(x.time).toLocaleString('de-DE') + (x.kind === 'newYear' ? ' (vor dem neuen Schuljahr)' : x.kind === 'restore' ? ' (vor dem Zurückholen)' : '');
+  const cloudWhen = v => new Date(v.savedAt).toLocaleString('de-DE', { weekday: 'short', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
   // Ein Fehler fällt oft erst nach dem nächsten Abgleich auf: darum auch die älteren Stände
-  const last = list.length === 1 ? list[0] : await askChoice('Stand vor dem Zusammenführen', 'Welchen Zeitpunkt möchtest du zurückholen?',
-    list.map((x, i) => ({ label: whenOf(x), value: x, primary: i === 0 })));
-  if (!last) return;
-  const side = last.kind === 'newYear'   // vor dem Schuljahreswechsel gab es nur einen Stand
-    ? await askChoice('Stand vor dem neuen Schuljahr', `Vom ${whenOf(last)}. Er ersetzt alle Daten auf diesem Gerät und danach auch in der Cloud.`,
-      [{ label: 'Wiederherstellen', value: 'local', primary: true }])
-    : await askChoice('Stand vor dem Zusammenführen', `Vom ${whenOf(last)}. Der gewählte Stand ersetzt alle Daten auf diesem Gerät und danach auch in der Cloud.`,
-      [{ label: 'Stand dieses Geräts', value: 'local', primary: true }, { label: 'Stand aus der Cloud', value: 'cloud' }]);
-  if (!side) return;
-  const parsed = JSON.parse(last[side]);
+  const options = [...list.map((x, i) => ({ label: 'Auf diesem Gerät: ' + whenOf(x), value: 'l' + i })),
+    ...cloudList.map(v => ({ label: 'Cloud-Sicherung: ' + cloudWhen(v), value: 'c' + v.day }))];
+  options[0].primary = true;
+  const pick = options.length === 1 ? options[0].value : await askChoice('Früheren Stand zurückholen',
+    'Welchen Zeitpunkt möchtest du zurückholen? Die Cloud sichert den Stand vom Beginn jedes Tages, 14 Tage lang.', options);
+  if (!pick) return;
+  let dataString = null;
+  if (pick[0] === 'c') {
+    const v = cloudList.find(x => x.day === pick.slice(1));
+    if (!v) return;
+    const ok = await askChoice('Cloud-Sicherung', `Stand vom ${cloudWhen(v)}. Er ersetzt alle Daten auf diesem Gerät und danach auch in der Cloud.`,
+      [{ label: 'Wiederherstellen', value: 'yes', primary: true }]);
+    if (!ok) return;
+    const dbAtStart = db;
+    try { dataString = await SyncManager.readCloudVersion(v.day); } catch (e) {
+      showToast(e && e.name === 'WrongPasswordError' ? 'Diese Sicherung ist mit einem früheren Master-Passwort verschlüsselt' : 'Die Sicherung ließ sich gerade nicht laden. Bitte mit Internet noch einmal versuchen', 'error');
+      return;
+    }
+    if (db !== dbAtStart) return;   // inzwischen ersetzt (Regel 32)
+  } else {
+    const last = list[Number(pick.slice(1))];
+    if (!last) return;
+    const single = last.kind === 'newYear' || last.kind === 'restore';   // dort gab es nur einen Stand
+    const side = single
+      ? await askChoice('Früheren Stand zurückholen', `Vom ${whenOf(last)}. Er ersetzt alle Daten auf diesem Gerät und danach auch in der Cloud.`,
+        [{ label: 'Wiederherstellen', value: 'local', primary: true }])
+      : await askChoice('Stand vor dem Zusammenführen', `Vom ${whenOf(last)}. Der gewählte Stand ersetzt alle Daten auf diesem Gerät und danach auch in der Cloud.`,
+        [{ label: 'Stand dieses Geräts', value: 'local', primary: true }, { label: 'Stand aus der Cloud', value: 'cloud' }]);
+    if (!side) return;
+    dataString = last[side];
+  }
+  const parsed = JSON.parse(dataString);
+  // Den jetzigen Stand vorher ins Sicherheitsnetz: falsch gewählt lässt sich so wieder zurückholen
+  try { const nowString = JSON.stringify(db); await keepMergeBackup(nowString, nowString, 'restore'); } catch (e) { console.warn('Sicherheitsnetz nicht gespeichert:', e.message); }
   const syncSettings = db.syncSettings;
   delete parsed.syncSettings;
   db = migrateDB(parsed);

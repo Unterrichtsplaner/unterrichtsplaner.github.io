@@ -10,6 +10,9 @@ function createFakeFirebase() {
     shares: {},       // Schülerapp (AJ1): id -> Dokument der Sammlung `shares`
     shareWrites: 0,
     shareDenied: false, // true: wie fehlende Firestore-Regeln (permission-denied)
+    versions: {},     // Cloud-Sicherungen (Z4): uid -> { docId -> Dokument } im Unterordner `versions`
+    versionWrites: 0,
+    versionsDenied: false, // true: Regel für `versions` fehlt noch
   };
 
   const denied = () => Object.assign(new Error('Missing or insufficient permissions.'), { code: 'permission-denied' });
@@ -35,8 +38,27 @@ function createFakeFirebase() {
     return { exists: !!d, data: () => (d ? { ...d } : undefined) };
   };
 
+  const versionRef = (uid, id) => ({
+    id,
+    async get() {
+      if (cloud.versionsDenied) throw denied();
+      const d = (cloud.versions[uid] || {})[id];
+      return { exists: !!d, data: () => (d ? JSON.parse(JSON.stringify(d)) : undefined) };
+    },
+    async set(data) {
+      if (cloud.versionsDenied) throw denied();
+      (cloud.versions[uid] = cloud.versions[uid] || {})[id] = JSON.parse(JSON.stringify(data));
+      cloud.versionWrites++;
+    },
+    async delete() {
+      if (cloud.versionsDenied) throw denied();
+      if (cloud.versions[uid]) delete cloud.versions[uid][id];
+    },
+  });
+
   const docRef = (uid) => ({
     uid,
+    collection: (name) => ({ doc: (id) => versionRef(uid, id) }),
     async get() {
       cloud.reads++;
       const snap = snapshot(uid);

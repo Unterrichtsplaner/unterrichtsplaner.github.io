@@ -56,6 +56,7 @@ class AccountDeletedError extends Error {
 const CLOUD_MAX_BYTES = 1000000;
 // Ab hier wird gewarnt, damit der Nutzer rechtzeitig aufräumen kann.
 const CLOUD_WARN_BYTES = 750000;
+const CLOUD_VERSIONS_KEEP = 14;   // Tage mit Cloud-Sicherung (Z4)
 
 function cloudDocSize(doc) {
   return Object.entries(doc).reduce((n, [k, v]) => n + k.length + 1 + (typeof v === 'string' ? v.length + 1 : 8), 32);
@@ -244,6 +245,7 @@ const SyncManager = {
   async deleteAccount() {
     const user = this.currentUser;
     if (!this.isInitialized || !user) throw new Error("Nicht angemeldet.");
+    await this.deleteCloudVersions();   // vorher: nach dem Löschen des Kontos kommt niemand mehr an sie heran (Z4)
     const docRef = this._docRef();
     await this.db.runTransaction(async (tx) => {
       await tx.get(docRef);
@@ -360,19 +362,83 @@ const SyncManager = {
 
     const doc = await this._buildDoc(rawDataString);
     const docRef = this._docRef();
+    let previous = null;
 
-    return this.db.runTransaction(async (tx) => {
+    const newTimestamp = await this.db.runTransaction(async (tx) => {
       const snap = await tx.get(docRef);
-      const current = snap.exists ? snap.data().lastModified : null;
+      previous = snap.exists ? snap.data() : null;
+      const current = previous ? previous.lastModified : null;
       if (current !== expectedCloudTimestamp) throw new CloudChangedError();
 
       // Neue Kennung muss sich vom alten Stand unterscheiden, auch wenn die Uhr hinterherhinkt.
-      let newTimestamp = Date.now();
-      if (typeof current === 'number' && newTimestamp <= current) newTimestamp = current + 1;
+      let ts = Date.now();
+      if (typeof current === 'number' && ts <= current) ts = current + 1;
 
-      tx.set(docRef, { ...doc, lastModified: newTimestamp });
-      return newTimestamp;
+      tx.set(docRef, { ...doc, lastModified: ts });
+      return ts;
     });
+    // Erst nach dem Upload und ohne ihn zu gefährden: der bisherige Stand als Tages-Sicherung (Z4)
+    await this._keepDailyVersion(previous);
+    return newTimestamp;
+  },
+
+  // ── Cloud-Sicherungen (BUGS Z4) ──
+  // Beim ersten Upload eines Tages: der bisherige Cloud-Stand unverändert (schon verschlüsselt) unter
+  // users_data/<uid>/versions/<Tag>, höchstens CLOUD_VERSIONS_KEEP Tage. Das Verzeichnis `index` listet die Tage
+  // ({ day, savedAt }), damit die Auswahl nicht alle großen Dokumente laden muss. Scheitert es (z. B. Regel fehlt),
+  // bleibt der Sync unberührt; `versionsProblem` sagt es den Einstellungen.
+  versionsProblem: null,
+  _versionsRef() {
+    return this._docRef().collection('versions');
+  },
+  _localDay(t = new Date()) {
+    const p = n => String(n).padStart(2, '0');
+    return `${t.getFullYear()}-${p(t.getMonth() + 1)}-${p(t.getDate())}`;
+  },
+  async _readVersionIndex() {
+    const snap = await this._versionsRef().doc('index').get();
+    const days = snap.exists && snap.data() && Array.isArray(snap.data().days) ? snap.data().days : [];
+    return days.filter(x => x && typeof x.day === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(x.day));
+  },
+  async _keepDailyVersion(previous) {
+    if (!previous || previous.deleted || typeof previous.lastModified !== 'number') return;
+    const day = this._localDay(), mark = 'cloud_version_day_' + this.currentUser.uid;
+    try { if (localStorage.getItem(mark) === day) return; } catch (e) { /* ohne Merker: Verzeichnis prüfen */ }
+    try {
+      const days = await this._readVersionIndex();
+      if (!days.some(x => x.day === day)) {   // ein anderes Gerät war heute schon: dessen Morgen-Stand bleibt
+        await this._versionsRef().doc(day).set({ ...previous, keptAt: Date.now() });
+        days.push({ day, savedAt: previous.lastModified });
+        days.sort((a, b) => b.day.localeCompare(a.day));
+        await this._versionsRef().doc('index').set({ days: days.slice(0, CLOUD_VERSIONS_KEEP) });
+        for (const old of days.slice(CLOUD_VERSIONS_KEEP)) await this._versionsRef().doc(old.day).delete();
+      }
+      try { localStorage.setItem(mark, day); } catch (e) { /* privat: dann prüft das Verzeichnis */ }
+      this.versionsProblem = null;
+    } catch (e) {
+      this.versionsProblem = e && e.code === 'permission-denied' ? 'rules' : 'other';
+      console.warn('Cloud-Sicherung nicht gespeichert:', e && e.message);
+    }
+  },
+  /** Gesicherte Tage, neueste zuerst: [{ day, savedAt }] */
+  async listCloudVersions() {
+    if (!this.isInitialized || !this.currentUser) return [];
+    return (await this._readVersionIndex()).sort((a, b) => b.day.localeCompare(a.day));
+  },
+  /** Eine Sicherung lesen und entschlüsseln (Passwort-Probe wie beim Sync). @returns {string} Daten als JSON-Text */
+  async readCloudVersion(day) {
+    const snap = await this._versionsRef().doc(day).get();
+    if (!snap.exists) throw new Error('Diese Sicherung gibt es nicht mehr.');
+    return this.decryptPayload(snap.data());
+  },
+  /** Alle Sicherungen löschen (Cloud leeren, Konto löschen). Fehlt die Regel, gab es nie welche. */
+  async deleteCloudVersions() {
+    if (!this.isInitialized || !this.currentUser) return;
+    let days;
+    try { days = await this._readVersionIndex(); } catch (e) { if (e && e.code === 'permission-denied') return; throw e; }
+    for (const x of days) await this._versionsRef().doc(x.day).delete();
+    await this._versionsRef().doc('index').delete();
+    try { localStorage.removeItem('cloud_version_day_' + this.currentUser.uid); } catch (e) { /* egal */ }
   },
 
   /**

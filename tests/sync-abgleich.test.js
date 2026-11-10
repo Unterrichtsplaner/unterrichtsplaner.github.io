@@ -344,9 +344,12 @@ describe('Basis wird überall aktuell gehalten und mit gelöscht', () => {
 });
 
 describe('Einstellungen: Stand vor dem Zusammenführen zurückholen', () => {
-  it('Knopf nur mit Sicherheitsnetz; Wiederherstellen gilt als Änderung und geht in die Cloud', async () => {
+  it('Knopf mit Sicherheitsnetz (oder Cloud-Sicherungen); Wiederherstellen gilt als Änderung und geht in die Cloud', async () => {
+    const pw = app('SyncManager').masterPassword;
+    app('SyncManager').masterPassword = '';   // ohne Cloud: nur mit Sicherheitsnetz
     await app('refreshMergeRestoreButton')();
     expect(hidden('merge-restore-row')).toBe(true);
+    app('SyncManager').masterPassword = pw;
     userEdits('db.students.g1[0].studentNotes.push({ text: "gerät", date: "2026-11-03" })');
     await otherDevice(d => { d.students.g1[1].studentNotes.push({ text: "cloud", date: '2026-11-03' }); });
     await sync(); await settle();
@@ -355,6 +358,10 @@ describe('Einstellungen: Stand vor dem Zusammenführen zurückholen', () => {
     expect(hidden('merge-restore-row')).toBe(false);
     const done = app('restoreMergeBackup')();
     await vi.waitFor(() => expect(hidden('modal-choice')).toBe(false));
+    if (app('typeof choiceResolve === "function"') && document.getElementById('modal-choice-title').textContent === 'Früheren Stand zurückholen') {
+      app('answerChoice("l0")');   // Liste mit Cloud-Sicherungen (Z4): den Stand vom Gerät wählen
+      await vi.waitFor(() => expect(document.getElementById('modal-choice-title').textContent).toBe('Stand vor dem Zusammenführen'));
+    }
     app('answerChoice("local")');
     await done;
     expect(app('db.students.g1[1].studentNotes.length')).toBe(0);
