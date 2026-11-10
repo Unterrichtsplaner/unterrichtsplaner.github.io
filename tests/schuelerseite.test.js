@@ -676,3 +676,60 @@ describe('Rückblick als Geschichte (AJ3k)', () => {
     expect(story().textContent).toContain(`Peter's "Test"`);
   });
 });
+
+describe('Klassenseite per Verweis nachladen (AK3)', () => {
+  const SS = () => require('vm').runInThisContext('StudentShare');
+  const docs = {};
+  let failing = false;
+  beforeAll(() => {
+    window.FIREBASE_CONFIG = {};
+    window.firebase = { apps: [{}], initializeApp() {}, firestore: () => ({ collection: () => ({ doc: id => ({ get: async () => {
+      if (failing) throw Object.assign(new Error('offline'), { code: 'unavailable' });
+      return docs[id] ? { exists: true, data: () => docs[id] } : { exists: false };
+    } }) }) }) };
+  });
+  afterAll(() => { delete window.firebase; delete window.FIREBASE_CONFIG; location.hash = ''; });
+  afterEach(() => { failing = false; Object.keys(docs).forEach(k => delete docs[k]); Object.keys(localStorage).filter(k => k.startsWith('sa_')).forEach(k => localStorage.removeItem(k)); window.SchuelerSeite.setMeTab('ich'); });
+  async function setup(meExtra = {}) {
+    const me = SS().newAccess(), cls = SS().newAccess();
+    docs[cls.id] = await SS().encrypt({ v: 2, cls: '7b', subject: 'Mathe', goal: { target: 100, count: 42, since: '2026-09-01' } }, cls.key);
+    docs[me.id] = await SS().encrypt({ v: 1, kind: 'me', first: 'Anna', cls: '7b', level: 3, xp: 30, from: 25, next: 40, jokers: {}, feedback: [], year: [],
+      klasseRef: { id: cls.id, key: cls.key }, ...meExtra }, me.key);
+    location.hash = `#${me.id}.${me.key}`;
+    return { me, cls };
+  }
+
+  it('persönliche Seite mit Verweis: Klassenseite wird dazugeladen und im Reiter „Klasse“ gezeigt', async () => {
+    await setup();
+    await window.SchuelerSeite.load();
+    window.SchuelerSeite.setMeTab('klasse');
+    page().querySelector('[data-tab="klasse"]').click();
+    expect(page().textContent).toMatch(/42 von 100 Plussen/);
+  });
+
+  it('ohne Netz: Klassenseite aus dem zuletzt geladenen Stand', async () => {
+    await setup();
+    await window.SchuelerSeite.load();   // füllt den Zwischenspeicher
+    failing = true;
+    await window.SchuelerSeite.load();
+    page().querySelector('[data-tab="klasse"]').click();
+    expect(page().textContent).toMatch(/42 von 100 Plussen/);
+    expect(page().textContent).toMatch(/Offline/);
+  });
+
+  it('Klassenseite gerade weg: persönliche Seite geht trotzdem, Reiter „Klasse“ sagt es', async () => {
+    const { cls } = await setup();
+    delete docs[cls.id];
+    await window.SchuelerSeite.load();
+    expect(page().querySelector('.hero .who').textContent).toBe('Anna');
+    page().querySelector('[data-tab="klasse"]').click();
+    expect(page().textContent).toMatch(/gerade nicht freigegeben/);
+  });
+
+  it('älterer Planer schickt die Klassenseite noch mit: wird weiter gelesen (Regel 15)', async () => {
+    await setup({ klasseRef: undefined, klasse: { v: 2, cls: '7b', goal: { target: 50, count: 7, since: '2026-09-01' } } });
+    await window.SchuelerSeite.load();
+    page().querySelector('[data-tab="klasse"]').click();
+    expect(page().textContent).toMatch(/7 von 50 Plussen/);
+  });
+});

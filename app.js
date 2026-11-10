@@ -11514,6 +11514,7 @@ function onAppHidden() {
   if (!document.getElementById('modal-seating-student').classList.contains('hidden')) commitSeatingStudentForm();
   if (!document.getElementById('modal-lesson-topic').classList.contains('hidden')) storeLessonTopicForm();
   flushPendingSync();
+  if (saPendingAt) publishStudentApps(true);   // Schülerseiten: was noch wartet, jetzt (AK3)
 }
 document.addEventListener('visibilitychange', () => { if (document.hidden) onAppHidden(); });
 window.addEventListener('pagehide', onAppHidden);
@@ -12229,10 +12230,22 @@ async function processShareDeletions() {
   }
 }
 // Nach jedem erfolgreichen Sync: vorgemerkte Löschungen, dann jede freigegebene Klasse, deren Auszug sich geändert hat.
-async function publishStudentApps() {
+// Seltener schreiben (AK3): eine geänderte Seite höchstens alle 10 Minuten neu; neue Seiten, Abschalten, „Jetzt senden“
+// und Verlassen der App sofort. Was wartet, merkt sich `saPendingAt` (früheste Uhrzeit), ein Zeitgeber holt es nach.
+const SA_REPUBLISH_MS = 10 * 60 * 1000;
+let saPendingAt = null, saPublishTimer = null, saForceAgain = false;
+function saPublishDue(mark, hash, force) {
+  if (mark.hash === hash) return false;
+  if (force || !mark.at || Date.now() - mark.at >= SA_REPUBLISH_MS) return true;
+  const due = mark.at + SA_REPUBLISH_MS;
+  if (!saPendingAt || due < saPendingAt) saPendingAt = due;
+  return false;
+}
+async function publishStudentApps(force = false) {
   if (!SyncManager.isInitialized || !SyncManager.currentUser || typeof SyncManager.publishShare !== 'function') return;
-  if (saPublishing) { saPublishAgain = true; return; }
+  if (saPublishing) { saPublishAgain = true; saForceAgain = saForceAgain || force; return; }
   saPublishing = true;
+  saPendingAt = null;
   try {
     await processShareDeletions();
     const dbAtStart = db;
@@ -12245,7 +12258,7 @@ async function publishStudentApps() {
         const snap = studentAppSnapshot(g);
         const hash = await contentHash(JSON.stringify(snap));
         // Unveränderte Klassenseite nur überspringen, nicht die ganze Klasse: sonst kamen die persönlichen Seiten nie an (09.11.)
-        if ((saRead(markKey, {}) || {}).hash !== hash) {
+        if (saPublishDue(saRead(markKey, {}) || {}, hash, force)) {
           await SyncManager.publishShare(sa.access.id, await StudentShare.encrypt({ ...snap, at: Date.now() }, sa.access.key));
           saWrite(markKey, { hash, at: Date.now() });
         }
@@ -12253,7 +12266,7 @@ async function publishStudentApps() {
         await SyncManager.deleteShare(sa.access.id);
         saWrite(markKey, null);
       }
-      await publishPersonalPages(g, personalActive(g));   // Stufe 2a (AJ2)
+      await publishPersonalPages(g, personalActive(g), force);   // Stufe 2a (AJ2)
     }
     studentAppProblem = null;
   } catch (e) {
@@ -12261,8 +12274,10 @@ async function publishStudentApps() {
     console.warn('Schülerapp: Veröffentlichen hat nicht geklappt', e);
   } finally {
     saPublishing = false;
+    clearTimeout(saPublishTimer); saPublishTimer = null;
+    if (saPendingAt) saPublishTimer = setTimeout(() => { saPublishTimer = null; publishStudentApps(); }, Math.max(1000, saPendingAt - Date.now() + 500));
     refreshStudentAppViews();
-    if (saPublishAgain) { saPublishAgain = false; publishStudentApps(); }
+    if (saPublishAgain) { const f = saForceAgain; saPublishAgain = false; saForceAgain = false; publishStudentApps(f); }
   }
 }
 // Cloud leeren / Konto löschen: alle Schülerseiten mit weg (sonst blieben verschlüsselte, aber verwaiste Dokumente stehen)
@@ -12357,15 +12372,19 @@ function updateStudentAppTabVisibility() {
   if (!studentAppOn() && currentClassDashboardTab === 'studentapp'
       && document.getElementById('view-students').classList.contains('active')) switchClassDashboardTab('students');
 }
+function wireSendNow(root) { const b = root.querySelector('#sa-send-now'); if (b) b.addEventListener('click', () => publishStudentApps(true)); }
+// „Jetzt senden“ nur, wenn etwas wartet (AK3)
+const studentAppSendNowHTML = () => (saPendingAt ? `<button type="button" class="btn-secondary" id="sa-send-now">${icon('refresh')}Jetzt senden</button>` : '');
 function studentAppStatusText(sa) {
   if (!sa.on) return 'Nicht freigegeben. Die Klasse sieht nichts.';
   if (studentAppProblem === 'rules') return 'Die Cloud lehnt die Freigabe ab: Die Firestore-Regeln für die Schülerapp fehlen noch.';
   const mark = sa.access && saRead(SA_PUB_PREFIX + sa.access.id, null);
   if (studentAppProblem === 'offline') return 'Gerade keine Verbindung zur Cloud. Die Seite wird beim nächsten Sync aktualisiert.';
+  if (saPendingAt) { const d = new Date(saPendingAt); return `Freigegeben. Neue Einträge gehen spätestens um ${minsToTime(d.getHours() * 60 + d.getMinutes())} an die Schüler.`; }
   if (mark && mark.at) {
     const d = new Date(mark.at);
     const day = formatDate(d) === formatDate(new Date()) ? 'heute' : formatWeekdayShort(formatDate(d));
-    return `Freigegeben. Aktualisiert sich bei jedem Sync, zuletzt ${day} um ${minsToTime(d.getHours() * 60 + d.getMinutes())}.`;
+    return `Freigegeben. Aktualisiert sich nach Änderungen, höchstens alle 10 Minuten, zuletzt ${day} um ${minsToTime(d.getHours() * 60 + d.getMinutes())}.`;
   }
   return 'Freigegeben. Die Seite erscheint mit dem nächsten Sync.';
 }
@@ -12441,7 +12460,7 @@ function renderStudentAppTab() {
   ];
   content.innerHTML = `<div class="sa-wrap"><div class="sa-grid"><div class="sa-col">
     ${fixNamesHTML()}<section class="set-card sa-card">
-      <div class="sa-head"><div><h3 class="sa-title">Schülerapp für die ${cls}</h3><p class="sa-status" id="sa-status">${escHtml(studentAppStatusText(sa))}</p></div>
+      <div class="sa-head"><div><h3 class="sa-title">Schülerapp für die ${cls}</h3><p class="sa-status" id="sa-status">${escHtml(studentAppStatusText(sa))}</p><div id="sa-send-wrap">${studentAppSendNowHTML()}</div></div>
         <label class="toggle-switch" title="Für die Klasse freigeben"><input type="checkbox" id="sa-on" aria-label="Für die ${cls} freigeben"${sa.on ? ' checked' : ''}><span class="toggle-slider"></span></label></div>
     </section>
     ${sa.on && sa.access ? `<section class="set-card sa-card">
@@ -12476,6 +12495,7 @@ function renderStudentAppTab() {
     <div class="sa-phone"><iframe id="sa-preview-frame" src="schueler.html?vorschau" title="Vorschau der Schülerapp"></iframe></div></aside>` : ''}
   </div></div>`;
   content.querySelector('#sa-on').addEventListener('change', e => setStudentAppOn(g.id, e.target.checked));
+  wireSendNow(content);
   wireFixNames(content);
   if (!(sa.on && sa.access)) return;
   content.querySelector('#sa-beamer').addEventListener('click', () => showStudentAppBeamer(g.id));
@@ -12512,6 +12532,8 @@ function refreshStudentAppViews() {
     const on = document.getElementById('sa-on');
     if (g && status && on && on.checked === studentAppOf(g).on && !!document.getElementById('sa-beamer') === !!(studentAppOf(g).on && studentAppOf(g).access)) {
       status.textContent = studentAppStatusText(studentAppOf(g));
+      const wrap = document.getElementById('sa-send-wrap');
+      if (wrap && wrap.innerHTML !== studentAppSendNowHTML()) { wrap.innerHTML = studentAppSendNowHTML(); wireSendNow(wrap); }
       refreshStudentAppPreview();
     } else {
       renderStudentAppTab();
@@ -12689,10 +12711,18 @@ function studentStreak(s, lessonDates, todayStr) {
   }
   return n;
 }
+// Gemeinsames für alle persönlichen Seiten einer Klasse: einmal je Klasse rechnen. Die Klassenseite selbst steckt nicht
+// mehr im Auszug (AK3): nur Kennung und Schlüssel, die Schülerseite lädt sie dazu. Sonst änderte ein Plus (Klassenziel)
+// alle persönlichen Seiten der Klasse. `klasse` bleibt im Kontext für den Rückblick (Themen).
+function personalCtx(g, now = new Date()) {
+  const sa = studentAppOf(g);
+  return { lessons: pastLessonDates(g, now), klasse: studentAppSnapshot(g, now), start: classYearStart(g, formatDate(now)),
+    klasseRef: studentAppOn() && sa.on && sa.access ? { id: sa.access.id, key: sa.access.key } : null };
+}
 // Auszug für die persönliche Seite. Ohne Zeitstempel (wie die Klassenseite): gleicher Inhalt → kein neues Schreiben.
 function studentPersonalSnapshot(g, s, now = new Date(), ctx = null) {
   const todayStr = formatDate(now);
-  ctx = ctx || { lessons: pastLessonDates(g, now), klasse: studentAppSnapshot(g, now), start: classYearStart(g, todayStr) };
+  ctx = ctx || personalCtx(g, now);
   const p = personalOf(g), info = studentPersonalInfo(g, s, todayStr);
   const feedback = yearParticipation(s, todayStr).filter(x => !x.label && partLevel(x.value))
     .sort((a, b) => a.date.localeCompare(b.date)).slice(-400).map(x => ({ date: x.date, v: x.value }));   // ganzes Schuljahr (AJ3g), Grenze nur gegen Ausreißer
@@ -12701,7 +12731,7 @@ function studentPersonalSnapshot(g, s, now = new Date(), ctx = null) {
     cls: g.className || '', subject: g.subject || '', teacher: studentAppTeacherName(), color: g.color || '',
     xp: info.xp, level: info.level, from: info.from, next: info.next, rank: info.rank, nextRank: info.nextRank,
     jokers: { ...info.jokers, max: SA_JOKER_MAX, every: SA_JOKER_EVERY, list: p.jokers },
-    feedback, streak: studentStreak(s, ctx.lessons, todayStr), klasse: ctx.klasse,
+    feedback, streak: studentStreak(s, ctx.lessons, todayStr), ...(ctx.klasseRef ? { klasseRef: ctx.klasseRef } : {}),
     year: studentYearMap(s, ctx, todayStr),
     ...studentStickerSnapshot(g, s, ctx, todayStr),
     ...studentReviewPart(g, s, ctx, todayStr),
@@ -12803,10 +12833,10 @@ function classYearStart(g, todayStr) {
   return first || todayStr;
 }
 // Veröffentlichen je Schüler (aus publishStudentApps); fehlt ein Zugang (neuer Schüler), wird er angelegt
-async function publishPersonalPages(g, active) {
+async function publishPersonalPages(g, active, force = false) {
   const students = db.students[g.id] || [];
   if (active && students.map(ensureStudentAccess).includes(true)) saveDB();
-  const ctx = active ? { lessons: pastLessonDates(g, new Date()), klasse: studentAppSnapshot(g), start: classYearStart(g, formatDate(new Date())) } : null;
+  const ctx = active ? personalCtx(g) : null;
   for (const st of students) {
     const acc = studentAccessOf(st);
     if (!acc) continue;
@@ -12814,7 +12844,7 @@ async function publishPersonalPages(g, active) {
     if (active) {
       const snap = studentPersonalSnapshot(g, st, new Date(), ctx);
       const hash = await contentHash(JSON.stringify(snap));
-      if ((saRead(markKey, {}) || {}).hash === hash) continue;
+      if (!saPublishDue(saRead(markKey, {}) || {}, hash, force)) continue;
       await SyncManager.publishShare(acc.id, await StudentShare.encrypt({ ...snap, at: Date.now() }, acc.key));
       saWrite(markKey, { hash, at: Date.now() });
     } else if (saRead(markKey, null)) {

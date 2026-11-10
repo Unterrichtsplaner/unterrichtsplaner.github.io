@@ -39,7 +39,7 @@ beforeEach(() => {
   app('db = migrateDB(' + JSON.stringify(sampleDB()) + ')');
   Object.assign(cloud, { docs: {}, publishes: [], deletes: [] });
   Object.keys(localStorage).filter(k => k.startsWith('sa_')).forEach(k => localStorage.removeItem(k));
-  app('studentAppProblem = null; saPublishing = false; saPublishAgain = false');
+  app('studentAppProblem = null; saPublishing = false; saPublishAgain = false; clearTimeout(saPublishTimer); saPublishTimer = null; saPendingAt = null');
   if (app('typeof choiceResolve === "function"')) app('answerChoice(null)');
   document.querySelectorAll('.modal-overlay').forEach(m => m.classList.add('hidden'));
   stubCloud();
@@ -101,8 +101,9 @@ describe('Auszug der persönlichen Seite', () => {
     expect(y.map(c => c.date)).toEqual([...y.map(c => c.date)].sort());
     expect(y[y.length - 1].date).toBe('2026-11-09');   // heutige Stunde ist um 10 Uhr vorbei
   });
-  it('enthält die Klassenseite als zweiten Reiter', () => {
-    expect(snap().klasse).toMatchObject({ v: 2, cls: '7b' });
+  it('verweist auf die Klassenseite für den zweiten Reiter, statt sie mitzuschicken (AK3)', () => {
+    expect(snap().klasse).toBeUndefined();
+    expect(snap().klasseRef).toEqual(app('db.groups[0].studentApp.access'));
   });
 });
 

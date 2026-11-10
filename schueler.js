@@ -547,6 +547,24 @@
     if (retry) page.querySelector('#retry').addEventListener('click', () => load());
   }
 
+  // Klassenseite zur persönlichen Seite (AK3): eigenes Dokument, eigener Zwischenspeicher. Scheitert es, geht die
+  // persönliche Seite trotzdem; der Reiter „Klasse“ sagt dann, dass sie gerade fehlt. Wirft nie.
+  async function loadKlasse(ref) {
+    if (!ref || !StudentShare.isAccess(ref)) return null;
+    const cacheKey = 'sa_cache_' + ref.id;
+    let doc = null, offline = false;
+    try {
+      const snap = await withTimeout(firebase.firestore().collection('shares').doc(ref.id).get(), 12000);
+      if (!snap.exists) { try { localStorage.removeItem(cacheKey); } catch (e) { /* egal */ } return null; }
+      doc = snap.data();
+      try { localStorage.setItem(cacheKey, JSON.stringify(doc)); } catch (e) { /* voll oder privat */ }
+    } catch (e) {
+      try { doc = JSON.parse(localStorage.getItem(cacheKey)); } catch (x) { doc = null; }
+      offline = true;
+    }
+    if (!doc) return null;
+    try { return { data: await StudentShare.decrypt(doc, ref.key), offline }; } catch (e) { return null; }
+  }
   const withTimeout = (p, ms) => Promise.race([p, new Promise((_, rej) => setTimeout(() => rej(Object.assign(new Error('Zeitüberschreitung'), { code: 'unavailable' })), ms))]);
   let loading = false;
   async function load() {
@@ -579,7 +597,14 @@
       loading = false;
     }
     try {
-      draw(await StudentShare.decrypt(doc, access.key), { offline });
+      const data = await StudentShare.decrypt(doc, access.key);
+      // Persönliche Seite verweist auf die Klassenseite (AK3); ältere Planer schickten sie noch mit (Regel 15)
+      if (data && data.kind === 'me' && !data.klasse && data.klasseRef) {
+        const k = await loadKlasse(data.klasseRef);
+        data.klasse = k ? k.data : null;
+        if (k && k.offline) offline = true;
+      }
+      draw(data, { offline });
     } catch (e) {
       if (e && e.name === 'ShareFormatError' && /neuere/.test(e.message)) message('Bitte neu laden', 'Diese Seite braucht eine neuere Version. Lade sie neu.', true);
       else message('Link passt nicht', 'Frag deine Lehrkraft nach dem aktuellen Code.');
@@ -592,7 +617,7 @@
   const preview = /[?&]vorschau\b/.test(location.search);
   // Vorschau im Planer: Inhalt kommt vom Planer, nichts wird geladen
   window.renderStudentPage = data => { if (data && typeof data === 'object') draw(data, {}); };
-  window.SchuelerSeite = { buildClassPage, buildMePage, rel, icsFor, setMeTab: t => { meTab = t; }, REWARDS, COLORS };
+  window.SchuelerSeite = { buildClassPage, buildMePage, rel, icsFor, setMeTab: t => { meTab = t; }, REWARDS, COLORS, load };
   if (preview) { message('Vorschau', 'Wird gleich gezeigt.'); return; }
   load();
   // Zurück in die App oder neuer Tag: frisch laden bzw. „heute/morgen“ neu rechnen

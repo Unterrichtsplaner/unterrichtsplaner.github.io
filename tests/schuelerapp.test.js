@@ -71,7 +71,7 @@ beforeEach(() => {
   app('db = migrateDB(' + JSON.stringify(sampleDB()) + ')');
   Object.assign(cloud, { docs: {}, publishes: [], deletes: [], denied: false });
   Object.keys(localStorage).filter(k => k.startsWith('sa_')).forEach(k => localStorage.removeItem(k));
-  app('studentAppProblem = null; saPublishing = false; saPublishAgain = false');
+  app('studentAppProblem = null; saPublishing = false; saPublishAgain = false; clearTimeout(saPublishTimer); saPublishTimer = null; saPendingAt = null');
   stubCloud(true);
 });
 afterEach(() => vi.useRealTimers());
@@ -246,6 +246,9 @@ describe('Veröffentlichen (publishStudentApps)', () => {
     await publish();
     expect(cloud.publishes.length).toBe(1);   // gleicher Inhalt: nichts geschrieben
     app('db.lessonData["s1_2026-11-09"].hwItems.push({ id: "h2", text: "AB fertig", targetDate: "2026-11-12" })');
+    await publish();
+    expect(cloud.publishes.length).toBe(1);   // geändert, aber höchstens alle 10 Minuten (AK3)
+    vi.setSystemTime(new Date(2026, 10, 9, 10, 11));
     await publish();
     expect(cloud.publishes.length).toBe(2);
   });
