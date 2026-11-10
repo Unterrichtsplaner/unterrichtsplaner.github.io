@@ -300,7 +300,8 @@ describe('Persönliche Seite (AJ2)', () => {
   it('Reiter „Klasse“ zeigt die Klassenseite ohne doppelten Kopf', () => {
     window.SchuelerSeite.setMeTab('klasse');
     page().innerHTML = window.SchuelerSeite.buildMePage(me(), NOW);
-    expect(page().querySelectorAll('.class-name').length).toBe(1);
+    expect(page().querySelectorAll('.class-name, header.top').length).toBe(0);   // Klasse steht nur oben in der Kopfzeile (AJ3l)
+    expect(page().querySelector('.me-top').textContent).toMatch(/7b/);
     expect(page().textContent).toMatch(/Inhaltsverzeichnis/);
   });
 
@@ -321,62 +322,65 @@ describe('Persönliche Seite (AJ2)', () => {
   });
 });
 
-describe('Belohnungen zum Aussuchen (AJ3b, ersetzt AJ2d)', () => {
+describe('Belohnungen: Leuchtfarben zum Aussuchen (AJ3l, ersetzt AJ3b)', () => {
   const me = level => ({ v: 1, kind: 'me', first: 'Anna', cls: '7b', subject: 'Mathe', level, xp: 10 * level, from: 10 * level - 5, next: 10 * level + 5, jokers: {}, feedback: [], year: [] });
-  const heft = () => document.querySelector('.heft');
-  const look = () => [...heft().classList].filter(c => /^(st|hc|pp|mk)-/.test(c)).sort();
-  beforeEach(() => { Object.keys(localStorage).filter(k => /^sa_(look|seen)_/.test(k)).forEach(k => localStorage.removeItem(k)); window.SchuelerSeite.setMeTab('ich'); });
+  const sig = () => document.documentElement.style.getPropertyValue('--c-sig');
+  const C = () => window.SchuelerSeite.COLORS;
+  beforeEach(() => { Object.keys(localStorage).filter(k => /^sa_(look|seen|farbe)_/.test(k)).forEach(k => localStorage.removeItem(k)); window.SchuelerSeite.setMeTab('ich'); });
   afterEach(() => { window.SchuelerSeite.setMeTab('ich'); window.renderStudentPage({ v: 2, cls: '7b' }); });
 
-  it('Freischaltung alle zwei Level ab 3, im Wechsel Stempel, Heftfarbe, Papier, Textmarker', () => {
+  it('alle zwei Level ab 3 eine neue Farbe', () => {
     const r = window.SchuelerSeite.REWARDS;
-    expect(r.slice(0, 4).map(x => [x.level, x.kind])).toEqual([[3, 'stamp'], [5, 'color'], [7, 'paper'], [9, 'marker']]);
+    expect(r.slice(0, 4).map(x => [x.level, x.id])).toEqual([[3, 'sand'], [5, 'koralle'], [7, 'mint'], [9, 'sonne']]);
     expect(r.every((x, i) => x.level === 3 + 2 * i)).toBe(true);
   });
 
-  it('Level 1: Standard-Heft, nichts zum Aussuchen außer dem Standard, kein goldener Rahmen mehr', () => {
+  it('Level 1: nur Aqua, die nächste Farbe als Hinweis', () => {
     window.renderStudentPage(me(1));
-    expect(look()).toEqual(['hc-white', 'mk-yellow', 'pp-karo', 'st-circle']);
+    expect(sig()).toBe(C().aqua[1]);
     window.SchuelerSeite.setMeTab('sammlung');
     window.renderStudentPage(me(1));
-    expect(page().querySelectorAll('.rw[data-look]').length).toBe(4);   // je Art nur der Standard
-    expect(page().querySelector('.rw.locked').textContent).toMatch(/Stern.*ab Level 3/);
-    expect(document.querySelector('.u-gold')).toBeNull();
+    expect(page().querySelectorAll('.rw[data-look]').length).toBe(1);
+    expect(page().querySelector('.rw.locked').textContent).toMatch(/Sand.*ab Level 3/);
   });
 
   it('neu freigeschaltet: Hinweis auf „Ich“, verschwindet nach dem Blick in die Sammlung', () => {
     window.renderStudentPage(me(5));
-    expect(page().querySelector('.newrw').textContent).toMatch(/Heftfarbe „Mint“/);
+    expect(page().querySelector('.newrw').textContent).toMatch(/Neue Farbe: Koralle/);
     page().querySelector('.newrw [data-tab="sammlung"]').click();
     expect(page().querySelector('[data-tab="sammlung"]').getAttribute('aria-selected')).toBe('true');
     page().querySelector('[data-tab="ich"]').click();
     expect(page().querySelector('.newrw')).toBeNull();
   });
 
-  it('aussuchen: Stern und Mint gewählt, gilt sofort für die ganze Seite und bleibt auf dem Handy', () => {
+  it('aussuchen: Farbe gilt sofort für die Level-Fläche und bleibt auf dem Handy', () => {
     window.SchuelerSeite.setMeTab('sammlung');
     window.renderStudentPage(me(5));
-    page().querySelector('[data-look="stamp"][data-val="star"]').click();
-    page().querySelector('[data-look="color"][data-val="mint"]').click();
-    expect(look()).toEqual(['hc-mint', 'mk-yellow', 'pp-karo', 'st-star']);
-    expect(page().querySelector('[data-val="star"]').getAttribute('aria-pressed')).toBe('true');
-    expect(JSON.parse(localStorage.getItem('sa_look_vorschau'))).toMatchObject({ stamp: 'star', color: 'mint' });
+    page().querySelector('[data-look="color"][data-val="koralle"]').click();
+    expect(sig()).toBe(C().koralle[1]);
+    expect(page().querySelector('[data-val="koralle"]').getAttribute('aria-pressed')).toBe('true');
+    expect(JSON.parse(localStorage.getItem('sa_farbe_vorschau'))).toBe('koralle');
     window.SchuelerSeite.setMeTab('ich');
     window.renderStudentPage(me(5));
-    expect(look()).toContain('st-star');
+    expect(sig()).toBe(C().koralle[1]);
   });
 
-  it('Level gesunken (Korrektur): nicht mehr freigeschaltete Wahl fällt auf den Standard zurück', () => {
-    localStorage.setItem('sa_look_vorschau', JSON.stringify({ stamp: 'crown', color: 'mint', paper: 'dots', marker: 'green' }));
+  it('Level gesunken (Korrektur): nicht mehr freigeschaltete Farbe fällt auf Aqua zurück; alte Heft-Wahl wird ignoriert', () => {
+    localStorage.setItem('sa_farbe_vorschau', JSON.stringify('sonne'));
     window.renderStudentPage(me(6));
-    expect(look()).toEqual(['hc-mint', 'mk-yellow', 'pp-karo', 'st-circle']);
+    expect(sig()).toBe(C().aqua[1]);
+    localStorage.removeItem('sa_farbe_vorschau');
+    localStorage.setItem('sa_look_vorschau', JSON.stringify({ stamp: 'star', color: 'mint' }));
+    window.renderStudentPage(me(9));
+    expect(sig()).toBe(C().aqua[1]);
   });
 
-  it('Klassenseite (ohne persönlichen Link): immer das normale Heft', () => {
-    localStorage.setItem('sa_look_vorschau', JSON.stringify({ stamp: 'star' }));
+  it('Klassenseite (ohne persönlichen Link): immer Aqua', () => {
+    localStorage.setItem('sa_farbe_vorschau', JSON.stringify('sand'));
     window.renderStudentPage(me(9));
+    expect(sig()).toBe(C().sand[1]);
     window.renderStudentPage({ v: 2, cls: '7b' });
-    expect(look()).toEqual([]);
+    expect(sig()).toBe(C().aqua[1]);
   });
 
   it('Reiter „Ich“ zeigt nur das Wichtigste: Karte, was ansteht, letzte 6 Stunden', () => {
@@ -390,7 +394,7 @@ describe('Belohnungen zum Aussuchen (AJ3b, ersetzt AJ2d)', () => {
     expect(page().querySelector('.card.joker')).toBeNull();   // kein Joker frei: nichts dazu auf „Ich“
   });
 
-  it('„Ich“ geordnet (Wunsch 09.11.): XP und Rückmeldung eine Karte oben, dann Baustelle, dann Joker', () => {
+  it('„Ich“ geordnet (Wunsch 09./10.11., AJ3l): Level-Fläche oben, gleich darunter die letzten Stunden, dann Baustelle, dann Joker', () => {
     const d = me(4);
     d.feedback = [{ date: '2026-11-02', v: 'positive' }];
     d.jokers = { open: 1, list: ['Platz wählen'] };
@@ -398,7 +402,7 @@ describe('Belohnungen zum Aussuchen (AJ3b, ersetzt AJ2d)', () => {
     window.renderStudentPage(d);
     const cards = [...page().querySelectorAll('.card')];
     const hero = page().querySelector('.card.hero');
-    expect(hero.querySelector('.fb .sp')).not.toBeNull();   // Rückmeldung steckt in der Level-Karte
+    expect(hero.nextElementSibling.querySelector('.fb .sp')).not.toBeNull();   // Plusse direkt unter dem Level
     expect(page().querySelectorAll('.fb').length).toBe(1);
     expect(cards.map(c => ['hero', 'bau', 'joker'].find(k => c.classList.contains(k))).filter(Boolean)).toEqual(['hero', 'bau', 'joker']);   // Level und Plusse ganz oben, Joker nach der Baustelle (Wunsch 10.11.)
   });
@@ -453,7 +457,7 @@ describe('Belohnungen zum Aussuchen (AJ3b, ersetzt AJ2d)', () => {
     expect(t).not.toMatch(/Alt/);
     expect(t).toMatch(/09:45/);
     expect(t).toMatch(/R 104/);
-    expect(t).toMatch(/Klassenarbeit Brüche.*in 16 Tagen/);
+    expect(t).toMatch(/16\s*Tage bis zur Arbeit\s*Klassenarbeit Brüche/);   // die Arbeit als große Zahl (AJ3l)
     expect(page().querySelector('.card.hero').compareDocumentPosition(soon) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();   // nach der Level-Karte (Wunsch 10.11.)
     localStorage.setItem('sa_tick_2026-11-11_S. 42 Nr. 3', '1');   // für sich abgehakt → nächste offene
     window.renderStudentPage(d);
@@ -470,10 +474,22 @@ describe('Belohnungen zum Aussuchen (AJ3b, ersetzt AJ2d)', () => {
     expect(page().querySelector('.soon')).toBeNull();
   });
 
-  it('Abhak-Kästchen mit 44 px Tippfläche, Kran überdeckt den Baustellen-Text nicht (AJ3i)', () => {
+  it('Abhak-Kästchen mit 44 px Tippfläche (AJ3i)', () => {
     const css = fs.readFileSync(path.join(__dirname, '..', 'schueler.css'), 'utf8');
     expect(css).toMatch(/\.qbox::after \{[^}]*inset: -10px/);
-    expect(css).toMatch(/\.bau \.bt \{[^}]*padding-right: 40px/);
+  });
+
+  it('Arbeit heute: großes Wort statt einer Null; Plus von heute ist markiert (AJ3l)', () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date(2026, 10, 10, 15, 0));
+    const d = me(4);
+    d.feedback = [{ date: '2026-11-06', v: 'positive' }, { date: '2026-11-10', v: 'excellent' }];
+    d.klasse = { v: 2, cls: '7b', tests: [{ date: '2026-11-10', text: 'Kurztest' }] };
+    window.renderStudentPage(d);
+    expect(page().querySelector('.soon .huge').textContent).toBe('Heute');
+    expect(page().querySelector('.soon').textContent).toMatch(/ist die Arbeit/);
+    expect([...page().querySelectorAll('.fb > div')].map(x => x.className)).toEqual(['', 'today']);
+    vi.useRealTimers();
   });
 
   it('lange Vornamen werden kleiner statt im Wort umzubrechen', () => {
@@ -482,10 +498,6 @@ describe('Belohnungen zum Aussuchen (AJ3b, ersetzt AJ2d)', () => {
     expect(page().querySelector('.who').className).toContain('long');
   });
 
-  it('Abstand zwischen Reitern und erster Karte', () => {
-    const css = fs.readFileSync(path.join(__dirname, '..', 'schueler.css'), 'utf8');
-    expect(css).toMatch(/\.me-top \{[^}]*margin-bottom: \d+px/);
-  });
 });
 
 describe('Fühlt sich an wie eine App (Wunsch 09.11.)', () => {
@@ -496,8 +508,8 @@ describe('Fühlt sich an wie eine App (Wunsch 09.11.)', () => {
     expect(css).toMatch(/html, body \{[^}]*touch-action: pan-y/);
     expect(js).toMatch(/gesturestart/);
   });
-  it('kein seitliches Verschieben', () => {
-    expect(css).toMatch(/html, body \{[^}]*overflow-x: hidden/);
+  it('kein seitliches Verschieben (clip statt hidden, sonst klebt nichts mehr)', () => {
+    expect(css).toMatch(/html, body \{[^}]*overflow-x: clip/);
   });
 });
 
@@ -528,16 +540,24 @@ describe('Farben (Wunsch 09.11.): kein Lila, Ränge in Rangfarben', () => {
   });
 });
 
-describe('Alles wie ein Heft (AJ3j)', () => {
+describe('Gestaltung Farbflächen (AJ3l, ersetzt AJ3j)', () => {
   const css = fs.readFileSync(path.join(__dirname, '..', 'schueler.css'), 'utf8');
   const me = (level, extra = {}) => ({ v: 1, kind: 'me', first: 'Anna', cls: '7b', level, xp: 10, from: 0, next: 20, jokers: {}, feedback: [], year: [], ...extra });
   afterEach(() => { window.SchuelerSeite.setMeTab('ich'); window.renderStudentPage({ v: 2, cls: '7b' }); });
 
-  it('Reiter als Registerlaschen, jede mit eigener Farbe; kein iPhone-Umschalter mehr', () => {
+  it('Reiter als große Wörter, der gewählte mit Strich in der Leuchtfarbe', () => {
     window.renderStudentPage(me(3));
     const tabs = [...page().querySelectorAll('.tabs [data-tab]')];
-    expect(tabs.map(b => b.className.match(/lasche-\w+/)[0])).toEqual(['lasche-ich', 'lasche-sammlung', 'lasche-klasse']);
-    expect(css).toMatch(/\.tabs button \{[^}]*border-radius: 10px 10px 0 0/);
+    expect(tabs.map(b => b.textContent)).toEqual(['Ich', 'Sammlung', 'Klasse']);
+    expect(tabs.map(b => b.classList.contains('on'))).toEqual([true, false, false]);
+    expect(css).toMatch(/\.tabs button\.on::after \{[^}]*background: var\(--c-sig\)/);
+  });
+
+  it('jede Fläche hat eine Farbe aus der Ozean-Reihe, keine Kästen mit Schatten', () => {
+    window.renderStudentPage(me(3, { bau: { text: 'Material', since: '2026-11-01' }, jokers: { open: 1, list: ['A'] }, klasse: { tests: [{ date: '2099-01-01', text: 'T' }] } }));
+    const kinds = [...page().querySelectorAll('.f')].map(f => [...f.classList].find(c => /^f-/.test(c)));
+    expect(kinds).toEqual(['f-sig', 'f-ink', 'f-sand', 'f-paper', 'f-mist', 'f-paper']);   // zuletzt „Neue Farbe: Sand“ (Level 3)
+    expect(css).not.toMatch(/box-shadow: \d+px \d+px 0/);   // kein harter Blockschatten mehr
   });
 
   it('nächster Rang steht als Tintenschrift in seiner Farbe, ab Diamant „Höchster Rang“', () => {
@@ -548,11 +568,6 @@ describe('Alles wie ein Heft (AJ3j)', () => {
     expect(page().querySelector('.rank-row').textContent).toMatch(/Höchster Rang/);
   });
 
-  it('lange Rangnamen schmaler statt umzubrechen', () => {
-    window.renderStudentPage(me(3, { rank: 'Durchblicker' }));
-    expect(page().querySelector('.rank-stamp').classList.contains('long')).toBe(true);
-  });
-
   it('„Wie funktioniert das?“ in der Level-Karte erklärt XP, Rang und Joker', () => {
     window.renderStudentPage(me(3, { jokers: { every: 4 } }));
     const help = page().querySelector('.hero details.xp-help');
@@ -560,12 +575,12 @@ describe('Alles wie ein Heft (AJ3j)', () => {
     expect(help.textContent).toMatch(/\+ gibt 10 XP.*Abgezogen wird nie etwas.*Alle 2 Level steigt dein Rang.*alle 4 Level gibt es einen Joker/s);
   });
 
-  it('Sammlung: nur Freigeschaltetes, dazu genau eine Karte „Als Nächstes“', () => {
+  it('Sammlung: nur freigeschaltete Farben, dazu genau ein Hinweis auf die nächste', () => {
     window.SchuelerSeite.setMeTab('sammlung');
     window.renderStudentPage(me(5));
     expect(page().querySelectorAll('.rw.locked').length).toBe(1);
-    expect(page().querySelector('.rw.locked').textContent).toMatch(/Punkte.*ab Level 7/);
-    expect(page().querySelectorAll('.rw[data-look]').length).toBe(6);   // 4 Standard + Stern + Mint
+    expect(page().querySelector('.rw.locked').textContent).toMatch(/Mint.*ab Level 7/);
+    expect(page().querySelectorAll('.rw[data-look]').length).toBe(3);   // Aqua, Sand, Koralle
   });
 
   it('Sticker von der Lehrkraft stehen nicht noch einmal im Album', () => {
@@ -578,9 +593,8 @@ describe('Alles wie ein Heft (AJ3j)', () => {
     expect(page().querySelector('.album').previousElementSibling.textContent).toMatch(/2 gesammelt/);
   });
 
-  it('Sticker als gestanzte Aufkleber: weißer Rand, runde Form, Textmarker-Ton', () => {
-    expect(css).toMatch(/\.gift \.s, \.stk \.s \{[^}]*border: 4px solid #fff/);
-    expect(css).toMatch(/\.gift \.s, \.stk \.s \{[^}]*color-mix\(in srgb, var\(--stk\)/);
+  it('Sticker als runde Aufkleber mit hellem Rand', () => {
+    expect(css).toMatch(/\.gift \.s, \.stk \.s \{[^}]*border-radius: 50%[^}]*border: 4px solid var\(--c-paper\)/);
   });
 
   it('keine Schrift unter 12 px auf der Schülerseite', () => {

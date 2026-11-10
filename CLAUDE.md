@@ -38,7 +38,7 @@ lib/crypto-js.min.js → crypto-helper.js → lib/firebase-*-compat.js → fireb
 | `sync-manager.js` | Firebase-Auth + Firestore, Sync-Entscheidung (`decideSync`), Passwort-Probe, Upload per Transaktion |
 | `sync-merge.js` | Drei-Wege-Abgleich als reine Funktionen (`mergeDB`, `finishMerge`, `describeDifferences`), ohne Zugriff auf die App |
 | `student-share.js` | Schülerapp (AJ1): Zugang (Kennung + Schlüssel), Ver-/Entschlüsseln, Link. Gemeinsam für Planer und Schülerseite, ohne Zugriff auf `db` |
-| `schueler.html`, `schueler.js`, `schueler.css` | Schülerapp (AJ1): Seite für die Klasse, nur zum Lesen, eigene Gestaltung „Karoheft“. Lädt `shares/<id>` ohne Konto und entschlüsselt im Browser; im Planer als Vorschau (`?vorschau`, `renderStudentPage`) |
+| `schueler.html`, `schueler.js`, `schueler.css` | Schülerapp (AJ1): Seite für die Klasse, nur zum Lesen, eigene Gestaltung „Farbflächen, Ozean“ (AJ3l, DESIGN.md). Lädt `shares/<id>` ohne Konto und entschlüsselt im Browser; im Planer als Vorschau (`?vorschau`, `renderStudentPage`) |
 | `crypto-helper.js` | E2EE: verschlüsselt die komplette DB mit dem Master-Passwort, bevor sie in die Cloud geht |
 | `sw.js` | Service Worker: die Seite (index.html) network-first mit Cache-Fallback, alle anderen eigenen Dateien cache-first. Cache-Liste `ASSETS` muss exakt zu den URLs in index.html passen |
 | `firestore.rules` | Kopie der Firestore-Sicherheitsregeln (jeder Nutzer nur sein eigenes Dokument). Änderungen hier **und** in der Firebase-Konsole machen |

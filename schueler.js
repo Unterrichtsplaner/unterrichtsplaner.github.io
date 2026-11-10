@@ -94,12 +94,12 @@
     const stamps = list(g.stamps).filter(x => isDate(x.date));
     const best = stamps.reduce((m, x) => Math.max(m, Number(x.n) || 0), 0);
     const halfway = !done && count >= target / 2;
-    const head = `<div class="t">${count} von ${target} Plussen</div>
+    const head = `<span class="t" aria-hidden="true">${count}<small>/${target}</small></span><span class="vh">${count} von ${target} Plussen</span>
       <div class="hl" role="img" aria-label="${count} von ${target} Plussen"><div class="hl-track"></div><div class="hl-fill" style="width:${pct}%"></div>
         <i class="mile" style="left:50%" aria-hidden="true"></i><div class="hl-text">${done ? 'geschafft' : `noch ${target - count}`}</div></div>
       ${g.reward ? `<div class="r">${done ? 'Geschafft, es gibt' : 'Dann gibt es'}: <b>${esc(g.reward)}</b></div>` : ''}`;
-    if (!stamps.length) return `<div class="card goal">${head}</div>`;
-    return `<details class="card goal"><summary>${head}<span class="open-hint">Stempelkarte</span></summary>
+    if (!stamps.length) return `<div class="goal">${head}</div>`;
+    return `<details class="goal"><summary>${head}<span class="open-hint">Stempelkarte</span></summary>
       <div class="more">
         <div class="stamps">${stamps.map(x => {
           const n = Number(x.n) || 0;
@@ -138,49 +138,50 @@
   function buildClassPage(d, now = new Date(), opts = {}) {
     const today = fmt(now);
     const hhmm = `${pad2(now.getHours())}:${pad2(now.getMinutes())}`;
-    let html = `<header><div class="class-name">${esc(d.cls || 'Klasse')}</div>`;
-    const sub = [d.subject, d.teacher ? `bei ${dativ(d.teacher)}` : ''].filter(Boolean).join(' ');
-    if (sub) html += `<div class="class-sub">${esc(sub)}</div>`;
-    html += '</header>';
-    if (opts.offline) html += '<div class="banner">Offline: zuletzt geladener Stand</div>';
+    let html = '';
+    if (!opts.noHead) {   // im Reiter „Klasse“ der persönlichen Seite steht der Kopf schon oben
+      const sub = [d.subject, d.teacher ? `bei ${dativ(d.teacher)}` : ''].filter(Boolean).join(' ');
+      html += `<header class="top"><div class="class-name">${esc(d.cls || 'Klasse')}</div>${sub ? `<div class="class-sub">${esc(sub)}</div>` : ''}</header>`;
+      if (opts.offline) html += '<div class="banner">Offline: zuletzt geladener Stand</div>';
+    }
 
     const tests = list(d.tests).filter(x => isDate(x.date) && x.date >= today);
     const hw = list(d.hw).filter(x => isDate(x.date) && x.date >= today);
     const toc = tocOf(d);
-    let left = '', right = '', shown = 0;
+    // Farbflächen (AJ3l): Ziel Meerblau, Aufträge hell, Inhaltsverzeichnis auf Tinte, Termine Sand
+    let body = '', shown = 0;
 
-    if (d.goal && Number(d.goal.target) > 0) { left += `<section><h2>Klassenziel</h2>${goalHTML(d.goal, today)}</section>`; shown++; }
+    if (d.goal && Number(d.goal.target) > 0) { body += `<section class="f f-sea"><h2>Klassenziel</h2>${goalHTML(d.goal, today)}</section>`; shown++; }
     if (d.hw) {
-      left += '<section><h2>Aufträge</h2>' + (hw.length ? hw.map((x, i) => {
+      body += '<section class="f f-paper"><h2>Aufträge</h2>' + (hw.length ? hw.map((x, i) => {
         const on = ticked(x);
         return `<div class="quest${on ? ' is-done' : ''}"><button type="button" class="qbox" data-tick="${i}" aria-pressed="${on}" aria-label="Für dich abhaken: ${esc(x.text)}">${on ? '✓' : ''}</button>
           <div><div class="q">${esc(x.text)}</div><div class="d">bis ${esc(short(x.date))}, ${esc(rel(x.date, today))}</div></div></div>`;
-      }).join('') : '<p class="empty" style="margin-top:0">Gerade nichts auf.</p>') + '</section>';
+      }).join('') : '<p class="empty">Gerade nichts auf.</p>') + '</section>';
       shown++;
     }
     if (toc && (toc.items.length || tests.length)) {
       if (toc.fromLessons) {
         const rows = lessonRows(toc);
-        right += `<section><h2>Zuletzt im Unterricht</h2>${rows ? `<div class="card toc">${rows}</div>` : '<p class="empty" style="margin-top:0">Noch nichts eingetragen.</p>'}</section>`;
-        if (tests.length) right += `<section><h2>Klassenarbeit</h2><div class="card toc">${testRow(tests[0], today)}</div></section>`;
+        body += `<section class="f f-ink"><h2>Zuletzt im Unterricht</h2>${rows ? `<div class="toc">${rows}</div>` : '<p class="empty">Noch nichts eingetragen.</p>'}</section>`;
+        if (tests.length) body += `<section class="f f-ink"><h2>Klassenarbeit</h2><div class="toc">${testRow(tests[0], today)}</div></section>`;
       } else {
         let n = 0;
-        right += `<section><h2>Inhaltsverzeichnis</h2><div class="card toc">${tocRows(toc, tests.slice(0, 1)).map(r =>
+        body += `<section class="f f-ink"><h2>Inhaltsverzeichnis</h2><div class="toc">${tocRows(toc, tests.slice(0, 1)).map(r =>
           r.kind === 'test' ? testRow(r.x, today) : topicRow(r.x, ++n, today)).join('')}</div></section>`;
       }
       shown++;
     } else if (tests.length) {
-      right += `<section><h2>Klassenarbeit</h2><div class="card toc">${testRow(tests[0], today)}</div></section>`;
+      body += `<section class="f f-ink"><h2>Klassenarbeit</h2><div class="toc">${testRow(tests[0], today)}</div></section>`;
       shown++;
     }
     const cal = [...tests.map(x => ({ date: x.date, text: x.text })), ...hw.map(x => ({ date: x.date, text: x.text }))];
     if (tests.length > 1 || cal.length) {
-      right += '<section><h2>Termine</h2>' + tests.slice(1).map(x => `<div class="quest term"><div><div class="q"><span class="tag">Test</span>${esc(x.text)}</div>
+      body += '<section class="f f-sand"><h2>Termine</h2>' + tests.slice(1).map(x => `<div class="quest term"><div><div class="q"><span class="tag">Test</span>${esc(x.text)}</div>
         <div class="d">${esc(short(x.date))}, ${esc(rel(x.date, today))}</div></div></div>`).join('')
         + `<button type="button" class="cal wide" data-cal="all">Alle Termine in meinen Kalender</button></section>`;
     }
-    if (!shown) html += '<p class="empty">Gerade steht hier nichts. Schau später noch einmal rein.</p>';
-    else html += `<div class="spread"><div class="col">${left}</div><div class="col">${right}</div></div>`;
+    html += shown ? body : '<section class="f f-ink"><p class="empty">Gerade steht hier nichts. Schau später noch einmal rein.</p></section>';
 
     const next = list(d.next).find(n => isDate(n.date) && (n.date > today || (n.date === today && String(n.end) > hhmm)));
     const foot = [];
@@ -199,9 +200,10 @@
   let meTab = 'ich';   // nur Ansicht, nie gespeichert
   function meHead(d) {
     const sub = [d.subject, d.teacher ? `bei ${dativ(d.teacher)}` : ''].filter(Boolean).join(' ');
-    return `<header class="me-top"><div><div class="class-name me-cls">${esc(d.cls || 'Klasse')}</div>${sub ? `<div class="class-sub">${esc(sub)}</div>` : ''}</div>
+    const head = [d.cls, sub].filter(Boolean).join(' ');   // „7b Mathematik bei Herrn …“ klein, die Reiter groß (AJ3l)
+    return `<header class="me-top">${head ? `<div class="class-sub">${esc(head)}</div>` : ''}
       <div class="tabs" role="tablist">${[['ich', 'Ich'], ['sammlung', 'Sammlung'], ['klasse', 'Klasse']].map(([k, l]) =>
-        `<button type="button" role="tab" data-tab="${k}" aria-selected="${meTab === k}" class="lasche-${k}${meTab === k ? ' on' : ''}">${l}</button>`).join('')}</div></header>`;
+        `<button type="button" role="tab" data-tab="${k}" aria-selected="${meTab === k}"${meTab === k ? ' class="on"' : ''}>${l}</button>`).join('')}</div></header>`;
   }
   // Jahreskarte (AJ2c): ein Feld je Stunde, nach Monaten; Zahlen darunter. Längste Serie wie im Planer: Fehltag zählt nicht dagegen
   const MONTHS = ['Jan', 'Feb', 'Mär', 'Apr', 'Mai', 'Jun', 'Jul', 'Aug', 'Sep', 'Okt', 'Nov', 'Dez'];
@@ -218,10 +220,10 @@
     cells.forEach(c => { if (c.v === 'a') return; if (c.v === 'positive' || c.v === 'excellent') best = Math.max(best, ++run); else run = 0; });
     const plus = cells.filter(c => c.v === 'positive' || c.v === 'excellent').length;
     const cls = v => (PART[v] ? PART[v][1] : v === 'a' ? 'a' : 'none');
-    return `<h2>Dein Schuljahr</h2><div class="yr">${months.map(mo => `<div class="yr-month"><span class="yr-m">${MONTHS[Number(mo.m.slice(5)) - 1]}</span>
+    return `<section class="f f-ink"><h2>Dein Schuljahr</h2><div class="yr">${months.map(mo => `<div class="yr-month"><span class="yr-m">${MONTHS[Number(mo.m.slice(5)) - 1]}</span>
         <span class="yr-cells">${mo.cells.map(c => `<i class="yr-c ${cls(c.v)}" title="${esc(short(c.date))}: ${esc(YR_WORD[c.v] || 'nichts eingetragen')}"></i>`).join('')}</span></div>`).join('')}</div>
       <div class="legend yr-legend">${[['pp', '++'], ['p', '+'], ['m', '−'], ['mm', '−−'], ['a', 'gefehlt'], ['none', 'nichts']].map(([c, l]) => `<span><i class="yr-c ${c}"></i>${l}</span>`).join('')}</div>
-      <div class="yr-stats"><span><b>${cells.length}</b> Stunden</span><span><b>${plus}</b> mit Plus</span><span><b>${best}</b> längste Serie</span></div>`;
+      <div class="yr-stats"><span><b>${cells.length}</b> Stunden</span><span><b>${plus}</b> mit Plus</span><span><b>${best}</b> längste Serie</span></div></section>`;
   }
   // Sticker und Baustelle (AJ2b). Symbole und Farben aus student-share.js, Unbekanntes als Stern.
   const stk = (icon, color, rot) => `<span class="s" style="--stk:${esc(StudentShare.stickerColor(color))};transform:rotate(${rot}deg)">${StudentShare.stickerSvg(icon)}</span>`;
@@ -229,16 +231,16 @@
   function bauHTML(d) {
     const b = d.bau && typeof d.bau === 'object' && d.bau.text ? d.bau : null;
     if (!b) return '';
-    return `<div class="card bau"><span class="ic">${StudentShare.stickerSvg('crane')}</span>
-      <div class="k">Deine Baustelle${isDate(b.since) ? ` seit ${esc(short(b.since).slice(3))}` : ''}</div>
-      <div class="bt"><span>${esc(b.text)}</span></div>
-      <div class="r">Schaffst du sie, gibt es den Sticker „Baustelle geschafft“ und ${Number(d.bauXP) || 0} XP.</div></div>`;
+    return `<section class="card f f-paper bau">
+      <p class="k">Deine Baustelle${isDate(b.since) ? ` seit ${esc(short(b.since).slice(3))}` : ''}</p>
+      <div class="bt">${esc(b.text)}</div>
+      <p class="r">Schaffst du sie, gibt es den Sticker „Baustelle geschafft“ und ${Number(d.bauXP) || 0} XP.</p></section>`;
   }
   function giftsHTML(d) {
     const gifts = list(d.gifts).filter(x => x && x.name && isDate(x.date)).slice(0, 6);
     if (!gifts.length) return '';
-    return `<h2>Von ${esc(dativ(d.giver || 'deiner Lehrkraft'))}</h2><div class="gifts">` + gifts.map((x, i) => `<div class="gift">${stk(x.icon, x.color, ROT[i % ROT.length])}
-      <div><b>${esc(x.name)}</b>${x.reason ? `<div class="q">„${esc(x.reason)}“</div>` : ''}<div class="d">${esc(short(x.date).slice(3))}${Number(x.xp) ? `, +${Number(x.xp)} XP` : ''}</div></div></div>`).join('') + '</div>';
+    return `<section class="f f-sea"><h2>Von ${esc(dativ(d.giver || 'deiner Lehrkraft'))}</h2><div class="gifts">` + gifts.map((x, i) => `<div class="gift">${stk(x.icon, x.color, ROT[i % ROT.length])}
+      <div><b>${esc(x.name)}</b>${x.reason ? `<div class="q">„${esc(x.reason)}“</div>` : ''}<div class="d">${esc(short(x.date).slice(3))}${Number(x.xp) ? `, +${Number(x.xp)} XP` : ''}</div></div></div>`).join('') + '</div></section>';
   }
   function albumHTML(d) {
     const got = list(d.album).filter(x => x && x.name), locked = list(d.locked).filter(x => x && x.name);
@@ -246,77 +248,64 @@
     // Was die Lehrkraft geschenkt hat, steht schon oben mit Grund (AJ3j: nicht doppelt); gezählt wird trotzdem alles
     const given = new Set(list(d.gifts).filter(x => x && x.name).map(x => x.name + '|' + x.icon));
     const rest = got.filter(x => !given.has(x.name + '|' + x.icon));
-    if (!rest.length && !locked.length) return `<h2>Sticker <small>${got.length} gesammelt</small></h2>`;
-    return `<h2>Sticker <small>${got.length} gesammelt</small></h2><div class="album">${rest.map((x, i) => `<div class="stk">${stk(x.icon, x.color, ROT[i % ROT.length])}<b>${esc(x.name)}</b></div>`).join('')}
-      ${locked.map(x => `<div class="stk locked"><span class="s">${StudentShare.stickerSvg(x.icon)}</span><b>${esc(x.name)}</b>${esc(x.hint || '')}</div>`).join('')}</div>`;
+    if (!rest.length && !locked.length) return `<section class="f f-paper"><h2>Sticker <small>${got.length} gesammelt</small></h2></section>`;
+    return `<section class="f f-paper"><h2>Sticker <small>${got.length} gesammelt</small></h2><div class="album">${rest.map((x, i) => `<div class="stk">${stk(x.icon, x.color, ROT[i % ROT.length])}<b>${esc(x.name)}</b></div>`).join('')}
+      ${locked.map(x => `<div class="stk locked"><span class="s">${StudentShare.stickerSvg(x.icon)}</span><b>${esc(x.name)}</b>${esc(x.hint || '')}</div>`).join('')}</div></section>`;
   }
-  // Belohnungen zum Aussuchen (AJ3b, ersetzt AJ2d): alle zwei Level ab Level 3 etwas Neues, im Wechsel Stempel, Heftfarbe,
-  // Papier, Textmarker. Was der Schüler wählt, speichert nur sein Handy (localStorage), nie die Lehrkraft oder die Cloud.
-  const REWARD_KINDS = {
-    stamp: { name: 'Stempel', def: { id: 'circle', name: 'Kreis' } },
-    color: { name: 'Heftfarbe', def: { id: 'white', name: 'Weiß' } },
-    paper: { name: 'Papier', def: { id: 'karo', name: 'Karo' } },
-    marker: { name: 'Textmarker', def: { id: 'yellow', name: 'Gelb' } },
-  };
+  // Belohnungen (AJ3l, ersetzt AJ3b): alle zwei Level ab Level 3 eine neue Leuchtfarbe für die Level-Fläche.
+  // Was der Schüler wählt, speichert nur sein Handy (localStorage), nie die Lehrkraft oder die Cloud.
+  // Eigener Schlüssel `sa_farbe_<id>`: Wahlen aus der Heft-Zeit (`sa_look_…`) fallen still weg.
+  const COLORS = { aqua: ['Aqua', 'oklch(85% 0.13 195)'], sand: ['Sand', 'oklch(86% 0.08 80)'], koralle: ['Koralle', 'oklch(76% 0.13 30)'],
+    mint: ['Mint', 'oklch(88% 0.12 160)'], sonne: ['Sonne', 'oklch(90% 0.15 95)'], himmel: ['Himmel', 'oklch(84% 0.08 235)'],
+    rosa: ['Rosa', 'oklch(86% 0.08 10)'], limette: ['Limette', 'oklch(90% 0.18 125)'], pfirsich: ['Pfirsich', 'oklch(85% 0.09 55)'] };
   const REWARDS = [
-    { level: 3, kind: 'stamp', id: 'star', name: 'Stern' }, { level: 5, kind: 'color', id: 'mint', name: 'Mint' },
-    { level: 7, kind: 'paper', id: 'dots', name: 'Punkte' }, { level: 9, kind: 'marker', id: 'green', name: 'Grün' },
-    { level: 11, kind: 'stamp', id: 'hex', name: 'Sechseck' }, { level: 13, kind: 'color', id: 'rose', name: 'Rosa' },
-    { level: 15, kind: 'paper', id: 'lines', name: 'Linien' }, { level: 17, kind: 'marker', id: 'pink', name: 'Pink' },
-    { level: 19, kind: 'stamp', id: 'crown', name: 'Krone' }, { level: 21, kind: 'color', id: 'sun', name: 'Sonnengelb' },
-    { level: 23, kind: 'paper', id: 'mm', name: 'Millimeter' }, { level: 25, kind: 'marker', id: 'orange', name: 'Orange' },
-    { level: 27, kind: 'stamp', id: 'gem', name: 'Diamant' }, { level: 29, kind: 'color', id: 'sky', name: 'Himmelblau' },
-  ];
+    { level: 3, id: 'sand' }, { level: 5, id: 'koralle' }, { level: 7, id: 'mint' }, { level: 9, id: 'sonne' },
+    { level: 11, id: 'himmel' }, { level: 13, id: 'rosa' }, { level: 15, id: 'limette' }, { level: 17, id: 'pfirsich' },
+  ].map(r => ({ ...r, name: COLORS[r.id][0] }));
   // Ränge in Rangfarben (Wunsch 09.11.): alle 2 Level eine Stufe, wie im Planer (rankIndex)
   const TIERS = [['bronze', 'Bronze'], ['silver', 'Silber'], ['gold', 'Gold'], ['platinum', 'Platin'], ['diamond', 'Diamant']];
   const tierOf = level => Math.min(4, Math.floor((Math.max(1, level) - 1) / 2));
   // Rang als Tintenstempel (AJ3j): Kreis in Rangfarbe wie ein Lehrerstempel; lange Namen schmaler (Archivo hat eine Breiten-Achse)
   const rankName = (tier, name) => String(name || TIERS[tier][1]);
-  const rankStamp = (tier, name) => `<span class="rank-stamp t-${TIERS[tier][0]}${rankName(tier, name).length > 8 ? ' long' : ''}" role="img" aria-label="Rang ${esc(rankName(tier, name))}">${esc(rankName(tier, name))}</span>`;
+  const rankStamp = (tier, name) => `<span class="rank-stamp t-${TIERS[tier][0]}" title="Rang"><i aria-hidden="true"></i>${esc(rankName(tier, name))}</span>`;
   const rankInk = (tier, name) => `<span class="rank-ink t-${TIERS[tier][0]}">${esc(rankName(tier, name))}</span>`;
   const pageKey = () => { const a = StudentShare.parseHash(location.hash); return a ? a.id : 'vorschau'; };
   const lsGet = k => { try { return JSON.parse(localStorage.getItem(k)); } catch (e) { return null; } };
   const lsSet = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) { /* privat: dann eben nicht gemerkt */ } };
-  const rewardOptions = (kind, level) => [{ ...REWARD_KINDS[kind].def, level: 1 }, ...REWARDS.filter(r => r.kind === kind)].map(o => ({ ...o, open: level >= o.level }));
-  // Gewähltes Aussehen; nicht (mehr) freigeschaltete Wahl fällt auf den Standard zurück (z. B. Level nach Korrektur gesunken)
-  function lookFor(level) {
-    const saved = lsGet('sa_look_' + pageKey()) || {};
-    const out = {};
-    Object.keys(REWARD_KINDS).forEach(k => { const o = rewardOptions(k, level).find(x => x.id === saved[k] && x.open); out[k] = o ? o.id : REWARD_KINDS[k].def.id; });
-    return out;
+  const colorOptions = level => [{ id: 'aqua', name: COLORS.aqua[0], level: 1 }, ...REWARDS].map(o => ({ ...o, open: level >= o.level }));
+  // Gewählte Farbe; nicht (mehr) freigeschaltete Wahl fällt auf Aqua zurück (z. B. Level nach Korrektur gesunken)
+  function colorFor(level) {
+    const saved = lsGet('sa_farbe_' + pageKey());
+    const o = colorOptions(level).find(x => x.id === saved && x.open);
+    return o ? o.id : 'aqua';
   }
-  const lookClasses = look => [`st-${look.stamp}`, `hc-${look.color}`, `pp-${look.paper}`, `mk-${look.marker}`];
   const newestReward = level => REWARDS.filter(r => level >= r.level).pop() || null;
   function newRewardHTML(level) {
     const r = newestReward(level);
     if (!r || (Number(lsGet('sa_seen_' + pageKey())) || 0) >= r.level) return '';
-    return `<div class="card newrw"><div class="t"><b>Neu freigeschaltet: ${esc(REWARD_KINDS[r.kind].name)} „${esc(r.name)}“</b>Such dir in der Sammlung aus, wie dein Heft aussieht.</div>
-      <button type="button" class="go" data-tab="sammlung">Aussuchen</button></div>`;
+    return `<section class="f f-paper newrw"><p class="t"><b>Neue Farbe: ${esc(r.name)}</b>Färb deine Level-Fläche in der Sammlung.</p>
+      <button type="button" class="go" data-tab="sammlung">Aussuchen</button></section>`;
   }
   function rewardsHTML(level) {
-    const look = lookFor(level);
-    const prev = (kind, id) => kind === 'stamp' ? `<span class="rw-prev rw-stamp st-${id}"></span>`
-      : kind === 'color' ? `<span class="rw-prev rw-color hc-${id}"></span>`
-        : kind === 'paper' ? `<span class="rw-prev rw-paper pp-${id}"></span>` : `<span class="rw-prev rw-marker mk-${id}"></span>`;
-    // AJ3j: nur Freigeschaltetes zeigen, dazu eine Karte mit der nächsten Belohnung (keine Wand aus „ab Level 27“)
+    const cur = colorFor(level);
     const next = REWARDS.find(r => level < r.level);
-    return `<h2>Dein Heft <small>${next ? `nächste Belohnung bei Level ${next.level}` : 'alles freigeschaltet'}</small></h2>`
-      + (next ? `<div class="rw locked rw-next" aria-label="Als Nächstes: ${esc(REWARD_KINDS[next.kind].name)} ${esc(next.name)} ab Level ${next.level}">${prev(next.kind, next.id)}
-        <span><b>Als Nächstes:</b> ${esc(REWARD_KINDS[next.kind].name)} „${esc(next.name)}“</span><small>ab Level ${next.level}</small></div>` : '')
-      + Object.keys(REWARD_KINDS).map(kind =>
-      `<div class="rw-kind"><h3>${esc(REWARD_KINDS[kind].name)}</h3><div class="rw-opts">${rewardOptions(kind, level).filter(o => o.open).map(o =>
-        `<button type="button" class="rw${look[kind] === o.id ? ' on' : ''}" data-look="${kind}" data-val="${o.id}" aria-pressed="${look[kind] === o.id}">${prev(kind, o.id)}<span>${esc(o.name)}</span></button>`).join('')}</div></div>`).join('');
+    return `<section class="f f-sig"><h2>Deine Farbe <small>${next ? `nächste bei Level ${next.level}` : 'alle freigeschaltet'}</small></h2><p class="tall">Färb deine Seite</p>
+      <div class="rw-opts">${colorOptions(level).filter(o => o.open).map(o =>
+        `<button type="button" class="rw${cur === o.id ? ' on' : ''}" data-look="color" data-val="${o.id}" aria-pressed="${cur === o.id}" style="--sw:${COLORS[o.id][1]}"><i aria-hidden="true"></i>${esc(o.name)}</button>`).join('')}</div>
+      ${next ? `<div class="rw locked" aria-label="Als Nächstes: ${esc(next.name)} ab Level ${next.level}" style="--sw:${COLORS[next.id][1]}"><i aria-hidden="true"></i>${esc(next.name)} <small>ab Level ${next.level}</small></div>` : ''}
+      <p class="me-line">Bleibt nur auf deinem Handy.</p></section>`;
   }
   function jokerInfoHTML(d, level) {
     const j = d.jokers && typeof d.jokers === 'object' ? d.jokers : {};
     const every = Number(j.every) || 4, max = Number(j.max || 4);
     const text = Number(j.earned) >= max ? 'Alle Joker für dieses Schuljahr verdient.' : `Den nächsten gibt es bei Level ${(Math.floor(level / every) + 1) * every}.`;
-    return `<h2>Joker <small>${Number(j.used) || 0} eingelöst</small></h2><p class="me-line">${Number(j.open) > 0 ? `<b>${Number(j.open)} frei.</b> ` : ''}${esc(text)}</p>`;
+    return `<section class="f f-mist"><h2>Joker <small>${Number(j.used) || 0} eingelöst</small></h2><p class="me-line">${Number(j.open) > 0 ? `<b>${Number(j.open)} frei.</b> ` : ''}${esc(text)}</p></section>`;
   }
   // Rückmeldung (AJ3g): Reihe von Stempeln, auf Wunsch alle des Schuljahrs nach Monaten (neueste oben), darunter Zählung je Stufe
   let fbAll = false;   // nur Ansicht, nie gespeichert
   const MONTHS_LONG = ['Januar', 'Februar', 'März', 'April', 'Mai', 'Juni', 'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember'];
-  const fbRow = items => `<div class="fb">${items.map(x => `<div><div class="sp ${PART[x.v][1]}">${PART[x.v][0]}</div><small>${esc(short(x.date).slice(3))}</small></div>`).join('')}</div>`;
+  let fbToday = '';   // beim Zeichnen gesetzt: Datum von heute für die Markierung „heute“
+  const fbRow = items => `<div class="fb">${items.map(x => `<div${x.date === fbToday ? ' class="today"' : ''}><div class="sp ${PART[x.v][1]}">${PART[x.v][0]}</div><small>${esc(short(x.date).slice(3))}</small></div>`).join('')}</div>`;
   function fbAllHTML(items) {
     const months = [];
     items.forEach(x => {
@@ -340,23 +329,31 @@
     const hw = list(k.hw).filter(x => x && isDate(x.date) && x.date >= today && x.text && !ticked(x)).sort((a, b) => a.date.localeCompare(b.date))[0];
     if (hw) rows.push(['Aufgabe', esc(hw.text), `bis ${esc(rel(hw.date, today))}`]);
     const nx = list(k.next).find(n => n && isDate(n.date) && (n.date > today || (n.date === today && String(n.end) > hhmm)));
-    if (nx) rows.push(['Stunde', `${esc(rel(nx.date, today) === 'heute' ? 'heute' : short(nx.date))}, ${esc(nx.start)}${nx.room ? ` in ${esc(nx.room)}` : ''}`, '']);
+    if (nx) rows.push(['Stunde', `${esc(rel(nx.date, today) === 'heute' ? 'heute' : short(nx.date))}, ${esc(nx.start)}`, nx.room ? `in ${esc(nx.room)}` : '']);
     const t = list(k.tests).filter(x => x && isDate(x.date) && x.date >= today).sort((a, b) => a.date.localeCompare(b.date))[0];
-    if (t) rows.push(['Arbeit', esc(t.text || 'Test'), esc(rel(t.date, today))]);
-    if (!rows.length) return '';
-    return `<button type="button" class="soon" data-tab="klasse"><span class="soon-h">Als Nächstes</span>${rows.map(([kind, what, when]) =>
-      `<span class="soon-r${kind === 'Arbeit' ? ' is-test' : ''}"><span class="soon-k">${kind}</span><span class="soon-v">${what}${when ? ` <small>${when}</small>` : ''}</span></span>`).join('')}</button>`;
+    if (!rows.length && !t) return '';
+    // Die nächste Arbeit als große Zahl (AJ3l): Tage bis dahin, heute/morgen als Wort
+    let count = '';
+    if (t) {
+      const n = daysBetween(today, t.date);
+      count = `<span class="soon-count">${n === 0 ? '<span class="huge word">Heute</span>' : `<span class="huge">${n}</span>`}
+        <span class="t">${n === 0 ? 'ist die Arbeit' : n === 1 ? 'Tag bis zur Arbeit' : 'Tage bis zur Arbeit'}<br>${esc(t.text || 'Test')}</span></span>`;
+    }
+    return `<button type="button" class="soon f f-sand" data-tab="klasse"><span class="soon-h">Als Nächstes</span>${count}
+      ${rows.length ? `<span class="soon-rows">${rows.map(([kind, what, when]) =>
+        `<span class="soon-r"><span class="soon-k">${kind}</span><span class="soon-v">${what}${when ? `<small>${when}</small>` : ''}</span></span>`).join('')}</span>` : ''}
+      <span class="soon-go">Zur Klasse</span></button>`;
   }
   // Lange Vornamen kleiner statt mitten im Wort umbrechen (neben dem Stempel ist wenig Platz)
   const nameSize = n => { const l = String(n || '').length; return l > 12 ? ' xlong' : l > 8 ? ' long' : ''; };
   function buildMePage(d, now = new Date(), opts = {}) {
     const today = fmt(now);
+    fbToday = today;
     let html = meHead(d);
     if (opts.offline) html += '<div class="banner">Offline: zuletzt geladener Stand</div>';
     if (meTab === 'klasse') {
       const k = d.klasse && typeof d.klasse === 'object' ? d.klasse : null;
-      // Klassenseite ohne ihren eigenen Kopf (der steht schon oben)
-      return html + (k ? buildClassPage(k, now, opts).replace(/^<header>[\s\S]*?<\/header>/, '') : '<p class="empty">Die Klassenseite ist gerade nicht freigegeben.</p>');
+      return html + (k ? buildClassPage(k, now, { ...opts, noHead: true }) : '<section class="f f-ink"><p class="empty">Die Klassenseite ist gerade nicht freigegeben.</p></section>');
     }
     const level = Math.max(1, Number(d.level) || 1), xp = Math.max(0, Number(d.xp) || 0);
     const from = Number(d.from) || 0, next = Number(d.next) || from + 10;
@@ -364,35 +361,31 @@
     const foot = [];
     if (d.at) { const a = new Date(d.at); foot.push(`Stand: ${fmt(a) === today ? 'heute' : short(fmt(a))}, ${pad2(a.getHours())}:${pad2(a.getMinutes())}.`); }
     const footer = `<footer class="foot">${foot.map(f => `<p>${esc(f)}</p>`).join('')}<p class="muted">Diese Seite gehört nur dir. Gib den Link nicht weiter. Noten stehen hier nie.</p></footer>`;
-    if (meTab === 'sammlung') {
-      return html + `<div class="spread"><div class="col">${rewardsHTML(level)}${jokerInfoHTML(d, level)}</div>
-        <div class="col">${giftsHTML(d)}${albumHTML(d)}${yearMapHTML(list(d.year).filter(c => c && isDate(c.date)))}</div></div>` + footer;
-    }
-    // Reiter „Ich“ (Wunsch 09./10.11.): Karte mit Level, XP und Rückmeldung ganz oben, dann „Als Nächstes“, Baustelle, Joker
     const j = d.jokers && typeof d.jokers === 'object' ? d.jokers : {};
+    if (meTab === 'sammlung') {
+      return html + giftsHTML(d) + albumHTML(d) + yearMapHTML(list(d.year).filter(c => c && isDate(c.date))) + rewardsHTML(level) + jokerInfoHTML(d, level) + footer;
+    }
+    // Reiter „Ich“ (AJ3l): Level-Fläche ganz oben, gleich darunter die letzten Stunden, dann Als Nächstes, Baustelle, Joker
     const jl = list(j.list).filter(Boolean);
+    const tier = tierOf(level);
+    const hero = `<section class="card f f-sig hero"><p class="k">Dein Level</p>
+      <div class="lvl-row"><div class="lvl" aria-label="Level ${level}"><small>Level</small><b${level >= 10 ? ' class="two"' : ''}>${level}</b></div>
+        <div class="who-box"><p class="who${nameSize(d.first)}">${esc(d.first || 'Ich')}</p>${rankStamp(tier, d.rank)}</div></div>
+      <div class="xpbar" role="img" aria-label="${xp - from} von ${next - from} XP bis Level ${level + 1}"><i style="width:${pct}%"></i></div>
+      <p class="xpl"><span><b>${xp} XP</b>, noch ${Math.max(0, next - xp)} XP bis Level ${level + 1}</span>${Number(d.streak) > 0 ? `<span><b>${Number(d.streak)}</b> ${Number(d.streak) === 1 ? 'Stunde' : 'Stunden'} in Folge mit Plus</span>` : ''}</p>
+      <div class="rank-row">${tier < 4 ? `Ab Level ${2 * (tier + 1) + 1}: ${rankInk(tier + 1, d.nextRank && d.nextRank.name)}` : 'Höchster Rang erreicht'}
+        <details class="xp-help"><summary>Wie funktioniert das?</summary>
+          <p>+ gibt 10 XP, ++ gibt 20${d.giver ? `. Sticker von ${esc(dativ(d.giver))} und` : '. Sticker und'} geschaffte Baustellen bringen extra. Abgezogen wird nie etwas.</p>
+          <p>Alle 2 Level steigt dein Rang, alle ${Number(j.every) || 4} Level gibt es einen Joker.</p></details></div></section>`;
     const fbAllList = list(d.feedback).filter(x => x && isDate(x.date) && PART[x.v]).sort((a, b) => a.date.localeCompare(b.date));
-    const fbHTML = `<div class="hero-fb"><h3>Rückmeldung <small>${fbAll ? 'dieses Schuljahr' : 'deine letzten Stunden'}</small></h3>
+    const fbHTML = `<section class="f f-ink"><h2>${fbAll ? 'Rückmeldung <small>dieses Schuljahr</small>' : 'Letzte Stunden'}</h2>
       ${fbAllList.length ? `${fbAll ? fbAllHTML(fbAllList) : fbRow(fbAllList.slice(-6))}
         ${fbAll ? fbStatsHTML(fbAllList) : ''}
         <button type="button" class="fb-more" data-fb-all aria-expanded="${fbAll}">${fbAll ? 'Weniger anzeigen' : `Alle anzeigen (${fbAllList.length})`}</button>`
-        : '<p class="me-line">Noch keine Einträge in diesem Schuljahr.</p>'}</div>`;
-    const hero = `<div class="card hero"><div class="player"><div class="lvl-wrap"><div class="lvl" aria-label="Level ${level}"><small>Level</small><b${level >= 10 ? ' class="two"' : ''}>${level}</b></div></div>
-        <div><div class="who${nameSize(d.first)}">${esc(d.first || 'Ich')}</div><div class="rank"><span class="lvl-word">Level ${level} · </span>${xp} XP</div></div></div>
-      <div class="hl" role="img" aria-label="${xp - from} von ${next - from} XP bis Level ${level + 1}"><div class="hl-track"></div><div class="hl-fill" style="width:${pct}%"></div>
-        <div class="hl-text"><span>noch ${Math.max(0, next - xp)} XP bis Level ${level + 1}</span></div></div>
-      <div class="rank-row">${rankStamp(tierOf(level), d.rank)}<div class="rank-txt">
-        ${Number(d.streak) > 0 ? `<div><b>${Number(d.streak)}</b> ${Number(d.streak) === 1 ? 'Stunde' : 'Stunden'} in Folge mit Plus</div>` : ''}
-        <div>${tierOf(level) < 4 ? `Ab Level ${2 * (tierOf(level) + 1) + 1}: ${rankInk(tierOf(level) + 1, d.nextRank && d.nextRank.name)}` : 'Höchster Rang erreicht'}</div>
-        <details class="xp-help"><summary>Wie funktioniert das?</summary>
-          <p>+ gibt 10 XP, ++ gibt 20${d.giver ? `. Sticker von ${esc(dativ(d.giver))} und` : '. Sticker und'} geschaffte Baustellen bringen extra. Abgezogen wird nie etwas.</p>
-          <p>Alle 2 Level steigt dein Rang, alle ${Number(j.every) || 4} Level gibt es einen Joker.</p></details></div></div>
-      ${fbHTML}</div>`;
-    // Joker als Gutschein (AJ3i), Auswahl als Abreiß-Streifen; steht nach der Baustelle (Wunsch 10.11.: Level und Plusse ganz oben)
-    const joker = Number(j.open) > 0 ? `<div class="card joker voucher"><div class="t"><b>${Number(j.open) === 1 ? 'Ein Joker frei' : `${Number(j.open)} Joker frei`}</b>Zeig das deiner Lehrkraft und such dir aus:</div>${jl.length ? `<ul>${jl.map(x => `<li>${esc(x)}</li>`).join('')}</ul>` : ''}</div>` : '';
-    const rest = `${soonHTML(d.klasse, now)}${bauHTML(d)}${joker}
-      ${newRewardHTML(level)}`;
-    return html + `<div class="spread me-ich"><div class="col">${hero}</div><div class="col">${rest}</div></div>` + footer;
+        : '<p class="empty">Noch keine Einträge in diesem Schuljahr.</p>'}</section>`;
+    const joker = Number(j.open) > 0 ? `<section class="card f f-mist joker"><p class="k">${Number(j.open) === 1 ? 'Ein Joker frei' : `${Number(j.open)} Joker frei`}</p>
+      <p class="tall">Such dir einen aus</p>${jl.length ? `<ul>${jl.map(x => `<li>${esc(x)}</li>`).join('')}</ul>` : ''}<p class="sub">Zeig das deiner Lehrkraft.</p></section>` : '';
+    return html + hero + fbHTML + soonHTML(d.klasse, now) + bauHTML(d) + joker + newRewardHTML(level) + footer;
   }
 
   let current = null;   // { data, offline } für Neuzeichnen und Abhaken
@@ -401,17 +394,12 @@
     const page = document.getElementById('page');
     const me = data.kind === 'me';
     page.innerHTML = me ? buildMePage(data, new Date(), opts) : buildClassPage(data, new Date(), opts);
-    const heft = page.closest('.heft');   // gewähltes Aussehen gilt für die ganze persönliche Seite (AJ3b)
     const level = Math.max(1, Number(data.level) || 1);
-    if (heft) {
-      [...heft.classList].filter(c => /^(st|hc|pp|mk)-/.test(c)).forEach(c => heft.classList.remove(c));
-      if (me) lookClasses(lookFor(level)).forEach(c => heft.classList.add(c));
-    }
+    // Gewählte Leuchtfarbe gilt nur auf der persönlichen Seite (AJ3l); die Klassenseite bleibt Aqua
+    document.documentElement.style.setProperty('--c-sig', COLORS[me ? colorFor(level) : 'aqua'][1]);
     if (me && meTab === 'sammlung') { const r = newestReward(level); if (r) lsSet('sa_seen_' + pageKey(), r.level); }
     page.querySelectorAll('[data-look]').forEach(b => b.addEventListener('click', () => {
-      const look = lookFor(level);
-      look[b.dataset.look] = b.dataset.val;
-      lsSet('sa_look_' + pageKey(), look);
+      lsSet('sa_farbe_' + pageKey(), b.dataset.val);
       draw(current.data, current.opts);
     }));
     document.title = me ? `${data.first || 'Ich'} · ${data.cls || ''}`.trim() : [data.cls, data.subject].filter(Boolean).join(' ') || 'Klasse';
@@ -483,7 +471,7 @@
   const preview = /[?&]vorschau\b/.test(location.search);
   // Vorschau im Planer: Inhalt kommt vom Planer, nichts wird geladen
   window.renderStudentPage = data => { if (data && typeof data === 'object') draw(data, {}); };
-  window.SchuelerSeite = { buildClassPage, buildMePage, rel, icsFor, setMeTab: t => { meTab = t; }, REWARDS };
+  window.SchuelerSeite = { buildClassPage, buildMePage, rel, icsFor, setMeTab: t => { meTab = t; }, REWARDS, COLORS };
   if (preview) { message('Vorschau', 'Wird gleich gezeigt.'); return; }
   load();
   // Zurück in die App oder neuer Tag: frisch laden bzw. „heute/morgen“ neu rechnen
