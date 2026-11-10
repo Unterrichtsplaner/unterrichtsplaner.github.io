@@ -53,6 +53,7 @@ Die Schülerliste besteht aus Zeilen mit Trennlinien (gleiche Angaben in festen 
 - **Klasse** (auch der Klassen-Link): großer Klassenname, Klassenziel als große Zahl mit Stempelkarte (Meerblau), Aufträge (Hell), Inhaltsverzeichnis (Tiefblau, aktuelles Thema in der Leuchtfarbe, Klassenarbeit in Koralle), Termine (Sand).
 - **Belohnungen** sind Leuchtfarben für die Level-Fläche, alle zwei Level ab Level 3 eine neue (Sand, Koralle, Mint, Sonne, Himmel, Rosa, Limette, Pfirsich). Nur auf dem Handy gemerkt (`sa_farbe_<id>`); die Klassenseite bleibt Aqua.
 - Bewegung nur einmal: die Level-Zahl rutscht beim Öffnen hoch und ist dabei immer sichtbar.
+- **Rückblick** (AJ3k): Geschichte zum Durchtippen über den ganzen Bildschirm, eine Farbfläche je Karte, Fortschrittsbalken oben, ✕ oben rechts; links tippen zurück, rechts weiter, Gedrückthalten pausiert. Große Wörter passen sich der Breite an (`min(…, vw)`), nichts bricht im Wort.
 
 ## Noch offen
 

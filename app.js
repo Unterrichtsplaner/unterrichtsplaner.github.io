@@ -12704,6 +12704,7 @@ function studentPersonalSnapshot(g, s, now = new Date(), ctx = null) {
     feedback, streak: studentStreak(s, ctx.lessons, todayStr), klasse: ctx.klasse,
     year: studentYearMap(s, ctx, todayStr),
     ...studentStickerSnapshot(g, s, ctx, todayStr),
+    ...studentReviewPart(g, s, ctx, todayStr),
   };
 }
 // Sticker und Baustelle für die Seite „Ich“ (AJ2b): Grund und Baustellen-Text sieht nur der Schüler selbst
@@ -12735,6 +12736,62 @@ function studentYearMap(s, ctx, todayStr) {
   const absent = new Set((s.attendance || []).filter(a => a && (a.type === 'abwesend' || a.type === 'entschuldigt')).map(a => a.date));
   return ctx.lessons.filter(d => d >= ctx.start).slice().reverse().slice(-160)
     .map(d => ({ date: d, v: best.get(d) || (absent.has(d) ? 'a' : null) }));
+}
+// Rückblick (AJ3k): nach dem Halbjahres-Stichtag aufs 1. Halbjahr (drei Wochen „frisch“, danach in der Sammlung),
+// in den letzten zwei Wochen vor dem Schuljahresende aufs ganze Schuljahr. Ohne Stichtag nichts (wie vor AJ3k).
+// Nur Feiern: Stunden, Plusse (ohne Titel), Serie, stärkster Monat, Level, Sticker, Themen. Nie Minusse, Fehltage,
+// Noten oder andere Schüler (Regel 95); ein Fehltag erscheint als leeres Feld wie „nichts eingetragen“.
+const SA_REVIEW_FRESH_HALF = 21, SA_REVIEW_FRESH_YEAR = 14;
+function reviewRange(todayStr) {
+  const start = schoolYearStart(todayStr);
+  const ye = db.settings.schoolYearEnd;
+  if (isDateStr(ye) && ye >= start && todayStr >= formatDate(addDays(parseDate(ye), -SA_REVIEW_FRESH_YEAR)))
+    return { kind: 'year', label: 'Schuljahr', from: start, to: todayStr < ye ? todayStr : ye, fresh: true };
+  const hy = halfYearSplit(todayStr);
+  if (!hy || todayStr < hy) return null;
+  return { kind: 'half', label: '1. Halbjahr', from: start, to: hy, fresh: todayStr <= formatDate(addDays(parseDate(hy), SA_REVIEW_FRESH_HALF)) };
+}
+function studentReviewPart(g, s, ctx, todayStr) {
+  const r = reviewRange(todayStr);
+  if (!r) return {};
+  const inR = d => isDateStr(d) && d >= r.from && d <= r.to;
+  const lessons = ctx.lessons.filter(inR).slice().reverse();   // älteste zuerst
+  if (!lessons.length) return {};
+  const parts = (s.participation || []).filter(x => x && inR(x.date));
+  const plain = parts.filter(x => !x.label);
+  const pp = plain.filter(x => x.value === 'excellent').length, pl = plain.filter(x => x.value === 'positive').length;
+  // Ein Feld je Stunde: beste eigene Mitarbeit ohne Titel, sonst leer (auch bei Fehltag)
+  const bestOf = new Map();
+  plain.filter(x => SA_XP[x.value]).forEach(x => { if (bestOf.get(x.date) !== 'excellent') bestOf.set(x.date, x.value); });
+  const cells = lessons.slice(-120).map(d => bestOf.get(d) === 'excellent' ? 'pp' : bestOf.get(d) ? 'p' : '');
+  // Längste Serie wie studentStreak: Stunde mit Plus zählt, Fehltag unterbricht nicht, sonst Schluss
+  const plus = new Set(parts.filter(x => SA_XP[x.value]).map(x => x.date));
+  const absent = new Set((s.attendance || []).filter(a => a && (a.type === 'abwesend' || a.type === 'entschuldigt')).map(a => a.date));
+  let run = null, best = null;
+  lessons.forEach(d => {
+    if (plus.has(d)) { run = run ? { ...run, n: run.n + 1, to: d } : { n: 1, from: d, to: d }; if (!best || run.n > best.n) best = { ...run }; }
+    else if (!absent.has(d)) run = null;
+  });
+  // Plusse je Monat (ohne Titel), vom ersten bis zum letzten Monat mit Stunden
+  const months = [];
+  lessons.forEach(d => { const m = d.slice(0, 7); if (!months.length || months[months.length - 1].m !== m) months.push({ m, n: 0 }); });
+  plain.filter(x => SA_XP[x.value]).forEach(x => { const mo = months.find(o => o.m === x.date.slice(0, 7)); if (mo) mo.n++; });
+  const top = months.reduce((b, o) => (o.n > (b ? b.n : 0) ? o : b), null);
+  const p = personalOf(g), step = personalStep(g);
+  const levelTo = levelInfo(studentXP(s, r.to), step).level, tier = rankIndex(levelTo);
+  const given = yearList(s.stickersGiven, r.to).filter(x => inR(x.date)).map(x => ({ name: String(x.name || ''), icon: x.icon, color: x.color, reason: String(x.reason || ''), date: x.date }));
+  const done = yearList(s.baustellen, r.to, 'done').filter(x => inR(x.done)).map(x => ({ name: 'Baustelle geschafft', icon: 'crane', color: 1, reason: String(x.text || ''), date: x.done }));
+  const toc = ctx.klasse && ctx.klasse.toc && !ctx.klasse.toc.fromLessons ? ctx.klasse.toc.items : [];
+  const topics = (Array.isArray(toc) ? toc : []).filter(t => t && t.state === 'done')
+    .map(t => ({ title: String(t.title || ''), n: (t.lessons || []).filter(l => l && inR(l.date)).length }))
+    .filter(t => t.title && t.n > 0).slice(0, 8);
+  return { review: {
+    kind: r.kind, label: r.label, from: r.from, to: r.to, fresh: r.fresh,
+    lessons: lessons.length, cells, pp, p: pl, xp: pp * SA_XP.excellent + pl * SA_XP.positive,
+    best: best && best.n >= 2 ? best : null, months, top: top ? top.m : null,
+    levelFrom: 1, levelTo, tier, rank: rankName(p, tier),   // beide Rückblicke beginnen am Schuljahresanfang: XP zählen je Schuljahr
+    gifts: [...given, ...done].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 4), topics,
+  } };
 }
 // Erster Eintrag der Klasse im Schuljahr (Mitarbeit oder Fehlzeit irgendeines Schülers); vorher beginnt die Karte nicht
 function classYearStart(g, todayStr) {

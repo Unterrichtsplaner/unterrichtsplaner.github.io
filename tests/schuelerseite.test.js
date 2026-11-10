@@ -607,3 +607,72 @@ describe('Gestaltung Farbflächen (AJ3l, ersetzt AJ3j)', () => {
     expect(small).toEqual([]);
   });
 });
+
+describe('Rückblick als Geschichte (AJ3k)', () => {
+  const review = (extra = {}) => ({ kind: 'half', label: '1. Halbjahr', from: '2026-08-01', to: '2027-01-29', fresh: true,
+    lessons: 34, cells: ['pp', 'p', '', 'p'], pp: 12, p: 35, xp: 590, best: { n: 7, from: '2026-10-12', to: '2026-11-09' },
+    months: [{ m: '2026-09', n: 9 }, { m: '2026-10', n: 18 }, { m: '2026-11', n: 12 }], top: '2026-10',
+    levelFrom: 1, levelTo: 7, tier: 3, rank: 'Platin',
+    gifts: [{ name: 'Erklärprofi', icon: 'bubble', color: 3, reason: 'hat Mia geholfen', date: '2026-10-14' }],
+    topics: [{ title: 'Brüche', n: 9 }, { title: 'Terme', n: 8 }], ...extra });
+  const me = (rv, extra = {}) => ({ v: 1, kind: 'me', first: 'Lena', cls: '7b', subject: 'Mathe', teacher: 'Herr W.', level: 7, xp: 230, from: 220, next: 245,
+    jokers: {}, feedback: [], year: [{ date: '2026-10-12', v: 'positive' }], ...(rv ? { review: rv } : {}), ...extra });
+  const story = () => document.querySelector('.story');
+  afterEach(() => { if (story()) story().querySelector('.story-close').click(); window.SchuelerSeite.setMeTab('ich'); window.renderStudentPage({ v: 2, cls: '7b' }); });
+
+  it('frisch: Streifen „Dein 1. Halbjahr ist da“ unter den letzten Stunden, nicht vor dem Level', () => {
+    window.renderStudentPage(me(review()));
+    const strip = page().querySelector('.review-strip');
+    expect(strip.textContent).toMatch(/Dein 1\. Halbjahr ist da/);
+    expect(page().querySelector('.card.hero').compareDocumentPosition(strip) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(strip.previousElementSibling.querySelector('.fb, .empty')).not.toBeNull();
+  });
+
+  it('nicht mehr frisch: kein Streifen, aber in der Sammlung zum Wiederansehen; ohne Rückblick nichts', () => {
+    window.renderStudentPage(me(review({ fresh: false })));
+    expect(page().querySelector('.review-strip')).toBeNull();
+    window.SchuelerSeite.setMeTab('sammlung');
+    window.renderStudentPage(me(review({ fresh: false })));
+    expect(page().querySelector('[data-review]').textContent).toMatch(/Rückblick 1\. Halbjahr ansehen/);
+    window.renderStudentPage(me(null));
+    expect(page().querySelector('[data-review]')).toBeNull();
+  });
+
+  it('öffnet die Geschichte mit allen Karten; Karten ohne Inhalt fallen weg', () => {
+    window.renderStudentPage(me(review()));
+    page().querySelector('.review-strip').click();
+    expect(story().getAttribute('role')).toBe('dialog');
+    expect(story().querySelectorAll('.st-card').length).toBe(9);
+    expect(story().querySelector('.st-card.on').textContent).toMatch(/Dein 1\. Halbjahr/);
+    story().querySelector('.story-close').click();
+    window.renderStudentPage(me(review({ best: null, top: null, gifts: [], topics: [] })));
+    page().querySelector('.review-strip').click();
+    expect(story().querySelectorAll('.st-card').length).toBe(5);   // Start, Stunden, Plusse, Level, Ende
+  });
+
+  it('blättern per Tippen und Pfeiltasten, Escape schließt und gibt den Fokus zurück', () => {
+    window.renderStudentPage(me(review()));
+    const strip = page().querySelector('.review-strip');
+    strip.focus(); strip.click();
+    const on = () => [...story().querySelectorAll('.st-card')].findIndex(c => c.classList.contains('on'));
+    story().querySelector('.story-next').click();
+    expect(on()).toBe(1);
+    expect(story().querySelector('.st-card.on').textContent).toMatch(/34/);
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight' }));
+    expect(on()).toBe(2);
+    expect(story().querySelector('.st-card.on').textContent).toMatch(/47/);
+    story().querySelector('.story-prev').click();
+    expect(on()).toBe(1);
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+    expect(story()).toBeNull();
+    expect(document.activeElement).toBe(page().querySelector('.review-strip'));
+  });
+
+  it('Schuljahr: eigene Überschrift; Inhalte der Lehrkraft werden escaped', () => {
+    window.renderStudentPage(me(review({ kind: 'year', label: 'Schuljahr', rank: X, gifts: [{ name: X, icon: X, color: X, reason: X, date: '2026-10-14' }], topics: [{ title: X, n: 2 }] })));
+    page().querySelector('.review-strip').click();
+    expect(story().textContent).toMatch(/Dein Schuljahr/);
+    expect(document.querySelectorAll('[data-xss]').length).toBe(0);
+    expect(story().textContent).toContain(`Peter's "Test"`);
+  });
+});

@@ -208,8 +208,8 @@
   // Jahreskarte (AJ2c): ein Feld je Stunde, nach Monaten; Zahlen darunter. Längste Serie wie im Planer: Fehltag zählt nicht dagegen
   const MONTHS = ['Jan', 'Feb', 'Mär', 'Apr', 'Mai', 'Jun', 'Jul', 'Aug', 'Sep', 'Okt', 'Nov', 'Dez'];
   const YR_WORD = { excellent: 'sehr gut', positive: 'gut', neutral: 'wenig', negative: 'schwach', a: 'gefehlt' };
-  function yearMapHTML(cells) {
-    if (!cells.length) return '';
+  function yearMapHTML(cells, extra = '') {
+    if (!cells.length) return extra ? `<section class="f f-ink"><h2>Dein Schuljahr</h2>${extra}</section>` : '';
     const months = [];
     cells.forEach(c => {
       const m = c.date.slice(0, 7);
@@ -223,7 +223,7 @@
     return `<section class="f f-ink"><h2>Dein Schuljahr</h2><div class="yr">${months.map(mo => `<div class="yr-month"><span class="yr-m">${MONTHS[Number(mo.m.slice(5)) - 1]}</span>
         <span class="yr-cells">${mo.cells.map(c => `<i class="yr-c ${cls(c.v)}" title="${esc(short(c.date))}: ${esc(YR_WORD[c.v] || 'nichts eingetragen')}"></i>`).join('')}</span></div>`).join('')}</div>
       <div class="legend yr-legend">${[['pp', '++'], ['p', '+'], ['m', '−'], ['mm', '−−'], ['a', 'gefehlt'], ['none', 'nichts']].map(([c, l]) => `<span><i class="yr-c ${c}"></i>${l}</span>`).join('')}</div>
-      <div class="yr-stats"><span><b>${cells.length}</b> Stunden</span><span><b>${plus}</b> mit Plus</span><span><b>${best}</b> längste Serie</span></div></section>`;
+      <div class="yr-stats"><span><b>${cells.length}</b> Stunden</span><span><b>${plus}</b> mit Plus</span><span><b>${best}</b> längste Serie</span></div>${extra}</section>`;
   }
   // Sticker und Baustelle (AJ2b). Symbole und Farben aus student-share.js, Unbekanntes als Stern.
   const stk = (icon, color, rot) => `<span class="s" style="--stk:${esc(StudentShare.stickerColor(color))};transform:rotate(${rot}deg)">${StudentShare.stickerSvg(icon)}</span>`;
@@ -363,7 +363,9 @@
     const footer = `<footer class="foot">${foot.map(f => `<p>${esc(f)}</p>`).join('')}<p class="muted">Diese Seite gehört nur dir. Gib den Link nicht weiter. Noten stehen hier nie.</p></footer>`;
     const j = d.jokers && typeof d.jokers === 'object' ? d.jokers : {};
     if (meTab === 'sammlung') {
-      return html + giftsHTML(d) + albumHTML(d) + yearMapHTML(list(d.year).filter(c => c && isDate(c.date))) + rewardsHTML(level) + jokerInfoHTML(d, level) + footer;
+      const rv = reviewOf(d);
+      const again = rv ? `<button type="button" class="link" data-review>Rückblick ${esc(rv.label)} ansehen</button>` : '';
+      return html + giftsHTML(d) + albumHTML(d) + yearMapHTML(list(d.year).filter(c => c && isDate(c.date)), again) + rewardsHTML(level) + jokerInfoHTML(d, level) + footer;
     }
     // Reiter „Ich“ (AJ3l): Level-Fläche ganz oben, gleich darunter die letzten Stunden, dann Als Nächstes, Baustelle, Joker
     const jl = list(j.list).filter(Boolean);
@@ -385,7 +387,125 @@
         : '<p class="empty">Noch keine Einträge in diesem Schuljahr.</p>'}</section>`;
     const joker = Number(j.open) > 0 ? `<section class="card f f-mist joker"><p class="k">${Number(j.open) === 1 ? 'Ein Joker frei' : `${Number(j.open)} Joker frei`}</p>
       <p class="tall">Such dir einen aus</p>${jl.length ? `<ul>${jl.map(x => `<li>${esc(x)}</li>`).join('')}</ul>` : ''}<p class="sub">Zeig das deiner Lehrkraft.</p></section>` : '';
-    return html + hero + fbHTML + soonHTML(d.klasse, now) + bauHTML(d) + joker + newRewardHTML(level) + footer;
+    return html + hero + fbHTML + reviewStripHTML(reviewOf(d)) + soonHTML(d.klasse, now) + bauHTML(d) + joker + newRewardHTML(level) + footer;
+  }
+
+  // ── Rückblick als Geschichte (AJ3k): rechnet der Planer, die Seite zeichnet nur. Karten ohne Inhalt fallen weg. ──
+  const reviewOf = d => (d.review && typeof d.review === 'object' && Number(d.review.lessons) > 0 ? d.review : null);
+  const reviewTitle = r => (r.kind === 'year' ? 'Dein Schuljahr' : `Dein ${r.label || 'Halbjahr'}`);
+  function reviewStripHTML(r) {
+    if (!r || !r.fresh) return '';
+    return `<button type="button" class="review-strip" data-review><span><b>${esc(reviewTitle(r))} ist da</b><span>Deine Geschichte zum Durchtippen</span></span><em>Ansehen</em></button>`;
+  }
+  const num = v => Math.max(0, Number(v) || 0);
+  const dayMonth = s => { const t = dateOf(s); return `${t.getDate()}. ${MONTHS_LONG[t.getMonth()]}`; };
+  function storyCards(r, d) {
+    const cards = [];
+    const subj = d.subject || 'Unterricht';
+    const head = [d.subject, d.teacher ? `bei ${dativ(d.teacher)}` : ''].filter(Boolean).join(' ');
+    cards.push(['sig', `<p class="k">${esc(head)}</p><h2 class="st-tall st-xl">${esc(reviewTitle(r))}</h2>
+      <p class="st-who">${esc([d.first, d.cls].filter(Boolean).join(', '))}</p><p class="st-foot">Tippe rechts für weiter, links für zurück.</p>`]);
+    const cells = list(r.cells).map((c, i) => `<i class="${c === 'pp' ? 'pp' : c === 'p' ? 'p' : ''}" style="--n:${i}"></i>`).join('');
+    cards.push(['ink', `<p class="k">So oft hattet ihr ${esc(subj)}</p><p class="st-huge">${num(r.lessons)}</p>
+      <p class="st-sub">Stunden. Jedes Feld ist eine, hell heißt Plus, leuchtend heißt Doppelplus.</p><div class="st-grid">${cells}</div>`]);
+    const pp = num(r.pp), pl = num(r.p);
+    cards.push(['sand', `<p class="k">Deine Plusse</p><p class="st-huge">${pp + pl}</p>
+      <div class="st-split"><div><b>${pp}</b><span>mal Doppelplus</span></div><div><b>${pl}</b><span>mal Plus</span></div></div>
+      <p class="st-foot">${pp + pl ? `Das sind ${num(r.xp)} XP. Abgezogen wurde nie etwas.` : 'Noch keine Plusse. Das nächste Halbjahr ist deine Chance.'}</p>`]);
+    if (r.best && num(r.best.n) >= 2 && isDate(r.best.from) && isDate(r.best.to)) {
+      cards.push(['paper', `<p class="k">Deine längste Serie</p><h2 class="st-tall">${num(r.best.n)} Stunden am Stück</h2>
+        <div class="st-run">${Array.from({ length: Math.min(num(r.best.n), 20) }, (_, i) => `<i style="--n:${i}">+</i>`).join('')}</div>
+        <p class="st-foot">Vom ${esc(dayMonth(r.best.from))} bis zum ${esc(dayMonth(r.best.to))} hast du in jeder Stunde ein Plus geholt.</p>`]);
+    }
+    const months = list(r.months).filter(m => m && /^\d{4}-\d{2}$/.test(m.m));
+    const top = months.find(m => m.m === r.top);
+    if (top && num(top.n) > 0) {
+      const max = Math.max(...months.map(m => num(m.n)), 1);
+      cards.push(['sea', `<p class="k">Dein stärkster Monat</p><h2 class="st-tall">${MONTHS_LONG[Number(top.m.slice(5)) - 1]}</h2>
+        <div class="st-chart" style="--cols:${months.length}">${months.map((m, i) => `<div class="${m === top ? 'st-top' : ''}"><b>${num(m.n)}</b><i style="--h:${Math.round(num(m.n) / max * 100)}%;--n:${i}"></i><span>${MONTHS[Number(m.m.slice(5)) - 1]}</span></div>`).join('')}</div>
+        <p class="st-foot">${num(top.n)} ${num(top.n) === 1 ? 'Plus' : 'Plusse'} in einem Monat.</p>`]);
+    }
+    const tier = Math.min(4, Math.max(0, Number(r.tier) || 0));
+    cards.push(['ink', `<p class="k">So weit bist du gekommen</p>
+      <p class="st-lv"><span>${Math.max(1, Number(r.levelFrom) || 1)}</span><span aria-hidden="true">→</span><b>${Math.max(1, Number(r.levelTo) || 1)}</b></p>
+      <p class="st-sub">Von Level ${Math.max(1, Number(r.levelFrom) || 1)} auf Level ${Math.max(1, Number(r.levelTo) || 1)}. Dein Rang jetzt: <b>${esc(r.rank || TIERS[tier][1])}</b>.</p>
+      <div class="st-ranks">${TIERS.map(([k, n], i) => `<i class="t-${k}${i <= tier ? ' got' : ''}${i === tier ? ' now' : ''}" style="--n:${i}">${esc(n)}</i>`).join('')}</div>`]);
+    const gifts = list(r.gifts).filter(x => x && x.name);
+    if (gifts.length) {
+      cards.push(['mist', `<p class="k">Von ${esc(dativ(d.giver || d.teacher || 'deiner Lehrkraft'))}</p><h2 class="st-tall">${gifts.length} ${gifts.length === 1 ? 'Sticker' : 'Sticker'}</h2>
+        <ul class="st-gifts">${gifts.map(x => `<li><span class="s">${StudentShare.stickerSvg(x.icon)}</span><span><b>${esc(x.name)}</b>${x.reason ? `<span>„${esc(x.reason)}“</span>` : ''}</span></li>`).join('')}</ul>`]);
+    }
+    const topics = list(r.topics).filter(t => t && t.title);
+    if (topics.length) {
+      cards.push(['paper', `<p class="k">Das habt ihr geschafft</p><h2 class="st-tall">${topics.length} ${topics.length === 1 ? 'Thema' : 'Themen'}</h2>
+        <ol class="st-topics">${topics.map((t, i) => `<li style="--n:${i}"><i aria-hidden="true"></i>${esc(t.title)}<span>${num(t.n)} Std.</span></li>`).join('')}</ol>`]);
+    }
+    cards.push(['sig', `<p class="k">Und jetzt</p><h2 class="st-tall st-xl">Weiter so${d.first ? `, ${esc(d.first)}` : ''}</h2>
+      <p class="st-sub">${r.kind === 'year' ? 'Schöne Ferien. Im neuen Schuljahr geht es wieder bei Level 1 los.' : 'Jetzt kommt das 2. Halbjahr. Level, Rang und Sticker nimmst du mit.'}</p>
+      <div class="st-end"><button type="button" class="st-again">Noch mal ansehen</button><button type="button" class="st-back">Zurück zu meiner Seite</button></div>`]);
+    return cards;
+  }
+  const STORY_MS = 6500;
+  let story = null;   // { el, i, n, timer, left, started, opener, onKey } – nur Ansicht
+  function closeStory() {
+    if (!story) return;
+    clearTimeout(story.timer);
+    document.removeEventListener('keydown', story.onKey);
+    story.el.remove();
+    document.documentElement.classList.remove('story-open');
+    const back = story.opener;
+    story = null;
+    if (back && document.contains(back)) back.focus();
+  }
+  function storyShow(i) {
+    if (!story) return;
+    story.i = Math.max(0, Math.min(story.n - 1, i));
+    const cards = story.el.querySelectorAll('.st-card');
+    cards.forEach((c, k) => { c.classList.toggle('on', k === story.i); c.setAttribute('aria-hidden', String(k !== story.i)); });
+    story.el.querySelectorAll('.st-bars i').forEach((b, k) => { b.className = k < story.i ? 'done' : k === story.i ? 'now' : ''; });
+    story.el.dataset.tone = cards[story.i].dataset.tone;
+    const bar = story.el.querySelectorAll('.st-bars i b')[story.i];
+    bar.style.animation = 'none'; void bar.offsetWidth; bar.style.animation = '';
+    story.el.classList.toggle('last', story.i === story.n - 1);
+    clearTimeout(story.timer);
+    story.left = STORY_MS; story.started = Date.now();
+    const reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (!reduce && story.i < story.n - 1) story.timer = setTimeout(() => storyShow(story.i + 1), STORY_MS);
+  }
+  function openStory(r, d, opener) {
+    closeStory();
+    const cards = storyCards(r, d);
+    const el = document.createElement('div');
+    el.className = 'story';
+    el.setAttribute('role', 'dialog');
+    el.setAttribute('aria-modal', 'true');
+    el.setAttribute('aria-label', reviewTitle(r));
+    el.style.setProperty('--dur', STORY_MS + 'ms');
+    el.innerHTML = `<div class="st-bars" aria-hidden="true">${cards.map(() => '<i><b></b></i>').join('')}</div>
+      <button type="button" class="story-close" aria-label="Rückblick schließen">×</button>
+      ${cards.map(([tone, html]) => `<section class="st-card c-${tone}" data-tone="${tone}">${html}</section>`).join('')}
+      <div class="st-nav"><button type="button" class="story-prev" aria-label="Zurück"></button><button type="button" class="story-next" aria-label="Weiter"></button></div>`;
+    document.body.appendChild(el);
+    document.documentElement.classList.add('story-open');
+    story = { el, i: 0, n: cards.length, timer: null, left: STORY_MS, started: Date.now(), opener,
+      onKey: e => { if (e.key === 'Escape') closeStory(); else if (e.key === 'ArrowRight') storyShow(story.i + 1); else if (e.key === 'ArrowLeft') storyShow(story.i - 1); } };
+    document.addEventListener('keydown', story.onKey);
+    el.querySelector('.story-close').addEventListener('click', closeStory);
+    el.querySelector('.story-prev').addEventListener('click', () => storyShow(story.i - 1));
+    el.querySelector('.story-next').addEventListener('click', () => storyShow(story.i + 1));
+    el.querySelector('.st-again').addEventListener('click', () => storyShow(0));
+    el.querySelector('.st-back').addEventListener('click', closeStory);
+    // Gedrückt halten pausiert (wie bei Storys)
+    el.addEventListener('pointerdown', () => { if (!story) return; clearTimeout(story.timer); story.left -= Date.now() - story.started; el.classList.add('paused'); });
+    const resume = () => {
+      if (!story || !el.classList.contains('paused')) return;
+      el.classList.remove('paused');
+      story.started = Date.now();
+      if (story.i < story.n - 1) story.timer = setTimeout(() => storyShow(story.i + 1), Math.max(300, story.left));
+    };
+    el.addEventListener('pointerup', resume); el.addEventListener('pointercancel', resume);
+    storyShow(0);
+    el.querySelector('.story-close').focus();
   }
 
   let current = null;   // { data, offline } für Neuzeichnen und Abhaken
@@ -405,6 +525,7 @@
     document.title = me ? `${data.first || 'Ich'} · ${data.cls || ''}`.trim() : [data.cls, data.subject].filter(Boolean).join(' ') || 'Klasse';
     page.querySelectorAll('[data-tab]').forEach(b => b.addEventListener('click', () => { meTab = b.dataset.tab; draw(current.data, current.opts); }));
     page.querySelectorAll('[data-fb-all]').forEach(b => b.addEventListener('click', () => { fbAll = !fbAll; draw(current.data, current.opts); }));
+    page.querySelectorAll('[data-review]').forEach(b => b.addEventListener('click', () => { const r = reviewOf(current.data); if (r) openStory(r, current.data, b); }));
     if (me) data = data.klasse && typeof data.klasse === 'object' ? data.klasse : {};   // Aufträge und Kalender: aus der Klassenseite
     const hw = list(data.hw).filter(x => isDate(x.date) && x.date >= fmt(new Date()));
     const today = fmt(new Date());
