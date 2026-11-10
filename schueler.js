@@ -321,6 +321,22 @@
     return `<div class="fb-stats"><div class="fs-k">Dieses Schuljahr</div><div class="fs-row">${[['excellent', 'sehr gut'], ['positive', 'gut'], ['neutral', 'wenig'], ['negative', 'schwach']]
       .map(([v, w]) => `<div class="fs"><b>${n(v)}×</b> <span class="sp ${PART[v][1]}">${PART[v][0]}</span> <small>${w}</small></div>`).join('')}</div></div>`;
   }
+  // „Als Nächstes“ (AJ3i): was ein Schüler nach der Stunde wissen will, ganz oben in „Ich“. Gleiche Regeln wie die Klassenseite
+  // (offene Aufgabe = nicht für sich abgehakt). Antippen führt zum Reiter „Klasse“.
+  function soonHTML(k, now) {
+    if (!k || typeof k !== 'object') return '';
+    const today = fmt(now), hhmm = `${pad2(now.getHours())}:${pad2(now.getMinutes())}`;
+    const rows = [];
+    const hw = list(k.hw).filter(x => x && isDate(x.date) && x.date >= today && x.text && !ticked(x)).sort((a, b) => a.date.localeCompare(b.date))[0];
+    if (hw) rows.push(['Aufgabe', esc(hw.text), `bis ${esc(rel(hw.date, today))}`]);
+    const nx = list(k.next).find(n => n && isDate(n.date) && (n.date > today || (n.date === today && String(n.end) > hhmm)));
+    if (nx) rows.push(['Stunde', `${esc(rel(nx.date, today) === 'heute' ? 'heute' : short(nx.date))}, ${esc(nx.start)}${nx.room ? ` in ${esc(nx.room)}` : ''}`, '']);
+    const t = list(k.tests).filter(x => x && isDate(x.date) && x.date >= today).sort((a, b) => a.date.localeCompare(b.date))[0];
+    if (t) rows.push(['Arbeit', esc(t.text || 'Test'), esc(rel(t.date, today))]);
+    if (!rows.length) return '';
+    return `<button type="button" class="soon" data-tab="klasse"><span class="soon-h">Als Nächstes</span>${rows.map(([kind, what, when]) =>
+      `<span class="soon-r${kind === 'Arbeit' ? ' is-test' : ''}"><span class="soon-k">${kind}</span><span class="soon-v">${what}${when ? ` <small>${when}</small>` : ''}</span></span>`).join('')}</button>`;
+  }
   // Lange Vornamen kleiner statt mitten im Wort umbrechen (neben dem Stempel ist wenig Platz)
   const nameSize = n => { const l = String(n || '').length; return l > 12 ? ' xlong' : l > 8 ? ' long' : ''; };
   function buildMePage(d, now = new Date(), opts = {}) {
@@ -348,8 +364,8 @@
     const fbAllList = list(d.feedback).filter(x => x && isDate(x.date) && PART[x.v]).sort((a, b) => a.date.localeCompare(b.date));
     const fbHTML = `<div class="hero-fb"><h3>Rückmeldung <small>${fbAll ? 'dieses Schuljahr' : 'deine letzten Stunden'}</small></h3>
       ${fbAllList.length ? `${fbAll ? fbAllHTML(fbAllList) : fbRow(fbAllList.slice(-6))}
-        ${fbAllList.length > 6 ? `<button type="button" class="fb-more" data-fb-all aria-expanded="${fbAll}">${fbAll ? 'Weniger anzeigen' : `Alle anzeigen (${fbAllList.length})`}</button>` : ''}
-        ${fbStatsHTML(fbAllList)}`
+        ${fbAll ? fbStatsHTML(fbAllList) : ''}
+        <button type="button" class="fb-more" data-fb-all aria-expanded="${fbAll}">${fbAll ? 'Weniger anzeigen' : `Alle anzeigen (${fbAllList.length})`}</button>`
         : '<p class="me-line">Noch keine Einträge in diesem Schuljahr.</p>'}</div>`;
     const hero = `<div class="card hero"><div class="player"><div class="lvl-wrap"><div class="lvl" aria-label="Level ${level}"><small>Level</small><b${level >= 10 ? ' class="two"' : ''}>${level}</b></div></div>
         <div><div class="who${nameSize(d.first)}">${esc(d.first || 'Ich')}</div><div class="rank">${rankBadge(tierOf(level), d.rank)}<span class="lvl-word">Level ${level} · </span>${xp} XP</div></div></div>
@@ -358,11 +374,12 @@
       ${Number(d.streak) > 0 || tierOf(level) < 4 ? `<div class="hero-sub">${Number(d.streak) > 0 ? `<span><b>${Number(d.streak)}</b> ${Number(d.streak) === 1 ? 'Stunde' : 'Stunden'} in Folge mit Plus</span>` : ''}
         ${tierOf(level) < 4 ? `<span>Ab Level ${2 * (tierOf(level) + 1) + 1}: ${rankBadge(tierOf(level) + 1, d.nextRank && d.nextRank.name)}</span>` : ''}</div>` : ''}
       ${fbHTML}</div>`;
+    // Joker als Gutschein ganz oben (AJ3i): der schönste Moment der Seite, die Auswahl als Abreiß-Streifen
+    const joker = Number(j.open) > 0 ? `<div class="card joker voucher"><div class="t"><b>${Number(j.open) === 1 ? 'Ein Joker frei' : `${Number(j.open)} Joker frei`}</b>Zeig das deiner Lehrkraft und such dir aus:</div>${jl.length ? `<ul>${jl.map(x => `<li>${esc(x)}</li>`).join('')}</ul>` : ''}</div>` : '';
     const rest = `${bauHTML(d)}
-      ${Number(j.open) > 0 ? `<div class="card joker"><div class="t"><b>${Number(j.open) === 1 ? 'Ein Joker' : `${Number(j.open)} Joker`} frei</b>Zeig diese Seite deiner Lehrkraft und such dir aus:</div>${jl.length ? `<ul>${jl.map(x => `<li>${esc(x)}</li>`).join('')}</ul>` : ''}</div>` : ''}
       ${newRewardHTML(level)}
       <p class="hint"><b>So bekommst du XP:</b> + gibt 10, ++ gibt 20${d.giver ? `, Sticker von ${esc(dativ(d.giver))} und` : ', Sticker und'} geschaffte Baustellen bringen extra. Abgezogen wird nie etwas.</p>`;
-    return html + `<div class="spread me-ich"><div class="col">${hero}</div><div class="col">${rest}</div></div>` + footer;
+    return html + soonHTML(d.klasse, now) + `<div class="spread me-ich"><div class="col">${joker}${hero}</div><div class="col">${rest}</div></div>` + footer;
   }
 
   let current = null;   // { data, offline } für Neuzeichnen und Abhaken

@@ -187,12 +187,28 @@ details.row .more { padding: 0 0 14px 32px; }
 .streak .t b, .joker .t b { display: block; font-size: 15px; color: var(--ink); }
 .joker { margin-top: 18px; }
 .joker ul { margin: 8px 0 0 18px; font-size: 14px; line-height: 1.5; }
+/* Joker als Gutschein (AJ3i): Textmarker-Fläche, gestrichelter Schnittrand, Auswahl als Abreiß-Streifen */
+.voucher { margin-top: 0; background: var(--marker); color: var(--marker-ink); border-style: dashed; transform: rotate(-1deg); }
+.voucher .t, .voucher .t b { color: var(--marker-ink); }
+.voucher .t b { font-size: 20px; font-weight: 900; font-stretch: 115%; margin-bottom: 2px; }
+.voucher ul { list-style: none; margin: 10px 0 0; }
+.voucher li { padding: 8px 0; border-top: 1.5px dashed currentColor; font-size: 15px; font-weight: 600; }
+.me-ich .voucher + .hero { margin-top: 18px; }
+/* „Als Nächstes“ (AJ3i): eine Notiz oben, antippen führt zur Klasse */
+.soon { display: block; width: 100%; text-align: left; font: inherit; color: var(--ink); background: transparent; border: none; border-left: 3px solid var(--ink);
+  padding: 2px 0 2px 12px; margin-bottom: 18px; cursor: pointer; }
+.soon-h { display: block; font-size: 13px; font-weight: 700; color: var(--ink-2); margin-bottom: 4px; }
+.soon-r { display: grid; grid-template-columns: 64px minmax(0, 1fr); gap: 8px; padding: 3px 0; font-size: 15px; line-height: 1.35; }
+.soon-k { font-size: 13px; color: var(--ink-2); padding-top: 1px; }
+.soon-v { font-weight: 600; overflow-wrap: anywhere; }
+.soon-v small { font-size: 13px; font-weight: 500; color: var(--ink-2); }
+.soon-r.is-test .soon-v { color: var(--red); }
 .fb { display: grid; grid-template-columns: repeat(6, 1fr); gap: 10px 4px; text-align: center; }
 .fb .sp, .fb-stats .sp { margin: 0 auto; width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 900; font-size: 15px;
   border: 2px solid var(--stamp); color: var(--stamp); }
 .fb .sp.pp, .fb-stats .sp.pp { background: var(--stamp); color: var(--paper); font-size: 13px; letter-spacing: -1px; }
-.fb .sp.m, .fb-stats .sp.m { border-color: var(--red); color: var(--red); }
-.fb .sp.mm, .fb-stats .sp.mm { background: var(--red); border-color: var(--red); color: var(--paper); font-size: 13px; letter-spacing: -1px; }
+.fb .sp.m, .fb-stats .sp.m { border-color: var(--ink-2); color: var(--ink-2); }   /* Minus in Tinte, Rot heißt „Klassenarbeit“ (AJ3i) */
+.fb .sp.mm, .fb-stats .sp.mm { background: var(--ink-2); border-color: var(--ink-2); color: var(--paper); font-size: 13px; letter-spacing: -1px; }
 .fb small { display: block; font-size: 11px; color: var(--ink-2); margin-top: 4px; }
 .legend { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 12px; color: var(--ink-2); margin-top: 10px; }
 .legend b { font-weight: 800; color: var(--ink); }
@@ -280,7 +296,7 @@ details.row .more { padding: 0 0 14px 32px; }
 /* Baustelle, Sticker von der Lehrkraft, Album (AJ2b) */
 .bau { position: relative; margin-top: 18px; }
 .bau .k { font-size: 13px; color: var(--ink-2); padding-right: 40px; }
-.bau .bt { margin-top: 4px; }
+.bau .bt { margin-top: 4px; padding-right: 40px; }   /* Kran-Symbol oben rechts überdeckt sonst den Text (iPad, AJ3i) */
 .bau .bt span { font-size: 18px; font-weight: 800; background: var(--marker); color: var(--marker-ink); padding: 0 4px; border-radius: 3px 8px 4px 9px;
   box-decoration-break: clone; -webkit-box-decoration-break: clone; }
 .bau .r { font-size: 13px; color: var(--ink-2); margin-top: 8px; line-height: 1.4; }
@@ -309,8 +325,8 @@ details.row .more { padding: 0 0 14px 32px; }
 .yr-c { width: 16px; height: 16px; border-radius: 4px; border: 2px solid var(--stamp); box-sizing: border-box; }
 .yr-c.pp { background: var(--stamp); }
 .yr-c.p { background: color-mix(in srgb, var(--stamp) 35%, transparent); }
-.yr-c.m { border-color: var(--red); }
-.yr-c.mm { background: var(--red); border-color: var(--red); }
+.yr-c.m { border-color: var(--ink-2); }
+.yr-c.mm { background: var(--ink-2); border-color: var(--ink-2); }
 .yr-c.a { border: 2px dotted var(--ink-3); }
 .yr-c.none { border: 1.5px dashed var(--grid); }
 .yr-legend span { display: inline-flex; align-items: center; gap: 4px; }
@@ -326,6 +342,8 @@ details.row .more { padding: 0 0 14px 32px; }
 .qbox { width: 24px; height: 24px; border: 2px solid var(--ink); border-radius: 5px; flex-shrink: 0; margin-top: 1px; background: var(--card);
   display: flex; align-items: center; justify-content: center; cursor: pointer; padding: 0; color: var(--paper); font: inherit; font-size: 14px; font-weight: 900; }
 .qbox[aria-pressed="true"] { background: var(--ink); }
+.qbox { position: relative; }
+.qbox::after { content: ""; position: absolute; inset: -10px; }   /* 44 px Tippfläche, das Kästchen bleibt klein (AJ3i) */
 .quest.is-done .q { text-decoration: line-through; color: var(--ink-3); }
 .quest .q { font-size: 15px; font-weight: 600; overflow-wrap: anywhere; }
 .quest .d { font-size: 13px; color: var(--ink-2); margin-top: 2px; }

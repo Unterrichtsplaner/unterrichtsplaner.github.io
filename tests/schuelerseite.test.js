@@ -397,10 +397,10 @@ describe('Belohnungen zum Aussuchen (AJ3b, ersetzt AJ2d)', () => {
     d.bau = { text: 'Material', since: '2026-11-01' };
     window.renderStudentPage(d);
     const cards = [...page().querySelectorAll('.card')];
-    expect(cards[0].classList.contains('hero')).toBe(true);
-    expect(cards[0].querySelector('.fb .sp')).not.toBeNull();   // Rückmeldung steckt in der Level-Karte
+    const hero = page().querySelector('.card.hero');
+    expect(hero.querySelector('.fb .sp')).not.toBeNull();   // Rückmeldung steckt in der Level-Karte
     expect(page().querySelectorAll('.fb').length).toBe(1);
-    expect(cards.map(c => ['hero', 'bau', 'joker'].find(k => c.classList.contains(k))).filter(Boolean)).toEqual(['hero', 'bau', 'joker']);
+    expect(cards.map(c => ['hero', 'bau', 'joker'].find(k => c.classList.contains(k))).filter(Boolean)).toEqual(['joker', 'hero', 'bau']);   // Joker als Gutschein oben (AJ3i)
   });
 
   it('Rückmeldung (AJ3g): Zählung je Stufe, „Alle anzeigen“ klappt alle Einträge nach Monaten auf (neueste oben)', () => {
@@ -408,10 +408,11 @@ describe('Belohnungen zum Aussuchen (AJ3b, ersetzt AJ2d)', () => {
     const vs = ['positive', 'excellent', 'positive', 'neutral', 'positive', 'negative', 'positive', 'excellent', 'positive'];
     d.feedback = vs.map((v, i) => ({ date: i < 4 ? `2026-10-${String(10 + i).padStart(2, '0')}` : `2026-11-0${i - 3}`, v }));
     window.renderStudentPage(d);
-    expect(page().querySelector('.fb-stats').textContent.replace(/\s+/g, ' ')).toMatch(/2× \+\+.*5× \+.*1× −.*1× −−/);
+    expect(page().querySelector('.fb-stats')).toBeNull();   // Zählung erst nach „Alle anzeigen“ (AJ3i)
     expect(page().querySelectorAll('.fb .sp').length).toBe(6);
     expect(page().querySelector('.fb-all')).toBeNull();
     page().querySelector('[data-fb-all]').click();
+    expect(page().querySelector('.fb-stats').textContent.replace(/\s+/g, ' ')).toMatch(/2× \+\+.*5× \+.*1× −.*1× −−/);
     const months = [...page().querySelectorAll('.fb-all .fb-month h4')].map(h => h.textContent);
     expect(months[0]).toMatch(/November/);
     expect(months[1]).toMatch(/Oktober/);
@@ -421,12 +422,58 @@ describe('Belohnungen zum Aussuchen (AJ3b, ersetzt AJ2d)', () => {
     expect(page().querySelector('.fb-all')).toBeNull();
   });
 
-  it('höchstens 6 Einträge: kein Knopf „Alle anzeigen“', () => {
+  it('wenige Einträge: Knopf trotzdem da, dahinter die Zählung (AJ3i)', () => {
     const d = me(4);
     d.feedback = [{ date: '2026-11-02', v: 'positive' }];
     window.renderStudentPage(d);
-    expect(page().querySelector('[data-fb-all]')).toBeNull();
+    expect(page().querySelector('.fb-stats')).toBeNull();
+    page().querySelector('[data-fb-all]').click();
     expect(page().querySelector('.fb-stats')).not.toBeNull();
+    page().querySelector('[data-fb-all]').click();
+  });
+
+  it('Minus in Tinte, nicht in Korrektur-Rot (Rot heißt „Klassenarbeit“, AJ3i)', () => {
+    const css = fs.readFileSync(path.join(__dirname, '..', 'schueler.css'), 'utf8');
+    css.split('\n').filter(l => /\.sp\.mm? |\.yr-c\.mm? /.test(l)).forEach(l => expect(l, l).not.toMatch(/--red/));
+  });
+
+  it('Zeile „Als Nächstes“ oben: nächste offene Hausaufgabe, nächste Stunde, nächste Arbeit; antippen führt zur Klasse (AJ3i)', () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date(2026, 10, 10, 15, 0));
+    try { localStorage.clear(); } catch (e) { /* egal */ }
+    const d = me(4);
+    d.klasse = { v: 2, cls: '7b', hw: [{ date: '2026-11-09', text: 'Alt' }, { date: '2026-11-11', text: 'S. 42 Nr. 3' }, { date: '2026-11-13', text: 'AB fertig' }],
+      next: [{ date: '2026-11-12', start: '09:45', end: '11:15', room: 'R 104' }], tests: [{ date: '2026-11-26', text: 'Klassenarbeit Brüche' }] };
+    window.renderStudentPage(d);
+    const soon = page().querySelector('.soon');
+    expect(soon).not.toBeNull();
+    const t = soon.textContent.replace(/\s+/g, ' ');
+    expect(t).toMatch(/S\. 42 Nr\. 3/);
+    expect(t).toMatch(/morgen/);
+    expect(t).not.toMatch(/Alt/);
+    expect(t).toMatch(/09:45/);
+    expect(t).toMatch(/R 104/);
+    expect(t).toMatch(/Klassenarbeit Brüche.*in 16 Tagen/);
+    expect(page().querySelector('.spread').compareDocumentPosition(soon) & Node.DOCUMENT_POSITION_PRECEDING).toBeTruthy();   // steht vor allem anderen
+    localStorage.setItem('sa_tick_2026-11-11_S. 42 Nr. 3', '1');   // für sich abgehakt → nächste offene
+    window.renderStudentPage(d);
+    expect(page().querySelector('.soon').textContent).toMatch(/AB fertig/);
+    page().querySelector('.soon').click();
+    expect(page().querySelector('[data-tab=klasse]').getAttribute('aria-selected')).toBe('true');
+    window.SchuelerSeite.setMeTab('ich');
+    localStorage.clear();
+    vi.useRealTimers();
+  });
+
+  it('ohne Klassenseite oder ohne Termine keine Zeile „Als Nächstes“', () => {
+    window.renderStudentPage(me(4));
+    expect(page().querySelector('.soon')).toBeNull();
+  });
+
+  it('Abhak-Kästchen mit 44 px Tippfläche, Kran überdeckt den Baustellen-Text nicht (AJ3i)', () => {
+    const css = fs.readFileSync(path.join(__dirname, '..', 'schueler.css'), 'utf8');
+    expect(css).toMatch(/\.qbox::after \{[^}]*inset: -10px/);
+    expect(css).toMatch(/\.bau \.bt \{[^}]*padding-right: 40px/);
   });
 
   it('lange Vornamen werden kleiner statt im Wort umzubrechen', () => {
