@@ -196,7 +196,7 @@ details.row .more { padding: 0 0 14px 32px; }
 .player .who { font-size: 26px; font-weight: 900; font-stretch: 112%; line-height: 1; overflow-wrap: anywhere; }
 .player .who.long { font-size: 21px; } .player .who.xlong { font-size: 17px; }
 .player .rank { font-size: 14px; color: var(--ink-2); margin-top: 4px; }
-.hl-text span { font-weight: 600; }
+.hl-text span { font-weight: 600; background: var(--card); padding: 0 4px; border-radius: 4px; }   /* lesbar auch über dem Textmarker (dunkel: Weiß auf Gelb) */
 .me-next { font-size: 13px; color: var(--ink-2); margin-top: 6px; }
 .me-next b { color: var(--ink); }
 .streak { display: flex; align-items: center; gap: 12px; margin-top: 18px; }
