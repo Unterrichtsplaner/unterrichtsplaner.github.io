@@ -20,9 +20,10 @@
       let s = {};
       try { const raw = localStorage.getItem('lehrerapp_v3'); s = (raw && JSON.parse(raw).settings) || {}; } catch (e) {}
       const custom = s.themeBg && s.themeBg !== '#0f1117' && s.themeBg !== '#bfdbfe' ? s.themeBg : '';   // sonst Standard (Eisblau)
-      const bg = custom || '#bfdbfe';
-      const card = custom ? s.themeCard : '#dbeafe';
-      root.setAttribute('data-theme', custom ? (s.theme || 'dark') : 'light');
+      const autoDark = !custom && s.themeAuto === true && !!(window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);   // X6: Tiefsee
+      const bg = custom || (autoDark ? '#0f172a' : '#bfdbfe');
+      const card = custom ? s.themeCard : (autoDark ? '#1e293b' : '#dbeafe');
+      root.setAttribute('data-theme', custom ? (s.theme || 'dark') : autoDark ? 'dark' : 'light');
       ['--bg-primary', '--sidebar-bg', '--bg-secondary'].forEach(v => root.style.setProperty(v, bg));
       if (card) ['--bg-card', '--bg-elevated'].forEach(v => root.style.setProperty(v, card));
       const meta = document.querySelector('meta[name="theme-color"]');
@@ -60,7 +61,7 @@
       }
     })();
   </script>
-  <link rel="stylesheet" href="style.css?v=526" />
+  <link rel="stylesheet" href="style.css?v=528" />
   <script>
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
@@ -1033,6 +1034,7 @@
             <div class="color-swatch settings-swatch-bg" role="button" tabindex="0" style="background:#1f2937; --swatch-color:#6b7280;" data-color="#1f2937" data-mode="dark" data-card="#374151" title="Schiefer" onclick="selectThemeBg(this, '#1f2937', 'dark', '#374151')"></div>
             <div class="color-swatch settings-swatch-bg" role="button" tabindex="0" style="background:#18181b; --swatch-color:#71717a;" data-color="#18181b" data-mode="dark" data-card="#27272a" title="Dunkel" onclick="selectThemeBg(this, '#18181b', 'dark', '#27272a')"></div>
             <div class="color-swatch settings-swatch-bg" role="button" tabindex="0" style="background:#0f172a; --swatch-color:#475569;" data-color="#0f172a" data-mode="dark" data-card="#1e293b" title="Tiefsee" onclick="selectThemeBg(this, '#0f172a', 'dark', '#1e293b')"></div>
+            <div class="color-swatch settings-swatch-bg swatch-auto" role="button" tabindex="0" style="--swatch-color:#475569;" data-color="auto" data-mode="light" data-card="" title="Automatisch (wie Gerät): Eisblau, bei dunklem Gerät Tiefsee" aria-label="Automatisch wie Gerät: Eisblau, bei dunklem Gerät Tiefsee" onclick="selectThemeBg(this, 'auto', 'light', '')"></div>
           </div>
         </div>
         <div class="form-group">
@@ -1841,15 +1843,15 @@
   </div>
 
   <script src="lib/crypto-js.min.js"></script>
-  <script src="crypto-helper.js?v=526"></script>
+  <script src="crypto-helper.js?v=528"></script>
   <script src="lib/firebase-app-compat.js"></script>
   <script src="lib/firebase-auth-compat.js"></script>
   <script src="lib/firebase-firestore-compat.js"></script>
-  <script src="firebase-config.js?v=526"></script>
-  <script src="sync-manager.js?v=526"></script>
-  <script src="sync-merge.js?v=526"></script>
+  <script src="firebase-config.js?v=528"></script>
+  <script src="sync-manager.js?v=528"></script>
+  <script src="sync-merge.js?v=528"></script>
   <script src="lib/qrcode.js"></script>
-  <script src="student-share.js?v=526"></script>
-  <script src="app.js?v=526"></script>
+  <script src="student-share.js?v=528"></script>
+  <script src="app.js?v=528"></script>
 </body>
 </html>

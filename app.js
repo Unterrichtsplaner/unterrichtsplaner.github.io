@@ -5126,9 +5126,15 @@ let currentThemeAccent = savedThemeAccent();
 // Standard-Design: hell, Hintergrund Eisblau, Akzent Tinte (02.11.2026). „Standard“ wird nie gespeichert
 // (themeBg fehlt), damit alle, die nie selbst gewählt haben, einen neuen Standard bekommen (BUGS S6, AE4).
 const DEFAULT_THEME = { bg: '#bfdbfe', card: '#dbeafe', mode: 'light' };
-let currentThemeBg = savedThemeBg();                        // '' = Standard
+// „Automatisch (wie Gerät)“ (X6): Eisblau, bei dunkel eingestelltem Gerät Tiefsee. Gespeichert als themeAuto (ohne themeBg),
+// damit ältere App-Versionen einfach den Standard zeigen. Im Formular steht dafür currentThemeBg = 'auto'.
+const AUTO_DARK_THEME = { bg: '#0f172a', card: '#1e293b', mode: 'dark' };
+function systemPrefersDark() {
+  return !!(window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
+}
+let currentThemeBg = savedThemeAuto() ? 'auto' : savedThemeBg();   // '' = Standard
 let currentThemeMode = savedThemeMode();
-let currentThemeCard = currentThemeBg ? (db.settings.themeCard || '') : '';
+let currentThemeCard = currentThemeBg && currentThemeBg !== 'auto' ? (db.settings.themeCard || '') : '';
 
 function selectThemeAccent(el, color) {
   document.querySelectorAll('.settings-swatch-accent').forEach(s => s.classList.remove('selected'));
@@ -5242,13 +5248,15 @@ function accentThemeVars(accent, mode, surfaces) {
 }
 function applyThemePreview() {
   const radEl = document.getElementById('settings-radius');
-  document.documentElement.setAttribute('data-theme', document.querySelector('.settings-swatch-bg.selected') ? currentThemeMode : savedThemeMode());
 
   const accent = document.querySelector('.settings-swatch-accent.selected') ? currentThemeAccent : savedThemeAccent();
   const picked = !!document.querySelector('.settings-swatch-bg.selected');
-  const chosenBg = picked ? currentThemeBg : savedThemeBg();   // '' = Standard (Eisblau)
-  const bg = chosenBg || DEFAULT_THEME.bg;
-  const card = chosenBg ? (picked ? currentThemeCard : (db.settings.themeCard || null)) : DEFAULT_THEME.card;
+  const chosen = picked ? currentThemeBg : (savedThemeAuto() ? 'auto' : savedThemeBg());   // '' = Standard (Eisblau)
+  const auto = chosen === 'auto' ? (systemPrefersDark() ? AUTO_DARK_THEME : DEFAULT_THEME) : null;
+  const chosenBg = auto ? '' : chosen;
+  const bg = auto ? auto.bg : (chosenBg || DEFAULT_THEME.bg);
+  const card = auto ? auto.card : chosenBg ? (picked ? currentThemeCard : (db.settings.themeCard || null)) : DEFAULT_THEME.card;
+  document.documentElement.setAttribute('data-theme', auto ? auto.mode : picked ? currentThemeMode : savedThemeMode());
   let rad = radEl ? parseInt(radEl.value) : db.settings.themeRadius;
   if (rad > 12) rad = 12; // Clamp max radius to 12
 
@@ -5634,8 +5642,9 @@ function saveSettings() {
   db.settings.warnPoints   = parseWarnThreshold('settings-warn-points', 5);
   db.settings.theme       = currentThemeMode;
   // Nur eine wirklich gewählte Farbe speichern; Standard = nichts gespeichert (BUGS S6)
-  if (currentThemeBg) { db.settings.themeBg = currentThemeBg; db.settings.themeCard = currentThemeCard; }
+  if (currentThemeBg && currentThemeBg !== 'auto') { db.settings.themeBg = currentThemeBg; db.settings.themeCard = currentThemeCard; }
   else { delete db.settings.themeBg; delete db.settings.themeCard; }
+  if (currentThemeBg === 'auto') db.settings.themeAuto = true; else delete db.settings.themeAuto;   // X6
   if (currentThemeAccent) db.settings.themeAccent = currentThemeAccent; else delete db.settings.themeAccent; // Standard = nichts gespeichert
   db.settings.themeRadius = parseInt(document.getElementById('settings-radius').value);
   db.settings.studentSortOrder = document.getElementById('settings-sort-order').value;
@@ -12068,9 +12077,9 @@ async function resolveConflict(decision) {
 function loadThemeSelection() {
   currentThemeAccent = savedThemeAccent();
   document.querySelectorAll('.settings-swatch-accent').forEach(s => s.classList.toggle('selected', s.dataset.color === currentThemeAccent));
-  currentThemeBg   = savedThemeBg();
+  currentThemeBg   = savedThemeAuto() ? 'auto' : savedThemeBg();
   currentThemeMode = savedThemeMode();
-  currentThemeCard = currentThemeBg ? (db.settings.themeCard || '') : '';
+  currentThemeCard = currentThemeBg && currentThemeBg !== 'auto' ? (db.settings.themeCard || '') : '';
   document.querySelectorAll('.settings-swatch-bg').forEach(s => s.classList.toggle('selected', s.dataset.color === currentThemeBg));
   let radVal = Number.isFinite(db.settings.themeRadius) ? db.settings.themeRadius : 8;
   if (radVal > 12) radVal = 12; // Clamp max radius to 12
@@ -12090,9 +12099,20 @@ function savedThemeBg() {
   const bg = db.settings.themeBg || '';
   return bg === '#0f1117' || bg === DEFAULT_THEME.bg ? '' : bg;   // früheres Dunkel-Standard bzw. Eisblau = Standard
 }
-// Hell/dunkel: beim Standard immer hell; sonst wie gespeichert (das Farbfeld legt den Modus fest)
+// „Automatisch (wie Gerät)“ gewählt (X6); eine gewählte Farbe geht vor
+function savedThemeAuto() {
+  return db.settings.themeAuto === true && !savedThemeBg();
+}
+// Hell/dunkel: beim Standard immer hell; automatisch wie das Gerät; sonst wie gespeichert (das Farbfeld legt den Modus fest)
 function savedThemeMode() {
+  if (savedThemeAuto()) return systemPrefersDark() ? 'dark' : 'light';
   return savedThemeBg() ? (db.settings.theme || 'dark') : DEFAULT_THEME.mode;
+}
+// Gerät wechselt hell/dunkel (z. B. abends automatisch): bei „Automatisch“ sofort mitgehen
+if (window.matchMedia) {
+  const darkMq = window.matchMedia('(prefers-color-scheme: dark)');
+  const follow = () => { if (currentThemeBg === 'auto' || savedThemeAuto()) applyThemePreview(); };
+  if (darkMq.addEventListener) darkMq.addEventListener('change', follow); else if (darkMq.addListener) darkMq.addListener(follow);
 }
 // Hilfsfunktion zum Aktualisieren des Themes aus den Einstellungen in der DB
 function updateAppliedThemeFromDB() {

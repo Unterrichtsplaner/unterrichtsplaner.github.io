@@ -735,6 +735,7 @@ input[name="new-lesson-part"]:checked + .duration-btn {
 #lesson-color-picker,#group-color-picker{display:grid;grid-template-columns:repeat(7,26px);gap:var(--space-2) var(--space-3);}
 .settings-footer-hint{margin-right:auto;font-size:12px;color:var(--text-muted);}
 .color-swatch{width:26px;height:26px;border-radius:var(--radius-sm);cursor:pointer;border:2.5px solid transparent;transition:background-color var(--transition),color var(--transition),border-color var(--transition),box-shadow var(--transition),opacity var(--transition),transform var(--transition);position:relative;}
+.swatch-auto{background:linear-gradient(135deg, #bfdbfe 50%, #0f172a 50%);}   /* Feld „Automatisch“: halb Eisblau, halb Tiefsee (X6), harte Kante, kein Verlauf */
 @media (hover: hover){.color-swatch:hover{box-shadow:0 0 0 2px var(--border-active);}}
 @media (pointer: coarse){.color-swatch{width:var(--control-h);height:var(--control-h);}}   /* 26 px war zum Antippen zu klein (W12) */
 .color-swatch.selected{border-color:white !important;box-shadow:0 0 0 2px var(--swatch-color);}
