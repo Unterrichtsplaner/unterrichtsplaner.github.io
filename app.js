@@ -5211,6 +5211,35 @@ function appVersion() {
   return m ? m[1] : '';
 }
 
+// Eigene Akzentfarbe (W5): Schrift darauf nach Helligkeit (weiß oder dunkel), Akzent als Schrift so weit abgedunkelt
+// (hell) bzw. aufgehellt (dunkel), bis er auf Karte und Hintergrund 4,5:1 erreicht, Nebenfarben aus dem Akzent.
+// Muss zum Kopf-Skript in index.html passen (tests/akzentfarbe.test.js vergleicht beide).
+const ACCENT_VARS = ['--accent', '--accent-hover', '--accent-glow', '--accent-soft', '--on-accent', '--text-accent', '--border-active'];
+function accentThemeVars(accent, mode, surfaces) {
+  const rgb = h => { const m = /^#?([0-9a-f]{6})$/i.exec(String(h || '').trim()); return m ? [0, 2, 4].map(i => parseInt(m[1].substr(i, 2), 16)) : null; };
+  const lum = c => { const v = c.map(x => { x /= 255; return x <= 0.03928 ? x / 12.92 : Math.pow((x + 0.055) / 1.055, 2.4); }); return 0.2126 * v[0] + 0.7152 * v[1] + 0.0722 * v[2]; };
+  const ratio = (a, b) => { const x = lum(a), y = lum(b); return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05); };
+  const mix = (c, t, f) => c.map((x, i) => Math.round(x + (t[i] - x) * f));
+  const hex = c => '#' + c.map(x => x.toString(16).padStart(2, '0')).join('');
+  const a = rgb(accent);
+  if (!a) return null;
+  const dark = mode === 'dark';
+  const ink = [20, 23, 31], white = [255, 255, 255], toward = dark ? white : [0, 0, 0];
+  const bgs = (surfaces || []).map(rgb).filter(Boolean);
+  if (!bgs.length) bgs.push(dark ? [33, 30, 25] : [255, 253, 248]);
+  let text = a;
+  for (let f = 0.05; f <= 1 && bgs.some(b => ratio(text, b) < 4.5); f += 0.05) text = mix(a, toward, f);
+  const alpha = x => 'rgba(' + a.join(',') + ',' + x + ')';
+  return {
+    '--accent': hex(a),
+    '--accent-hover': hex(mix(a, dark ? white : [0, 0, 0], 0.15)),
+    '--accent-glow': alpha(dark ? 0.30 : 0.18),
+    '--accent-soft': alpha(dark ? 0.15 : 0.09),
+    '--on-accent': ratio(white, a) >= ratio(ink, a) ? '#ffffff' : hex(ink),
+    '--text-accent': hex(text),
+    '--border-active': alpha(dark ? 0.5 : 0.4),
+  };
+}
 function applyThemePreview() {
   const radEl = document.getElementById('settings-radius');
   document.documentElement.setAttribute('data-theme', document.querySelector('.settings-swatch-bg.selected') ? currentThemeMode : savedThemeMode());
@@ -5245,8 +5274,9 @@ function applyThemePreview() {
     document.documentElement.style.removeProperty('--bg-elevated');
   }
   
-  if (accent) { document.documentElement.style.setProperty('--accent', accent); document.documentElement.style.setProperty('--text-accent', accent); }
-  else { document.documentElement.style.removeProperty('--accent'); document.documentElement.style.removeProperty('--text-accent'); }
+  const mode = document.documentElement.getAttribute('data-theme') === 'dark' ? 'dark' : 'light';
+  const accentVars = accent ? accentThemeVars(accent, mode, [bg, card]) : null;
+  ACCENT_VARS.forEach(v => { if (accentVars) document.documentElement.style.setProperty(v, accentVars[v]); else document.documentElement.style.removeProperty(v); });
 
   if (rad !== undefined && rad !== null && !isNaN(rad)) {
     document.documentElement.style.setProperty('--radius-sm', Math.max(0, rad - 2) + 'px');

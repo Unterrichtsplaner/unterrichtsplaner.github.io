@@ -166,7 +166,7 @@ input[type="date"] { min-height: 1.2em; } /* Fix iOS Safari date input collapse 
   .timetable-grid-wrapper{padding:var(--space-3) var(--page-x);}
 }
 .tt-day-header{padding:var(--space-3) var(--space-2);text-align:center;font-size:13px;font-weight:700;color:var(--text-secondary);text-transform:uppercase;}
-.tt-day-header.today{color:var(--accent);}
+.tt-day-header.today{color:var(--text-accent);}
 .tt-time-label{display:flex;flex-direction:column;align-items:flex-end;justify-content:center;padding:0 var(--space-4) 0 0;text-align:right;}
 .tt-time-block-name{font-size:12px;font-weight:700;color:var(--text-secondary);}
 .tt-time-block-range{font-size:11px;color:var(--text-muted);margin-top:var(--space-1);line-height:1.5;}
@@ -465,10 +465,11 @@ button.cr-name:focus-visible{outline:2px solid var(--accent);outline-offset:3px;
 .seating-card.draggable-mode:active{cursor:grabbing;box-shadow:var(--shadow-md);transform:scale(1.05);z-index:20;}
 .seating-card .sc-name{font-size:13px;font-weight:700;line-height:1.2;color:var(--text-primary);margin-top:2px;margin-bottom:var(--space-1);overflow-wrap:break-word;-webkit-hyphens:auto;hyphens:auto;}
 .seating-card .sc-gpa{font-size:11px;font-weight:800;}
-.seating-card.is-absent-unexcused{background:rgba(239,68,68,0.15);border-color:rgba(239,68,68,0.5);opacity:0.7;}
+.seating-card.is-absent-unexcused{background:var(--danger-soft);border-color:var(--danger);}
 .seating-card.is-absent-unexcused .sc-name{text-decoration:line-through;color:var(--danger);}
-.seating-card.is-absent-excused{background:rgba(100,116,139,0.1);border-color:rgba(100,116,139,0.3);opacity:0.5;}
-.seating-card.is-absent-excused .sc-name{text-decoration:line-through;color:var(--text-muted);}
+/* Entschuldigt: Karte tritt zurück (Fläche wie der Hintergrund, Rand gestrichelt), Name bleibt lesbar – keine opacity auf Text (W11, Beamer) */
+.seating-card.is-absent-excused{background:color-mix(in srgb, var(--bg-card) 35%, var(--bg-primary));border-style:dashed;border-color:var(--border);box-shadow:none;}
+.seating-card.is-absent-excused .sc-name{text-decoration:line-through;color:var(--text-secondary);}
 .seating-card .sc-hw-note{font-size:10px;font-weight:800;color:var(--hw-note-text);background:var(--warning);padding:2px var(--space-1);border-radius:var(--radius-xs);margin-top:var(--space-1);text-transform:uppercase;letter-spacing:0.5px;}
 .seating-card .sc-late-note{font-size:10px;font-weight:800;color:#fff;background:var(--text-muted);padding:2px var(--space-1);border-radius:var(--radius-xs);margin-top:var(--space-1);text-transform:uppercase;letter-spacing:0.5px;}
 
@@ -513,7 +514,7 @@ button.cr-name:focus-visible{outline:2px solid var(--accent);outline-offset:3px;
 .overview-table .ov-sum{text-align:center;font-weight:600;white-space:nowrap;}
 .overview-table .ov-sum .sep{color:var(--text-muted);font-weight:400;}
 .overview-table .ov-sum .n-bad{color:var(--danger);}
-.overview-table th.ov-today{color:var(--accent);box-shadow:inset 0 -2px 0 var(--accent);}   /* Spalte von heute */
+.overview-table th.ov-today{color:var(--text-accent);box-shadow:inset 0 -2px 0 var(--accent);}   /* Spalte von heute */
 .overview-table td.ov-part-cell,.overview-table td.ov-cycle-cell,.overview-table td.ov-grade-cell{padding:0;text-align:center;}
 .ov-part-btn{display:flex;align-items:center;justify-content:center;width:100%;min-height:var(--control-h);padding:0;background:none;border:none;border-radius:var(--radius-sm);font-family:inherit;font-size:20px;color:inherit;cursor:pointer;}
 .ov-part-btn .ov-empty{font-size:16px;color:var(--text-muted);}   /* leere Mitarbeit: leiser Strich */
@@ -561,7 +562,7 @@ button.cr-name:focus-visible{outline:2px solid var(--accent);outline-offset:3px;
 .upcoming-chips-row{padding:var(--space-2) 0 var(--space-1);}
 .date-chips-container{display:flex;gap:var(--space-1);flex-wrap:wrap;}
 .next-lesson-chip{padding:var(--space-1) var(--space-2);background:var(--accent-soft);color:var(--text-accent);border:1px solid var(--border-active);border-radius:var(--radius-xs);font-size:11px;font-weight:600;cursor:pointer;transition:background-color var(--transition),color var(--transition),border-color var(--transition),box-shadow var(--transition),opacity var(--transition),transform var(--transition);white-space:nowrap;font-family:inherit;}
-@media (hover: hover){.next-lesson-chip:hover{background:var(--accent);color:white;}}
+@media (hover: hover){.next-lesson-chip:hover{background:var(--accent);color:var(--on-accent);}}
 .next-lesson-chip.chip-active{background:var(--accent);color:var(--on-accent);}
 .next-lesson-chip:empty{display:none;}
 
@@ -704,7 +705,7 @@ input[name="new-lesson-part"]:checked + .duration-btn {
 }}
 .custom-form-dropdown-item.selected {
   background: var(--accent-glow);
-  color: var(--accent);
+  color: var(--text-accent);
   font-weight: 600;
 }
 .custom-form-dropdown-optgroup {
@@ -859,7 +860,7 @@ select option{background:var(--bg-secondary);}
 .date-chip { display: flex; flex-direction: column; align-items: center; justify-content: center; width: 34px; height: 34px; border-radius: var(--radius-sm); background: var(--bg-elevated); border: 1px solid var(--border); color: var(--text-secondary); cursor: pointer; transition:background-color var(--transition),color var(--transition),border-color var(--transition),box-shadow var(--transition),opacity var(--transition),transform var(--transition); user-select: none; flex-shrink: 0; }
 @media (hover: hover){.date-chip:hover{ background: var(--bg-card-hover); }}
 .date-chip.active { width: 40px; height: 40px; background: var(--accent); color:var(--on-accent); border-color: var(--accent); box-shadow: var(--shadow-sm); }
-.date-chip-day { font-size: 10px; text-transform: uppercase; font-weight: 700; opacity: 0.8; margin-bottom: 1px; transition: font-size var(--transition); }
+.date-chip-day { font-size: 10px; text-transform: uppercase; font-weight: 700; margin-bottom: 1px; transition: font-size var(--transition); }
 .date-chip.active .date-chip-day { font-size: 10px; margin-bottom: 1px; }
 .date-chip-date { font-size: 11px; font-weight: 700; transition: font-size var(--transition); }
 .date-chip.active .date-chip-date { font-size: 13px; }
@@ -1291,7 +1292,7 @@ button.date-chip{font-family:inherit;padding:0;}
 .privacy-notice h3:first-child{margin-top:0;}
 .privacy-notice ul{margin:0;padding-left:var(--space-4);}
 .privacy-notice li{margin-bottom:var(--space-1);}
-.privacy-notice a{color:var(--accent);}
+.privacy-notice a{color:var(--text-accent);}
 /* Beschriftung einer Auswahlgruppe (Farben, Hälften): sieht aus wie ein Feld-Label, ist aber keins (BUGS X9) */
 .form-group .group-label{display:block;font-size:12px;font-weight:600;color:var(--text-secondary);}
 /* Hinweis direkt unter einem Feld, z. B. Vorschau „Legt 4 Klassen an …“ (BUGS AA1) */

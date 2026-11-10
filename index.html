@@ -27,9 +27,29 @@
       if (card) ['--bg-card', '--bg-elevated'].forEach(v => root.style.setProperty(v, card));
       const meta = document.querySelector('meta[name="theme-color"]');
       if (meta) meta.setAttribute('content', bg);
-      if (s.themeAccent) {
-        root.style.setProperty('--accent', s.themeAccent);
-        root.style.setProperty('--text-accent', s.themeAccent);
+      if (s.themeAccent) {   // wie accentThemeVars in app.js (W5)
+        const rgb = h => { const m = /^#?([0-9a-f]{6})$/i.exec(String(h || '').trim()); return m ? [0, 2, 4].map(i => parseInt(m[1].substr(i, 2), 16)) : null; };
+        const lum = c => { const v = c.map(x => { x /= 255; return x <= 0.03928 ? x / 12.92 : Math.pow((x + 0.055) / 1.055, 2.4); }); return 0.2126 * v[0] + 0.7152 * v[1] + 0.0722 * v[2]; };
+        const ratio = (a, b) => { const x = lum(a), y = lum(b); return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05); };
+        const mix = (c, t, f) => c.map((x, i) => Math.round(x + (t[i] - x) * f));
+        const hex = c => '#' + c.map(x => x.toString(16).padStart(2, '0')).join('');
+        const a = rgb(s.themeAccent);
+        if (a) {
+          const dark = root.getAttribute('data-theme') === 'dark';
+          const ink = [20, 23, 31], white = [255, 255, 255], toward = dark ? white : [0, 0, 0];
+          const bgs = [bg, card].map(rgb).filter(Boolean);
+          if (!bgs.length) bgs.push(dark ? [33, 30, 25] : [255, 253, 248]);
+          let text = a;
+          for (let f = 0.05; f <= 1 && bgs.some(b => ratio(text, b) < 4.5); f += 0.05) text = mix(a, toward, f);
+          const alpha = x => 'rgba(' + a.join(',') + ',' + x + ')';
+          root.style.setProperty('--accent', hex(a));
+          root.style.setProperty('--accent-hover', hex(mix(a, toward, 0.15)));
+          root.style.setProperty('--accent-glow', alpha(dark ? 0.30 : 0.18));
+          root.style.setProperty('--accent-soft', alpha(dark ? 0.15 : 0.09));
+          root.style.setProperty('--on-accent', ratio(white, a) >= ratio(ink, a) ? '#ffffff' : hex(ink));
+          root.style.setProperty('--text-accent', hex(text));
+          root.style.setProperty('--border-active', alpha(dark ? 0.5 : 0.4));
+        }
       }
       if (s.themeRadius !== undefined && s.themeRadius !== null) {
         const rad = Math.min(12, s.themeRadius);
@@ -40,7 +60,7 @@
       }
     })();
   </script>
-  <link rel="stylesheet" href="style.css?v=524" />
+  <link rel="stylesheet" href="style.css?v=526" />
   <script>
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
@@ -1821,15 +1841,15 @@
   </div>
 
   <script src="lib/crypto-js.min.js"></script>
-  <script src="crypto-helper.js?v=524"></script>
+  <script src="crypto-helper.js?v=526"></script>
   <script src="lib/firebase-app-compat.js"></script>
   <script src="lib/firebase-auth-compat.js"></script>
   <script src="lib/firebase-firestore-compat.js"></script>
-  <script src="firebase-config.js?v=524"></script>
-  <script src="sync-manager.js?v=524"></script>
-  <script src="sync-merge.js?v=524"></script>
+  <script src="firebase-config.js?v=526"></script>
+  <script src="sync-manager.js?v=526"></script>
+  <script src="sync-merge.js?v=526"></script>
   <script src="lib/qrcode.js"></script>
-  <script src="student-share.js?v=524"></script>
-  <script src="app.js?v=524"></script>
+  <script src="student-share.js?v=526"></script>
+  <script src="app.js?v=526"></script>
 </body>
 </html>
