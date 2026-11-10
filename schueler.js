@@ -201,7 +201,7 @@
     const sub = [d.subject, d.teacher ? `bei ${dativ(d.teacher)}` : ''].filter(Boolean).join(' ');
     return `<header class="me-top"><div><div class="class-name me-cls">${esc(d.cls || 'Klasse')}</div>${sub ? `<div class="class-sub">${esc(sub)}</div>` : ''}</div>
       <div class="tabs" role="tablist">${[['ich', 'Ich'], ['sammlung', 'Sammlung'], ['klasse', 'Klasse']].map(([k, l]) =>
-        `<button type="button" role="tab" data-tab="${k}" aria-selected="${meTab === k}" class="${meTab === k ? 'on' : ''}">${l}</button>`).join('')}</div></header>`;
+        `<button type="button" role="tab" data-tab="${k}" aria-selected="${meTab === k}" class="lasche-${k}${meTab === k ? ' on' : ''}">${l}</button>`).join('')}</div></header>`;
   }
   // Jahreskarte (AJ2c): ein Feld je Stunde, nach Monaten; Zahlen darunter. Längste Serie wie im Planer: Fehltag zählt nicht dagegen
   const MONTHS = ['Jan', 'Feb', 'Mär', 'Apr', 'Mai', 'Jun', 'Jul', 'Aug', 'Sep', 'Okt', 'Nov', 'Dez'];
@@ -243,7 +243,11 @@
   function albumHTML(d) {
     const got = list(d.album).filter(x => x && x.name), locked = list(d.locked).filter(x => x && x.name);
     if (!got.length && !locked.length) return '';
-    return `<h2>Sticker <small>${got.length} gesammelt</small></h2><div class="album">${got.map((x, i) => `<div class="stk">${stk(x.icon, x.color, ROT[i % ROT.length])}<b>${esc(x.name)}</b></div>`).join('')}
+    // Was die Lehrkraft geschenkt hat, steht schon oben mit Grund (AJ3j: nicht doppelt); gezählt wird trotzdem alles
+    const given = new Set(list(d.gifts).filter(x => x && x.name).map(x => x.name + '|' + x.icon));
+    const rest = got.filter(x => !given.has(x.name + '|' + x.icon));
+    if (!rest.length && !locked.length) return `<h2>Sticker <small>${got.length} gesammelt</small></h2>`;
+    return `<h2>Sticker <small>${got.length} gesammelt</small></h2><div class="album">${rest.map((x, i) => `<div class="stk">${stk(x.icon, x.color, ROT[i % ROT.length])}<b>${esc(x.name)}</b></div>`).join('')}
       ${locked.map(x => `<div class="stk locked"><span class="s">${StudentShare.stickerSvg(x.icon)}</span><b>${esc(x.name)}</b>${esc(x.hint || '')}</div>`).join('')}</div>`;
   }
   // Belohnungen zum Aussuchen (AJ3b, ersetzt AJ2d): alle zwei Level ab Level 3 etwas Neues, im Wechsel Stempel, Heftfarbe,
@@ -266,7 +270,10 @@
   // Ränge in Rangfarben (Wunsch 09.11.): alle 2 Level eine Stufe, wie im Planer (rankIndex)
   const TIERS = [['bronze', 'Bronze'], ['silver', 'Silber'], ['gold', 'Gold'], ['platinum', 'Platin'], ['diamond', 'Diamant']];
   const tierOf = level => Math.min(4, Math.floor((Math.max(1, level) - 1) / 2));
-  const rankBadge = (tier, name) => `<span class="rank-badge t-${TIERS[tier][0]}">${esc(name || TIERS[tier][1])}</span>`;
+  // Rang als Tintenstempel (AJ3j): Kreis in Rangfarbe wie ein Lehrerstempel; lange Namen schmaler (Archivo hat eine Breiten-Achse)
+  const rankName = (tier, name) => String(name || TIERS[tier][1]);
+  const rankStamp = (tier, name) => `<span class="rank-stamp t-${TIERS[tier][0]}${rankName(tier, name).length > 8 ? ' long' : ''}" role="img" aria-label="Rang ${esc(rankName(tier, name))}">${esc(rankName(tier, name))}</span>`;
+  const rankInk = (tier, name) => `<span class="rank-ink t-${TIERS[tier][0]}">${esc(rankName(tier, name))}</span>`;
   const pageKey = () => { const a = StudentShare.parseHash(location.hash); return a ? a.id : 'vorschau'; };
   const lsGet = k => { try { return JSON.parse(localStorage.getItem(k)); } catch (e) { return null; } };
   const lsSet = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) { /* privat: dann eben nicht gemerkt */ } };
@@ -291,11 +298,14 @@
     const prev = (kind, id) => kind === 'stamp' ? `<span class="rw-prev rw-stamp st-${id}"></span>`
       : kind === 'color' ? `<span class="rw-prev rw-color hc-${id}"></span>`
         : kind === 'paper' ? `<span class="rw-prev rw-paper pp-${id}"></span>` : `<span class="rw-prev rw-marker mk-${id}"></span>`;
+    // AJ3j: nur Freigeschaltetes zeigen, dazu eine Karte mit der nächsten Belohnung (keine Wand aus „ab Level 27“)
     const next = REWARDS.find(r => level < r.level);
-    return `<h2>Belohnungen <small>${next ? `nächste bei Level ${next.level}` : 'alle freigeschaltet'}</small></h2>` + Object.keys(REWARD_KINDS).map(kind =>
-      `<div class="rw-kind"><h3>${esc(REWARD_KINDS[kind].name)}</h3><div class="rw-opts">${rewardOptions(kind, level).map(o => o.open
-        ? `<button type="button" class="rw${look[kind] === o.id ? ' on' : ''}" data-look="${kind}" data-val="${o.id}" aria-pressed="${look[kind] === o.id}">${prev(kind, o.id)}<span>${esc(o.name)}</span></button>`
-        : `<div class="rw locked" aria-label="${esc(o.name)}: ab Level ${o.level}">${prev(kind, o.id)}<span>${esc(o.name)}</span><small>ab Level ${o.level}</small></div>`).join('')}</div></div>`).join('');
+    return `<h2>Dein Heft <small>${next ? `nächste Belohnung bei Level ${next.level}` : 'alles freigeschaltet'}</small></h2>`
+      + (next ? `<div class="rw locked rw-next" aria-label="Als Nächstes: ${esc(REWARD_KINDS[next.kind].name)} ${esc(next.name)} ab Level ${next.level}">${prev(next.kind, next.id)}
+        <span><b>Als Nächstes:</b> ${esc(REWARD_KINDS[next.kind].name)} „${esc(next.name)}“</span><small>ab Level ${next.level}</small></div>` : '')
+      + Object.keys(REWARD_KINDS).map(kind =>
+      `<div class="rw-kind"><h3>${esc(REWARD_KINDS[kind].name)}</h3><div class="rw-opts">${rewardOptions(kind, level).filter(o => o.open).map(o =>
+        `<button type="button" class="rw${look[kind] === o.id ? ' on' : ''}" data-look="${kind}" data-val="${o.id}" aria-pressed="${look[kind] === o.id}">${prev(kind, o.id)}<span>${esc(o.name)}</span></button>`).join('')}</div></div>`).join('');
   }
   function jokerInfoHTML(d, level) {
     const j = d.jokers && typeof d.jokers === 'object' ? d.jokers : {};
@@ -368,17 +378,20 @@
         <button type="button" class="fb-more" data-fb-all aria-expanded="${fbAll}">${fbAll ? 'Weniger anzeigen' : `Alle anzeigen (${fbAllList.length})`}</button>`
         : '<p class="me-line">Noch keine Einträge in diesem Schuljahr.</p>'}</div>`;
     const hero = `<div class="card hero"><div class="player"><div class="lvl-wrap"><div class="lvl" aria-label="Level ${level}"><small>Level</small><b${level >= 10 ? ' class="two"' : ''}>${level}</b></div></div>
-        <div><div class="who${nameSize(d.first)}">${esc(d.first || 'Ich')}</div><div class="rank">${rankBadge(tierOf(level), d.rank)}<span class="lvl-word">Level ${level} · </span>${xp} XP</div></div></div>
+        <div><div class="who${nameSize(d.first)}">${esc(d.first || 'Ich')}</div><div class="rank"><span class="lvl-word">Level ${level} · </span>${xp} XP</div></div></div>
       <div class="hl" role="img" aria-label="${xp - from} von ${next - from} XP bis Level ${level + 1}"><div class="hl-track"></div><div class="hl-fill" style="width:${pct}%"></div>
         <div class="hl-text"><span>noch ${Math.max(0, next - xp)} XP bis Level ${level + 1}</span></div></div>
-      ${Number(d.streak) > 0 || tierOf(level) < 4 ? `<div class="hero-sub">${Number(d.streak) > 0 ? `<span><b>${Number(d.streak)}</b> ${Number(d.streak) === 1 ? 'Stunde' : 'Stunden'} in Folge mit Plus</span>` : ''}
-        ${tierOf(level) < 4 ? `<span>Ab Level ${2 * (tierOf(level) + 1) + 1}: ${rankBadge(tierOf(level) + 1, d.nextRank && d.nextRank.name)}</span>` : ''}</div>` : ''}
+      <div class="rank-row">${rankStamp(tierOf(level), d.rank)}<div class="rank-txt">
+        ${Number(d.streak) > 0 ? `<div><b>${Number(d.streak)}</b> ${Number(d.streak) === 1 ? 'Stunde' : 'Stunden'} in Folge mit Plus</div>` : ''}
+        <div>${tierOf(level) < 4 ? `Ab Level ${2 * (tierOf(level) + 1) + 1}: ${rankInk(tierOf(level) + 1, d.nextRank && d.nextRank.name)}` : 'Höchster Rang erreicht'}</div>
+        <details class="xp-help"><summary>Wie funktioniert das?</summary>
+          <p>+ gibt 10 XP, ++ gibt 20${d.giver ? `. Sticker von ${esc(dativ(d.giver))} und` : '. Sticker und'} geschaffte Baustellen bringen extra. Abgezogen wird nie etwas.</p>
+          <p>Alle 2 Level steigt dein Rang, alle ${Number(j.every) || 4} Level gibt es einen Joker.</p></details></div></div>
       ${fbHTML}</div>`;
     // Joker als Gutschein (AJ3i), Auswahl als Abreiß-Streifen; steht nach der Baustelle (Wunsch 10.11.: Level und Plusse ganz oben)
     const joker = Number(j.open) > 0 ? `<div class="card joker voucher"><div class="t"><b>${Number(j.open) === 1 ? 'Ein Joker frei' : `${Number(j.open)} Joker frei`}</b>Zeig das deiner Lehrkraft und such dir aus:</div>${jl.length ? `<ul>${jl.map(x => `<li>${esc(x)}</li>`).join('')}</ul>` : ''}</div>` : '';
     const rest = `${soonHTML(d.klasse, now)}${bauHTML(d)}${joker}
-      ${newRewardHTML(level)}
-      <p class="hint"><b>So bekommst du XP:</b> + gibt 10, ++ gibt 20${d.giver ? `, Sticker von ${esc(dativ(d.giver))} und` : ', Sticker und'} geschaffte Baustellen bringen extra. Abgezogen wird nie etwas.</p>`;
+      ${newRewardHTML(level)}`;
     return html + `<div class="spread me-ich"><div class="col">${hero}</div><div class="col">${rest}</div></div>` + footer;
   }
 

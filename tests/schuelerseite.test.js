@@ -235,7 +235,7 @@ describe('Persönliche Seite (AJ2)', () => {
     const t = page().textContent;
     expect(page().querySelector('.lvl b').textContent).toBe('6');
     expect(page().querySelector('.who').textContent).toBe('Anna');
-    expect(page().querySelector('.rank-badge').textContent).toBe('Füller');   // Rang als Plakette (09.11.)
+    expect(page().querySelector('.rank-stamp').textContent).toBe('Füller');   // Rang als Tintenstempel (AJ3j)
     expect(t).toMatch(/90 XP/);
     expect(t).toMatch(/noch 10 XP bis Level 7/);
     expect(t).toMatch(/Ab Level 7: Textmarker/);   // Stufe aus dem Level: 6 → nächster Rang bei 7
@@ -279,7 +279,7 @@ describe('Persönliche Seite (AJ2)', () => {
     expect(page().textContent).toMatch(/Von Herrn T\./);
     expect([...page().querySelectorAll('.gift')].map(g => g.textContent.replace(/\s+/g, ' ').trim())).toEqual([
       'Erklärprofi„hat Lisa geholfen“02.11., +20 XP', 'Baustelle geschafft„Hausaufgaben“20.10., +20 XP']);
-    expect(page().querySelectorAll('.album .stk:not(.locked)').length).toBe(3);
+    expect(page().querySelectorAll('.album .stk:not(.locked)').length).toBe(1);   // Geschenkte stehen schon oben (AJ3j)
     expect(page().querySelector('.album .stk.locked').textContent).toMatch(/Dranbleiben3× Plus in Folge/);
     expect(page().querySelector('.gift .s svg')).not.toBeNull();
   });
@@ -511,8 +511,8 @@ describe('Farben (Wunsch 09.11.): kein Lila, Ränge in Rangfarben', () => {
     ['#6a3db8', '#b79cff', '#8e5cf6'].forEach(c => { expect(css).not.toContain(c); expect(share).not.toContain(c); });
   });
 
-  it('Rang als farbige Plakette: Stufe aus dem Level (alle 2 Level), Name aus der Klasse oder die Farbe selbst', () => {
-    const tier = l => { window.renderStudentPage(me(l)); const b = page().querySelector('.rank-badge'); return [b.className.replace('rank-badge ', ''), b.textContent]; };
+  it('Rang als Tintenstempel in Rangfarbe (AJ3j): Stufe aus dem Level (alle 2 Level), Name aus der Klasse oder die Farbe selbst', () => {
+    const tier = l => { window.renderStudentPage(me(l)); const b = page().querySelector('.rank-stamp'); return [b.className.replace(/rank-stamp|long/g, '').trim(), b.textContent]; };
     expect(tier(1)).toEqual(['t-bronze', 'Bronze']);
     expect(tier(4)).toEqual(['t-silver', 'Silber']);
     expect(tier(6)).toEqual(['t-gold', 'Gold']);
@@ -522,7 +522,69 @@ describe('Farben (Wunsch 09.11.): kein Lila, Ränge in Rangfarben', () => {
     expect(tier(30)).toEqual(['t-diamond', 'Diamant']);
     expect(css).not.toContain('rainbow');
     window.renderStudentPage(me(6, 'Füller'));
-    expect(page().querySelector('.rank-badge').textContent).toBe('Füller');
-    expect(page().querySelector('.rank-badge').className).toContain('t-gold');
+    expect(page().querySelector('.rank-stamp').textContent).toBe('Füller');
+    expect(page().querySelector('.rank-stamp').className).toContain('t-gold');
+    expect(css).not.toMatch(/\.rank-badge/);   // keine Verlaufs-Plaketten mehr
+  });
+});
+
+describe('Alles wie ein Heft (AJ3j)', () => {
+  const css = fs.readFileSync(path.join(__dirname, '..', 'schueler.css'), 'utf8');
+  const me = (level, extra = {}) => ({ v: 1, kind: 'me', first: 'Anna', cls: '7b', level, xp: 10, from: 0, next: 20, jokers: {}, feedback: [], year: [], ...extra });
+  afterEach(() => { window.SchuelerSeite.setMeTab('ich'); window.renderStudentPage({ v: 2, cls: '7b' }); });
+
+  it('Reiter als Registerlaschen, jede mit eigener Farbe; kein iPhone-Umschalter mehr', () => {
+    window.renderStudentPage(me(3));
+    const tabs = [...page().querySelectorAll('.tabs [data-tab]')];
+    expect(tabs.map(b => b.className.match(/lasche-\w+/)[0])).toEqual(['lasche-ich', 'lasche-sammlung', 'lasche-klasse']);
+    expect(css).toMatch(/\.tabs button \{[^}]*border-radius: 10px 10px 0 0/);
+  });
+
+  it('nächster Rang steht als Tintenschrift in seiner Farbe, ab Diamant „Höchster Rang“', () => {
+    window.renderStudentPage(me(7));
+    expect(page().querySelector('.rank-ink').className).toContain('t-diamond');
+    expect(page().querySelector('.rank-row').textContent).toMatch(/Ab Level 9:\s*Diamant/);
+    window.renderStudentPage(me(12));
+    expect(page().querySelector('.rank-row').textContent).toMatch(/Höchster Rang/);
+  });
+
+  it('lange Rangnamen schmaler statt umzubrechen', () => {
+    window.renderStudentPage(me(3, { rank: 'Durchblicker' }));
+    expect(page().querySelector('.rank-stamp').classList.contains('long')).toBe(true);
+  });
+
+  it('„Wie funktioniert das?“ in der Level-Karte erklärt XP, Rang und Joker', () => {
+    window.renderStudentPage(me(3, { jokers: { every: 4 } }));
+    const help = page().querySelector('.hero details.xp-help');
+    expect(help).not.toBeNull();
+    expect(help.textContent).toMatch(/\+ gibt 10 XP.*Abgezogen wird nie etwas.*Alle 2 Level steigt dein Rang.*alle 4 Level gibt es einen Joker/s);
+  });
+
+  it('Sammlung: nur Freigeschaltetes, dazu genau eine Karte „Als Nächstes“', () => {
+    window.SchuelerSeite.setMeTab('sammlung');
+    window.renderStudentPage(me(5));
+    expect(page().querySelectorAll('.rw.locked').length).toBe(1);
+    expect(page().querySelector('.rw.locked').textContent).toMatch(/Punkte.*ab Level 7/);
+    expect(page().querySelectorAll('.rw[data-look]').length).toBe(6);   // 4 Standard + Stern + Mint
+  });
+
+  it('Sticker von der Lehrkraft stehen nicht noch einmal im Album', () => {
+    window.SchuelerSeite.setMeTab('sammlung');
+    window.renderStudentPage(me(3, {
+      gifts: [{ name: 'Erklärprofi', icon: 'bubble', color: 3, reason: 'hat geholfen', date: '2026-11-02', xp: 20 }],
+      album: [{ name: 'Erstes Plus', icon: 'plus', color: 0 }, { name: 'Erklärprofi', icon: 'bubble', color: 3 }],
+    }));
+    expect([...page().querySelectorAll('.album .stk b')].map(b => b.textContent)).toEqual(['Erstes Plus']);
+    expect(page().querySelector('.album').previousElementSibling.textContent).toMatch(/2 gesammelt/);
+  });
+
+  it('Sticker als gestanzte Aufkleber: weißer Rand, runde Form, Textmarker-Ton', () => {
+    expect(css).toMatch(/\.gift \.s, \.stk \.s \{[^}]*border: 4px solid #fff/);
+    expect(css).toMatch(/\.gift \.s, \.stk \.s \{[^}]*color-mix\(in srgb, var\(--stk\)/);
+  });
+
+  it('keine Schrift unter 12 px auf der Schülerseite', () => {
+    const small = [...css.matchAll(/font-size:\s*(\d+)px/g)].map(m => Number(m[1])).filter(n => n < 12);
+    expect(small).toEqual([]);
   });
 });
