@@ -2377,3 +2377,28 @@ input, textarea, [contenteditable="true"]{-webkit-user-select:text;user-select:t
 .sync-status{display:flex;flex-direction:column;align-items:flex-start;gap:var(--space-1);flex:1 1 180px;min-width:0;}
 .sync-status-badge{display:inline-block;max-width:100%;box-sizing:border-box;padding:var(--space-1) var(--space-2);border:1px solid var(--border);border-radius:var(--radius-xs);background:var(--bg-card);font-size:12px;line-height:1.4;}
 .sync-last-time{font-size:11px;color:var(--text-muted);}
+
+/* Sync-Stand klein und immer sichtbar (AN1): unter „Einstellungen“ in der Leiste, auf dem Handy im Dashboard */
+.nav-settings-text{display:flex;flex-direction:column;gap:2px;flex:1 1 auto;min-width:0;}
+.sync-state{display:inline-flex;align-items:center;gap:var(--space-1);min-width:0;font-size:11px;font-weight:500;line-height:1.2;color:var(--text-muted);white-space:nowrap;}
+.sync-state[hidden]{display:none;}
+.sync-state .ico{width:12px;height:12px;margin:0;flex-shrink:0;}
+.sync-state span{overflow:hidden;text-overflow:ellipsis;}
+#nav-sync-state{display:grid;grid-template-columns:12px minmax(0,1fr);column-gap:var(--space-1);align-items:center;}   /* zwei Zeilen: Zustand, darunter Uhrzeit/Grund */
+#nav-sync-state[hidden]{display:none;}
+#nav-settings.has-sync{min-height:64px;}   /* drei Zeilen passen immer, die Höhe bleibt bei jedem Zustand gleich (Fuß 80 px, Regel 92) */
+#nav-sync-state .ss-detail{grid-column:2;white-space:normal;overflow-wrap:anywhere;}   /* Leiste 160 px: lieber umbrechen als abschneiden */
+.sync-state.is-ok .ico{color:var(--success);}
+.sync-state.is-wait{color:var(--text-secondary);}
+.sync-state.is-wait .ico{color:var(--warning);}
+.sync-state.is-problem{color:var(--danger);}
+.dash-sync{display:none;}
+#nav-settings.sync-wait,#nav-settings.sync-problem{position:relative;}
+#sidebar.collapsed #nav-settings.sync-wait::after,#sidebar.collapsed #nav-settings.sync-problem::after{content:'';position:absolute;top:6px;left:calc(50% + 4px);width:9px;height:9px;border-radius:50%;background:var(--warning);}
+#sidebar.collapsed #nav-settings.sync-problem::after{background:var(--danger);}
+@media (max-width: 600px){
+  .dash-sync:not([hidden]){display:inline-flex;margin-left:var(--space-2);font-size:12px;}
+  #nav-dashboard.sync-alert{position:relative;}
+  #nav-dashboard.sync-alert::after{content:'';position:absolute;top:6px;left:calc(50% + 4px);width:9px;height:9px;border-radius:50%;background:var(--warning);}
+}
+/* Ende Sync-Stand (AN1) */

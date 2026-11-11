@@ -273,6 +273,7 @@ function saveDB() {
       triggerSyncInternal();
     }, 3000); // 3 Sekunden Verzögerung nach der letzten Eingabe
   }
+  updateSyncIndicator();   // „Wird abgeglichen …“ (AN1)
 }
 // Nur speichern, ohne die Daten als „geändert“ zu markieren (z. B. Sync-Metadaten).
 function persistDB() {
@@ -11029,9 +11030,11 @@ function initSync() {
   // läuft der 3-s-Timer nicht, und am nächsten Morgen gäbe es sonst einen Konflikt (BUGS P8).
   // (Das Verlassen selbst behandelt onAppHidden, auch ohne Cloud-Sync.)
   document.addEventListener('visibilitychange', () => { if (!document.hidden) triggerSyncInternal(); });
-  window.addEventListener('online', () => triggerSyncInternal());
+  window.addEventListener('online', () => { updateSyncIndicator(); triggerSyncInternal(); });
+  window.addEventListener('offline', () => updateSyncIndicator());
 
   SyncManager.callbacks.onSyncStatusChanged = (status) => {
+    noteSyncStatus(status);   // kleine Anzeige in Leiste und Dashboard (AN1)
     const badge = document.getElementById('sync-status-badge');
     if (!badge) return;
     if (status === 'checking') {
@@ -11080,6 +11083,7 @@ function updateSyncUI() {
 
   if (!userStatus) return; // Falls DOM noch nicht bereit
   updateSyncAttention();
+  updateSyncIndicator();
 
   // Benutzer angemeldet?
   const clearEverywhere = document.getElementById('btn-clear-everywhere');
@@ -11431,6 +11435,83 @@ function syncNeedsAttention() {
   const confirmGroup = document.getElementById('sync-master-password-confirm-group');
   return !SyncManager.masterPassword || !!(confirmGroup && !confirmGroup.classList.contains('hidden'));
 }
+// ─── Sync-Stand klein und immer sichtbar (AN1) ─────────────────────────────
+// iPad/Laptop: zweite Zeile unter „Einstellungen“ in der Leiste (eingeklappt nur ein Punkt bei Problemen), Handy: im
+// Dashboard neben dem Zahnrad und ein Punkt am Dashboard-Menüpunkt bei Problemen. Ohne Cloud-Anmeldung nichts.
+// Letzter erfolgreicher Kontakt nur auf dem Gerät (`sync_last_ok`, nie in db): Ein Abgleich ohne Änderungen schreibt
+// lastSyncCheck nicht, das Gerät war trotzdem auf dem neuesten Stand.
+let syncStatusNow = 'idle';
+const SYNC_LAST_OK_KEY = 'sync_last_ok';
+function noteSyncStatus(status) {
+  syncStatusNow = status;
+  if (status === 'synced') { try { localStorage.setItem(SYNC_LAST_OK_KEY, String(Date.now())); } catch (e) { /* privat: nur ohne Merken */ } }
+  updateSyncIndicator();
+}
+function lastSyncOkTime() {
+  let t = 0;
+  try { t = Number(localStorage.getItem(SYNC_LAST_OK_KEY)) || 0; } catch (e) { t = 0; }
+  const check = Number(db.syncSettings && db.syncSettings.lastSyncCheck) || 0;
+  return Math.max(t, check) || null;
+}
+// „heute 10:42“, „gestern 18:05“, „Mo., 09.11.“
+function syncWhenText(ts, now = new Date()) {
+  if (!ts) return '';
+  const d = new Date(ts), ds = formatDate(d), today = formatDate(now);
+  const time = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+  if (ds === today) return `heute ${time}`;
+  if (ds === formatDate(addDays(parseDate(today), -1))) return `gestern ${time}`;
+  return formatWeekdayShort(ds);
+}
+// Zustand für die Anzeige: { kind: ok|busy|offline|wait|problem, icon, head, detail, short, long } oder null (ohne Cloud).
+// Leiste zweizeilig (head / detail, sonst abgeschnitten), Handy kurz (short), Titel und VoiceOver ganz (long).
+function syncStateInfo(now = new Date()) {
+  if (typeof SyncManager === 'undefined' || !SyncManager.currentUser) return null;
+  const when = syncWhenText(lastSyncOkTime(), now);
+  const changed = isLocalDBChanged();
+  const offline = typeof navigator !== 'undefined' && navigator.onLine === false;
+  const st = (kind, icon, head, detail, short) => ({ kind, icon, head, detail, short, long: detail ? `${head} · ${detail}` : head });
+  if (syncNeedsAttention()) return st('problem', 'alert', 'Sync pausiert', 'Passwort fehlt', 'Sync pausiert');
+  if (window.currentConflict || syncStatusNow === 'conflict') return st('problem', 'alert', 'Abgleich offen', 'wartet auf dich', 'Abgleich offen');
+  if (syncStatusNow === 'confirm_password') return st('problem', 'alert', 'Sync wartet', 'Passwort wiederholen', 'Sync wartet');
+  if (syncStatusNow === 'error') return changed ? st('problem', 'alert', 'Sync-Fehler', 'Änderungen nur hier', 'Sync-Fehler')
+    : st('wait', 'alert', 'Sync-Fehler', `Stand ${when || 'unbekannt'}`, 'Sync-Fehler');
+  if (offline) return changed ? st('wait', 'cloud-up', 'Offline', 'Änderungen warten', 'Offline · wartet')
+    : st('offline', 'cloud', 'Offline', when ? `Stand ${when}` : '', 'Offline');
+  if (syncStatusNow === 'checking' || changed) return st('busy', 'refresh', 'Abgleich …', '', 'Abgleich …');
+  return st('ok', 'check', 'Synchronisiert', when, when ? when.replace(/^heute /, '') : 'Synchronisiert');
+}
+function updateSyncIndicator() {
+  const info = syncStateInfo();
+  const kinds = ['ok', 'busy', 'offline', 'wait', 'problem'];
+  const alertish = !!info && (info.kind === 'wait' || info.kind === 'problem');
+  const fill = (id, html) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.hidden = !info;
+    kinds.forEach(k => el.classList.toggle('is-' + k, !!info && info.kind === k));
+    el.innerHTML = info ? html : '';
+    if (info) el.title = info.long; else el.removeAttribute('title');
+  };
+  if (info) {
+    fill('nav-sync-state', `${icon(info.icon)}<span class="ss-head">${escHtml(info.head)}</span>${info.detail ? `<span class="ss-detail">${escHtml(info.detail)}</span>` : ''}`);
+    fill('dash-sync-state', `${icon(info.icon)}<span>${escHtml(info.short)}</span>`);
+  } else { fill('nav-sync-state', ''); fill('dash-sync-state', ''); }
+  const nav = document.getElementById('nav-settings');
+  if (nav) {
+    nav.setAttribute('aria-label', info ? `Einstellungen, ${info.long}` : 'Einstellungen');
+    kinds.forEach(k => nav.classList.toggle('sync-' + k, !!info && info.kind === k));
+    nav.classList.toggle('has-sync', !!info);   // feste Höhe, sonst springt „Einstellungen“ bei jedem Zustand
+  }
+  // Handy: Punkt am Dashboard-Menüpunkt nur, wenn etwas nicht stimmt (offline mit Wartendem, Fehler)
+  document.getElementById('nav-dashboard')?.classList.toggle('sync-alert', alertish);
+}
+// Einstellungen aus der Leiste: bei einem Sync-Problem gleich „Daten & Cloud“
+function openSettingsFromNav() {
+  openSettings();
+  const info = syncStateInfo();
+  if (info && (info.kind === 'wait' || info.kind === 'problem')) showSettingsPane('data');
+}
+
 function updateSyncAttention() {
   const needs = syncNeedsAttention();
   const confirmGroup = document.getElementById('sync-master-password-confirm-group');

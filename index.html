@@ -61,7 +61,7 @@
       }
     })();
   </script>
-  <link rel="stylesheet" href="style.css?v=529" />
+  <link rel="stylesheet" href="style.css?v=534" />
   <script>
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
@@ -126,12 +126,12 @@
       </button>
     </div>
     <div class="sidebar-footer">
-      <button class="nav-item" id="nav-settings" onclick="openSettings()" aria-label="Einstellungen">
+      <button class="nav-item" id="nav-settings" onclick="openSettingsFromNav()" aria-label="Einstellungen">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <circle cx="12" cy="12" r="3"/>
           <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
         </svg>
-        <span class="nav-long">Einstellungen</span><span class="nav-short">Optionen</span>
+        <span class="nav-settings-text"><span class="nav-long">Einstellungen</span><span class="nav-short">Optionen</span><small id="nav-sync-state" class="sync-state" hidden></small></span>
       </button>
     </div>
   </nav>
@@ -143,6 +143,7 @@
     <div id="view-dashboard" class="view">
       <div class="view-header">
         <h1>Dashboard</h1>
+        <span id="dash-sync-state" class="sync-state dash-sync" hidden></span>   <!-- Sync-Stand, nur Handy (AN1) -->
         <button type="button" class="btn-icon dash-search-btn" id="btn-search-dashboard" onclick="openSearch()" aria-label="Suchen"><i data-icon="search"></i></button>
         <button type="button" class="btn-icon dash-settings-btn" id="btn-settings-dashboard" onclick="openSettings()" aria-label="Einstellungen"><i data-icon="settings"></i></button>
       </div>
@@ -1844,15 +1845,15 @@
   </div>
 
   <script src="lib/crypto-js.min.js"></script>
-  <script src="crypto-helper.js?v=529"></script>
+  <script src="crypto-helper.js?v=534"></script>
   <script src="lib/firebase-app-compat.js"></script>
   <script src="lib/firebase-auth-compat.js"></script>
   <script src="lib/firebase-firestore-compat.js"></script>
-  <script src="firebase-config.js?v=529"></script>
-  <script src="sync-manager.js?v=529"></script>
-  <script src="sync-merge.js?v=529"></script>
+  <script src="firebase-config.js?v=534"></script>
+  <script src="sync-manager.js?v=534"></script>
+  <script src="sync-merge.js?v=534"></script>
   <script src="lib/qrcode.js"></script>
-  <script src="student-share.js?v=529"></script>
-  <script src="app.js?v=529"></script>
+  <script src="student-share.js?v=534"></script>
+  <script src="app.js?v=534"></script>
 </body>
 </html>

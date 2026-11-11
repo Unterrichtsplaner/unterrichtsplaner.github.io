@@ -28,7 +28,7 @@ describe('Eine Höhe für alles Bedienbare', () => {
 
 describe('AH35: Eine Form. Abgerundete Rechtecke, keine Pillen und Kreise', () => {
   // Rund bleiben nur Dinge, die keine Knöpfe sind: Punkte, Fortschrittsbalken, Rollbalken und der Schalter
-  const ROUND_OK = /needs-attention::after|indicator-dot|toggle-slider|scrollbar-thumb|cockpit-progress|sc-trend i|sc-mark|sa-dot|rank-chip/;   // sa-dot: Klassenfarbe als Punkt (AJ1); rank-chip: Rangfarbe als Punkt (09.11.)
+  const ROUND_OK = /needs-attention::after|indicator-dot|toggle-slider|scrollbar-thumb|cockpit-progress|sc-mark|sa-dot|rank-chip|sync-wait::after|sync-alert::after/;   // sa-dot: Klassenfarbe als Punkt (AJ1); rank-chip: Rangfarbe als Punkt (09.11.); sync-…: Warnpunkt Sync-Stand (AN1); sc-trend i: Balken gibt es nicht mehr (AM2)
   const plain = css.replace(/\/\*[\s\S]*?\*\//g, '');
   it('style.css: keine Pille und kein Kreis außerhalb der Ausnahmen', () => {
     const bad = [];
