@@ -242,6 +242,8 @@ Datumswerte sind Strings `YYYY-MM-DD` in **lokaler** Zeit (`formatDate()`). Nie 
 
 97. **Schuljahreswechsel nur über `openNewYear`/`applyNewSchoolYear`** (Y6). Schritt 1 erzwingt die Sicherung, vor dem Anwenden liegt der alte Stand im Sicherheitsnetz (`keepMergeBackup(…, 'newYear')`, wird von späteren Abgleichen nicht verdrängt). Übernommene Klassen behalten Schüler (Hinweise, wichtiger Hinweis, Geburtstag) und Sitzplan; alles aus `YEAR_LISTS`, Spalten, Planung, Klassennotizen, Stundenplan, `lessonData`, Aufsichten und Quittungen fällt weg, freigegebene Schülerapp-Links werden neu. Klassen ohne Wahl bleiben (Regel 7). Klassen löschen nur über `removeGroupData` (räumt Abhängiges mit auf, Regel 10). Wer neue Daten pro Schuljahr einführt, entscheidet hier, ob sie bleiben oder gehen. Vorlagen nur über `planTemplatesOf()`, übernommen über „Von Klasse oder Vorlage übernehmen“ (`copyPlanFrom`).
 
+98. **Eingabefelder ohne Autokorrektur** (AO1): `tuneTextField` stellt jedes Text-Feld und jeden Textbereich ein (`autocorrect="off"`, `lang="de"`), auch später gezeichnete (Beobachter). Ein neues Feld für Namen gehört in `NAME_FIELD_IDS` (ohne Rechtschreibprüfung, Großbuchstabe je Wort). Wer ein Feld bewusst anders will, setzt das Attribut selbst im Markup.
+
 ## Arbeitsablauf
 
 1. Aufgabe aus `BUGS.md` wählen (ein Block pro Sitzung).

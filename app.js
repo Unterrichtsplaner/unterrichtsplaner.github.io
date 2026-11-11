@@ -127,6 +127,30 @@ function fillIcons(root) {
 }
 fillIcons(document);
 
+// Eingabefelder ohne Autokorrektur (AO1): Das iPad ersetzte beim Tippen und bei Enter Wörter, die man nicht ändern wollte,
+// am schlimmsten bei Namen. Gilt für alle Text-Felder, auch die, die die App später zeichnet (Tabellen, Fenster):
+// Ein Beobachter stellt neue Felder sofort ein. Ein Attribut, das ein Feld selbst setzt, bleibt (z. B. die Suche).
+// lang="de" sagt dem Gerät, in welcher Sprache getippt wird (Hinweis für die Tastatur, z. B. statt Arabisch).
+// Namen zusätzlich ohne Rechtschreibprüfung und mit großem Anfangsbuchstaben je Wort.
+const NAME_FIELD_IDS = new Set(['new-student-first', 'new-student-last', 'import-text', 'settings-teacher-name', 'settings-studentapp-name',
+  'new-group-class', 'new-group-teacher', 'print-name']);
+const TEXT_INPUT_TYPES = new Set(['text', 'search', '']);
+function tuneTextField(el) {
+  const tag = el.tagName;
+  if (tag !== 'TEXTAREA' && !(tag === 'INPUT' && TEXT_INPUT_TYPES.has((el.getAttribute('type') || '').toLowerCase()))) return;
+  const set = (name, value) => { if (!el.hasAttribute(name)) el.setAttribute(name, value); };
+  set('autocorrect', 'off');
+  set('lang', 'de');
+  if (NAME_FIELD_IDS.has(el.id)) { set('spellcheck', 'false'); set('autocapitalize', 'words'); set('autocomplete', 'off'); }
+}
+function tuneTextFields(root) {
+  if (root.matches && root.matches('input, textarea')) tuneTextField(root);
+  if (root.querySelectorAll) root.querySelectorAll('input, textarea').forEach(tuneTextField);
+}
+tuneTextFields(document);
+new MutationObserver(list => list.forEach(m => m.addedNodes.forEach(n => { if (n.nodeType === 1) tuneTextFields(n); })))
+  .observe(document.body, { childList: true, subtree: true });
+
 // ─── State ───────────────────────────────────────────────────────────────
 // Gespeicherte Daten, die sich nicht lesen ließen (G12): Rohtext bleibt erhalten, statt beim nächsten Speichern überschrieben zu werden.
 let dbLoadFailure = null; // { raw, key /*Kopie in localStorage, null = Kopie gescheitert*/, error }
