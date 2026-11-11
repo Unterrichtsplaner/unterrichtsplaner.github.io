@@ -234,7 +234,7 @@ describe('Bildschirm bleibt an (Wake Lock)', () => {
 });
 
 describe('Karten: Verlauf, Hinweis, Geburtstag', () => {
-  it('Verlauf: letzte 6 Smileys ohne Titel als Punkte, alt → neu; schließt Noten aus; beim Öffnen wieder aus', () => {
+  it('Verlauf: letzte 3 Einträge ohne Titel als Zeichen, alt → neu; schließt Noten aus; beim Öffnen wieder aus', () => {
     const entries = ['negative', 'positive', 'positive', 'neutral', 'positive', 'negative', 'positive']
       .map((v, i) => ({ id: 'p' + i, date: `2026-10-${String(10 + i).padStart(2, '0')}`, value: v }));
     entries.push({ id: 'ref', date: '2026-10-30', value: 'negative', label: 'Referat' }); // Spalte der Tabelle: zählt nicht
@@ -244,8 +244,8 @@ describe('Karten: Verlauf, Hinweis, Geburtstag', () => {
     app('toggleSeatingGrades()');
     app('toggleSeatingTrend()');
     expect(app('seatingShowGrades')).toBe(false);
-    const dots = [...card('a').querySelectorAll('.sc-trend i')].map(i => i.className);
-    expect(dots).toEqual(['t-positive p3', 't-positive p3', 't-neutral p2', 't-positive p3', 't-negative p1', 't-positive p3']);   // AH52: Balkenhöhe je Stufe
+    const signs = [...card('a').querySelectorAll('.sc-trend .part-sign')].map(i => i.className + ' ' + i.textContent);
+    expect(signs).toEqual(['part-sign p3 +', 'part-sign p1 −−', 'part-sign p3 +']);   // AM2: letzte 3 als Zeichen, alt → neu
     expect(card('b').querySelector('.sc-trend-empty')).toBeTruthy();
     expect(document.getElementById('btn-seating-trend').getAttribute('aria-pressed')).toBe('true');
     openSeating();

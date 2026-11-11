@@ -40,6 +40,7 @@ const ICONS = {
   homework:     '<path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/>',
   test:         '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><polyline points="9 15 11 17 15 13"/>',
   notes:        '<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>',
+  sticky:       '<path d="M16 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V8Z"/><path d="M15 3v4a2 2 0 0 0 2 2h4"/>',   // Notizzettel (AM1)
 cards: '<rect x="3" y="3" width="8" height="8" rx="1"/><rect x="13" y="3" width="8" height="8" rx="1"/><rect x="3" y="13" width="8" height="8" rx="1"/><path d="M17 13v8M13 17h8"/>',
     seating:      '<rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="21" x2="9" y2="9"/>',
   'x-circle':   '<circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/>',
@@ -6550,37 +6551,79 @@ document.addEventListener('visibilitychange', () => {
 });
 
 // Mitarbeit-Verlauf: die letzten Smileys (ohne Titel, wie die Schnellbewertung, Regel 49) als Punkte, alt → neu
-const TREND_COUNT = 6;
+// Mitarbeit zuletzt (ohne Titel, Regel 49), älteste zuerst
+function lastParticipation(s, n) {
+  return (s.participation || []).filter(p => p && !p.label && partLevel(p.value))
+    .sort((a, b) => (a.date || '').localeCompare(b.date || '')).slice(-n);
+}
+// Auf der Sitzplan-Karte: die letzten 3 als Zeichen in ihrer Farbe, neueste rechts (AM2; vorher Balken, schlecht lesbar)
+const TREND_COUNT = 3;
 function participationTrendHTML(s) {
-  const list = (s.participation || []).filter(p => !p.label && partLevel(p.value))
-    .sort((a, b) => (a.date || '').localeCompare(b.date || '')).slice(-TREND_COUNT);
+  const list = lastParticipation(s, TREND_COUNT);
   if (!list.length) return '<div class="sc-trend sc-trend-empty">–</div>';
-  // Kleine Balken: je höher, desto besser (AH52)
-  return `<div class="sc-trend" title="Mitarbeit zuletzt: ${list.map(p => partLevel(p.value).word).join(', ')}">${list.map(p => `<i class="t-${p.value} p${partLevel(p.value).tone}"></i>`).join('')}</div>`;
+  return `<div class="sc-trend" title="Mitarbeit zuletzt: ${list.map(p => partLevel(p.value).word).join(', ')}">${list.map(p => partSignHTML(p.value)).join('')}</div>`;
 }
 
-// Hinweis im Schüler-Fenster (s.notes, AD2). Gesundheitsangaben u. Ä. → wie Noten erst nach „Anzeigen“,
-// außer die Noten sind im Sitzplan ohnehin eingeblendet (Lehrkraft hat „privat“ signalisiert).
-// Kopf des Schüler-Fensters (AH31): Text erst nach Antippen, nie gespeichert. Ohne Beamer-Schutz (Einstellungen) sofort.
-let swHintShown = false;
-function renderSwHeadHint(s) {
-  const box = document.getElementById('sw-head-hint');
-  if (!box) return;
-  const text = (s.notes || '').trim(), important = (s.importantNote || '').trim();
-  box.hidden = !text && !important;
+// Schülernotizen „aus den letzten Stunden“ (AM1): von heute und aus den letzten 2 Stunden der Klasse vor dateStr
+// (Ausfall und Ferien zählen nicht). Liefert den ersten Tag, der dazugehört; ohne frühere Stunden nur dateStr.
+function recentNotesSince(groupId, dateStr) {
+  let d = addDays(parseDate(dateStr), -1), found = 0, since = dateStr;
+  for (let i = 0; i < 70 && found < 2; i++, d = addDays(d, -1)) {   // über die Sommerferien (Regel 17)
+    if (!isSchoolDay(d)) continue;
+    const ds = formatDate(d);
+    const n = lessonsOnDate(ds).filter(l => l.slot.groupId === groupId && !l.ausfall).length;
+    if (n) { found += n; since = ds; }
+  }
+  return since;
+}
+// Neueste zuerst; kaputte Einträge (ohne Text/Datum) fallen weg
+function recentStudentNotes(s, since, dateStr) {
+  return (s.studentNotes || []).filter(n => n && typeof n.text === 'string' && n.text.trim() && isDateStr(n.date) && n.date >= since && n.date <= dateStr)
+    .sort((a, b) => b.date.localeCompare(a.date));
+}
+
+// Schülerzentrale (AM1) oben im Schüler-Fenster: Hinweise, Notizen aus den letzten Stunden, Mitarbeit auf einen Blick.
+// Inhalte wie der Beamer-Schutz (Regel 16, 67): mit Schutz erst nach „Anzeigen“ (swShown, nie gespeichert), ohne sofort.
+// Verborgen steht nur, WAS es gibt (Hinweis, Anzahl Notizen, Mitarbeit), nie der Text oder eine Wertung.
+function renderSwHub(s) {
+  const box = document.getElementById('sw-hub');
+  const ctx = window.currentSeatingStudent;
+  if (!box || !ctx) return;
+  const hint = (s.notes || '').trim(), important = (s.importantNote || '').trim();
+  const notes = recentStudentNotes(s, recentNotesSince(ctx.groupId, ctx.dateStr), ctx.dateStr);
+  const range = viewPeriod();   // Halbjahr wie in der Klassenansicht (Y7)
+  const partN = partCounts(periodList(s.participation, range).filter(p => p && !p.label));
+  const last = lastParticipation(s, 5);
+  const hasPart = partN.some(n => n) || last.length;
+  box.hidden = !hint && !important && !notes.length && !hasPart;
   box.innerHTML = '';
   if (box.hidden) return;
-  const cls = important ? ' is-important' : '';
-  const open = !classGradesProtected() || swShown;
-  if (open || swHintShown) {
-    const lines = `${important ? `<b>${escHtml(important)}</b>` : ''}${text ? `<span>${escHtml(text)}</span>` : ''}`;
-    box.innerHTML = open ? `<div class="sw-hint-text${cls}">${lines}</div>`
-      : `<button type="button" class="sw-hint-text${cls}" aria-label="Hinweis wieder verbergen">${lines}</button>`;
-  } else {
-    box.innerHTML = `<button type="button" class="sw-hint-chip${cls}">${icon(important ? 'alert' : 'info')}${important ? 'Wichtiger Hinweis' : 'Hinweis'} · Anzeigen</button>`;
+  const protectedView = classGradesProtected();
+  const open = !protectedView || swShown;
+  if (!open) {
+    const tag = (ic, text, cls = '') => `<span class="sw-hub-tag${cls}">${icon(ic)}${text}</span>`;
+    box.innerHTML = `<div class="sw-hub-closed"><div class="sw-hub-tags">`
+      + (important ? tag('alert', 'Wichtiger Hinweis', ' is-important') : hint ? tag('info', 'Hinweis') : '')
+      + (notes.length ? tag('sticky', notes.length === 1 ? '1 Notiz' : `${notes.length} Notizen`) : '')
+      + (hasPart ? tag('participation', 'Mitarbeit') : '')
+      + `</div><button type="button" class="btn-secondary sw-hub-show">Anzeigen</button></div>`;
+    box.querySelector('.sw-hub-show').addEventListener('click', () => revealSeatingStudent());
+    return;
   }
-  const btn = box.querySelector('button');
-  if (btn) btn.addEventListener('click', () => { swHintShown = !swHintShown; renderSwHeadHint(s); });
+  const label = text => `<div class="sw-label">${text}</div>`;
+  let html = '';
+  if (hint || important) html += `<div class="sw-hub-hint${important ? ' is-important' : ''}">${label(important ? `${icon('alert')}Wichtiger Hinweis` : `${icon('info')}Hinweis`)}`
+    + `${important ? `<b>${escHtml(important)}</b>` : ''}${hint ? `<span>${escHtml(hint)}</span>` : ''}</div>`;
+  if (notes.length) html += `<div class="sw-hub-notes">${label(`${icon('sticky')}Notizen aus den letzten Stunden`)}<ul>`
+    + notes.map(n => `<li><small>${escHtml(n.date === ctx.dateStr ? (ctx.dateStr === formatDate(new Date()) ? 'Heute' : formatWeekdayShort(n.date)) : formatWeekdayShort(n.date))}</small><span>${escHtml(n.text)}</span></li>`).join('')
+    + `</ul></div>`;
+  if (hasPart) html += `<div class="sw-hub-part">${label(`${icon('participation')}Mitarbeit ${range ? `im ${PERIOD_NAMES[range.key]}` : 'bisher'}`)}`
+    + `<div class="sw-hub-counts">${PART_LEVELS.map((l, i) => `<span class="sw-hub-count${i === PART_LEVELS.length - 1 && partN[i] ? ' n-bad' : ''}">${partSignHTML(l.value)}<b>${partN[i]}</b></span>`).join('')}</div>`
+    + (last.length ? `<div class="sw-hub-last"><small>Zuletzt</small>${last.map(p => partSignHTML(p.value)).join('')}</div>` : '') + `</div>`;
+  if (protectedView) html += `<button type="button" class="link-btn sw-hub-hide">Verbergen</button>`;
+  box.innerHTML = html;
+  const hide = box.querySelector('.sw-hub-hide');
+  if (hide) hide.addEventListener('click', () => hideSeatingStudent());
 }
 function renderSeatingStudentHint(show) {
   const box = document.getElementById('seating-student-hint');
@@ -6588,7 +6631,7 @@ function renderSeatingStudentHint(show) {
   if (!box || !ctx) return;
   const s = (db.students[ctx.groupId] || []).find(x => x.id === ctx.studentId);
   if (!s) return;
-  renderSwHeadHint(s);
+  renderSwHub(s);
   const text = (s.notes || '').trim();
   const important = (s.importantNote || '').trim();   // AD17
   if ((text || important) && !show) {
@@ -6636,7 +6679,7 @@ function commitSeatingStudentHint() {
   setImportantNote(s, impValue);
   saveDB();
   refreshStudentViews(ctx.groupId);
-  renderSwHeadHint(s);
+  renderSwHub(s);
 }
 
 // Notiz zum Schüler direkt im Sitzplan (AH10), landet bei den Anmerkungen im Profil (studentNotes). Vorhandene
@@ -6649,9 +6692,11 @@ function renderSeatingStudentNotes() {
   if (!box || !ctx) return;
   const s = (db.students[ctx.groupId] || []).find(x => x.id === ctx.studentId);
   if (!s) { box.innerHTML = ''; return; }
-  // Oben nur, was eben getippt wurde; alle Notizen stehen unter „Mehr zu …“ (hinter „Anzeigen“, AH28)
+  // Unter dem Feld nur, was eben getippt wurde (verborgen, AH28); offen steht es oben in der Zentrale (AM1)
   renderSwToday(s, ctx.dateStr);
-  const visible = (s.studentNotes || []).filter(n => seatingNotesFresh.includes(n));
+  renderSwHub(s);
+  const hubOpen = !classGradesProtected() || swShown;
+  const visible = hubOpen ? [] : (s.studentNotes || []).filter(n => seatingNotesFresh.includes(n));
   box.innerHTML = visible.length ? `<ul class="seating-notes">${visible.map(n =>
       `<li><small>${n.date ? escHtml(formatDateShort(n.date)) : ''}</small>${escHtml(n.text)}</li>`).join('')}</ul>` : '';
 }
@@ -7414,6 +7459,8 @@ function renderSeatingPlan() {
   const scale = gradeScale(groupId);
   // Gleiche Vornamen: Anfangsbuchstabe des Nachnamens dazu (BUGS N8)
   const firstCount = {};
+  const noteDay = isDateStr(dateStr) ? dateStr : formatDate(new Date());
+  const notesSince = recentNotesSince(groupId, noteDay);   // Notizzettel auf der Karte (AM1), einmal je Zeichnen
   students.forEach(s => { firstCount[s.firstName] = (firstCount[s.firstName] || 0) + 1; });
   students.forEach((s) => {
     const seat = layout.seats.get(s.id);
@@ -7478,12 +7525,15 @@ function renderSeatingPlan() {
     const important = !!(s.importantNote || '').trim();   // AD17: rot, ersetzt das graue ⓘ
     const bday = birthdayInfo(s, dateStr);
     const missedLast = !!(cockpitToday && cockpitToday.live && cockpitToday.t.missed.includes(s)); // nur während der Stunde (Cockpit)
+    const recentNote = recentStudentNotes(s, notesSince, noteDay).length > 0;   // nur dass es eine gibt, nie der Text (Regel 67)
     const marks = (important ? `<span class="sc-mark sc-important" title="Wichtiger Hinweis">${icon('alert')}</span>`
         : hasHint ? `<span class="sc-mark sc-hint" title="Hinweis vorhanden">${icon('info')}</span>` : '')
+      + (recentNote ? `<span class="sc-mark sc-note" title="Notiz aus den letzten Stunden">${icon('sticky')}</span>` : '')
       + (bday ? `<span class="sc-mark sc-bday" title="Geburtstag">${icon('cake')}</span>` : '')
       + (missedLast ? `<span class="sc-mark sc-missed" title="Letzte Stunde gefehlt, Stoff nachholen">${icon('calendar-x')}</span>` : '');
-    if (hasHint || important || bday || missedLast) card.setAttribute('aria-label', fullName + (bday ? ', Geburtstag' : '')
-      + (missedLast ? ', letzte Stunde gefehlt' : '') + (important ? ', wichtiger Hinweis vorhanden' : hasHint ? ', Hinweis vorhanden' : ''));
+    if (hasHint || important || bday || missedLast || recentNote) card.setAttribute('aria-label', fullName + (bday ? ', Geburtstag' : '')
+      + (missedLast ? ', letzte Stunde gefehlt' : '') + (important ? ', wichtiger Hinweis vorhanden' : hasHint ? ', Hinweis vorhanden' : '')
+      + (recentNote ? ', Notiz aus den letzten Stunden' : ''));
     card.innerHTML = `
       ${marks ? `<div class="sc-marks">${marks}</div>` : ''}
       <div class="sc-name" title="${escHtml(fullName)}">${escHtml(shortName)}</div>
@@ -8074,7 +8124,7 @@ function openSeatingStudentModal(studentId, groupId, dateStr, opts = {}) {
   // Beamer: aus dem Sitzplan nur, wenn dort die Noten eingeblendet sind; aus der Klassenansicht wie dort (AH24 c)
   const fromClassView = document.getElementById('view-students').classList.contains('active') && currentGroupId === groupId;
   const fromSeating = document.getElementById('view-seating').classList.contains('active');   // sonst gilt der Sitzplan-Schalter nie (W1)
-  if (!same) { swShown = fromClassView ? classGradesShown : fromSeating && seatingShowGrades; swHintShown = false; }
+  if (!same) swShown = fromClassView ? classGradesShown : fromSeating && seatingShowGrades;
 
   const range = viewPeriod();   // Halbjahr wie in der Klassenansicht (Y7)
   const partN = partCounts(periodList(s.participation, range));
@@ -8104,12 +8154,13 @@ function setSeatingStudentVeil() {
   const more = document.getElementById('sw-more');
   if (more) more.classList.toggle('is-veiled', !swShown);
 }
-function revealSeatingStudent() {
-  swShown = true;
+function revealSeatingStudent() { setSeatingStudentShown(true); }
+function hideSeatingStudent() { setSeatingStudentShown(false); }
+// Ein Schalter für alles Private im Fenster: Zentrale oben und „Mehr“ (AM1)
+function setSeatingStudentShown(on) {
+  swShown = on;
   setSeatingStudentVeil();
-  const ctx = window.currentSeatingStudent;
-  const s = ctx && (db.students[ctx.groupId] || []).find(x => x.id === ctx.studentId);
-  if (s) renderSwHeadHint(s);
+  renderSeatingStudentNotes();   // zeichnet auch die Zentrale neu
 }
 
 // Was heute schon eingetragen ist, ist markiert – ein zweites Tippen nimmt es zurück (BUGS N6)
@@ -8130,6 +8181,7 @@ function renderSwToday(s, dateStr) {
 }
 function markSeatingStudentState(s, dateStr) {
   renderSwToday(s, dateStr);
+  renderSwHub(s);   // Mitarbeit-Bilanz oben (AM1)
   const set = new Set();
   (s.participation || []).filter(p => p.date === dateStr && !p.label).forEach(p => set.add(p.value)); // wie addParticipationSmiley
   (s.attendance || []).filter(a => a.date === dateStr).forEach(a => set.add(a.type));

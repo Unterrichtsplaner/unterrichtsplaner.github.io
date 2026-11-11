@@ -99,9 +99,9 @@ describe('Klassenansicht', () => {
 });
 
 describe('Sitzplan-Karte', () => {
-  it('Verlauf als Balken je Stufe', () => {
+  it('Verlauf als Zeichen je Stufe (AM2, vorher Balken)', () => {
     const html = app('participationTrendHTML(db.students.g1[0])');
-    expect([...html.matchAll(/class="t-(\w+) p(\d)"/g)].map(m => m[2])).toEqual(['4', '3', '1']);
+    expect([...html.matchAll(/class="part-sign p(\d)">([^<]+)</g)].map(m => m[1] + m[2])).toEqual(['4++', '3+', '1−−']);
     expect(html).toMatch(/title="Mitarbeit zuletzt: sehr gut, gut, schwach"/);
   });
 });

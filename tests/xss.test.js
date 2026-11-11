@@ -31,7 +31,7 @@ function evilDB() {
         attendance: [{ id: ID('a'), date: '2026-09-03', type: 'absent', note: X }],
         participation: [{ id: ID('p'), date: '2026-09-02', value: X, label: X }, { id: ID('p2'), date: '2026-09-21', value: X }],
         homework: [{ id: ID('h'), date: '2026-09-04', note: X }],
-        studentNotes: [{ text: X, date: '2026-09-05' }],
+        studentNotes: [{ text: X, date: '2026-09-05' }, { text: X, date: '2026-09-21' }],   // 21.09.: steht oben in der Schülerzentrale (AM1)
       }],
     },
     acknowledgedWarnings: {},

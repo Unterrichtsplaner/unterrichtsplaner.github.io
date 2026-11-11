@@ -61,7 +61,7 @@
       }
     })();
   </script>
-  <link rel="stylesheet" href="style.css?v=528" />
+  <link rel="stylesheet" href="style.css?v=529" />
   <script>
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
@@ -1475,7 +1475,6 @@
     <div class="modal modal-small sw-modal" onclick="event.stopPropagation()">
       <div class="modal-header">
         <div class="sw-title"><h2 id="seating-student-title">Schüler</h2><span id="seating-student-sub" class="modal-subtitle"></span></div>
-        <div id="sw-head-hint" class="sw-head-hint" hidden></div>
         <div class="sw-head-btns">
           <!-- Schülerapp (AJ2e): nur mit persönlichen Seiten der Klasse, öffnet den großen Code zum Scannen -->
           <button type="button" id="sw-code-btn" class="btn-icon hidden" aria-label="Code für die persönliche Seite zeigen" title="Code zum Scannen zeigen"><i data-icon="qr"></i></button>
@@ -1489,6 +1488,8 @@
         </div>
       </div>
       <div class="modal-body sw-body">
+        <!-- Schülerzentrale (AM1): Hinweise, Notizen der letzten Stunden, Mitarbeit; Inhalte wie der Beamer-Schutz -->
+        <section id="sw-hub" class="sw-hub" aria-label="Auf einen Blick" hidden></section>
         <section class="sw-card sw-card-part">
           <div class="sw-label">Mitarbeit</div>
           <div class="sw-faces">
@@ -1843,15 +1844,15 @@
   </div>
 
   <script src="lib/crypto-js.min.js"></script>
-  <script src="crypto-helper.js?v=528"></script>
+  <script src="crypto-helper.js?v=529"></script>
   <script src="lib/firebase-app-compat.js"></script>
   <script src="lib/firebase-auth-compat.js"></script>
   <script src="lib/firebase-firestore-compat.js"></script>
-  <script src="firebase-config.js?v=528"></script>
-  <script src="sync-manager.js?v=528"></script>
-  <script src="sync-merge.js?v=528"></script>
+  <script src="firebase-config.js?v=529"></script>
+  <script src="sync-manager.js?v=529"></script>
+  <script src="sync-merge.js?v=529"></script>
   <script src="lib/qrcode.js"></script>
-  <script src="student-share.js?v=528"></script>
-  <script src="app.js?v=528"></script>
+  <script src="student-share.js?v=529"></script>
+  <script src="app.js?v=529"></script>
 </body>
 </html>

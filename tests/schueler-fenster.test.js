@@ -175,75 +175,79 @@ describe('AH28 Schritt 2: „Mehr zu …“ ersetzt das Profil', () => {
   });
 });
 
-describe('AH31: Hinweis im Kopf neben dem Namen, Text erst nach Antippen (Regel 67)', () => {
-  const head = () => document.getElementById('sw-head-hint');
+describe('AH31 → AM1: Hinweis steht in der Schülerzentrale, Text erst nach „Anzeigen“ (Regel 67)', () => {
+  const hub = () => document.getElementById('sw-hub');
   const withHints = () => app('db.students.g1[0].notes = "mag Fußball"; db.students.g1[0].importantNote = "Allergie: Nüsse"');
   afterEach(() => { app('delete db.settings.classGradesProtect; seatingShowGrades = false; closeModal("modal-seating-student")'); });
 
-  it('Schüler ohne Hinweis: nichts im Kopf', () => {
+  it('Schüler ohne Hinweis, Notiz und Mitarbeit: keine Zentrale; der Kopf zeigt nur den Namen', () => {
     app('openSeatingStudentModal("b", "g1", "2026-11-04")');
-    expect(head().hidden).toBe(true);
-    expect(head().textContent).toBe('');
+    expect(hub().hidden).toBe(true);
+    expect(hub().textContent).toBe('');
+    expect(document.getElementById('sw-head-hint')).toBeNull();
   });
-  it('wichtiger Hinweis: rote Schaltfläche, Text steht nirgends im Kopf; Antippen zeigt ihn, zweites Tippen verbirgt ihn', () => {
+  it('wichtiger Hinweis: verborgen nur „Wichtiger Hinweis“ in Rot, kein Text; „Anzeigen“ zeigt ihn, „Verbergen“ verbirgt ihn', () => {
     withHints();
     openAnna();
-    const chip = head().querySelector('button');
-    expect(chip.classList.contains('is-important')).toBe(true);
-    expect(chip.textContent).toMatch(/Wichtiger Hinweis · Anzeigen/);
-    expect(head().textContent).not.toMatch(/Nüsse|Fußball/);
-    chip.click();
-    expect(head().textContent).toMatch(/Allergie: Nüsse/);
-    expect(head().textContent).toMatch(/mag Fußball/);
-    head().querySelector('button').click();
-    expect(head().textContent).not.toMatch(/Nüsse/);
+    expect(hub().querySelector('.sw-hub-tag.is-important').textContent).toBe('Wichtiger Hinweis');
+    expect(hub().textContent).not.toMatch(/Nüsse|Fußball/);
+    hub().querySelector('.sw-hub-show').click();
+    expect(hub().textContent).toMatch(/Allergie: Nüsse/);
+    expect(hub().textContent).toMatch(/mag Fußball/);
+    hub().querySelector('.sw-hub-hide').click();
+    expect(hub().textContent).not.toMatch(/Nüsse/);
   });
-  it('nur Sonstiges: ruhige Schaltfläche „Hinweis · Anzeigen“', () => {
+  it('nur Sonstiges: ruhige Angabe „Hinweis“', () => {
     openAnna();
-    const chip = head().querySelector('button');
-    expect(chip.classList.contains('is-important')).toBe(false);
-    expect(chip.textContent).toMatch(/^Hinweis · Anzeigen/);
+    const tag = hub().querySelector('.sw-hub-tag');
+    expect(tag.classList.contains('is-important')).toBe(false);
+    expect(tag.textContent).toBe('Hinweis');
   });
-  it('nächster Schüler und neu öffnen: wieder verborgen; Antippen zeigt keine Noten', () => {
+  it('nächster Schüler und neu öffnen: wieder verborgen', () => {
     withHints();
     openAnna();
-    head().querySelector('button').click();
-    expect(document.getElementById('sw-more').classList.contains('is-veiled')).toBe(true);
+    hub().querySelector('.sw-hub-show').click();
     app('closeModal("modal-seating-student")');
     openAnna();
-    expect(head().textContent).not.toMatch(/Nüsse/);
+    expect(hub().textContent).not.toMatch(/Nüsse/);
+    expect(document.getElementById('sw-more').classList.contains('is-veiled')).toBe(true);
   });
   it('Beamer-Schutz in den Einstellungen aus: Text sofort da, nichts zu tippen; Noten im Sitzplan bleiben verborgen', () => {
     withHints();
     app('db.settings.classGradesProtect = false');
     openAnna();
-    expect(head().textContent).toMatch(/Allergie: Nüsse/);
-    expect(head().querySelector('button')).toBeNull();
+    expect(hub().textContent).toMatch(/Allergie: Nüsse/);
+    expect(hub().querySelector('.sw-hub-show')).toBeNull();
+    expect(hub().querySelector('.sw-hub-hide')).toBeNull();
     expect(document.getElementById('sw-more').classList.contains('is-veiled')).toBe(true);
   });
-  it('„Anzeigen“ unter „Mehr“ gilt auch für den Kopf; Hinweis ändern zeigt sich sofort', () => {
+  it('„Anzeigen“ unter „Mehr“ gilt auch für die Zentrale (und umgekehrt); Hinweis ändern zeigt sich sofort', () => {
     withHints();
     openAnna();
     q('#sw-more-btn').click();
     q('#sw-reveal').click();
-    expect(head().textContent).toMatch(/Allergie: Nüsse/);
-    expect(head().querySelector('button')).toBeNull();
+    expect(hub().textContent).toMatch(/Allergie: Nüsse/);
     app('renderSeatingStudentHint(true)');
     const ta = document.getElementById('seating-student-important-input');
     ta.value = 'Neu: Diabetes';
     ta.dispatchEvent(new Event('change'));
-    expect(head().textContent).toMatch(/Neu: Diabetes/);
+    expect(hub().textContent).toMatch(/Neu: Diabetes/);
+    app('closeModal("modal-seating-student")');
+    openAnna();
+    hub().querySelector('.sw-hub-show').click();
+    expect(document.getElementById('sw-more').classList.contains('is-veiled')).toBe(false);
   });
-  it('Texte mit HTML landen als Text im Kopf (Regel 3)', () => {
+  it('Texte mit HTML landen als Text in der Zentrale (Regel 3)', () => {
     app(`db.students.g1[0].importantNote = '<img src=x onerror=window.__xss=1>'; db.settings.classGradesProtect = false`);
     openAnna();
-    expect(head().querySelector('img')).toBeNull();
-    expect(head().textContent).toContain('<img src=x');
+    expect(hub().querySelector('img')).toBeNull();
+    expect(hub().textContent).toContain('<img src=x');
   });
   it('Einstellung nennt die Hinweise mit', () => {
     expect(document.querySelector('label[for="settings-class-grades-protect"]').textContent).toMatch(/Hinweise/);
   });
   it('vier Karten im gemeinsamen Raster: oben Mitarbeit | Note, darunter Fehlzeit | Notiz; „Mehr“ darunter; Hinweise unter „Mehr“ zuerst', () => {
+    expect(document.querySelector('.sw-body').firstElementChild.id).toBe('sw-hub');   // Schülerzentrale zuerst (AM1)
     const cards = [...document.querySelectorAll('.sw-body > .sw-card')];
     expect(cards.map(c => c.querySelector('.sw-label').textContent)).toEqual(['Mitarbeit', 'Note', 'Fehlzeit und Hausaufgabe', 'Notiz']);
     expect(cards[0].querySelector('.sw-faces')).not.toBeNull();
@@ -322,14 +326,5 @@ describe('AH34: Abstände im Schüler-Fenster nur aus der festen Reihe', () => {
     expect(block.length).toBeGreaterThan(500);
     const bad = block.match(/(?:^|[;{])\s*(?:padding|margin|gap)[a-z-]*:[^;}]*\d+px[^;}]*/gm) || [];
     expect(bad).toEqual([]);
-  });
-});
-
-describe('AH35: Hinweis im Kopf steht in der Mitte', () => {
-  const css = require('fs').readFileSync(require('path').join(__dirname, '..', 'style.css'), 'utf8');
-  it('Kopf ab iPad-Breite als dreiteiliges Raster mit gleich breiten Außenspalten', () => {
-    const wide = css.slice(css.indexOf('/* Schüler-Fenster (AH28, AH31, AH34)'), css.indexOf('/* Ende Schüler-Fenster (AH34) */'));
-    expect(wide).toMatch(/\.sw-modal \.modal-header\{display:grid;grid-template-columns:minmax\(max-content,1fr\) minmax\(0,auto\) minmax\(max-content,1fr\);/);
-    expect(wide).toMatch(/\.sw-head-hint\{[^}]*justify-content:center/);
   });
 });
