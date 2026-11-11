@@ -2387,7 +2387,8 @@ input, textarea, [contenteditable="true"]{-webkit-user-select:text;user-select:t
 #nav-sync-state{display:grid;grid-template-columns:12px minmax(0,1fr);column-gap:var(--space-1);align-items:center;}   /* zwei Zeilen: Zustand, darunter Uhrzeit/Grund */
 #nav-sync-state[hidden]{display:none;}
 #nav-settings.has-sync{min-height:64px;}   /* drei Zeilen passen immer, die Höhe bleibt bei jedem Zustand gleich (Fuß 80 px, Regel 92) */
-#nav-sync-state .ss-detail{grid-column:2;white-space:normal;overflow-wrap:anywhere;}   /* Leiste 160 px: lieber umbrechen als abschneiden */
+#nav-sync-state .ss-detail{grid-column:2;}
+#nav-sync-state span{white-space:normal;overflow:visible;overflow-wrap:break-word;}   /* Leiste 160 px, iPad-Schrift breiter: nie „…“, lieber umbrechen */
 .sync-state.is-ok .ico{color:var(--success);}
 .sync-state.is-wait{color:var(--text-secondary);}
 .sync-state.is-wait .ico{color:var(--warning);}

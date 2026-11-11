@@ -34,27 +34,27 @@ afterEach(() => {
 });
 
 describe('Zustände', () => {
-  it('abgeglichen: „Synchronisiert · heute 09:30“ in der Leiste, kurz „09:30“ auf dem Handy', () => {
+  it('abgeglichen: „Abgeglichen · heute 09:30“ in der Leiste, kurz „09:30“ auf dem Handy', () => {
     app('updateSyncIndicator()');
     expect(nav().hidden).toBe(false);
-    expect(nav().title).toBe('Synchronisiert · heute 09:30');
+    expect(nav().title).toBe('Abgeglichen · heute 09:30');
     expect(nav().classList.contains('is-ok')).toBe(true);
     expect(dash().textContent).toBe('09:30');
-    expect(document.getElementById('nav-settings').getAttribute('aria-label')).toBe('Einstellungen, Synchronisiert · heute 09:30');
+    expect(document.getElementById('nav-settings').getAttribute('aria-label')).toBe('Einstellungen, Abgeglichen · heute 09:30');
   });
   it('erfolgreicher Abgleich ohne Änderungen erneuert die Uhrzeit (nur auf dem Gerät gemerkt)', () => {
     app('noteSyncStatus("synced")');
-    expect(nav().title).toBe('Synchronisiert · heute 10:00');
+    expect(nav().title).toBe('Abgeglichen · heute 10:00');
     expect(localStorage.getItem('sync_last_ok')).toBe(String(new Date(2026, 10, 11, 10, 0).getTime()));
     expect(JSON.stringify(app('db'))).not.toMatch(/sync_last_ok/);
   });
   it('gestern und älter', () => {
     vi.setSystemTime(new Date(2026, 10, 12, 8, 0));
     app('updateSyncIndicator()');
-    expect(nav().title).toBe('Synchronisiert · gestern 09:30');
+    expect(nav().title).toBe('Abgeglichen · gestern 09:30');
     vi.setSystemTime(new Date(2026, 10, 16, 8, 0));
     app('updateSyncIndicator()');
-    expect(nav().title).toMatch(/^Synchronisiert · Mi\.?,? 11\.11\.$/);
+    expect(nav().title).toMatch(/^Abgeglichen · Mi\.?,? 11\.11\.$/);
   });
   it('eben eingetippt: „Abgleich …“', () => {
     app('db.settings.lastModified = 200; updateSyncIndicator()');
@@ -98,6 +98,10 @@ describe('Zustände', () => {
 });
 
 describe('Aufbau', () => {
+  it('Leiste: Text bricht lieber um, als mit „…“ abgeschnitten zu werden (iPad-Schrift ist breiter, 11.11.)', () => {
+    const css = require('fs').readFileSync(require('path').join(__dirname, '..', 'style.css'), 'utf8');
+    expect(css).toMatch(/#nav-sync-state span\{white-space:normal;overflow:visible;/);
+  });
   it('Leiste: Anzeige steckt im Menüpunkt „Einstellungen“, nichts Weiteres in .sidebar-footer (Regel 92)', () => {
     const footer = document.querySelector('.sidebar-footer');
     expect(footer.children.length).toBe(1);
@@ -113,6 +117,6 @@ describe('Aufbau', () => {
   it('Text wird escaped (Regel 3): Anzeige baut nur aus festen Texten und Uhrzeit', () => {
     app('updateSyncIndicator()');
     expect(nav().querySelector('svg.ico')).not.toBeNull();
-    expect([...nav().querySelectorAll('span')].map(x => x.textContent)).toEqual(['Synchronisiert', 'heute 09:30']);   // zwei Zeilen in der Leiste
+    expect([...nav().querySelectorAll('span')].map(x => x.textContent)).toEqual(['Abgeglichen', 'heute 09:30']);   // zwei Zeilen in der Leiste
   });
 });

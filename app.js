@@ -11502,7 +11502,8 @@ function syncStateInfo(now = new Date()) {
   if (offline) return changed ? st('wait', 'cloud-up', 'Offline', 'Änderungen warten', 'Offline · wartet')
     : st('offline', 'cloud', 'Offline', when ? `Stand ${when}` : '', 'Offline');
   if (syncStatusNow === 'checking' || changed) return st('busy', 'refresh', 'Abgleich …', '', 'Abgleich …');
-  return st('ok', 'check', 'Synchronisiert', when, when ? when.replace(/^heute /, '') : 'Synchronisiert');
+  // „Abgeglichen“ statt „Synchronisiert“: In der 160 px schmalen Leiste wurde das lange Wort auf dem iPad abgeschnitten
+  return st('ok', 'check', 'Abgeglichen', when, when ? when.replace(/^heute /, '') : 'Abgeglichen');
 }
 function updateSyncIndicator() {
   const info = syncStateInfo();
