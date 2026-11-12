@@ -175,7 +175,7 @@ describe('AH17: was sich markieren lässt', () => {
     expect(block()).toMatch(/body\{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;\}/);
   });
   it('Inhalte wieder markierbar: Tabellen, Profil, Stunden-Fenster, Heute, Datenschutz, Neuigkeiten, Notizen', () => {
-    for (const sel of ['#overview-content', '#sw-more', '#modal-lesson .modal-body', '#seating-today-body',
+    for (const sel of ['#overview-content', '#sw-more', '#lesson-notes-form', '#seating-today-body',
       '#modal-privacy .modal-body', '#modal-whats-new .modal-body', '.cn-chip', '.seating-notes'])
       expect(block()).toContain(sel);
     expect(block()).toMatch(/\{-webkit-user-select:text;user-select:text;-webkit-touch-callout:default;\}/);

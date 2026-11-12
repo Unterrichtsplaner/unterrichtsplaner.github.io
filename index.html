@@ -28,7 +28,7 @@
       if (card) ['--bg-card', '--bg-elevated'].forEach(v => root.style.setProperty(v, card));
       const meta = document.querySelector('meta[name="theme-color"]');
       if (meta) meta.setAttribute('content', bg);
-      if (s.themeAccent) {   // wie accentThemeVars in app.js (W5)
+      if (s.themeAccent && s.themeAccent !== '#6366f1') {   // wie accentThemeVars in app.js (W5); früheres Indigo = Standard (AU8)
         const rgb = h => { const m = /^#?([0-9a-f]{6})$/i.exec(String(h || '').trim()); return m ? [0, 2, 4].map(i => parseInt(m[1].substr(i, 2), 16)) : null; };
         const lum = c => { const v = c.map(x => { x /= 255; return x <= 0.03928 ? x / 12.92 : Math.pow((x + 0.055) / 1.055, 2.4); }); return 0.2126 * v[0] + 0.7152 * v[1] + 0.0722 * v[2]; };
         const ratio = (a, b) => { const x = lum(a), y = lum(b); return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05); };
@@ -52,8 +52,8 @@
           root.style.setProperty('--border-active', alpha(dark ? 0.5 : 0.4));
         }
       }
-      if (s.themeRadius !== undefined && s.themeRadius !== null) {
-        const rad = Math.min(12, s.themeRadius);
+      {   // ohne gespeicherten Wert der Regler-Standard 8, wie loadThemeSelection in app.js (AU8)
+        const rad = Math.min(12, Number.isFinite(s.themeRadius) ? s.themeRadius : 8);
         root.style.setProperty('--radius-sm', Math.max(0, rad - 2) + 'px');
         root.style.setProperty('--radius-md', rad + 'px');
         root.style.setProperty('--radius-lg', (rad + 4) + 'px');
@@ -61,7 +61,7 @@
       }
     })();
   </script>
-  <link rel="stylesheet" href="style.css?v=551" />
+  <link rel="stylesheet" href="style.css?v=552" />
   <script>
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
@@ -1278,7 +1278,7 @@
 
 <!-- Datenschutzhinweise (BUGS Y1). Nach den Einstellungen im Markup: liegt über ihnen (Escape schließt das oberste). -->
 <div id="modal-privacy" class="modal-overlay hidden" onclick="closeModalOnOverlay(event,'modal-privacy')">
-  <div class="modal" onclick="event.stopPropagation()">
+  <div class="modal modal-small" onclick="event.stopPropagation()">
     <div class="modal-header">
       <h2>Datenschutzhinweise</h2>
       <button class="modal-close" aria-label="Schließen" onclick="closeModal('modal-privacy')">✕</button>
@@ -1850,15 +1850,15 @@
   </div>
 
   <script src="lib/crypto-js.min.js"></script>
-  <script src="crypto-helper.js?v=551"></script>
+  <script src="crypto-helper.js?v=552"></script>
   <script src="lib/firebase-app-compat.js"></script>
   <script src="lib/firebase-auth-compat.js"></script>
   <script src="lib/firebase-firestore-compat.js"></script>
-  <script src="firebase-config.js?v=551"></script>
-  <script src="sync-manager.js?v=551"></script>
-  <script src="sync-merge.js?v=551"></script>
+  <script src="firebase-config.js?v=552"></script>
+  <script src="sync-manager.js?v=552"></script>
+  <script src="sync-merge.js?v=552"></script>
   <script src="lib/qrcode.js"></script>
-  <script src="student-share.js?v=551"></script>
-  <script src="app.js?v=551"></script>
+  <script src="student-share.js?v=552"></script>
+  <script src="app.js?v=552"></script>
 </body>
 </html>

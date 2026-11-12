@@ -7433,8 +7433,17 @@ function birthdayInfo(s, dateStr) {
   }
   return null;
 }
+// Ein Formatierer für alle Aufrufe, Ergebnis je Datum gemerkt: Große Tabellen rufen das für jede Zelle (AU14)
+const WEEKDAY_SHORT_FMT = new Intl.DateTimeFormat('de-DE', { weekday: 'short', day: '2-digit', month: '2-digit' });
+const weekdayShortCache = new Map();
 function formatWeekdayShort(dateStr) {
-  return parseDate(dateStr).toLocaleDateString('de-DE', { weekday: 'short', day: '2-digit', month: '2-digit' });
+  let t = weekdayShortCache.get(dateStr);
+  if (t === undefined) {
+    t = WEEKDAY_SHORT_FMT.format(parseDate(dateStr));
+    if (weekdayShortCache.size > 2000) weekdayShortCache.clear();
+    weekdayShortCache.set(dateStr, t);
+  }
+  return t;
 }
 
 let seatingEditMode = false;
@@ -8988,10 +8997,18 @@ labelModals();
 // am Pult ließ sich kaum zurückholen. iOS ignoriert „user-scalable=no“ und meldet das Zusammenziehen als gesture…
 ['gesturestart', 'gesturechange'].forEach(t => document.addEventListener(t, e => e.preventDefault(), { passive: false }));
 
+// Nach dem Drucken den Druckbereich leeren: Sonst druckt ein späteres Strg+P/„Teilen → Drucken“ wieder alle Noten
+// bzw. persönlichen Codes (AU15)
+window.addEventListener('afterprint', () => { const a = document.getElementById('print-area'); if (a) a.innerHTML = ''; });
+
 // „Passwort anzeigen“ (Auge) an den Master-Passwort-Feldern (`data-reveal`). Nie gespeichert: Schließen der
 // Einstellungen und Verlassen der App verbergen es wieder – am Pult soll es niemand sehen.
 function setPasswordVisible(input, show) {
   input.type = show ? 'text' : 'password';
+  // Als Textfeld schaltet iOS sonst Großbuchstabe, Autokorrektur und Rechtschreibprüfung ein (AU9, Lücke in AO1)
+  input.setAttribute('autocapitalize', 'none');
+  input.setAttribute('autocorrect', 'off');
+  input.setAttribute('spellcheck', 'false');
   const btn = input.parentElement.querySelector('.password-reveal');
   if (!btn) return;
   btn.setAttribute('aria-pressed', String(show));

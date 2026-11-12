@@ -288,7 +288,7 @@ html.story-open, html.story-open body { overflow: hidden; }
 .st-card .k { font-size: 18px; font-weight: 600; }
 .st-tall { font-size: min(72px, 19vw); font-weight: 800; font-stretch: 62%; text-transform: uppercase; line-height: 0.92; margin-top: var(--s2); overflow-wrap: break-word; }
 .st-tall.st-xl { font-size: min(84px, 22vw); }   /* „Halbjahr“, „Schuljahr“ passen auch aufs kleine Handy */
-.st-huge { font-size: 176px; font-weight: 900; font-stretch: 125%; line-height: 0.85; letter-spacing: -0.045em; margin-top: var(--s4); font-variant-numeric: tabular-nums; }
+.st-huge { font-size: 176px; font-size: min(176px, 20vh); font-size: min(176px, 20dvh); font-weight: 900; font-stretch: 125%; line-height: 0.85; letter-spacing: -0.045em; margin-top: var(--s4); font-variant-numeric: tabular-nums; }
 .c-ink .st-huge { color: var(--c-sig); }
 .st-who { font-size: 36px; font-weight: 800; font-stretch: 112%; margin-top: var(--s5); }
 .st-sub { font-size: 18px; line-height: 1.4; margin-top: var(--s4); }
@@ -296,7 +296,7 @@ html.story-open, html.story-open body { overflow: hidden; }
 .st-card.on > * { animation: st-rise .6s var(--ease) both; }
 .st-card.on > *:nth-child(2) { animation-delay: .12s; } .st-card.on > *:nth-child(3) { animation-delay: .3s; } .st-card.on > *:nth-child(n+4) { animation-delay: .5s; }
 @keyframes st-rise { from { transform: translateY(18px); } to { transform: none; } }   /* immer sichtbar, nur Bewegung */
-.st-grid { display: grid; grid-template-columns: repeat(10, minmax(0, 1fr)); gap: var(--s1); margin-top: var(--s5); }
+.st-grid { display: grid; grid-template-columns: repeat(var(--gcols, 10), minmax(0, 1fr)); gap: var(--s1); margin-top: var(--s5); }
 .st-grid i { aspect-ratio: 1; border-radius: 3px; background: var(--c-paper-line); }
 .st-grid i.p { background: var(--c-paper-soft); } .st-grid i.pp { background: var(--c-sig); }
 .st-split { display: grid; grid-template-columns: 1fr 1fr; gap: var(--s4); margin-top: var(--s5); padding-top: var(--s3); border-top: 2px solid currentColor; }

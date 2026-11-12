@@ -28,7 +28,9 @@ describe('Eingabefelder (AO1)', () => {
     }
   });
   it('Passwort-, Datums- und Zahlenfelder bleiben, wie sie sind', () => {
-    expect(document.getElementById('sync-reset-password').hasAttribute('autocorrect')).toBe(false);
+    // Passwort-Felder bleiben Passwort-Felder; ihr „Auge“ stellt Autokorrektur & Co. ab (AU9)
+    expect(document.getElementById('sync-reset-password').type).toBe('password');
+    expect(document.getElementById('sync-reset-password').getAttribute('autocorrect')).not.toBe('on');
     expect(document.getElementById('new-student-birthday').hasAttribute('autocorrect')).toBe(false);
   });
   it('später gezeichnete Felder (Tabellen, Fenster) bekommen dieselben Einstellungen', async () => {

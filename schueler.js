@@ -405,6 +405,8 @@
   }
   const num = v => Math.max(0, Number(v) || 0);
   const dayMonth = s => { const t = dateOf(s); return `${t.getDate()}. ${MONTHS_LONG[t.getMonth()]}`; };
+  // Viele Stunden: mehr Spalten, sonst ist die Karte höher als das Handy und die neuesten Reihen fehlen (AU13)
+  const gcols = n => (n > 90 ? 20 : n > 60 ? 15 : 10);
   function storyCards(r, d) {
     const cards = [];
     const subj = d.subject || 'Unterricht';
@@ -413,7 +415,7 @@
       <p class="st-who">${esc([d.first, d.cls].filter(Boolean).join(', '))}</p><p class="st-foot">Tippe rechts für weiter, links für zurück.</p>`]);
     const cells = list(r.cells).map((c, i) => `<i class="${c === 'pp' ? 'pp' : c === 'p' ? 'p' : ''}" style="--n:${i}"></i>`).join('');
     cards.push(['ink', `<p class="k">So oft hattet ihr ${esc(subj)}</p><p class="st-huge">${num(r.lessons)}</p>
-      <p class="st-sub">Stunden. Jedes Feld ist eine, hell heißt Plus, leuchtend heißt Doppelplus.</p><div class="st-grid">${cells}</div>`]);
+      <p class="st-sub">Stunden. Jedes Feld ist eine, hell heißt Plus, leuchtend heißt Doppelplus.</p><div class="st-grid" style="--gcols:${gcols(list(r.cells).length)}">${cells}</div>`]);
     const pp = num(r.pp), pl = num(r.p);
     cards.push(['sand', `<p class="k">Deine Plusse</p><p class="st-huge">${pp + pl}</p>
       <div class="st-split"><div><b>${pp}</b><span>mal Doppelplus</span></div><div><b>${pl}</b><span>mal Plus</span></div></div>
