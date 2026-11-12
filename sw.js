@@ -10,6 +10,7 @@ const ASSETS = [
   './js/planung.js?v=556',
   './js/klassen.js?v=556',
   './js/noten.js?v=556',
+  './js/schueler-fenster.js?v=556',
   './app.js?v=556',
   './style.css?v=556',
   './manifest.json',
