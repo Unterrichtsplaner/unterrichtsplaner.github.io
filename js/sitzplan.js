@@ -779,6 +779,7 @@ function renderSeatingPlan() {
   // Notenrunde gehört zu einer Klasse: Klassenwechsel beendet sie (AH28)
   if (gradeRound && gradeRound.groupId !== groupId) { gradeRound = null; closeGradeRoundPad(); renderGradeRoundBar(); }
   renderSeatingCockpit(); // vor dem Messen: die Leiste nimmt dem Raster Höhe weg
+  updateSeatingRedeemButton();   // „Einlösen“ nur mit persönlichen Seiten (AV1)
   const canvas = document.getElementById('seating-canvas');
   const emptyState = document.getElementById('seating-empty');
 

@@ -226,8 +226,8 @@ describe('Raster ohne Rahmen', () => {
 describe('Unten: vier gleiche Knöpfe', () => {
   it('Timer, Stoppuhr, Zufall, Gruppen', () => {
     open('g1');
-    const btns = [...document.querySelectorAll('.seating-tools-bar > .seating-tool')];
-    expect(btns.map(b => txt(b))).toEqual(['Timer', 'Stoppuhr', 'Zufall', 'Gruppen']);
+    const btns = [...document.querySelectorAll('.seating-tools-bar > .seating-tool:not(.hidden)')];
+    expect(btns.map(b => txt(b))).toEqual(['Timer', 'Stoppuhr', 'Zufall', 'Gruppen']);   // fünfter „Einlösen“ nur mit persönlichen Seiten (AV1, tests/pluskonto-qr.test.js)
     expect(HTML).toMatch(/id="btn-tool-timer"[^>]*aria-expanded="false"/);
   });
   it('Timer klappt ein Feld auf; Escape und Tippen daneben schließen es', () => {

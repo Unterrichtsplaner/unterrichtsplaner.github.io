@@ -78,5 +78,31 @@ const StudentShare = (() => {
   const stickerSvg = icon => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${STICKER_ICONS[icon] || STICKER_ICONS.star}</svg>`;
   const stickerColor = c => STICKER_COLORS[Number(c)] || STICKER_COLORS[0];
 
-  return { FORMAT, newAccess, isAccess, encrypt, decrypt, linkFor, parseHash, STICKER_ICONS, STICKER_COLORS, stickerSvg, stickerColor };
+  // Plus-Konto (AV1 Stufe 2): Einlöse-Code als Text „UP1:<Kennung>:<Angebot>:<Plusse>:<Einmal-Nummer>:<Unterschrift>“.
+  // Die Schülerseite unterschreibt mit dem Schlüssel aus ihrem Link (HMAC-SHA-256, auf 128 Bit gekürzt); der Planer kennt
+  // denselben Schlüssel und prüft. Der Schlüssel selbst steht nie im Code: Ein Foto des Codes öffnet keine Seite, und ohne
+  // den Link kann niemand für einen anderen einlösen. Die Einmal-Nummer merkt sich der Planer beim Einlösen.
+  const CODE_RE = /^UP1:([A-Za-z0-9_-]{22}):([A-Za-z0-9_-]{1,40}):(\d{1,3}):([A-Za-z0-9_-]{11}):([A-Za-z0-9_-]{22})$/;
+  const ITEM_RE = /^[A-Za-z0-9_-]{1,40}$/;
+  async function codeSig(key, body) {
+    const k = await crypto.subtle.importKey('raw', fromB64u(key), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
+    return b64u(new Uint8Array(await crypto.subtle.sign('HMAC', k, new TextEncoder().encode(body))).subarray(0, 16));
+  }
+  const codeBody = (id, item, n, nonce) => `UP1:${id}:${item}:${n}:${nonce}`;
+  // null, wenn sich das Angebot nicht als Code schreiben lässt (fremde Kennung, Preis außerhalb 1–999)
+  async function plusCode(access, item, n, nonce = b64u(random(8))) {
+    if (!isAccess(access) || !ITEM_RE.test(String(item)) || !(Number.isInteger(n) && n >= 1 && n <= 999)) return null;
+    const body = codeBody(access.id, item, n, nonce);
+    return { text: `${body}:${await codeSig(access.key, body)}`, nonce };
+  }
+  function parsePlusCode(text) {
+    const m = CODE_RE.exec(String(text || '').trim());
+    return m ? { id: m[1], item: m[2], n: Number(m[3]), nonce: m[4], sig: m[5] } : null;
+  }
+  async function verifyPlusCode(code, key) {
+    try { return !!code && (await codeSig(key, codeBody(code.id, code.item, code.n, code.nonce))) === code.sig; } catch (e) { return false; }
+  }
+
+  return { FORMAT, newAccess, isAccess, encrypt, decrypt, linkFor, parseHash, STICKER_ICONS, STICKER_COLORS, stickerSvg, stickerColor,
+    plusCode, parsePlusCode, verifyPlusCode };
 })();

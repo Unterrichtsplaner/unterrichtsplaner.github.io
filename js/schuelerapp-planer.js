@@ -1160,7 +1160,8 @@ function shopFromJokers(jokers) {
 // Konto eines Schülers im Schuljahr: verdient (+ 1, ++ 2), eingelöst (Preise beim Einlösen), Stand
 function studentAccount(g, s, todayStr = formatDate(new Date())) {
   const earned = yearParticipation(s, todayStr).reduce((n, p) => n + (SA_PLUS_VALUE[p.value] || 0), 0);
-  const redeemed = yearList(s.redeemed, todayStr);
+  const seen = new Set();   // ein Code (Einmal-Nummer) zählt nur einmal, auch wenn zwei Geräte ihn gescannt haben (Stufe 2)
+  const redeemed = yearList(s.redeemed, todayStr).filter(r => !r.nonce || (!seen.has(r.nonce) && seen.add(r.nonce)));
   const spent = redeemed.reduce((n, r) => n + clampInt(r.price, 0, 999, 0), 0);
   return { earned, spent, balance: Math.max(0, earned - spent), redeemed };
 }
@@ -1170,7 +1171,8 @@ function studentAccountSnapshot(g, s, todayStr) {
   const acc = studentAccount(g, s, todayStr);
   const kinds = ['perk', 'grade', 'donate'];
   const redeemed = [
-    ...acc.redeemed.map(r => ({ date: r.date, name: String(r.name || ''), price: clampInt(r.price, 0, 999, 0), kind: kinds.includes(r.kind) ? r.kind : 'perk', icon: redeemIcon(r) })),
+    ...acc.redeemed.map(r => ({ date: r.date, name: String(r.name || ''), price: clampInt(r.price, 0, 999, 0), kind: kinds.includes(r.kind) ? r.kind : 'perk', icon: redeemIcon(r),
+      ...(r.nonce ? { nonce: String(r.nonce) } : {}) })),   // Einmal-Nummer: die Schülerseite hakt damit „wartet auf Bestätigung“ ab
     ...yearList(s.jokersUsed, todayStr).map(j => ({ date: j.date, name: j.text ? `Joker: ${String(j.text)}` : 'Joker', price: 0, kind: 'joker', icon: 'star' })),
   ].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 40);
   return { balance: acc.balance, earned: acc.earned, spent: acc.spent,
@@ -1209,6 +1211,11 @@ async function redeemShop(groupId, studentId) {
   // Nach dem Warten (Regel 43): Schüler noch da und Konto reicht noch (ein Abgleich kann dazwischen gekommen sein)
   if (!db.groups.includes(g) || findStudentIn(groupId, studentId) !== s) { showToast('Diesen Schüler gibt es nicht mehr (z. B. durch Sync)', 'error'); return; }
   if (studentAccount(g, s).balance < item.price) { showToast('Das Konto reicht inzwischen nicht mehr', 'error'); return; }
+  applyRedemption(g, s, item);
+}
+// Einlösung eintragen (Schüler-Fenster und Scanner): Note bei Art „grade“, speichern, „Rückgängig“. Vorher geprüft: Konto reicht.
+function applyRedemption(g, s, item) {
+  const groupId = g.id;
   const today = formatDate(new Date());
   const entry = { id: uid(), date: today, ...item };
   let grade = null;
@@ -1229,6 +1236,50 @@ async function redeemShop(groupId, studentId) {
     saveDB();
     afterRedeemChange(g, s, grade);
   });
+  return entry;
+}
+// ─── Einlösen per QR-Code (AV1 Stufe 2) ───────────────────────────────────────────────────────────────────
+// Die Schülerseite zeigt einen unterschriebenen Code (StudentShare.plusCode), der Scanner (js/scanner.js) gibt den Text hierher.
+// Geprüft wird: Code-Form, bekannter persönlicher Link, Unterschrift mit dessen Schlüssel, Einmal-Nummer noch nicht benutzt,
+// Angebot noch im Laden (Preis gilt aus dem Planer), Konto reicht. Die Rückfrage nennt den Kontostand nie (Beamer, Regel 16/67).
+function findStudentByAccess(id) {
+  for (const g of db.groups) for (const s of (db.students[g.id] || [])) { const a = studentAccessOf(s); if (a && a.id === id) return { g, s }; }
+  return null;
+}
+const codeUsed = (s, nonce) => (Array.isArray(s.redeemed) ? s.redeemed : []).some(r => r && r.nonce === nonce);
+// Liefert { kind: 'ok'|'error'|'cancel', msg } für die Anzeige im Scanner; wirft nie
+async function redeemFromCode(text) {
+  const code = StudentShare.parsePlusCode(text);
+  if (!code) return { kind: 'error', msg: 'Das ist kein Einlöse-Code aus der Schülerapp.' };
+  let hit = findStudentByAccess(code.id);
+  if (!hit) return { kind: 'error', msg: 'Diesen Code kennt der Planer nicht (alter Link oder eine andere Lehrkraft).' };
+  if (!(await StudentShare.verifyPlusCode(code, studentAccessOf(hit.s).key))) return { kind: 'error', msg: 'Der Code ist nicht gültig (Unterschrift passt nicht).' };
+  hit = findStudentByAccess(code.id);   // nach dem Warten neu suchen (Regel 32/43)
+  if (!hit) return { kind: 'error', msg: 'Diesen Schüler gibt es nicht mehr (z. B. durch Sync).' };
+  const { g, s } = hit;
+  const name = `${s.firstName} ${s.lastName}`.trim();
+  if (!personalActive(g)) return { kind: 'error', msg: `Die persönlichen Seiten der ${g.className} sind ausgeschaltet.` };
+  if (codeUsed(s, code.nonce)) return { kind: 'error', msg: `Schon eingelöst: Jeder Code von ${s.firstName} gilt nur einmal.` };
+  let item;
+  if (code.item === 'donate') {
+    if (!studentAppOf(g).goal) return { kind: 'error', msg: `Die ${g.className} hat gerade kein Klassenziel, Spenden geht nicht.` };
+    item = { name: 'Spende an die Klasse', price: code.n, kind: 'donate' };
+  } else {
+    const x = personalOf(g).shop.find(i => i.id === code.item);
+    if (!x) return { kind: 'error', msg: `Dieses Angebot gibt es im Laden der ${g.className} nicht mehr.` };
+    item = { itemId: x.id, name: x.name, price: x.price, kind: x.kind, icon: x.icon };
+  }
+  if (studentAccount(g, s).balance < item.price) return { kind: 'error', msg: `${s.firstName}: Das Konto reicht nicht für „${item.name}“.` };
+  const changed = item.kind !== 'donate' && item.price !== code.n ? `\nDer Preis ist inzwischen ${plusWord(item.price)} (in der App stand ${code.n}).` : '';
+  const ok = await askChoice(name, `${g.className} · ${item.name} · ${plusWord(item.price)}\nKonto reicht.${changed}${item.kind === 'grade' ? '\nDabei wird eine mündliche Note eingetragen.' : ''}`,
+    [{ label: 'Einlösen', value: 'ok', primary: true }]);
+  if (ok !== 'ok') return { kind: 'cancel', msg: 'Nicht eingelöst.' };
+  // Nach der Rückfrage: alles noch einmal (Abgleich, zweites Gerät, zweites Scannen)
+  if (findStudentByAccess(code.id)?.s !== s || !db.groups.includes(g)) return { kind: 'error', msg: 'Diesen Schüler gibt es nicht mehr (z. B. durch Sync).' };
+  if (codeUsed(s, code.nonce)) return { kind: 'error', msg: `Schon eingelöst: Jeder Code von ${s.firstName} gilt nur einmal.` };
+  if (studentAccount(g, s).balance < item.price) return { kind: 'error', msg: 'Das Konto reicht inzwischen nicht mehr.' };
+  applyRedemption(g, s, { ...item, nonce: code.nonce });
+  return { kind: 'ok', msg: `${s.firstName}: ${item.name} eingelöst.` };
 }
 // Einlösung entfernen (Verklickt): die Plusse sind wieder auf dem Konto, eine eingelöste 1 nimmt ihre Note mit
 function removeRedemption(groupId, studentId, entry) {
@@ -1269,7 +1320,7 @@ function shopEditorHTML(g, p) {
           <select class="form-input" data-f="icon" aria-label="Symbol">${optionList(SA_SHOP_ICON_NAMES, x.icon)}</select></div></div>`).join('')}</div>
       <div class="sa-row-btns"><button type="button" class="btn-secondary" id="sa-shop-add">+ Angebot</button></div>
       <p class="field-hint-muted" id="sa-shop-hint">+ ist 1 Plus wert, ++ sind 2. Ein mittlerer Schüler sammelt etwa ${Math.round(year / 2)} Plusse im Halbjahr und ${Math.round(year)} im Schuljahr.
-        Eingelöst wird im Schüler-Fenster (Mehr → Schülerapp → Plusse einlösen); „Note: eine 1“ trägt dabei eine mündliche ${escHtml(best)} mit Titel „${SA_GRADE_NOTE}“ ein.
+        Eingelöst wird per Code aus der App (Knopf „Codes scannen“ unten oder „Einlösen“ im Sitzplan) oder im Schüler-Fenster (Mehr → Schülerapp → Plusse einlösen); „Note: eine 1“ trägt dabei eine mündliche ${escHtml(best)} mit Titel „${SA_GRADE_NOTE}“ ein.
         Mit Klassenziel können die Schüler Plusse auch für die Klasse spenden.</p></div>`;
 }
 function wireShopEditor(content, g) {
@@ -1314,7 +1365,8 @@ function personalCardHTML(g) {
         <p class="field-hint-muted">Jeder Rang hat seine Farbe (Bronze, Silber, Gold, Platin, Diamant). Leer lassen heißt: der Rang heißt wie seine Farbe. Alle in der Klasse sehen dieselben Namen.</p></div>
       ${shopEditorHTML(g, p)}
       ${stickerEditorHTML(p)}
-      <div class="sa-row-btns"><button type="button" class="btn-secondary" id="sa-cards">${icon('printer')}Kärtchen drucken (${n})</button></div>
+      <div class="sa-row-btns"><button type="button" class="btn-secondary" id="sa-scan">${icon('qr')}Codes scannen</button>
+        <button type="button" class="btn-secondary" id="sa-cards">${icon('printer')}Kärtchen drucken (${n})</button></div>
       <p class="field-hint-muted">Einzeln zum Scannen: Schüler-Fenster → Mehr → Schülerapp → „Code zeigen“.</p>` : ''}
   </section>`;
 }
@@ -1329,6 +1381,7 @@ function wirePersonalCard(content, g) {
   }));
   wireShopEditor(content, g);   // AV1
   content.querySelector('#sa-cards')?.addEventListener('click', () => printStudentCards(g.id));
+  content.querySelector('#sa-scan')?.addEventListener('click', () => openPlusScanner());   // AV1 Stufe 2
   wireStickerEditor(content, g);   // AJ2b
 }
 // Schüler-Fenster, Abschnitt „Schülerapp“: Geben und Einlösen offen (im Unterricht ohne „Anzeigen“), Level, Kontostand,

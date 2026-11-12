@@ -366,11 +366,13 @@
         </div>
       </div>
       <div class="seating-tools-bar">
-        <!-- Vier gleiche Knöpfe (AH50); Timer und Stoppuhr klappen ein kleines Feld auf und zeigen auf dem Knopf die laufende Zeit -->
+        <!-- Vier gleiche Knöpfe (AH50); Timer und Stoppuhr klappen ein kleines Feld auf und zeigen auf dem Knopf die laufende Zeit.
+             Mit persönlichen Seiten ein fünfter: „Einlösen“ öffnet den Scanner für Plus-Konto-Codes (AV1) -->
         <button type="button" id="btn-tool-timer" class="btn-secondary seating-tool" onclick="toggleToolPop('timer')" aria-expanded="false" aria-controls="tool-timer-pop"><i data-icon="clock"></i><span id="tool-timer-label">Timer</span></button>
         <button type="button" id="btn-tool-stopwatch" class="btn-secondary seating-tool" onclick="toggleToolPop('stopwatch')" aria-expanded="false" aria-controls="tool-stopwatch-pop"><i data-icon="stopwatch"></i><span id="tool-stopwatch-label">Stoppuhr</span></button>
         <button type="button" class="btn-secondary seating-tool" onclick="startSeatingRandomizer()"><i data-icon="dice"></i><span>Zufall</span></button>
         <button type="button" class="btn-secondary seating-tool" onclick="openSeatingGroupModal()"><i data-icon="classes"></i><span>Gruppen</span></button>
+        <button type="button" id="btn-tool-redeem" class="btn-secondary seating-tool hidden" onclick="openPlusScanner()"><i data-icon="qr"></i><span>Einlösen</span></button>
         <div id="tool-timer-pop" class="tool-pop hidden" role="group" aria-label="Timer">
         <div class="tool-widget">
            <span id="timer-display" class="tool-display">05:00</span>
@@ -1359,7 +1361,7 @@
         <li>Wie jeder Server-Dienst verarbeitet Google dabei technische Daten wie deine IP-Adresse. Eine Übermittlung in die USA ist dabei nicht ausgeschlossen. Schülerdaten sind davon nur verschlüsselt betroffen.</li>
         <li>Sicherungen: Beim ersten Abgleich eines Tages legt die App den bisherigen Stand als Sicherung ab, genauso verschlüsselt. Sicherungen, die älter als 14 Tage sind, löscht sie beim nächsten Abgleich. Bis dahin stehen gelöschte Einträge (z. B. ein Schüler, der die Schule verlassen hat) noch in den Sicherungen. „Alles löschen, auch in der Cloud“ und „Cloud-Konto löschen“ entfernen auch alle Sicherungen.</li>
         <li>Jedes Konto kann nur sein eigenes Datenpaket und seine eigenen Sicherungen lesen und schreiben.</li>
-        <li>Schülerapp (nur wenn du sie einschaltest): Für jede freigegebene Klasse liegt ein eigenes kleines Datenpaket in Firestore, verschlüsselt mit einem Schlüssel, der nur im Link bzw. Code für die Klasse steht. Es enthält die Themen mit dem Text aus „Was wurde behandelt“ (nie die Stundennotizen), Hausaufgaben, Tests, nächste Stunden und die Plusse der ganzen Klasse je Stunde (gespendete Plusse nur als Summe), nie Namen oder Noten. Schaltest du persönliche Seiten ein, kommt je Schüler ein eigenes Paket dazu (eigener Schlüssel im Link des Schülers): Vorname, Level, Rückmeldung zur Mitarbeit, Rang und Plus-Konto (Kontostand und die eigenen Einlösungen mit Angebot, Datum und Preis), nie Noten aus der Notenliste oder Fehlzeiten. Einlösungen speichert der Planer je Schüler; eine eingelöste 1 steht zusätzlich als mündliche Note in der Notenliste. Das vorher mit der Schulleitung bzw. Datenschutzbeauftragten klären. Lesen kann es, wer den Link hat; ändern und löschen nur dein Konto. Abschalten oder ein neuer Link löscht den Inhalt; ein leeres Dokument ohne Daten bleibt stehen, damit niemand anderes den alten Link übernehmen kann. Ganz weg ist alles mit „Alles löschen, auch in der Cloud“ oder „Cloud-Konto löschen“.</li>
+        <li>Schülerapp (nur wenn du sie einschaltest): Für jede freigegebene Klasse liegt ein eigenes kleines Datenpaket in Firestore, verschlüsselt mit einem Schlüssel, der nur im Link bzw. Code für die Klasse steht. Es enthält die Themen mit dem Text aus „Was wurde behandelt“ (nie die Stundennotizen), Hausaufgaben, Tests, nächste Stunden und die Plusse der ganzen Klasse je Stunde (gespendete Plusse nur als Summe), nie Namen oder Noten. Schaltest du persönliche Seiten ein, kommt je Schüler ein eigenes Paket dazu (eigener Schlüssel im Link des Schülers): Vorname, Level, Rückmeldung zur Mitarbeit, Rang und Plus-Konto (Kontostand und die eigenen Einlösungen mit Angebot, Datum und Preis), nie Noten aus der Notenliste oder Fehlzeiten. Einlösungen speichert der Planer je Schüler; eine eingelöste 1 steht zusätzlich als mündliche Note in der Notenliste. Das vorher mit der Schulleitung bzw. Datenschutzbeauftragten klären. Zum Einlösen per Code nutzt der Planer auf Knopfdruck die Kamera; die Bilder bleiben im Gerät und werden weder gespeichert noch gesendet. Lesen kann es, wer den Link hat; ändern und löschen nur dein Konto. Abschalten oder ein neuer Link löscht den Inhalt; ein leeres Dokument ohne Daten bleibt stehen, damit niemand anderes den alten Link übernehmen kann. Ganz weg ist alles mit „Alles löschen, auch in der Cloud“ oder „Cloud-Konto löschen“.</li>
         <li>Deine Cloud-Daten und dein Konto löschen: selbst unter Einstellungen → Cloud-Synchronisierung → „Cloud-Konto löschen“ (nur die Cloud-Daten: Datenverwaltung → „Alles löschen, auch in der Cloud“). Klappt das nicht, genügt eine kurze E-Mail an den Betreiber (siehe unten).</li>
       </ul>
 
@@ -1887,6 +1889,21 @@
   </div>
 </div>
 
+<!-- Plus-Konto (AV1 Stufe 2): Einlöse-Codes scannen. Steht vor modal-choice, damit die Rückfrage darüber liegt. -->
+<div id="modal-plus-scan" class="modal-overlay hidden" onclick="closeModalOnOverlay(event,'modal-plus-scan')">
+  <div class="modal plus-scan" onclick="event.stopPropagation()">
+    <div class="modal-header">
+      <h2>Plusse einlösen</h2>
+      <button class="modal-close" aria-label="Schließen" onclick="closePlusScanner()">✕</button>
+    </div>
+    <div class="plus-scan-body">
+      <div class="plus-scan-frame"><video id="plus-scan-video" playsinline muted autoplay hidden></video></div>
+      <p id="plus-scan-status" class="plus-scan-status" role="status" aria-live="polite">Kamera startet …</p>
+      <p class="field-hint-muted">Der Schüler tippt in seiner App im Shop auf ein Angebot und zeigt dir den Code. Die Bilder der Kamera bleiben auf diesem Gerät, gespeichert wird nur die Einlösung.</p>
+    </div>
+  </div>
+</div>
+
   <div id="modal-choice" class="modal-overlay hidden" onclick="closeModalOnOverlay(event,'modal-choice')">
     <div class="modal modal-small" onclick="event.stopPropagation()" style="max-width:460px;">
       <div class="modal-header">
@@ -1924,6 +1941,7 @@
   <script src="js/bericht.js?v=558"></script>
   <script src="js/sync.js?v=558"></script>
   <script src="js/schuelerapp-planer.js?v=558"></script>
+  <script src="js/scanner.js?v=558"></script>
   <script src="js/start.js?v=558"></script>
 </body>
 </html>

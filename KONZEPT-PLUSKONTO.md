@@ -1,6 +1,6 @@
 # Konzept: Plus-Konto und Laden (BUGS AV1)
 
-*Stand 12.11.2026 · Idee von Kevin · **Stufe 1 gebaut** (Konto, Laden, Einlösen im Schüler-Fenster, Spende, Reiter SHOP), Stufe 2 (QR) offen. Entscheidungen vom 12.11. stehen in Abschnitt 12; der Shop sieht aus wie ein Item-Shop aus Spielen (Abschnitt 5a).*
+*Stand 12.11.2026 · Idee von Kevin · **Stufe 1 und 2 gebaut** (Konto, Laden, Einlösen im Schüler-Fenster, Spende, Reiter SHOP; QR-Code und Scannen). Entscheidungen vom 12.11. stehen in Abschnitt 12; der Shop sieht aus wie ein Item-Shop aus Spielen (Abschnitt 5a).*
 
 ## 1. Ziel in einem Satz
 
@@ -108,7 +108,7 @@ Damit gilt:
 - **Ohne Internet:** Scannen und Speichern gehen offline, der Abgleich folgt später.
 - **Verzögerung:** Die Schülerseite zeigt den neuen Stand nach dem nächsten Abgleich (Firebase-Grenze: höchstens alle 10 Minuten neu). Bis dahin zeigt sie beim angefragten Angebot „wartet auf Bestätigung“ (nur auf dem Handy des Schülers gemerkt). Doppelt einlösen geht trotzdem nicht, weil das echte Konto in deinem Planer steht.
 
-**Kamera:** Safari auf dem iPad kann QR-Codes nicht selbst lesen. Dafür kommt eine kleine, freie Bibliothek (jsQR, MIT-Lizenz) in `lib/` – lokal, nichts von fremden Servern. Beim ersten Scannen fragt das iPad einmal, ob die App die Kamera benutzen darf. Die Bilder bleiben im Gerät.
+**Kamera:** Safari auf dem iPad kann QR-Codes nicht selbst lesen. Dafür kommt eine kleine, freie Bibliothek (jsQR 1.4.0, Apache-Lizenz 2.0) in `lib/` – lokal, nichts von fremden Servern. Beim ersten Scannen fragt das iPad einmal, ob die App die Kamera benutzen darf. Die Bilder bleiben im Gerät.
 
 ## 7. Was aus den Jokern wird
 
@@ -175,4 +175,4 @@ Stufe 1 ist schon im Unterricht nutzbar (du tippst ein). Erst ausprobieren, dann
 | 10 | Preise der Vorteile | **Wie vorgeschlagen:** Sitzplatz 2, Partner 2, Song 3, Aufgabe 3, Rätsel 3, keine TÜ 4, eine 1 6 (Startwerte, je Klasse änderbar). |
 | 11 | Aussehen | **Entwurf passt** (5a). |
 
-**Noch offen:** nichts. Stufe 1 ist gebaut (12.11.); in Stufe 1 zeigt der Kauf-Bildschirm noch keinen QR-Code, sondern „Zeig das deiner Lehrkraft“, eingelöst wird im Schüler-Fenster. Nächster Schritt: Stufe 2 (QR, Aufwand Hoch).
+**Noch offen:** nur ein Versuch mit der echten iPad-Kamera. Stufe 1 und Stufe 2 sind gebaut (12.11.): Der Kauf-Bildschirm zeigt den QR-Code, eingelöst wird per Scan (Sitzplan, Reiter Schülerapp) oder im Schüler-Fenster.

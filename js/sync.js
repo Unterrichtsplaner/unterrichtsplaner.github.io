@@ -771,7 +771,7 @@ function noticeSlowSync(promise) {
 // Einstellungen zählen nur mit, wenn dort etwas eingetippt ist: Sonst ersetzte der Pull die Eingaben still (BUGS T5).
 function inputModalOpen() {
   return [...document.querySelectorAll('.modal-overlay:not(.hidden)')]
-    .some(m => m.id === 'modal-settings' ? settingsDirty() : m.id !== 'modal-sync-conflict' && m.id !== 'modal-whats-new' && m.id !== 'modal-seating-today' && m.id !== 'modal-search');   // Suche liest nur (AH19)
+    .some(m => m.id === 'modal-settings' ? settingsDirty() : m.id !== 'modal-sync-conflict' && m.id !== 'modal-whats-new' && m.id !== 'modal-seating-today' && m.id !== 'modal-search' && m.id !== 'modal-plus-scan');   // Suche liest nur (AH19), Scanner hat keine Eingaben (AV1)
 }
 function syncAfterModalsClosed() {
   if (!syncAfterModalClose || inputModalOpen()) return;
@@ -791,6 +791,7 @@ function flushPendingSync() {
 // verloren: Eingetipptes im Stunden-Fenster deshalb schon jetzt übernehmen, das Fenster bleibt offen (BUGS T3).
 function onAppHidden() {
   hideAllPasswords();
+  if (plusScan) closePlusScanner();   // Kamera nie im Hintergrund weiterlaufen lassen (AV1)
   if (classGradesShown) { hideClassGrades(); rerenderClassTab(); }
   dashboardOpenGroups.clear();   // „Auffällig“ nach der Pause wieder zugeklappt (AS8)   // Beamer-Schutz: nach der Pause wieder verborgen (AH24 c)
   // Sitzplan genauso: Noten/Verlauf und ein aufgedecktes Schüler-Fenster sind beim Zurückkommen wieder verborgen (AS1)

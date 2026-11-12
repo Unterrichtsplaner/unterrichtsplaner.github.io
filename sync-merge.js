@@ -185,7 +185,8 @@ const MERGE_SPEC = {
             studentApp: { fields: { access: { atomic: 'ask', what: 'Persönlicher Link', show: a => (a && a.id ? `Link …${String(a.id).slice(-4)}` : 'kein Link') } }, other: MERGE_LOCAL },
             jokersUsed: { list: j => j.id, onDelete: 'ask', what: j => `Joker vom ${mergeShortDate(j.date)}`, item: { other: MERGE_LOCAL } },
             // Plus-Konto (AV1): Einlösungen beider Geräte bleiben; Name und Preis wie beim Einlösen
-            redeemed: { list: x => x.id, onDelete: 'ask', what: x => `Einlösung „${x.name || ''}“ vom ${mergeShortDate(x.date)}`, item: { other: MERGE_LOCAL } },
+            // Gescannte Codes (Stufe 2) über ihre Einmal-Nummer: zwei Geräte, die denselben Code scannen, ergeben eine Einlösung
+            redeemed: { list: x => (x.nonce ? `n|${x.nonce}` : x.id), onDelete: 'ask', what: x => `Einlösung „${x.name || ''}“ vom ${mergeShortDate(x.date)}`, item: { other: MERGE_LOCAL } },
             // AJ2b: vergebene Sticker (Grund als Text), Baustellen (geschafft: das spätere Datum gilt)
             stickersGiven: { list: x => x.id, onDelete: 'ask', what: x => `Sticker „${x.name || ''}“ vom ${mergeShortDate(x.date)}`, item: { fields: { reason: MERGE_TEXT }, other: MERGE_LOCAL } },
             baustellen: { list: x => x.id, onDelete: 'ask', what: x => `Baustelle „${x.text || ''}“`, item: { fields: { text: MERGE_TEXT, done: { atomic: 'max' }, xp: { atomic: 'max' } }, other: MERGE_LOCAL } },

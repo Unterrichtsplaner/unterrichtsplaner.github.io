@@ -2121,6 +2121,14 @@ textarea.form-input,.notes-textarea{min-height:calc(var(--control-h) * 2.5);}
   .sa-class-row .btn-secondary{grid-column:3;grid-row:1 / 3;}
 }
 .sa-beamer{width:min(92vw,1000px);max-width:none;}
+/* Plus-Konto: Codes scannen (AV1 Stufe 2). Kamerabild im Quadrat, darunter was zuletzt passiert ist. */
+.plus-scan{width:min(92vw,520px);}
+.plus-scan-body{display:flex;flex-direction:column;gap:var(--space-3);padding:var(--space-4);}
+.plus-scan-frame{position:relative;width:100%;aspect-ratio:1;border-radius:var(--radius-md);background:var(--bg-elevated);border:1px solid var(--border);overflow:hidden;}
+.plus-scan-frame video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;}
+.plus-scan-status{margin:0;min-height:var(--control-h);display:flex;align-items:center;padding:var(--space-2) var(--space-3);border-radius:var(--radius-sm);background:var(--bg-elevated);font-size:16px;line-height:1.4;color:var(--text-primary);}
+.plus-scan-status.is-ok{background:var(--success-soft);color:var(--success);font-weight:600;}
+.plus-scan-status.is-error{background:var(--danger-soft);color:var(--danger);}
 .sa-beamer-body{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:var(--space-6);align-items:center;padding:var(--space-6);}
 .sa-beamer-qr{width:100%;max-width:460px;aspect-ratio:1;padding:var(--space-3);background:#fff;border-radius:var(--radius-md);justify-self:center;}
 .sa-beamer-text{font-size:26px;line-height:1.35;color:var(--text-primary);margin:0;}
@@ -2329,6 +2337,8 @@ input, textarea, [contenteditable="true"]{-webkit-user-select:text;user-select:t
 @container seating (max-width: 520px){
   .seating-tool{flex:1 1 0;padding:0 var(--space-1);font-size:12px;gap:var(--space-1);}
   .seating-tool .ico{width:16px;height:16px;}
+  /* Fünf Knöpfe (mit „Einlösen“, AV1): Symbol über dem Wort, sonst passen die Wörter nicht */
+  .seating-tools-bar:has(#btn-tool-redeem:not(.hidden)) .seating-tool{flex-direction:column;gap:2px;font-size:11px;line-height:1.1;}
 }
 /* Ende Sitzplan neu (AH50) */
 

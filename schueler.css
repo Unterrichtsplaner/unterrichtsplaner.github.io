@@ -399,10 +399,18 @@ button.shop-item:active, .shop-chips button:active { transform: translateY(1px);
 .shop-buy-bar { display: flex; justify-content: space-between; align-items: center; }
 .shop-buy .tier { font-size: 14px; font-weight: 800; font-stretch: 62%; letter-spacing: .12em; text-transform: uppercase; }
 .shop-buy-close { width: 48px; height: 48px; border: 0; border-radius: 6px; background: var(--c-ink); color: var(--c-paper); font-size: 22px; }
-.shop-buy .ic { width: 120px; height: 120px; margin-top: var(--s6); }
+.shop-buy-head { display: flex; align-items: center; gap: var(--s4); margin-top: var(--s4); }
+.shop-buy-head > div { min-width: 0; }
+.shop-buy .ic { flex: none; width: 72px; height: 72px; }
 .shop-buy .ic svg { width: 100%; height: 100%; stroke-width: 1.8; }
-.shop-buy .name { margin-top: var(--s4); font-size: 52px; font-weight: 800; font-stretch: 62%; text-transform: uppercase; line-height: .95; overflow-wrap: break-word; }
-.shop-buy .price { margin-top: var(--s4); font-size: 26px; }
-.shop-buy .price .coin { width: 28px; height: 28px; }
-.shop-buy .show { margin-top: var(--s7); font-size: 34px; font-weight: 800; font-stretch: 62%; text-transform: uppercase; line-height: 1; }
-.shop-buy .fine { margin-top: var(--s2); font-size: 16px; }
+.shop-buy .name { font-size: 40px; font-weight: 800; font-stretch: 62%; text-transform: uppercase; line-height: .95; overflow-wrap: break-word; }
+.shop-buy .price { margin-top: var(--s3); font-size: 24px; }
+.shop-buy .price .coin { width: 26px; height: 26px; }
+/* Code auf Weiß, so groß wie es das Handy erlaubt: Kameras lesen ihn auch aus etwas Abstand */
+.shop-qr { align-self: center; width: min(100%, 280px); margin-top: var(--s5); padding: 14px; border-radius: 6px; background: #fff; color: #000; }
+.shop-qr svg { display: block; width: 100%; height: auto; }
+.shop-qr-note { padding: var(--s5) var(--s2); text-align: center; font-size: 16px; font-weight: 600; color: var(--c-ink); }
+.shop-buy .show { margin-top: var(--s4); text-align: center; font-size: 30px; font-weight: 800; font-stretch: 62%; text-transform: uppercase; line-height: 1; }
+.shop-buy .fine { margin-top: var(--s2); text-align: center; font-size: 16px; }
+.shop-wait { align-self: flex-start; padding: 3px var(--s2); border-radius: 4px; background: var(--c-ink); color: var(--c-sig); font-size: 13px; font-weight: 800; }
+.shop-give .shop-wait { display: inline-block; margin-top: var(--s2); }

@@ -415,24 +415,27 @@
     return `<button type="button" class="card f f-mist acct" data-tab="shop"><span class="k">Dein Konto</span>
       <span class="acct-row"><span class="huge">${bal}</span><span class="t">${bal === 1 ? 'Plus' : 'Plusse'}<br>zum Einlösen</span></span><span class="go">Zum Shop</span></button>`;
   }
-  function shopCard(x, i, bal, hl) {
+  function shopCard(x, i, bal, hl, waiting) {
     const [cls, tier] = RARITY(x.price), need = x.price - bal;
     const inner = `<span class="tier">${tier}</span><span class="ic">${StudentShare.stickerSvg(x.icon)}</span><span class="name">${esc(x.name)}</span>
-      <span class="price">${need > 0 ? `noch ${plusWord(need)}` : `${coin()}${x.price}<span class="vh"> Plusse</span>`}</span>`;
+      <span class="price">${need > 0 ? `noch ${plusWord(need)}` : `${coin()}${x.price}<span class="vh"> Plusse</span>`}</span>
+      ${waiting && need <= 0 ? '<span class="shop-wait">Wartet auf Bestätigung</span>' : ''}`;
     const c = `shop-item ${cls}${hl ? ' shop-hl' : ''}${need > 0 ? ' locked' : ''}`;
     return need > 0 ? `<div class="${c}">${inner}</div>` : `<button type="button" class="${c}" data-buy="${i}">${inner}</button>`;
   }
   function shopHTML(acc, klasse) {
     const bal = num(acc.balance), spent = num(acc.spent);
     const items = shopItems(acc);
+    const waits = waitList(acc);
+    const waiting = x => waits.some(w => w.item === x.id && w.n === x.price);
     const top = items.reduce((b, x, i) => (b < 0 || x.price > items[b].price ? i : b), -1);   // Highlight: das teuerste
     let html = `<section class="f-ink shop-bal"><p class="k">Dein Konto</p><div class="shop-num">${coin()}<span>${bal}</span></div>
       <p class="shop-rule">+ ist 1 Plus wert · ++ sind 2${spent ? ` · ${spent} schon eingelöst` : ''}</p></section>`;
     if (top < 0) html += '<p class="shop-empty">Gerade gibt es nichts im Shop.</p>';
     else {
-      html += `<h2 class="shop-h">Highlight</h2>${shopCard(items[top], top, bal, true)}`;
+      html += `<h2 class="shop-h">Highlight</h2>${shopCard(items[top], top, bal, true, waiting(items[top]))}`;
       const rest = items.map((x, i) => [x, i]).filter(([, i]) => i !== top);
-      if (rest.length) html += `<h2 class="shop-h">Im Shop</h2><div class="shop-grid">${rest.map(([x, i]) => shopCard(x, i, bal, false)).join('')}</div>`;
+      if (rest.length) html += `<h2 class="shop-h">Im Shop</h2><div class="shop-grid">${rest.map(([x, i]) => shopCard(x, i, bal, false, waiting(x))).join('')}</div>`;
     }
     const g = shopGoal(klasse);
     if (g) {
@@ -440,6 +443,7 @@
       html += `<section class="f f-sea shop-give"><h2>Für die Klasse spenden</h2>
         <p class="shop-goal">${count} von ${target} Plussen${g.reward ? `, dann gibt es: <b>${esc(g.reward)}</b>` : ''}.</p>
         <p class="shop-goal">Gespendete Plusse zählen noch einmal${donated ? `, ${donated} schon gespendet` : ''}.</p>
+        ${waits.filter(w => w.item === 'donate').map(w => `<p class="shop-wait">Spende von ${w.n === 1 ? '1 Plus' : `${w.n} Plussen`}: wartet auf Bestätigung</p>`).join('')}
         <div class="shop-bar" role="img" aria-label="${count} von ${target} Plussen"><i style="width:${Math.min(100, Math.round(count / target * 100))}%"></i></div>
         <div class="shop-chips">${[1, 3, 5, 10].map(n => `<button type="button" data-donate="${n}"${n > bal ? ' disabled' : ''}>${coin()}${n}<span class="vh"> ${n === 1 ? 'Plus' : 'Plusse'} spenden</span></button>`).join('')}</div></section>`;
     }
@@ -450,19 +454,56 @@
     }
     return html;
   }
-  // Kauf-Bildschirm: ganze Seite in der Farbe der Seltenheit, zum Zeigen. Eingelöst wird bei der Lehrkraft.
-  let buy = null;   // { el, opener, onKey } – nur Ansicht
+  // Einlöse-Codes, die dieses Handy gezeigt hat (AV1 Stufe 2): „wartet auf Bestätigung“, bis der Auszug die Einmal-Nummer
+  // enthält (die Lehrkraft hat gescannt) oder WAIT_MS vorbei sind. Nur auf diesem Handy, nie in der Cloud.
+  const WAIT_MS = 6 * 3600e3;
+  const waitKey = () => 'sa_wait_' + pageKey();
+  function waitList(acc) {
+    const done = new Set(list(acc && acc.redeemed).map(r => r && r.nonce).filter(Boolean));
+    const now = Date.now();
+    const all = list(lsGet(waitKey()));
+    const keep = all.filter(w => w && w.nonce && w.item && Number.isInteger(w.n) && now - Number(w.at) < WAIT_MS && !done.has(w.nonce));
+    if (keep.length !== all.length) lsSet(waitKey(), keep);
+    return keep;
+  }
+  // Kauf-Bildschirm: ganze Seite in der Farbe der Seltenheit mit dem Code zum Zeigen. Eingelöst wird bei der Lehrkraft.
+  let buy = null;   // { el, opener, onKey, again } – nur Ansicht
   function closeBuy() {
     if (!buy) return;
     document.removeEventListener('keydown', buy.onKey);
     buy.el.remove();
     document.documentElement.classList.remove('story-open');
-    const back = buy.opener;
+    const { opener, again } = buy;
     buy = null;
-    if (back && document.contains(back)) back.focus();
+    if (again && current) {   // neu zeichnen („wartet auf Bestätigung“), dann den Fokus auf dieselbe Karte
+      draw(current.data, current.opts);
+      const back = document.querySelector(again);
+      if (back) back.focus();
+    } else if (opener && document.contains(opener)) opener.focus();
   }
-  function openBuy(x, bal, opener) {
+  async function fillCode(el, acc, item, n) {
+    const box = el.querySelector('.shop-qr');
+    const access = StudentShare.parseHash(location.hash);
+    if (!access) { box.innerHTML = '<p class="shop-qr-note">Vorschau: Hier steht beim Schüler sein Code.</p>'; return; }
+    let code = null;
+    try {
+      const prev = waitList(acc).find(w => w.item === item && w.n === n);
+      code = await StudentShare.plusCode(access, item, n, prev ? prev.nonce : undefined);
+      if (code && !prev) lsSet(waitKey(), [...waitList(acc), { nonce: code.nonce, item, n, at: Date.now() }]);
+    } catch (e) { code = null; }
+    if (!buy || buy.el !== el) return;   // inzwischen geschlossen
+    if (!code || typeof qrcode !== 'function') { box.innerHTML = '<p class="shop-qr-note">Der Code geht gerade nicht. Deine Lehrkraft kann es auch so eintragen.</p>'; return; }
+    const q = qrcode(0, 'M');
+    q.addData(code.text);
+    q.make();
+    box.innerHTML = q.createSvgTag({ cellSize: 6, margin: 0, scalable: true });
+    box.dataset.code = code.text;   // für Tests; enthält keinen Schlüssel
+    box.setAttribute('role', 'img');
+    box.setAttribute('aria-label', 'Einlöse-Code');
+  }
+  function openBuy(x, bal, opener, again) {
     closeBuy();
+    const acc = accountOf(current && current.data);
     const [cls, tier] = x.donate ? ['r-give', 'Spende'] : RARITY(x.price);
     const el = document.createElement('div');
     el.className = `shop-buy ${cls}`;
@@ -470,14 +511,16 @@
     el.setAttribute('aria-modal', 'true');
     el.setAttribute('aria-label', String(x.name));
     el.innerHTML = `<div class="shop-buy-in"><div class="shop-buy-bar"><span class="tier">${tier}</span><button type="button" class="shop-buy-close" aria-label="Schließen">✕</button></div>
-      <span class="ic">${StudentShare.stickerSvg(x.icon)}</span><p class="name">${esc(x.name)}</p><span class="price">${coin()}${x.price}<span class="vh"> Plusse</span></span>
-      <p class="show">Zeig das deiner Lehrkraft</p><p class="fine">Sie löst es in ihrem Planer ein, danach ${plusWord(Math.max(0, bal - x.price))} übrig.</p></div>`;
+      <div class="shop-buy-head"><span class="ic">${StudentShare.stickerSvg(x.icon)}</span><div><p class="name">${esc(x.name)}</p><span class="price">${coin()}${x.price}<span class="vh"> Plusse</span></span></div></div>
+      <div class="shop-qr"></div>
+      <p class="show">Zeig das deiner Lehrkraft</p><p class="fine">Gilt einmal · danach ${plusWord(Math.max(0, bal - x.price))} übrig</p></div>`;
     document.body.appendChild(el);
     document.documentElement.classList.add('story-open');
-    buy = { el, opener, onKey: e => { if (e.key === 'Escape') closeBuy(); } };
+    buy = { el, opener, again, onKey: e => { if (e.key === 'Escape') closeBuy(); } };
     document.addEventListener('keydown', buy.onKey);
     el.querySelector('.shop-buy-close').addEventListener('click', closeBuy);
     el.querySelector('.shop-buy-close').focus();
+    fillCode(el, acc, x.donate ? 'donate' : String(x.id), x.price);
   }
 
   // ── Rückblick als Geschichte (AJ3k): rechnet der Planer, die Seite zeichnet nur. Karten ohne Inhalt fallen weg. ──
@@ -620,11 +663,11 @@
     page.querySelectorAll('[data-review]').forEach(b => b.addEventListener('click', () => { const r = reviewOf(current.data); if (r) openStory(r, current.data, b); }));
     page.querySelectorAll('[data-buy]').forEach(b => b.addEventListener('click', () => {
       const acc = accountOf(current.data), x = acc && shopItems(acc)[Number(b.dataset.buy)];
-      if (x) openBuy(x, num(acc.balance), b);
+      if (x) openBuy(x, num(acc.balance), b, `[data-buy="${b.dataset.buy}"]`);
     }));
     page.querySelectorAll('[data-donate]').forEach(b => b.addEventListener('click', () => {
       const acc = accountOf(current.data), n = Number(b.dataset.donate);
-      if (acc && n) openBuy({ name: 'Für die Klasse spenden', price: n, icon: 'heart', donate: true }, num(acc.balance), b);
+      if (acc && n) openBuy({ name: 'Für die Klasse spenden', price: n, icon: 'heart', donate: true }, num(acc.balance), b, `[data-donate="${n}"]`);
     }));
     if (me) data = data.klasse && typeof data.klasse === 'object' ? data.klasse : {};   // Aufträge und Kalender: aus der Klassenseite
     const hw = list(data.hw).filter(x => isDate(x.date) && x.date >= fmt(new Date()));

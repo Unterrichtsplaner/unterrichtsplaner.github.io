@@ -781,6 +781,7 @@ const MODAL_CLOSE_ACTIONS = {
   'modal-lesson-topic': () => closeLessonTopic(),    // Eingetipptes übernehmen, nicht verwerfen (AI2)
   'modal-new-year': () => closeNewYear(),            // ab Schritt 2 nachfragen (Y6)
   'modal-give-sticker': () => closeGive(),           // Eingetipptes nur nach Rückfrage verwerfen (AJ2b)
+  'modal-plus-scan': () => closePlusScanner(),       // Kamera aus (AV1)
   'modal-add-student': () => leaveGuardedForm('modal-add-student'),         // bei Änderungen fragen (W2)
   'modal-import-students': () => leaveGuardedForm('modal-import-students'),
   'modal-add-group': () => leaveGuardedForm('modal-add-group'),

@@ -17,6 +17,7 @@ const ASSETS = [
   './js/bericht.js?v=558',
   './js/sync.js?v=558',
   './js/schuelerapp-planer.js?v=558',
+  './js/scanner.js?v=558',
   './js/start.js?v=558',
   './style.css?v=558',
   './manifest.json',
@@ -32,6 +33,7 @@ const ASSETS = [
   './firebase-config.js?v=558',
   './sync-manager.js?v=558',
   './lib/qrcode.js',
+  './lib/jsQR.js',   // erst beim ersten Scannen geladen (Plus-Konto, AV1)
   './lib/fonts/inter-latin-wght.woff2',
   './lib/fonts/inter-latin-ext-wght.woff2',
   './student-share.js?v=558'

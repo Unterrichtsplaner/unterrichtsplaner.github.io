@@ -27,6 +27,7 @@ const show = (d, tab = 'shop') => { window.SchuelerSeite.setMeTab(tab); window.r
 
 beforeAll(() => {
   document.body.innerHTML = html.match(/<body[^>]*>([\s\S]*)<\/body>/i)[1].replace(/<script[\s\S]*?<\/script>/g, '');
+  loadScript('lib/qrcode.js');   // wie schueler.html: Code auf dem Kauf-Bildschirm (Stufe 2)
   loadScript('student-share.js');
   loadScript('schueler.js');
 });
@@ -135,5 +136,61 @@ describe('Reiter SHOP', () => {
     expect(shopCss).not.toMatch(/oklch\([^)]*\s(2[89]\d|3[0-2]\d)(\.\d+)?\)/);   // Farbton Lila/Violett
     expect(css).toMatch(/\.tabs\.four \{[^}]*gap: var\(--s3\)/);
     expect(css).toMatch(/\.tabs\.four button \{[^}]*font-size: min\(28px,/);   // auf schmalen Handys kleiner (gemessen bis 320 px)
+  });
+});
+
+describe('Code zum Einlösen (Stufe 2)', () => {
+  const ACC = { id: 'A'.repeat(22), key: 'a'.repeat(43) };
+  const SS = () => require('vm').runInThisContext('StudentShare');   // const im globalen Bereich, kein window-Feld
+  const buyBox = () => document.querySelector('.shop-buy .shop-qr');
+  const song = () => [...page().querySelectorAll('.shop-grid button.shop-item')].find(b => /Song/.test(b.textContent));
+  beforeEach(() => { history.replaceState(null, '', '#' + ACC.id + '.' + ACC.key); localStorage.removeItem('sa_wait_' + ACC.id); });
+  afterEach(() => history.replaceState(null, '', location.pathname + location.search));
+
+  it('Kauf-Bildschirm zeigt einen unterschriebenen QR-Code, der Schlüssel steht nicht darin', async () => {
+    show(me());
+    song().click();
+    await vi.waitFor(() => expect(buyBox().querySelector('svg')).not.toBeNull());
+    const text = buyBox().dataset.code;
+    expect(text).not.toContain(ACC.key);
+    const c = SS().parsePlusCode(text);
+    expect(c).toMatchObject({ id: ACC.id, item: 'l-song', n: 3 });
+    expect(await SS().verifyPlusCode(c, ACC.key)).toBe(true);
+    expect(document.querySelector('.shop-buy').textContent).toMatch(/Gilt einmal · danach 2 Plusse übrig/);
+  });
+  it('„wartet auf Bestätigung“ bis der Auszug den Code als eingelöst nennt; derselbe Code beim zweiten Öffnen', async () => {
+    show(me());
+    song().click();
+    await vi.waitFor(() => expect(buyBox().dataset.code).toBeTruthy());
+    const first = buyBox().dataset.code;
+    document.querySelector('.shop-buy-close').click();
+    expect(song().textContent).toMatch(/Wartet auf Bestätigung/);
+    expect(document.activeElement).toBe(song());   // Fokus zurück auf die Karte
+    song().click();
+    await vi.waitFor(() => expect(buyBox().dataset.code).toBeTruthy());
+    expect(buyBox().dataset.code).toBe(first);   // keine zweite Einmal-Nummer
+    document.querySelector('.shop-buy-close').click();
+    const nonce = SS().parsePlusCode(first).nonce;
+    const d = me();
+    d.account = { ...d.account, balance: 2, redeemed: [{ date: '2026-11-12', name: 'Song aussuchen', price: 3, kind: 'perk', icon: 'music', nonce }, ...d.account.redeemed] };
+    show(d);
+    expect(page().textContent).not.toMatch(/Wartet auf Bestätigung/);
+    expect(JSON.parse(localStorage.getItem('sa_wait_' + ACC.id))).toEqual([]);
+  });
+  it('Spende per Code; wartet sichtbar im Spenden-Feld', async () => {
+    show(me());
+    page().querySelector('[data-donate="3"]').click();
+    await vi.waitFor(() => expect(buyBox().dataset.code).toBeTruthy());
+    expect(SS().parsePlusCode(buyBox().dataset.code)).toMatchObject({ item: 'donate', n: 3 });
+    document.querySelector('.shop-buy-close').click();
+    expect(page().querySelector('.shop-give').textContent).toMatch(/Spende von 3 Plussen: wartet auf Bestätigung/);
+  });
+  it('Vorschau im Planer (ohne Link): Platzhalter statt Code, nichts gemerkt', async () => {
+    history.replaceState(null, '', location.pathname + location.search);
+    show(me());
+    song().click();
+    await vi.waitFor(() => expect(buyBox().textContent).toMatch(/Vorschau/));
+    expect(buyBox().querySelector('svg')).toBeNull();
+    expect(localStorage.getItem('sa_wait_vorschau')).toBeNull();
   });
 });
