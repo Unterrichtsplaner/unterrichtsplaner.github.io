@@ -2356,7 +2356,7 @@ function openLessonDetail(slotId, dateStr) {
   const blocks = getBlocks();
   const block  = blocks.find(b => b.num === slot.block) || blocks[0];
   const d = new Date(dateStr + 'T12:00:00');
-  document.getElementById('lesson-color-dot').style.background = slot.color || '#6366f1';
+  document.getElementById('lesson-color-dot').style.background = safeColor(slot.color);   // AT9
   const group = slot.groupId && db.groups.find(g => g.id === slot.groupId);
   // Klasse als Titel, Fach vorn in der Unterzeile (BUGS I13); ohne Klasse ist das Fach der Titel
   const t = lessonTitle(slot);
@@ -7291,7 +7291,7 @@ function renderSearchResults() {
       const i = searchItems.push(it) - 1;
       return `<div class="search-row">
         <button type="button" class="search-main" id="search-opt-${i}" data-i="${i}">
-          <span class="search-badge"${v.color ? ` style="--c:${escHtml(v.color)}"` : ''}>${v.badge}</span>
+          <span class="search-badge"${v.color ? ` style="--c:${escHtml(safeColor(v.color))}"` : ''}>${v.badge}</span>
           <span class="search-txt"><span class="search-title">${searchMarked(v.title, tokens)}</span><span class="search-sub">${v.subIsHTML ? v.sub : escHtml(v.sub)}</span></span>
           ${v.go ? `<span class="search-go">${escHtml(v.go)}</span>` : ''}
         </button>
@@ -10863,7 +10863,7 @@ function renderDashboardToday() {
       if (due.tests.length) badges.push(`<span class="dash-badge test">Test ${due.tests.length}</span>`);
       if (data.notes)       badges.push(`<span class="dash-badge note">Notiz</span>`);
       const cNotes = l.slot.groupId ? activeClassNotes(db.groups.find(g => g.id === l.slot.groupId), dayStr) : [];
-      html += `<div class="dash-lesson ${state}" data-slot="${escHtml(l.slot.id)}" style="--lesson-color:${escHtml(l.slot.color || '#6366f1')}"
+      html += `<div class="dash-lesson ${state}" data-slot="${escHtml(l.slot.id)}" style="--lesson-color:${escHtml(safeColor(l.slot.color))}"
                     onclick="openLessonDetail(${jsArg(l.slot.id)},${jsArg(dayStr)})">
           <div class="dash-lesson-time">${l.range ? minsToTime(l.range.start) : ''}<small>${escHtml(l.block.label)}</small></div>
           <div class="dash-lesson-main">
@@ -10900,7 +10900,7 @@ function renderDashboardNext() {
     + itemList('Hausaufgaben fällig', 'hw', due.hw) + itemList('Test', 'test', due.tests);
   return `<section class="dash-section dash-coming">
     <h2 class="dash-heading">Als Nächstes</h2>
-    <div class="dash-next" data-slot="${escHtml(next.slot.id)}" style="--lesson-color:${escHtml(next.slot.color || '#6366f1')}" onclick="openLessonDetail(${jsArg(next.slot.id)},${jsArg(next.dateStr)})">
+    <div class="dash-next" data-slot="${escHtml(next.slot.id)}" style="--lesson-color:${escHtml(safeColor(next.slot.color))}" onclick="openLessonDetail(${jsArg(next.slot.id)},${jsArg(next.dateStr)})">
       <div class="dash-next-title">${escHtml(t.main)}${t.sub ? ` <span>${escHtml(t.sub)}</span>` : ''}${next.slot.room ? ` <span>· ${escHtml(next.slot.room)}</span>` : ''}</div>
       <div class="dash-next-label">${escHtml(when)} · ${escHtml(next.block.label)}</div>
       ${body || '<div class="dash-empty">Keine Notizen, nichts fällig.</div>'}
@@ -12982,16 +12982,23 @@ function halfYearStart(todayStr = formatDate(new Date())) {
   const hy = db.settings.halfYearEnd;
   return isDateStr(hy) && hy >= yearStart && hy < todayStr ? formatDate(addDays(parseDate(hy), 1)) : yearStart;
 }
+// Belohnung vor dem Ziel eingetippt: als Entwurf im Reiter halten, gespeichert wird sie mit dem Ziel (AT14). Nur Ansicht.
+let saGoalDraft = null;   // { groupId, reward }
 function setStudentAppGoal(groupId, changes) {
   const g = db.groups.find(x => x.id === groupId);
   if (!g) return;
-  const cur = studentAppOf(g).goal || { target: 0, reward: '', since: null };
+  if (!studentAppOf(g).goal && !('target' in changes) && 'reward' in changes) {
+    saGoalDraft = { groupId, reward: String(changes.reward || '') };
+    return;   // kein Neuzeichnen: der Fokus bleibt im nächsten Feld
+  }
+  const draft = saGoalDraft && saGoalDraft.groupId === groupId ? saGoalDraft.reward : '';
+  const cur = studentAppOf(g).goal || { target: 0, reward: draft, since: null };
   const next = { ...cur, ...changes };
   next.target = Math.max(0, Math.min(10000, Math.round(Number(next.target) || 0)));
   next.reward = String(next.reward || '').trim().slice(0, 120);
   if (!isDateStr(next.since)) next.since = halfYearStart();
   const sa = ensureStudentApp(g);
-  if (next.target > 0) sa.goal = next; else delete sa.goal;
+  if (next.target > 0) { sa.goal = next; saGoalDraft = null; } else delete sa.goal;
   saveDB();
   renderStudentAppTab();
 }
@@ -13138,7 +13145,7 @@ function renderStudentAppTab() {
       <h3 class="sa-subtitle">Klassenziel</h3>
       <div class="sa-goal">
         <div class="form-group"><label for="sa-goal-target">Ziel in Plussen</label><input type="number" inputmode="numeric" min="0" max="10000" class="form-input" id="sa-goal-target" value="${goal ? goal.target : ''}" placeholder="z. B. 150"></div>
-        <div class="form-group"><label for="sa-goal-reward">Belohnung, wenn es geschafft ist</label><input type="text" maxlength="120" class="form-input" id="sa-goal-reward" value="${goal ? escHtml(goal.reward) : ''}" placeholder="z. B. eine Stunde Rätsel"></div>
+        <div class="form-group"><label for="sa-goal-reward">Belohnung, wenn es geschafft ist</label><input type="text" maxlength="120" class="form-input" id="sa-goal-reward" value="${goal ? escHtml(goal.reward) : saGoalDraft && saGoalDraft.groupId === g.id ? escHtml(saGoalDraft.reward) : ''}" placeholder="z. B. eine Stunde Rätsel"></div>
         ${goal ? `<div class="form-group"><label for="sa-goal-since">Zählt ab</label><input type="date" class="form-input" id="sa-goal-since" value="${escHtml(goal.since)}"></div>` : ''}
       </div>
       ${goal ? `<div class="sa-progress"><span>Gesammelt seit ${escHtml(formatDateDE(parseDate(goal.since)))}: <b>${count}</b></span><span>${count >= goal.target ? 'geschafft' : `noch ${goal.target - count}`}</span></div>
@@ -13220,7 +13227,7 @@ function renderSettingsStudentApps() {
   el.innerHTML = db.groups.map(g => {
     const sa = studentAppOf(g);
     const state = !sa.on ? 'nicht freigegeben' : sa.goal ? `freigegeben, ${classGoalCount(g, sa.goal.since)} von ${sa.goal.target} Plussen` : 'freigegeben';
-    return `<div class="sa-class-row" data-id="${escHtml(g.id)}"><span class="sa-dot" style="--dot:${escHtml(g.color || '#888')}"></span>
+    return `<div class="sa-class-row" data-id="${escHtml(g.id)}"><span class="sa-dot" style="--dot:${escHtml(safeColor(g.color))}"></span>
       <span class="sa-class-name">${escHtml(g.className)}<small>${escHtml(g.subject || '')}</small></span>
       <span class="sa-class-state">${escHtml(state)}</span>
       <button type="button" class="btn-secondary">Öffnen</button></div>`;
@@ -13539,8 +13546,8 @@ async function setPersonalOn(groupId, on) {
       'Jeder Schüler bekommt einen eigenen Link mit Vorname, Level, Rückmeldung zur Mitarbeit (auch − und −−), Rang und Jokern. Keine Noten, keine Fehlzeiten. '
       + 'Die Seiten liegen verschlüsselt in der Cloud, lesen kann sie nur, wer den Link hat. Es sind trotzdem Daten über einzelne Schüler: '
       + 'Kläre das vorher mit der Schulleitung bzw. der/dem Datenschutzbeauftragten und informiere die Eltern.',
-      [{ label: 'Abbrechen', value: null }, { label: 'Ist geklärt, einschalten', value: 'on', primary: true }]);
-    if (!ok || !db.groups.includes(g)) { refreshStudentAppViews(); return; }   // Regel 43: nach dem await prüfen
+      [{ label: 'Ist geklärt, einschalten', value: 'on', primary: true }]);   // „Abbrechen“ hängt askChoice selbst an (AT13)
+    if (!ok || !db.groups.includes(g)) { renderStudentAppTab(); return; }   // Regel 43; Schalter zurück auf aus
   }
   const p = ensurePersonal(g);
   p.on = !!on;
@@ -13549,17 +13556,19 @@ async function setPersonalOn(groupId, on) {
     (db.students[g.id] || []).forEach(ensureStudentAccess);
   } else queueStudentShares(g);
   saveDB();
+  renderStudentAppTab();   // Tempo, Ränge, Joker, Sticker erscheinen bzw. verschwinden sofort (AT13)
   refreshStudentAppViews();
 }
 function setPersonalLevel(groupId, level) {
   const g = db.groups.find(x => x.id === groupId);
   if (!g || !SA_LEVELS[level]) return;
   const anyXP = (db.students[g.id] || []).some(st => studentXP(st) > 0);
-  if (anyXP && !confirm('Das Tempo ändert, wie viele XP ein Level braucht. Die Level der Schüler ändern sich dadurch sofort (sie können auch sinken).\n\nTrotzdem ändern?')) { refreshStudentAppViews(); return; }
+  if (anyXP && !confirm('Das Tempo ändert, wie viele XP ein Level braucht. Die Level der Schüler ändern sich dadurch sofort (sie können auch sinken).\n\nTrotzdem ändern?')) { renderStudentAppTab(); return; }   // Auswahl zurück (AT13)
   const p = ensurePersonal(g);
   p.level = level;
   p.step = personalStepFor(g, level);
   saveDB();
+  renderStudentAppTab();
   refreshStudentAppViews();
 }
 function setPersonalRanks(groupId, ranks) {

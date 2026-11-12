@@ -14,12 +14,13 @@
   const short = s => { const d = dateOf(s); return `${DAYS_SHORT[d.getDay()]} ${pad2(d.getDate())}.${pad2(d.getMonth() + 1)}.`; };
   const long = s => { const d = dateOf(s); return `${DAYS[d.getDay()]}, ${pad2(d.getDate())}.${pad2(d.getMonth() + 1)}.`; };
   const daysBetween = (a, b) => Math.round((dateOf(b) - dateOf(a)) / 864e5);
-  function rel(s, today) {
+  // until: nach „bis“ ohne „am“ („bis Freitag“, AT12)
+  function rel(s, today, until = false) {
     const n = daysBetween(today, s);
     if (n === 0) return 'heute';
     if (n === 1) return 'morgen';
     if (n === 2) return 'übermorgen';
-    if (n > 2 && n < 7) return `am ${DAYS[dateOf(s).getDay()]}`;
+    if (n > 2 && n < 7) return `${until ? '' : 'am '}${DAYS[dateOf(s).getDay()]}`;
     return `in ${n} Tagen`;
   }
   const list = v => (Array.isArray(v) ? v : []);
@@ -121,7 +122,7 @@
       const day = it.date.replace(/-/g, ''), next = fmt(new Date(dateOf(it.date).getTime() + 864e5)).replace(/-/g, '');
       lines.push('BEGIN:VEVENT', `UID:${day}-${i}-${encodeURIComponent(it.text).slice(0, 40)}@unterrichtsplaner`, `DTSTAMP:${stamp}`,
         `DTSTART;VALUE=DATE:${day}`, `DTEND;VALUE=DATE:${next}`, `SUMMARY:${escI([d.subject, it.text].filter(Boolean).join(': '))}`,
-        'BEGIN:VALARM', 'TRIGGER:-P1D', 'ACTION:DISPLAY', `DESCRIPTION:${escI(it.text)}`, 'END:VALARM', 'END:VEVENT');
+        'BEGIN:VALARM', 'TRIGGER:-PT6H', 'ACTION:DISPLAY', `DESCRIPTION:${escI(it.text)}`, 'END:VALARM', 'END:VEVENT');
     });
     lines.push('END:VCALENDAR');
     return lines.join('\r\n');
@@ -187,7 +188,8 @@
 
     const next = list(d.next).find(n => isDate(n.date) && (n.date > today || (n.date === today && String(n.end) > hhmm)));
     const foot = [];
-    if (next) foot.push(`Nächste Stunde: ${next.date === today ? 'heute' : long(next.date)} um ${esc(next.start)}${next.room ? ` in ${esc(next.room)}` : ''}.`);
+    // Die Zeile wird unten als Ganzes umgewandelt (esc(f)), hier also roh einsetzen – sonst „Musik &amp; Kunst“ (AT10)
+    if (next) foot.push(`Nächste Stunde: ${next.date === today ? 'heute' : long(next.date)} um ${next.start}${next.room ? ` in ${next.room}` : ''}.`);
     if (d.at) {
       const a = new Date(d.at);
       foot.push(`Stand: ${fmt(a) === today ? 'heute' : short(fmt(a))}, ${pad2(a.getHours())}:${pad2(a.getMinutes())}.`);
@@ -331,7 +333,7 @@
     const today = fmt(now), hhmm = `${pad2(now.getHours())}:${pad2(now.getMinutes())}`;
     const rows = [];
     const hw = list(k.hw).filter(x => x && isDate(x.date) && x.date >= today && x.text && !ticked(x)).sort((a, b) => a.date.localeCompare(b.date))[0];
-    if (hw) rows.push(['Aufgabe', esc(hw.text), `bis ${esc(rel(hw.date, today))}`]);
+    if (hw) rows.push(['Aufgabe', esc(hw.text), `bis ${esc(rel(hw.date, today, true))}`]);
     const nx = list(k.next).find(n => n && isDate(n.date) && (n.date > today || (n.date === today && String(n.end) > hhmm)));
     if (nx) rows.push(['Stunde', `${esc(rel(nx.date, today) === 'heute' ? 'heute' : short(nx.date))}, ${esc(nx.start)}`, nx.room ? `in ${esc(nx.room)}` : '']);
     const t = list(k.tests).filter(x => x && isDate(x.date) && x.date >= today).sort((a, b) => a.date.localeCompare(b.date))[0];

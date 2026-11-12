@@ -125,7 +125,7 @@ describe('Schülerseite', () => {
     expect(ics).toMatch(/^BEGIN:VCALENDAR\r\n/);
     expect(ics).toContain('DTSTART;VALUE=DATE:20261119\r\nDTEND;VALUE=DATE:20261120');
     expect(ics).toContain('SUMMARY:Mathe: Arbeit\\; Brüche\\, Terme');
-    expect(ics).toContain('TRIGGER:-P1D');
+    expect(ics).toContain('TRIGGER:-PT6H');
   });
 
   it('Klassenziel: Stempelkarte zum Aufklappen, beste Stunde markiert, Stunde ohne Plus leer (AJ6 c)', () => {
