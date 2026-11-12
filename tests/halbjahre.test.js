@@ -41,10 +41,10 @@ describe('Zeiträume', () => {
     expect(app('runningHalf()').key).toBe('h1');
   });
 
-  it('nach dem Stichtag: Standard Schuljahr (alles), laufendes Halbjahr ist das 2.', () => {
+  it('nach dem Stichtag: Standard Schuljahr (ab 1. August, AR3), laufendes Halbjahr ist das 2.', () => {
     setNow(2027, 3, 15);
     expect(app('periodKey()')).toBe('year');
-    expect(app('viewPeriod()')).toBeNull();
+    expect(app('viewPeriod()')).toEqual({ key: 'year', from: '2026-08-01', to: null });
     expect(app('runningHalf()')).toEqual({ key: 'h2', from: '2027-02-13', to: null });
   });
 

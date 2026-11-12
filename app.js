@@ -3259,14 +3259,17 @@ function saveSubjectGroup() {
 // Stichtag 1. Halbjahr, danach Schuljahr. Klassenansicht, Schüler-Fenster, Sitzplan und Bericht folgen ihm; die
 // Warnungen zählen immer das laufende Halbjahr (runningHalf).
 let periodChoice = null;   // null = Standard, sonst 'h1' | 'h2' | 'year'
-const PERIOD_NAMES = { h1: '1. Halbjahr', h2: '2. Halbjahr', year: 'Schuljahr' };
+const PERIOD_NAMES = { h1: '1. Halbjahr', h2: '2. Halbjahr', year: 'Schuljahr', all: 'Alle Jahre' };
+// Nur ein Stichtag desselben Schuljahrs (AR4): Wer im Juli schon das nächste Halbjahresende einträgt, verliert sonst alle Noten
 function halfYearSplit(todayStr = formatDate(new Date())) {
   const hy = db.settings.halfYearEnd;
-  return isDateStr(hy) && hy >= schoolYearStart(todayStr) ? hy : null;
+  return isDateStr(hy) && schoolYearStart(hy) === schoolYearStart(todayStr) ? hy : null;
 }
+// „Schuljahr“ beginnt am 1. August (AR3); „Alle Jahre“ (null) nur für Klassen ohne Schuljahreswechsel mit alten Einträgen
 function periodRange(key, todayStr = formatDate(new Date())) {
   const hy = halfYearSplit(todayStr);
-  if (!hy || key === 'year') return null;
+  if (!hy || key === 'all') return null;
+  if (key === 'year') return { key, from: schoolYearStart(hy), to: null };
   return key === 'h1' ? { key, from: schoolYearStart(hy), to: hy } : { key: 'h2', from: formatDate(addDays(parseDate(hy), 1)), to: null };
 }
 function periodKey(todayStr = formatDate(new Date())) {
@@ -3279,13 +3282,19 @@ function runningHalf(todayStr = formatDate(new Date())) {
   const hy = halfYearSplit(todayStr);
   return hy ? periodRange(todayStr <= hy ? 'h1' : 'h2', todayStr) : null;
 }
+function groupHasOlderEntries(groupId) {
+  const range = periodRange('year');
+  if (!range || !groupId) return false;
+  return (db.students[groupId] || []).some(s => s && ['grades', 'attendance', 'participation', 'homework']
+    .some(k => (Array.isArray(s[k]) ? s[k] : []).some(x => x && isDateStr(x.date) && x.date < range.from)));
+}
 // Einträge ohne gültiges Datum zählen immer (lieber sichtbar als still weg, Regel 7)
 const inPeriod = (dateStr, range) => !range || !isDateStr(dateStr) || (dateStr >= range.from && (!range.to || dateStr <= range.to));
 const periodList = (list, range) => (Array.isArray(list) ? list : []).filter(x => x && inPeriod(x.date, range));
 // Neuer Eintrag außerhalb des gezeigten Halbjahrs: auf „Schuljahr“ stellen, statt ihn scheinbar verschwinden zu lassen
 function revealPeriodOf(dateStr) {
   if (inPeriod(dateStr, viewPeriod())) return;
-  periodChoice = 'year';
+  periodChoice = inPeriod(dateStr, periodRange('year')) ? 'year' : 'all';
   overviewRenderedKey = null;
   updatePeriodSelect();
   showToast('Zeitraum auf „Schuljahr“ gestellt, damit der neue Eintrag zu sehen ist');
@@ -3308,8 +3317,11 @@ function updatePeriodSelect() {
   if (!has) return;
   // Handy: kurze Namen, sonst verdrängt der Umschalter den Klassennamen im Kopf (Y7, im Browser bei 375 px gemessen)
   const narrow = window.matchMedia && window.matchMedia('(max-width: 600px)').matches;
-  const SHORT = { h1: '1. Hj', h2: '2. Hj', year: 'Jahr' };
+  const SHORT = { h1: '1. Hj', h2: '2. Hj', year: 'Jahr', all: 'Alle' };
   [...sel.options].forEach(o => { o.textContent = narrow ? SHORT[o.value] : PERIOD_NAMES[o.value]; });
+  // „Alle Jahre“ nur, wenn die Klasse Einträge aus früheren Schuljahren hat (kein Schuljahreswechsel, AR3)
+  const all = sel.querySelector('option[value="all"]');
+  if (all) all.hidden = periodKey() !== 'all' && !groupHasOlderEntries(currentGroupId);
   sel.value = periodKey();
 }
 if (window.matchMedia) {
@@ -3348,19 +3360,22 @@ function calculateStudentAverage(student, groupId, range = viewPeriod()) {
   const { schularbeit: avgSchularbeit, sonstige: avgSonstige } = calculateGradeCategoryAverages(student, range);
 
   if (avgSchularbeit !== null && avgSonstige !== null) {
-    return (avgSchularbeit * wSchularbeit + avgSonstige * wSonstige) / 100;
+    return smoothAverage((avgSchularbeit * wSchularbeit + avgSonstige * wSonstige) / 100);
   } else if (avgSchularbeit !== null) {
-    return avgSchularbeit;
+    return smoothAverage(avgSchularbeit);
   } else if (avgSonstige !== null) {
-    return avgSonstige;
+    return smoothAverage(avgSonstige);
   }
   return null;
 }
+// Kommazahlen sind im Computer nur ungefähr: 4,5 kommt als 4,4999999… heraus. Auf 12 Stellen glätten, damit Grenzen
+// (Warnung ab 4,5) und Runden (2,15 → 2,2) stimmen (AR1).
+const smoothAverage = x => (typeof x === 'number' && isFinite(x) ? Number(x.toPrecision(12)) : x);
 
 // Klassenschnitt = Mittel der Schülerschnitte (Schüler ohne Noten zählen nicht)
 function calculateGroupAverage(groupId, range = viewPeriod()) {
   const avgs = (db.students[groupId] || []).map(s => calculateStudentAverage(s, groupId, range)).filter(a => a !== null);
-  return avgs.length ? avgs.reduce((a, b) => a + b, 0) / avgs.length : null;
+  return avgs.length ? smoothAverage(avgs.reduce((a, b) => a + b, 0) / avgs.length) : null;
 }
 
 function deleteGroup(id) {
@@ -8939,7 +8954,10 @@ function gradeScale(groupOrId) {
 // Schnitt zur Anzeige ('–' ohne Noten); Punkte und Noten mit 1 Nachkomma
 // Anzeige mit deutschem Komma (BUGS I14). Gespeichert und gerechnet wird weiter mit Punkt.
 function formatGradeAverage(avg, digits = 1) {
-  return avg === null || avg === undefined || isNaN(avg) ? '–' : avg.toFixed(digits).replace('.', ',');
+  if (avg === null || avg === undefined || isNaN(avg)) return '–';
+  // Kaufmännisch runden (,x5 immer auf), nicht toFixed: 2,15 liegt intern bei 2,1499… (AR1)
+  const f = 10 ** digits, scaled = Number((smoothAverage(avg) * f).toPrecision(12));
+  return (Math.sign(scaled) * Math.round(Math.abs(scaled)) / f).toFixed(digits).replace('.', ',');
 }
 // Gespeicherten Notenwert anzeigen: '2.5' → '2,5'; Tendenzen ('2-') und Text ('+') bleiben
 function gradeText(value) {
@@ -10503,8 +10521,14 @@ function warningSignature(s, type, range = runningHalf()) {
   return h.toString(36);
 }
 // Noch quittiert? Anzahl nicht gestiegen und (falls gemerkt) dieselben Einträge
+// Quittung aus einem früheren Schuljahr gilt nicht mehr (AR2): Der Name im 1. Halbjahr hat kein Schuljahr
+function warningAckFresh(ack, base) {
+  const at = ack[`${base}_at`];
+  return !isDateStr(at) || schoolYearStart(at) === schoolYearStart();
+}
 function warningAcknowledged(ack, s, type, count) {
   const base = warningAckBase(s.id, type);
+  if (!warningAckFresh(ack, base)) return false;
   const n = ack[base];
   if (!(count <= (n || 0))) return false;
   // Weniger als beim Quittieren (z. B. ein Fehltag nachträglich entschuldigt): Es ist besser geworden (BUGS U6)
@@ -10543,6 +10567,7 @@ function collectWarnings() {
         // Quittiert und seitdem nicht schlechter geworden (z. B. Note zum Besseren korrigiert): bleibt quittiert (BUGS U6)
         const ackAvg = ack[`${warningAckBase(s.id, 'grade', range)}_avg`];
         const notWorse = ack[warningAckBase(s.id, 'grade', range)] !== undefined && typeof ackAvg === 'number'
+          && warningAckFresh(ack, warningAckBase(s.id, 'grade', range))
           && (points ? avg >= ackAvg : avg <= ackAvg);
         if (critical && !notWorse && !warningAcknowledged(ack, s, 'grade', grades.length)) {
           warnings.push({ student: s, group, type: 'grade', count: grades.length,
@@ -10903,6 +10928,7 @@ window.acknowledgeWarning = function(studentId, type, count) {
   if (!db.acknowledgedWarnings) db.acknowledgedWarnings = {};
   const range = runningHalf(), base = warningAckBase(studentId, type, range);   // laufendes Halbjahr (Y7)
   db.acknowledgedWarnings[base] = count; // Anzahl: lesen auch ältere App-Versionen
+  db.acknowledgedWarnings[`${base}_at`] = formatDate(new Date());   // Quittung gilt nur in diesem Schuljahr (AR2)
   const s = Object.values(db.students).flat().find(x => x && x.id === studentId);
   if (s) db.acknowledgedWarnings[`${base}_sig`] = warningSignature(s, type, range);
   if (s && type === 'grade') {
