@@ -1575,6 +1575,8 @@ button.date-chip{font-family:inherit;padding:0;}
 .ttc-row.is-today{box-shadow:inset 3px 0 0 var(--accent);}
 .ttc-row.is-off .ttc-topic{text-decoration:line-through;}
 .ttc-date{font-weight:600;white-space:nowrap;font-variant-numeric:tabular-nums;display:flex;flex-direction:column;line-height:1.25;}
+/* Zeile mit „+ Thema“: das Datum ist ein eigener Knopf (AQ22), sieht aber aus wie in den anderen Zeilen */
+.ttc-open{appearance:none;background:none;border:0;padding:0;margin:0;font:inherit;font-weight:600;color:inherit;text-align:left;cursor:pointer;align-items:flex-start;}
 .ttc-kw{font-size:11px;font-weight:500;color:var(--text-muted);}
 .ttc-head .custom-form-dropdown{flex:0 0 auto;width:240px;max-width:100%;}
 .ttc-block{font-size:12px;color:var(--text-muted);white-space:nowrap;}

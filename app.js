@@ -730,6 +730,15 @@ function jumpToDate(dateStr) {
   if (!dateStr) return;
   const targetDate = parseDate(dateStr);
   if (isNaN(targetDate.getTime())) return;
+  // Wochenansicht: nur das Wochenende auf Montag, Ferienwochen bleiben erreichbar (AQ23)
+  if (!isTimetableDayView()) {
+    const wd = targetDate.getDay();
+    const d = wd === 6 ? addDays(targetDate, 2) : wd === 0 ? addDays(targetDate, 1) : targetDate;
+    currentWeekOffset = Math.round((mondayOf(d) - getWeekDates(0)[0]) / 86400000 / 7);
+    timetableDay = null; timetableChosenOn = formatDate(new Date());
+    renderTimetable();
+    return;
+  }
   // Wochenende → nächster Montag, wie überall (BUGS M11); die Woche läuft mit
   setTimetableDay(targetDate);
   renderTimetable();
@@ -1368,6 +1377,8 @@ function buildPrintTimetable({ from, name = '', color = true }) {
   const cellHTML = dayIdx => block => {
     const list = slots.filter(sl => sl.block === block.num)
       .map(sl => ({ sl, inA: slotInRegularPlan(sl, weekA[dayIdx]), inB: slotInRegularPlan(sl, weekB[dayIdx]) }))
+      // A/B nur bei echten zweiwöchigen Stunden; eine wöchentliche, die wechselt, gilt wie in Woche A (AQ21)
+      .map(x => (isABSlot(x.sl) ? x : { ...x, inB: x.inA }))
       .filter(x => x.inA || x.inB)
       .sort((x, y) => (partOrder[x.sl.part || 'full'] - partOrder[y.sl.part || 'full']) || (Number(y.inA) - Number(x.inA)));
     if (!list.length) return '';
@@ -1376,6 +1387,7 @@ function buildPrintTimetable({ from, name = '', color = true }) {
   // Pausenzeilen nur, wo eine regelmäßige Aufsicht liegt (wie im Stundenplan)
   const supCell = (dayIdx, gap) => sups.filter(x => supervisionGap(x, blocks) === gap)
     .map(x => ({ x, inA: slotInRegularPlan(x, weekA[dayIdx]), inB: slotInRegularPlan(x, weekB[dayIdx]) }))
+    .map(e => (isABSlot(e.x) ? e : { ...e, inB: e.inA }))   // AQ21
     .filter(e => e.inA || e.inB)
     .map(e => { const tag = tagged(e.inA, e.inB); return `<div class="pt-sup">${tag ? `<i class="pt-tag">${tag}</i>` : ''}${e.x.place ? escHtml(e.x.place) : 'Aufsicht'} <span>${escHtml(e.x.start || '')}–${escHtml(e.x.end || '')}</span></div>`; }).join('');
   const pauseRow = gap => {
@@ -1990,7 +2002,8 @@ async function commitLessonSlot(input, slot, { ignoreConflictWith = null, scope 
   // Mit dem eigenen Beginn der Stunde: Eine Nachfolgerin, die erst nach der beendeten beginnt, überschneidet
   // sich nie mit ihr und darf weiter bearbeitet werden (Nachtrag BUGS V1)
   // Ohne Terminänderung (nur Raum, Farbe …) nie: Altdaten aus V1 ließen sich sonst gar nicht mehr speichern (Y14)
-  const endedHere = !isOneOffSlot(candidate) && !splitFrom && !(slot && !changesSchedule) && db.lessonSlots.find(s => s !== slot && endedBefore(s)
+  // scheduleChanged statt changesSchedule: Eine einmalige Stunde, die regelmäßig wird, ändert ihren Termin (AQ20)
+  const endedHere = !isOneOffSlot(candidate) && !splitFrom && !(slot && !scheduleChanged(slot, fields)) && db.lessonSlots.find(s => s !== slot && endedBefore(s)
       && slotsShareDate(candidate, s) && partsOverlap(part, s.part));
   if (endedHere) {
     // Eine bestehende Stunde mit früheren Einträgen läge in früheren Wochen auf dem Platz der beendeten: dort
@@ -2078,7 +2091,8 @@ async function offerRetargetHanging(candidates, slot) {
 
 // Hat sich an Tag, Block, Hälfte oder Rhythmus etwas geändert? (Raum, Farbe usw. zählen nicht)
 function scheduleChanged(slot, f) {
-  const rec = s => isOneOffSlot(s) ? 'none' : s.recurring;
+  // Altdaten: „jede Woche“ als true oder ohne Feld – wie 'weekly' (AQ19)
+  const rec = s => isOneOffSlot(s) ? 'none' : s.recurring === 'biweekly' ? 'biweekly' : 'weekly';
   // Andere Klasse (bei freien Stunden: anderes Fach) ist ein Stundenplanwechsel wie ein anderer Tag (AQ9):
   // frühere Stunden, ihr Inhalt und ihre HA gehören weiter der alten Klasse
   const owner = s => s.groupId ? 'g:' + s.groupId : 's:' + String(s.subject || '').trim().toLowerCase();
@@ -2959,8 +2973,8 @@ function classTileDetailsHTML(g, now, watchChip = '') {
   let html = `<div class="ct-when">${when.now ? '<span class="ct-now">jetzt</span>' : icon('late')}${when.html}</div>`;
   // Thema nur, wenn die Klasse überhaupt plant; geplant, aber nicht für diese Stunde: leise sagen
   if (groupPlan(g).length) {
-    const a = planAssignments(g, todayStr).byKey.get(lessonKeyOf(next));
-    html += a ? `<div class="ct-topic">${escHtml(a.topic.title)}${a.of > 1 ? `<small>Stunde ${a.unit} von ${a.of}</small>` : ''}</div>`
+    const a = plannedTopicOf(g.id, next, todayStr);   // auch schon abgehakt (AQ27)
+    html += a ? `<div class="ct-topic">${a.done ? '✓ ' : ''}${escHtml(a.topic.title)}${a.of > 1 ? `<small>Stunde ${a.unit} von ${a.of}</small>` : ''}</div>`
       : '<div class="ct-topic is-none">Kein Thema geplant</div>';
   }
   const prev = previousLessonOfGroup(g.id, todayStr, nowMins);
@@ -9391,11 +9405,14 @@ function makeCustomFormDropdown(selectEl) {
     if (!isShowing) menu.classList.add('show');
   };
 
-  document.addEventListener('click', (e) => {
+  // Ersetzte Auswahllisten (Neuzeichnen) melden sich beim nächsten Klick ab, sonst wachsen Beobachter und Speicher (AQ24)
+  const onDocClick = (e) => {
+    if (!container.isConnected) { document.removeEventListener('click', onDocClick); observer.disconnect(); return; }
     if (!container.contains(e.target) && !pressStartedIn(container)) { // im Menü gedrückt, außerhalb losgelassen: offen lassen
       menu.classList.remove('show');
     }
-  });
+  };
+  document.addEventListener('click', onDocClick);
 
   // Watch for DOM changes (e.g. innerHTML updates)
   const observer = new MutationObserver(() => {
@@ -9528,8 +9545,11 @@ function planAssignments(g, todayStr = formatDate(new Date())) {
     ...pinned.filter(t => !slipped(t)).sort((a, b) => b.pinned.localeCompare(a.pinned) || (b.pinnedSlot ? 1 : 0) - (a.pinnedSlot ? 1 : 0)),
     ...pinned.filter(slipped).sort((a, b) => a.pinned.localeCompare(b.pinned)),
   ];
+  // Eingetipptes Thema (pinnedSlot): nie in eine frühere Stunde desselben Tages (AQ25)
+  const startOf = l => (l.range && Number.isFinite(l.range.start) ? l.range.start : 0);
   pinnedFirst.forEach(t => {
-    const from = lessons.filter(l => l.dateStr >= t.pinned);
+    const own = t.pinnedSlot ? allLessons.find(l => l.dateStr === t.pinned && l.slot.id === t.pinnedSlot) : null;
+    const from = lessons.filter(l => l.dateStr > t.pinned || (l.dateStr === t.pinned && !(own && startOf(l) < startOf(own))));
     const exact = t.pinnedSlot ? from.findIndex(l => l.dateStr === t.pinned && l.slot.id === t.pinnedSlot) : -1;
     if (exact > 0) from.unshift(from.splice(exact, 1)[0]);
     if (!take(t, from)) overflow.push(t);
@@ -9739,6 +9759,8 @@ function resetClassNoteForm() {
 }
 function editClassNote(note) {
   if (!classNotesCtx) return;
+  // Angefangene neue Notiz erst übernehmen, sonst überschreibt das Formular sie still (AQ28, Regel 27)
+  if (!classNotesCtx.note && classNoteFormDirty() && !saveClassNoteFromForm()) return;
   classNotesCtx.note = note;
   document.getElementById('class-note-text').value = note.text;
   document.getElementById('class-note-until').value = isDateStr(note.until) ? note.until : '';
@@ -9911,6 +9933,10 @@ function applyPlanTopicForm(ctx, plan) {
   if (isDateStr(pinned)) t.pinned = pinned; else delete t.pinned;
   if (note) t.note = note; else delete t.note;
   if (t.done && topicDoneCount(t) < topicLength(t) && topicDoneCount(t) > 0) delete t.done; // länger geworden
+  // auf die erledigten Stunden verkürzt: fertig, am Tag der letzten erledigten Stunde (AQ26)
+  if (!t.done && topicDoneCount(t) > 0 && topicDoneCount(t) >= topicLength(t)) {
+    t.done = t.doneLessons.map(k => String(k).slice(-10)).filter(isDateStr).sort().pop() || formatDate(new Date());
+  }
   return true;
 }
 function savePlanTopic() {
@@ -10323,11 +10349,13 @@ function renderTimetableClass(grid) {
     else if (isPast) topic = data.done ? escHtml(firstLine(data.done)) : '<span class="ttc-muted">–</span>';
     else if (a) topic = `${escHtml(a.topic.title)}${a.of > 1 ? ` <small>(${a.unit}/${a.of})</small>` : ''}`;
     else topic = '<button type="button" class="btn-secondary ttc-add-btn" data-act="add">+ Thema</button>'; // Kasten statt Link: gut zu treffen
+    const hasAdd = topic.includes('data-act="add"');   // Knopf im Knopf: Zeile dann ohne role, Datum ist der Knopf (AQ22, AH14)
     const due = !isPast ? dueItemsFor(l.slot.id, l.dateStr) : { hw: [], tests: [] };
     const badges = (due.hw.length ? `<span class="dash-badge hw">HA</span>` : '') + (due.tests.length ? `<span class="dash-badge test">Test</span>` : '');
-    return `<div class="ttc-row${isPast ? ' is-past' : ''}${l.dateStr === todayStr ? ' is-today' : ''}${l.ausfall ? ' is-off' : ''}" role="button" tabindex="0"
-        data-slot="${escHtml(l.slot.id)}" data-date="${escHtml(l.dateStr)}" aria-label="${escHtml(formatWeekdayShort(l.dateStr) + ', ' + l.block.label)}">
-        <span class="ttc-date">${escHtml(formatWeekdayShort(l.dateStr))}${kw}</span><span class="ttc-block">${escHtml(l.block.label)}</span>
+    const label = escHtml(formatWeekdayShort(l.dateStr) + ', ' + l.block.label);
+    return `<div class="ttc-row${isPast ? ' is-past' : ''}${l.dateStr === todayStr ? ' is-today' : ''}${l.ausfall ? ' is-off' : ''}"${hasAdd ? '' : ` role="button" tabindex="0" aria-label="${label}"`}
+        data-slot="${escHtml(l.slot.id)}" data-date="${escHtml(l.dateStr)}">
+        ${hasAdd ? `<button type="button" class="ttc-date ttc-open" aria-label="${label}">` : '<span class="ttc-date">'}${escHtml(formatWeekdayShort(l.dateStr))}${kw}${hasAdd ? '</button>' : '</span>'}<span class="ttc-block">${escHtml(l.block.label)}</span>
         <span class="ttc-topic">${topic}</span><span class="ttc-badges">${badges}</span></div>`;
   };
   let html = head;
@@ -11070,12 +11098,13 @@ function saveSupervision() {
     const wd = parseDate(date).getDay();
     if (wd === 0 || wd === 6) { showToast('Das Datum liegt am Wochenende', 'error'); return; }
     fields.day = (wd + 6) % 7;
-    if (recurring === 'biweekly') fields.startDate = date; else fields.specificDate = date;
+    if (recurring === 'biweekly') { fields.startDate = date; fields.validFrom = date; }   // „Erstmals am“ heißt: vorher nicht (AQ29)
+    else fields.specificDate = date;
   }
   if (!Array.isArray(db.supervisions)) db.supervisions = [];
   if (editingSupervision) {
     if (!db.supervisions.includes(editingSupervision)) { showToast('Diese Aufsicht gibt es nicht mehr (z. B. durch Sync)', 'error'); return; }
-    delete editingSupervision.startDate; delete editingSupervision.specificDate;
+    delete editingSupervision.startDate; delete editingSupervision.specificDate; delete editingSupervision.validFrom;
     Object.assign(editingSupervision, fields);
   } else {
     db.supervisions.push({ id: uid(), ...fields });
