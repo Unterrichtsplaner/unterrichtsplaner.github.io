@@ -194,3 +194,36 @@ describe('Nicht still viel wegnehmen', () => {
     expect(() => merge(d => d.todos.push({ id: 't', text: 'x' }), d => { d.groups = []; d.students = {}; d.lessonSlots = []; d.lessonData = {}; })).toThrow(/leer/);
   });
 });
+
+describe('Gesamtprüfung 11.11., Paket 2: Verlegungen im Abgleich', () => {
+  const movedBase = () => { const b = baseDB(); moveOnce(b, 's1', DI, FR, 'o1'); return b; };
+  // wie revertMovedLesson: Kopie weg, Einträge zurück an den Ursprung
+  const revert = d => {
+    const data = d.lessonData[`o1_${FR}`];
+    delete d.lessonData[`o1_${FR}`];
+    d.lessonData[`s1_${DI}`] = data;
+    d.lessonSlots = d.lessonSlots.filter(x => x.id !== 'o1');
+  };
+  it('AP6: Gerät hebt die Verlegung auf, Cloud trägt in der verlegten Stunde ein: beides am alten Termin, keine Kopie', () => {
+    const r = merge(revert, d => addNote(d, `o1_${FR}`, 'neu in der Cloud'), movedBase());
+    expect(r.conflicts).toEqual([]);
+    expect(r.merged.lessonSlots.map(s => s.id)).toEqual(['s1']);
+    expect(r.merged.lessonData[`s1_${DI}`].notes).toBe('alt\nneu in der Cloud');
+    expect(r.merged.lessonData[`s1_${DI}`].movedTo).toBeUndefined();
+    expect(r.merged.lessonData[`o1_${FR}`]).toBeUndefined();
+  });
+  it('AP6 andersherum: Cloud hebt auf, Gerät trägt ein', () => {
+    const r = merge(d => addNote(d, `o1_${FR}`, 'neu hier'), revert, movedBase());
+    expect(r.merged.lessonSlots.map(s => s.id)).toEqual(['s1']);
+    expect(r.merged.lessonData[`s1_${DI}`].notes).toBe('alt\nneu hier');
+  });
+  it('AP8: ein Gerät verlegt die Stunde auf einen anderen Tag, das andere in einen anderen Block: nicht raten, ganzer Stand', () => {
+    expect(() => merge(d => moveSeries(d, 's1', 2), d => { d.lessonSlots[0].block = 8; })).toThrow(/verlegt|geändert/);
+  });
+  it('AQ17 im Abgleich: Erledigt-Haken des anderen Geräts wandert mit der Verlegung', () => {
+    const base = baseDB();
+    base.groups[0].plan = [{ id: 'p1', title: 'Brüche' }];
+    const r = merge(d => moveSeries(d, 's1', 2), d => { d.groups[0].plan[0].doneLessons = [`s1_${DI}`]; }, base);
+    expect(r.merged.groups[0].plan[0].doneLessons).toEqual([`s1_${MI}`]);
+  });
+});

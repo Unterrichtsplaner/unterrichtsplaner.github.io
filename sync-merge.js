@@ -374,6 +374,15 @@ function mergeRekey(d, slotId, rename) {
   const values = moved.map(([k]) => data[k]);
   moved.forEach(([k]) => delete data[k]);
   moved.forEach(([, to], i) => { data[to] = values[i]; });
+  // Planung hängt an denselben Terminen: Erledigt-Haken und eingetippte Themen ziehen mit (AQ17, Regel 84)
+  (d.groups || []).forEach(g => (Array.isArray(g.plan) ? g.plan : []).forEach(t => {
+    if (!t || typeof t !== 'object') return;
+    if (Array.isArray(t.doneLessons)) t.doneLessons = t.doneLessons.map(k => (mergeKeySlot(k) === slotId && rename(mergeKeyDate(k))) || k);
+    if (t.pinnedSlot === slotId && t.pinned) {
+      const to = rename(t.pinned);
+      if (to) { t.pinnedSlot = mergeKeySlot(to); t.pinned = mergeKeyDate(to); }
+    }
+  }));
 }
 // Verlegen ändert die Schlüssel der Stundendaten (Regel 13). Das andere Gerät kennt nur die alten; seine Einträge lägen danach
 // unter einem Termin, den es nicht mehr gibt. Darum zieht es hier jede Verlegung auch in Basis und anderem Gerät nach.
@@ -387,12 +396,18 @@ function mergeNormalizeMoves(b, l, c) {
     if (s.specificDate) {
       const movedL = sl.specificDate && sl.specificDate !== s.specificDate, movedC = sc.specificDate && sc.specificDate !== s.specificDate;
       if (movedL && movedC && sl.specificDate !== sc.specificDate) throw new MergeUnsupportedError('Stunde auf beiden Geräten verschieden verlegt');
+      const placeChangedOnce = x => x.block !== s.block || (x.part || 'full') !== (s.part || 'full');
+      if (movedL !== movedC && placeChangedOnce(movedL ? sc : sl)) throw new MergeUnsupportedError('Stunde auf einem Gerät verlegt, auf dem anderen anders geändert');
       const to = movedL ? sl.specificDate : movedC ? sc.specificDate : null;
       if (to) [b, l, c].forEach(d => mergeRekey(d, s.id, date => (date === s.specificDate ? `${s.id}_${to}` : null)));
       return;
     }
     const movedL = sl.day !== s.day, movedC = sc.day !== s.day;
     if (movedL && movedC && sl.day !== sc.day) throw new MergeUnsupportedError('Stunde auf beiden Geräten verschieden verlegt');
+    // Eine Seite verlegt den Tag, die andere Block, Hälfte oder Rhythmus: Die Frage „Platz im Stundenplan“ käme erst nach
+    // dem Umziehen der Einträge – mit der falschen Antwort lägen sie an einem Tag ohne Stunde (AP8). Nicht raten.
+    const placeChanged = x => x.block !== s.block || (x.part || 'full') !== (s.part || 'full') || x.recurring !== s.recurring || (x.startDate || null) !== (s.startDate || null);
+    if (movedL !== movedC && placeChanged(movedL ? sc : sl)) throw new MergeUnsupportedError('Stunde auf einem Gerät verlegt, auf dem anderen anders geändert');
     if (!movedL && !movedC) return;
     const shift = (movedL ? sl.day : sc.day) - s.day;
     [b, ...(movedL && movedC ? [] : [movedL ? c : l])].forEach(d => mergeRekey(d, s.id, date => `${s.id}_${mergeAddDays(date, shift)}`));
@@ -423,6 +438,21 @@ function mergeNormalizeMoves(b, l, c) {
         }
         [b, other].forEach(d => mergeRekey(d, slotId, day => (day === date ? `${n.id}_${n.specificDate}` : null)));
       }
+    });
+  });
+  // „Verlegung aufheben“ (revertMovedLesson): Die Kopie ist auf einer Seite weg, ihre Einträge liegen dort wieder am
+  // Ursprung. Basis und andere Seite ziehen genauso um, dann treffen sich beide Einträge am alten Termin (AP6, Regel 84).
+  [[l, c], [c, l]].forEach(([mover, other]) => {
+    (b.lessonSlots || []).filter(x => x.movedFrom && x.specificDate && !find(mover, x.id) && find(other, x.id)).forEach(x => {
+      const originKey = Object.keys(b.lessonData || {}).find(k => { const v = b.lessonData[k]; return v && v.movedTo && v.movedTo.slotId === x.id; });
+      if (!originKey || !find(mover, mergeKeySlot(originKey))) return;   // kein Verweis, oder Ursprung auf der Seite gelöscht
+      const mv = (mover.lessonData || {})[originKey];
+      if (mv && mv.movedTo && mv.movedTo.slotId === x.id) return;       // Verweis noch da: nicht aufgehoben
+      [b, other].forEach(d => {
+        const marker = d.lessonData && d.lessonData[originKey];
+        if (marker && marker.movedTo && marker.movedTo.slotId === x.id) delete d.lessonData[originKey];
+        mergeRekey(d, x.id, date => (date === x.specificDate ? originKey : null));
+      });
     });
   });
 }
