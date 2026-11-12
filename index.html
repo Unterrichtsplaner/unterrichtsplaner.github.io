@@ -13,8 +13,8 @@
   <link rel="icon" type="image/svg+xml" href="icon.svg" />
   <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png" />
   <script>
-    // Farben vor dem ersten Zeichnen, wie applyThemePreview in app.js: iOS nimmt für die Statusleiste der
-    // Home-Bildschirm-App die Farbe beim Start, app.js käme dafür zu spät (Leiste beige statt Eisblau, AH1c)
+    // Farben vor dem ersten Zeichnen, wie applyThemePreview in js/einstellungen.js: iOS nimmt für die Statusleiste der
+    // Home-Bildschirm-App die Farbe beim Start, die App-Dateien kämen dafür zu spät (Leiste beige statt Eisblau, AH1c)
     (function () {
       const root = document.documentElement;
       let s = {};
@@ -28,7 +28,7 @@
       if (card) ['--bg-card', '--bg-elevated'].forEach(v => root.style.setProperty(v, card));
       const meta = document.querySelector('meta[name="theme-color"]');
       if (meta) meta.setAttribute('content', bg);
-      if (s.themeAccent && s.themeAccent !== '#6366f1') {   // wie accentThemeVars in app.js (W5); früheres Indigo = Standard (AU8)
+      if (s.themeAccent && s.themeAccent !== '#6366f1') {   // wie accentThemeVars in js/einstellungen.js (W5); früheres Indigo = Standard (AU8)
         const rgb = h => { const m = /^#?([0-9a-f]{6})$/i.exec(String(h || '').trim()); return m ? [0, 2, 4].map(i => parseInt(m[1].substr(i, 2), 16)) : null; };
         const lum = c => { const v = c.map(x => { x /= 255; return x <= 0.03928 ? x / 12.92 : Math.pow((x + 0.055) / 1.055, 2.4); }); return 0.2126 * v[0] + 0.7152 * v[1] + 0.0722 * v[2]; };
         const ratio = (a, b) => { const x = lum(a), y = lum(b); return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05); };
@@ -52,7 +52,7 @@
           root.style.setProperty('--border-active', alpha(dark ? 0.5 : 0.4));
         }
       }
-      {   // ohne gespeicherten Wert der Regler-Standard 8, wie loadThemeSelection in app.js (AU8)
+      {   // ohne gespeicherten Wert der Regler-Standard 8, wie loadThemeSelection in js/einstellungen.js (AU8)
         const rad = Math.min(12, Number.isFinite(s.themeRadius) ? s.themeRadius : 8);
         root.style.setProperty('--radius-sm', Math.max(0, rad - 2) + 'px');
         root.style.setProperty('--radius-md', rad + 'px');
@@ -61,7 +61,7 @@
       }
     })();
   </script>
-  <link rel="stylesheet" href="style.css?v=556" />
+  <link rel="stylesheet" href="style.css?v=557" />
   <script>
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
@@ -1901,29 +1901,29 @@
   </div>
 
   <script src="lib/crypto-js.min.js"></script>
-  <script src="crypto-helper.js?v=556"></script>
+  <script src="crypto-helper.js?v=557"></script>
   <script src="lib/firebase-app-compat.js"></script>
   <script src="lib/firebase-auth-compat.js"></script>
   <script src="lib/firebase-firestore-compat.js"></script>
-  <script src="firebase-config.js?v=556"></script>
-  <script src="sync-manager.js?v=556"></script>
-  <script src="sync-merge.js?v=556"></script>
+  <script src="firebase-config.js?v=557"></script>
+  <script src="sync-manager.js?v=557"></script>
+  <script src="sync-merge.js?v=557"></script>
   <script src="lib/qrcode.js"></script>
-  <script src="student-share.js?v=556"></script>
-  <script src="js/grundlagen.js?v=556"></script>
-  <script src="js/termine.js?v=556"></script>
-  <script src="js/stundenplan.js?v=556"></script>
-  <script src="js/stunde.js?v=556"></script>
-  <script src="js/planung.js?v=556"></script>
-  <script src="js/klassen.js?v=556"></script>
-  <script src="js/noten.js?v=556"></script>
-  <script src="js/schueler-fenster.js?v=556"></script>
-  <script src="js/sitzplan.js?v=556"></script>
-  <script src="js/dashboard.js?v=556"></script>
-  <script src="js/einstellungen.js?v=556"></script>
-  <script src="js/bericht.js?v=556"></script>
-  <script src="js/sync.js?v=556"></script>
-  <script src="js/schuelerapp-planer.js?v=556"></script>
-  <script src="app.js?v=556"></script>
+  <script src="student-share.js?v=557"></script>
+  <script src="js/grundlagen.js?v=557"></script>
+  <script src="js/termine.js?v=557"></script>
+  <script src="js/stundenplan.js?v=557"></script>
+  <script src="js/stunde.js?v=557"></script>
+  <script src="js/planung.js?v=557"></script>
+  <script src="js/klassen.js?v=557"></script>
+  <script src="js/noten.js?v=557"></script>
+  <script src="js/schueler-fenster.js?v=557"></script>
+  <script src="js/sitzplan.js?v=557"></script>
+  <script src="js/dashboard.js?v=557"></script>
+  <script src="js/einstellungen.js?v=557"></script>
+  <script src="js/bericht.js?v=557"></script>
+  <script src="js/sync.js?v=557"></script>
+  <script src="js/schuelerapp-planer.js?v=557"></script>
+  <script src="js/start.js?v=557"></script>
 </body>
 </html>

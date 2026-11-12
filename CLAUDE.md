@@ -28,12 +28,29 @@ Gehostet auf GitHub Pages (`unterrichtsplaner.github.io`). Was auf `main` liegt,
 Kein Framework, kein Build-Schritt. `index.html` lädt die Skripte in dieser Reihenfolge, alle teilen sich den globalen Scope:
 
 ```
-lib/crypto-js.min.js → crypto-helper.js → lib/firebase-*-compat.js → firebase-config.js → sync-manager.js → sync-merge.js → app.js
+lib/crypto-js.min.js → crypto-helper.js → lib/firebase-*-compat.js → firebase-config.js → sync-manager.js → sync-merge.js
+→ lib/qrcode.js → student-share.js → js/grundlagen.js → js/termine.js → … → js/schuelerapp-planer.js → js/start.js
 ```
+
+Die App selbst steht seit Y12 (12.11.2026) in `js/`, aufgeteilt nach Bereichen (früher eine Datei `app.js`). Alle Dateien teilen sich weiter den globalen Bereich: Funktionen und `let`/`const` einer Datei sind in allen anderen sichtbar. **Wichtig:** In den Bereichsdateien stehen nur Deklarationen (Funktionen, `let`/`const` mit Werten ohne Aufrufe). Alles, was beim Laden sofort etwas tut (Ereignisse anmelden, `setInterval`, Startaufrufe, `let x = f()`), steht in `js/start.js`, der letzten Datei – sonst liefe es, bevor die Funktionen aus späteren Dateien da sind.
 
 | Datei | Inhalt |
 |---|---|
-| `app.js` (~8300 Z.) | Fast die ganze App: State, Rendering (HTML-Strings per `innerHTML`), alle Event-Handler (inline `onclick` in index.html → globale Funktionen) |
+| `js/grundlagen.js` | `db` laden/speichern (`saveDB`, `persistDB`, `replaceDB`, `migrateDB`), Fenster (`openModal`/`closeModal`, `askChoice`), Hinweise (`showToast`), `escHtml`/`jsArg`, Symbole (`ICONS`), Auswahllisten, Navigation/Leiste, „Das ist neu“ |
+| `js/termine.js` | Datum (`formatDate`, `parseDate`), Schultage/Ferien, Blöcke (`getBlocks`), wann eine Stunde stattfindet (`slotOccursOn`, `lessonsOnDate`), Schuljahr |
+| `js/stundenplan.js` | Woche · Tag · Klasse, Stunden anlegen/ändern (`commitLessonSlot`), Verlegen, Ziehen, Drucken, Aufsichten |
+| `js/stunde.js` | Stunden-Fenster: Inhalt, Notizen, HA, Tests, Ausfall, Karten (`layoutLessonCards`) |
+| `js/planung.js` | Unterrichtsplanung (`planAssignments`), Thema der Stunde (`commitLessonTopic`) |
+| `js/klassen.js` | Klassenübersicht, Schülerliste, Klassennotizen, „auffällig“ (`collectWarnings`), Fehl-Hinweise, Geburtstage, `refreshStudentViews` |
+| `js/noten.js` | Halbjahre, Schnitte (`calculateStudentAverage`), Notenskala, Tabellen der Klassenansicht, Spalten, Notenformular, Mitarbeit (`PART_LEVELS`) |
+| `js/schueler-fenster.js` | Schüler-Fenster (`openSeatingStudentModal`), Schülerzentrale, schnelle Note, Profil-Listen |
+| `js/sitzplan.js` | Sitzplan, Leiste (Cockpit), Notenrunde, Zufall/Gruppen, Timer |
+| `js/dashboard.js` | Dashboard, Merkzettel, Schnellsuche |
+| `js/einstellungen.js` | Einstellungen, Darstellung, Ferien, Stundenzeiten, Export/Import, Schuljahreswechsel |
+| `js/bericht.js` | Klassen-Bericht (PDF, Excel) |
+| `js/sync.js` | App-Seite des Cloud-Abgleichs: Anmeldung, `triggerSyncInternal`, Zusammenführen, Konflikte, Sync-Anzeige, Konto |
+| `js/schuelerapp-planer.js` | Schülerapp auf Seite des Planers: Freigabe, Auszüge, persönliche Seiten |
+| `js/start.js` | Alles, was beim Laden sofort läuft, in der Reihenfolge des alten `app.js` (Marken „▸ zu js/…“ zeigen den Bereich) |
 | `index.html` | Gesamtes Markup inkl. aller Modals (`modal-*`) und Views (`view-dashboard/timetable/classes/students/seating`) |
 | `sync-manager.js` | Firebase-Auth + Firestore, Sync-Entscheidung (`decideSync`), Passwort-Probe, Upload per Transaktion |
 | `sync-merge.js` | Drei-Wege-Abgleich als reine Funktionen (`mergeDB`, `finishMerge`, `describeDifferences`), ohne Zugriff auf die App |
@@ -102,7 +119,7 @@ db = {
 - Firestore-Limit: 1 MiB pro Dokument, die ganze DB liegt in einem Dokument. `_buildDoc()` prüft die Größe vor jedem Schreiben (`CLOUD_MAX_BYTES`), ab `CLOUD_WARN_BYTES` wird gewarnt.
 - Ist ein Stand beidseitig „geändert“, aber inhaltlich gleich (`cloudMatchesLocal`), gibt es keinen Konflikt.
 - Ist ein Stand beidseitig „geändert“ und verschieden, führt `handleSyncConflict` ihn zusammen (AH4): Basis (letzter gemeinsamer Stand, IndexedDB über `syncStore`, Schlüssel `base_<uid>`, gilt nur bei gleicher Versionskennung) + Gerät + Cloud → `mergeDB`. Ohne Widerspruch still mit kurzem Hinweis, sonst `showMergeQuestions`. Fehlt die Basis oder scheitert etwas: Fenster mit dem ganzen Stand (`showSyncConflict`). Danach gilt `db` als „auf dieser Cloud-Version, lokal geändert“ und geht über den normalen Upload hoch. Vorher liegen beide Stände im Sicherheitsnetz (`merge_backups`, letzte 3, dazu der Stand vor dem Schuljahreswechsel; Einstellungen → „Früheren Stand zurückholen“). Auch „Importieren“ legt den bisherigen Stand dort ab (`importBackup`, `keepMergeBackup(…, 'restore')`, AP4).
-- In app.js läuft immer nur ein Sync gleichzeitig (`syncRunning`/`syncQueued`). Ist ein Konflikt offen (`window.currentConflict`), pausiert der Auto-Sync.
+- In der App läuft immer nur ein Sync gleichzeitig (`syncRunning`/`syncQueued`). Ist ein Konflikt offen (`window.currentConflict`), pausiert der Auto-Sync.
 - Sync läuft nach jeder Eingabe (3 s später), beim Login, beim Zurückkehren in die App (`visibilitychange`) und bei `online`.
 - Das Master-Passwort liegt dauerhaft im `localStorage` (`sync_master_password`, bewusst: die Daten liegen dort ohnehin im Klartext). Nur über `storeMasterPassword()` setzen/löschen; Abmelden und falsches Passwort löschen es.
 - „Leeres Gerät“ (lädt nie hoch, holt immer) heißt: leer **und** ohne Sync-Stand dieses Kontos (`isFreshEmptyDB`, `syncBaseline`). Wer alle Klassen einzeln löscht, hat einen Sync-Stand, und die Löschung geht in die Cloud. `syncSettings.uid` merkt sich das Konto; ein anderes Konto zählt wie „nie synchronisiert“.
@@ -139,11 +156,11 @@ Datumswerte sind Strings `YYYY-MM-DD` in **lokaler** Zeit (`formatDate()`). Nie 
 15. **Cloud-Daten, die andere Geräte schreiben, immer abwärtskompatibel lesen.** Andere Lehrkräfte haben evtl. noch eine alte App-Version; Formatwechsel nur mit Kennung im Dokument, altes Format weiter lesen, und nie „kann ich nicht lesen“ als „falsches Passwort“ behandeln.
 16. **Noten sind im Unterricht vertraulich.** Ansichten, die am Pult/Beamer offen sind (Sitzplan), zeigen Noten nur auf Knopfdruck; der Zustand wird nie gespeichert. Das gilt auch für die Klassenansicht (AH24 c): Schnitte, Noten-Tabelle und Mitarbeit erst nach „Anzeigen“ (`classGradesShown`, `toggleClassGrades`), weg beim Öffnen einer Klasse, Verlassen der Ansicht und der App; Profile von dort öffnen verborgen nicht auf „Noten“. Abschaltbar in den Einstellungen (`classGradesProtected()`), im Sitzplan bleiben Noten trotzdem geschützt; nur der Hinweis im Kopf des Schüler-Fensters ist dann sofort sichtbar (AH31). Neue Tests, die Noten in der Klassenansicht prüfen, rufen `showGradesOnOpen()` aus `tests/helpers/load-app.js`.
 17. **Schultage sind Mo–Fr ohne Ferien** (`holidayAt`, Y8). Regelmäßige Stunden fallen in den Ferien aus (`slotOccursOn`), einmalige nicht. Suchen nach „nächster Stunde“ reichen 70 Tage weit (Sommerferien). Datums-Sprünge und -Leisten über `isSchoolDay`/`nextSchoolDay`/`addSchoolDays`, nicht über `addDays(d, 1)`.
-18. **Inline-`onclick` in index.html wird im Test (jsdom) nicht ausgeführt**, weil app.js nicht im Fenster-Kontext läuft. Im Test die Funktion per `app('f()')` aufrufen und das Attribut separat prüfen.
+18. **Inline-`onclick` in index.html wird im Test (jsdom) nicht ausgeführt**, weil die App-Dateien nicht im Fenster-Kontext laufen. Im Test die Funktion per `app('f()')` aufrufen und das Attribut separat prüfen.
 19. **Event-Handler, die der Test auslösen soll** (z. B. `toggle` an `<details>`), nach dem `innerHTML` per `addEventListener` anhängen, nicht als Inline-Attribut. Ansichtszustand wie „Gruppe aufgeklappt“ in einer Modul-Variable halten, nie in `db`.
 20. **Stundenplan hat zwei Modi** (Datum wählen: in der Woche nur Wochenende → Montag, Ferienwochen bleiben erreichbar, AQ23)**:** unter 700 px (`isTimetableDayView()`) die Tagesansicht (`timetableDay`), sonst die Woche (`currentWeekOffset`). Wer das Datum ändert, geht über `setTimetableDay`/`navigateWeek`/`jumpToDate`, damit beide zusammenpassen. Zellen nur über `buildTimetableCell` bauen. Im Test Breite per `window.innerWidth = 400` setzen.
 21. **Zeitabhängige Anzeigen (laufende/nächste Stunde) bekommen die Uhrzeit als Parameter** (`timetableClock(now)`, `findNextLesson(now)`) und werden per Timer neu gezeichnet (`refreshTimetableClock`). Im Test `vi.useFakeTimers({ toFake: ['Date'] })` + `vi.setSystemTime(…)`. Texte mit „heute“ im Stunden-Fenster (fällig, fehlen) nur, wenn die Stunde wirklich heute ist.
-22. **Symbole nur als Linien-Icons aus `ICONS` (app.js):** in app.js `icon('name')`, in index.html `<i data-icon="name"></i>` (ersetzt `fillIcons()` beim Start). Keine Emojis in Knöpfen, Reitern, Überschriften; die Mitarbeit zeigt Zeichen (Regel 94). Texte in `alert`/`confirm`/Toasts sind davon ausgenommen (können kein SVG). `tests/icons.test.js` prüft das.
+22. **Symbole nur als Linien-Icons aus `ICONS` (js/grundlagen.js):** im Code `icon('name')`, in index.html `<i data-icon="name"></i>` (ersetzt `fillIcons()` beim Start). Keine Emojis in Knöpfen, Reitern, Überschriften; die Mitarbeit zeigt Zeichen (Regel 94). Texte in `alert`/`confirm`/Toasts sind davon ausgenommen (können kein SVG). `tests/icons.test.js` prüft das.
 23. **Unlesbare gespeicherte Daten nie überschreiben.** `loadDB()` legt sie als `lehrerapp_v3_defekt_<Zeit>` ab und meldet das (`dbLoadFailure`); klappt die Kopie nicht, blockiert `persistDB()`, bis der Nutzer die Datei heruntergeladen hat.
 24. **Gewählte Daten/Ansichten verfallen über Nacht.** Ein im Sitzplan gewähltes Datum gilt nur am Tag der Wahl (`setSeatingDate`/`refreshSeatingDate`); wer Einträge mit einem gemerkten Datum anlegt, prüft vorher, ob inzwischen ein neuer Tag ist. Wer eine Ansicht gezielt für eine Klasse öffnet, übergibt sie (`openSeatingForGroup(groupId, dateStr)`), statt eine globale Variable zu setzen, die die Ansicht beim Öffnen wieder überschreibt.
 25. **Automatische Notiz-Zeilen (z. B. „… hat letzte Stunde unentschuldigt gefehlt“) mit vollem Namen schreiben und zeilenweise entfernen**, nie per `replace` auf dem ganzen Text; Eintragen und Entfernen über dieselben Hilfsfunktionen (`addAbsenceNote`/`removeAbsenceNote`). Entfernen lässt die Hinweise zu anderen, weiter unentschuldigten Fehltagen stehen (`keep`, AS5).
@@ -247,6 +264,8 @@ Datumswerte sind Strings `YYYY-MM-DD` in **lokaler** Zeit (`formatDate()`). Nie 
 
 98. **Eingabefelder ohne Autokorrektur** (AO1): `tuneTextField` stellt jedes Text-Feld und jeden Textbereich ein (`autocorrect="off"`, `lang="de"`), auch später gezeichnete (Beobachter). Ein neues Feld für Namen gehört in `NAME_FIELD_IDS` (ohne Rechtschreibprüfung, Großbuchstabe je Wort). Wer ein Feld bewusst anders will, setzt das Attribut selbst im Markup.
 
+99. **Neuer Code gehört in die passende Datei unter `js/`** (Tabelle oben), nie in eine neue Sammeldatei. Was beim Laden sofort etwas tut (Ereignis anmelden, `setInterval`, Aufruf, `let x = f()`), gehört nach `js/start.js`; in den Bereichsdateien nur Deklarationen. Eine neue Datei braucht einen Eintrag in `index.html` (mit `?v=N`, vor `js/start.js`) und in `ASSETS` von `sw.js`; die Tests laden die Liste aus `index.html` (`appFiles`). Tests, die im Code suchen, nehmen `appSource()`, nie eine einzelne Datei (Y12).
+
 ## Arbeitsablauf
 
 1. Aufgabe aus `BUGS.md` wählen (ein Block pro Sitzung).
@@ -258,7 +277,7 @@ Datumswerte sind Strings `YYYY-MM-DD` in **lokaler** Zeit (`formatDate()`). Nie 
 
 **So kommt ein Update bei Nutzern an:** Seit v192 (BUGS G2) lädt die Seite online zuerst vom Server, das Update läuft also schon beim **ersten** Öffnen nach dem Deploy (offline oder bei hängendem WLAN nach 3 s die gecachte Version). Geräte, die noch eine ältere Version als v192 installiert haben, verhalten sich beim Sprung auf v192 noch wie früher (in der Generalprobe am 24.09.2026 beobachtet): erstes Öffnen = alte Version aus dem Cache, ab dem zweiten die neue. GitHub Pages lässt Browser Dateien bis zu 10 Minuten zwischenspeichern, direkt nach dem Deploy kann also noch kurz der alte Stand kommen. Neuer Code muss immer mit Daten klarkommen, die die alte Version gerade noch geschrieben hat.
 
-**„Das ist neu“-Fenster** (`WHATS_NEW` in app.js): erscheint einmal pro Gerät, wenn `WHATS_NEW.id` neu ist, nicht bei Geräten ohne Daten. Nur für Updates, bei denen bestehende Nutzer etwas Sichtbares umlernen müssen: `id` ändern (z. B. `'2027-02'`) und die 3–5 Punkte ersetzen. Kleinere Updates brauchen kein Fenster.
+**„Das ist neu“-Fenster** (`WHATS_NEW` in js/grundlagen.js): erscheint einmal pro Gerät, wenn `WHATS_NEW.id` neu ist, nicht bei Geräten ohne Daten. Nur für Updates, bei denen bestehende Nutzer etwas Sichtbares umlernen müssen: `id` ändern (z. B. `'2027-02'`) und die 3–5 Punkte ersetzen. Kleinere Updates brauchen kein Fenster.
 
 Änderungen am Datenmodell brauchen eine Migration in `migrateDB()` (läuft in `loadDB()`, beim Import und bei der Cloud-Übernahme; muss beliebig oft laufen dürfen und setzt kein `lastModified`), damit bestehende Daten weiter funktionieren. Vorher daran denken, dass der Nutzer ein Backup (Export) hat.
 
@@ -271,6 +290,6 @@ npm run serve   # lokaler Server auf http://localhost:3000
 ```
 
 - `tests/setup.js` baut die Browser-Umgebung nach: `index.html`-Body, SyncManager-Attrappe, leeres localStorage.
-- `tests/helpers/load-app.js`: `loadApp()` lädt app.js wie ein `<script>`-Tag, `app('ausdruck')` greift auf globale Funktionen/State zu, z. B. `app('db')`, `app('switchView("seating")')`.
+- `tests/helpers/load-app.js`: `loadApp()` lädt die App-Dateien aus `index.html` (Reihenfolge wie dort) wie `<script>`-Tags; `appSource()` liefert den ganzen Quelltext für Tests, die im Code suchen, `app('ausdruck')` greift auf globale Funktionen/State zu, z. B. `app('db')`, `app('switchView("seating")')`.
 - `tests/helpers/fake-firebase.js`: Firestore-Attrappe. `tests/sync.test.js` simuliert damit ein zweites Gerät, Wettläufe und falsche Uhren.
 - `tests/pwa-cache.test.js` prüft, dass Service-Worker-Cache und index.html zusammenpassen.

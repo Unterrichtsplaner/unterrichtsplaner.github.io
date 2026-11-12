@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // Zählt die App-Version an ALLEN Stellen gleichzeitig hoch:
 //   sw.js       → CACHE_NAME 'lehrer-app-vN' und die ?v=N in der ASSETS-Liste
-//   index.html  → ?v=N bei app.js und style.css
+//   index.html  → ?v=N bei den App-Dateien (js/…) und style.css
 // Ohne neue Version im Service Worker bekommen installierte Apps (iPad, Handy)
 // die Änderungen nie zu sehen. Also: nach jeder Änderung vor dem Hochladen `npm run bump`.
 const fs = require('fs');

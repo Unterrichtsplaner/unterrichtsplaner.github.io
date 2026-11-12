@@ -25,7 +25,7 @@ function get(rawPath) {
 describe('Dev-Server', () => {
   it('liefert index.html und App-Dateien', async () => {
     expect(await get('/')).toBe(200);
-    expect(await get('/app.js?v=1')).toBe(200);
+    expect(await get('/js/start.js?v=1')).toBe(200);
     expect(await get('/lib/crypto-js.min.js')).toBe(200);
   });
 

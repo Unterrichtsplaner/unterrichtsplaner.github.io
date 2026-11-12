@@ -1,3 +1,6 @@
+// ▸ Start: alles, was beim Laden sofort läuft (Ereignisse anmelden, Takt, erster Aufbau). Läuft als letzte Datei, wenn alle Funktionen da sind.
+// ▸ Teil von app.js (aufgeteilt, BUGS Y12). Die Abschnitte stehen in der Reihenfolge des alten app.js.
+
 // ▸ zu js/grundlagen.js, Abschnitt „Mitarbeit in vier Stufen (BUGS AH52)“
 fillIcons(document);
 tuneTextFields(document);
