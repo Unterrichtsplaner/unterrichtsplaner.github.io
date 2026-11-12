@@ -351,6 +351,8 @@ async function askAboutForeignWrite() {
     [{ label: 'Anderes Fenster laden', value: 'load', primary: true },
      { label: 'Dieses Fenster speichern', value: 'keep', danger: true }]);
   foreignWriteAsking = false;
+  // Beide Antworten klären auch einen Stand, der auf das Schließen eines Eingabefensters wartete (AP2)
+  if (answer) storageChangedWhileModal = false;
   if (answer === 'load') {
     adoptStoredDB();
     showToast('Stand des anderen Fensters geladen');
@@ -393,7 +395,9 @@ function onStorageChanged(e) {
   adoptStoredDB();
 }
 function storageAfterModalsClosed() {
-  if (!storageChangedWhileModal || inputModalOpen()) return;
+  // Läuft die Frage „anderes Fenster“, entscheidet ihre Antwort – sonst übernähme das Schließen der Frage
+  // den fremden Stand, bevor „Dieses Fenster speichern“ wirkt (AP2)
+  if (!storageChangedWhileModal || inputModalOpen() || foreignWriteAsking) return;
   storageChangedWhileModal = false;
   if (storedDBRev() !== dbRev) adoptStoredDB();
 }
@@ -5913,20 +5917,29 @@ function importData(event) {
 // Sicherung übernehmen: vorher fragen (ersetzt alles!). Der Sync-Stand dieses Geräts bleibt, der aus der
 // Sicherung ist veraltet und würde sofort einen Konflikt melden. Der Import zählt als Änderung und geht
 // damit auch in die Cloud (BUGS K9).
-function importBackup(parsed) {
+async function importBackup(parsed) {
   const nGroups = parsed.groups.length;
   const nStudents = Object.values(parsed.students || {}).reduce((n, list) => n + ((list && list.length) || 0), 0);
   const what = `${nGroups} ${nGroups === 1 ? 'Klasse' : 'Klassen'}, ${nStudents} ${nStudents === 1 ? 'Schüler' : 'Schüler'}`;
+  const lm = parsed.settings && Number(parsed.settings.lastModified);
+  const when = lm > 0 ? `, Stand ${new Date(lm).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' })}` : '';
   const cloud = SyncManager.currentUser ? '\n\nDer Cloud-Sync ist aktiv: Die Sicherung ersetzt danach auch den Stand in der Cloud und auf deinen anderen Geräten.' : '';
-  if (!confirm(`Sicherung laden (${what})?\n\nAlle Daten auf diesem Gerät werden durch die Sicherung ersetzt.${cloud}`)) return;
+  if (!confirm(`Sicherung laden (${what}${when})?\n\nAlle Daten auf diesem Gerät werden durch die Sicherung ersetzt. Der jetzige Stand bleibt unter Einstellungen → „Früheren Stand zurückholen“.${cloud}`)) return;
+  // Sicherheitsnetz wie bei „Früheren Stand zurückholen“: falsche Datei gewählt, nichts verloren (AP4)
+  const dbAtStart = db;
+  try { const now = JSON.stringify(db); await keepMergeBackup(now, now, 'restore'); }
+  catch (e) {
+    console.warn('Sicherheitsnetz nicht gespeichert:', e.message);
+    if (!confirm('Der jetzige Stand konnte nicht zur Sicherheit abgelegt werden. Trotzdem laden?\n\nVorher am besten „Exportieren“.')) return;
+  }
+  if (db !== dbAtStart) { showToast('Nicht geladen: Die Daten haben sich gerade geändert. Bitte noch einmal.', 'error'); return; }
   const syncSettings = db.syncSettings;
   delete parsed.syncSettings;
   db = migrateDB(parsed);
   if (syncSettings) db.syncSettings = syncSettings;
   saveDB();
-  updateAppliedThemeFromDB(); // Darstellung aus der Sicherung
-  resetViewSelection();
-  renderTimetable(); renderSubjectGroups(); closeModal('modal-settings');
+  replaceDB(db);   // Darstellung, Leiste, Auswahl aus der Sicherung (AP18)
+  closeModal('modal-settings');
   showToast('Importiert ✓');
 }
 function clearAllData() {
@@ -6978,7 +6991,9 @@ function submitTodo() {
   const due = document.getElementById('todo-due').value;
   let t = todoEdit;
   if (t) {
-    if (!(db.todos || []).includes(t)) { showToast('Diesen Punkt gibt es nicht mehr (z. B. durch Sync)', 'error'); resetTodoForm(); renderTodos(); return; }
+    // Ein Abgleich ersetzt alle Objekte (replaceDB): per Kennung wiederfinden, sonst ginge die Änderung verloren (AP5)
+    if (!(db.todos || []).includes(t)) t = todoEdit = todosOf().find(x => x.id === t.id) || null;
+    if (!t) { showToast('Diesen Punkt gibt es nicht mehr (z. B. durch Sync). Dein Text steht noch im Feld.', 'error'); todoEdit = null; setTodoFormMode(); renderTodos(); return; }
   } else {
     if (!Array.isArray(db.todos)) db.todos = [];
     t = { id: uid(), text, created: formatDate(new Date()) };
@@ -7008,8 +7023,9 @@ function toggleTodo(t) {
   saveDB();
   refreshTodoViews();
   showUndoToast('Erledigt', () => {
-    if (!(db.todos || []).includes(t) || !t.done) return;
-    delete t.done; delete t.doneAt; saveDB(); refreshTodoViews();
+    const cur = (db.todos || []).includes(t) ? t : todosOf().find(x => x.id === t.id);   // nach einem Abgleich per Kennung (AP5)
+    if (!cur || !cur.done) return;
+    delete cur.done; delete cur.doneAt; saveDB(); refreshTodoViews();
   });
 }
 function deleteTodo(t) {
@@ -11537,6 +11553,8 @@ async function startCloudPasswordReset() {
     alert('Auf diesem Gerät sind keine Daten. Die Cloud damit zu überschreiben, würde alles löschen.\n\nBitte auf dem Gerät ausführen, auf dem deine Daten sind.');
     return;
   }
+  // Daten eines anderen Kontos (T6) gingen sonst ohne Frage in diese Cloud (AP3)
+  if (hasForeignAccountData() && !(await acceptForeignAccountData())) return;
   const answer = await askChoice('Master-Passwort neu festlegen',
     'Die Cloud wird mit den Daten DIESES Geräts und einem neuen Master-Passwort überschrieben.\n\n'
     + 'Was nur in der Cloud liegt (Änderungen anderer Geräte, die hier noch fehlen), geht dabei verloren. '
@@ -11560,6 +11578,7 @@ async function confirmCloudPasswordReset() {
     return;
   }
   if (isLocalDBEmpty()) { alert('Auf diesem Gerät sind keine Daten. Es wurde nichts geändert.'); return; }
+  if (hasForeignAccountData()) { cancelCloudPasswordReset(); startCloudPasswordReset(); return; }   // AP3
   if (syncRunning) { showToast('Gerade läuft ein Sync. Bitte gleich noch einmal versuchen', 'error'); return; }
   syncRunning = true;
   const dbAtStart = db;
@@ -11907,6 +11926,20 @@ async function askAboutForeignAccountData() {
   } else {
     foreignAccountDeclined = user.uid;
   }
+}
+
+// Vor dem absichtlichen Überschreiben der Cloud: Daten eines anderen Kontos nur nach Zustimmung (AP3).
+// true = keine fremden Daten oder „übernehmen“ gewählt.
+async function acceptForeignAccountData() {
+  if (!hasForeignAccountData()) return true;
+  const user = SyncManager.currentUser;
+  const answer = await askChoice('Daten eines anderen Kontos',
+    `Die Daten auf diesem Gerät wurden bisher mit einem anderen Cloud-Konto abgeglichen, nicht mit ${user.email || 'diesem'}.\n\n`
+    + 'Mit dem neuen Passwort kämen sie in die Cloud dieses Kontos. Das nur, wenn es deine eigenen Daten sind (z. B. Kontowechsel).',
+    [{ label: 'In dieses Konto übernehmen', value: 'adopt', danger: true }]);
+  if (answer !== 'adopt' || SyncManager.currentUser !== user) return false;
+  foreignAccountAccepted = user.uid;
+  return true;
 }
 
 function showSyncConflict(conflictInfo) {

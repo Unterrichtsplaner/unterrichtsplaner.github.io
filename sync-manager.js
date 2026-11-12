@@ -196,14 +196,10 @@ const SyncManager = {
     const payload = await this.getCloudData();
     if (payload && payload.deleted) throw new AccountDeletedError();
     const expected = payload ? payload.lastModified : null;
-    const previous = this.masterPassword;
+    // Neues Passwort direkt übergeben, gemerkt erst nach dem Schreiben (AP10)
+    const newTimestamp = await this.saveToCloud(rawDataString, expected, newPassword);
     this.masterPassword = newPassword;
-    try {
-      return await this.saveToCloud(rawDataString, expected);
-    } catch (e) {
-      this.masterPassword = previous;
-      throw e;
-    }
+    return newTimestamp;
   },
 
   /**
@@ -304,13 +300,13 @@ const SyncManager = {
   /**
    * Entschlüsselt einen Cloud-Datensatz; wirft WrongPasswordError nur bei falschem Passwort, sonst CloudReadError.
    */
-  async decryptPayload(cloudPayload) {
+  async decryptPayload(cloudPayload, password = this.masterPassword) {
     // Ein Aussetzer (Gerät lange im Ruhezustand, App über ein Update offen) soll nicht als falsches Passwort enden:
     // ein zweiter Versuch mit frisch berechnetem Schlüssel. Falsches Passwort nur, wenn der Schlüssel nicht passt.
     let last = null;
     for (let attempt = 0; attempt < 2; attempt++) {
       try {
-        return await CryptoHelper.decryptPayload(cloudPayload, this.masterPassword);
+        return await CryptoHelper.decryptPayload(cloudPayload, password);
       } catch (e) {
         if (e.name === 'UnsupportedFormatError') throw e;
         last = e;
@@ -325,8 +321,8 @@ const SyncManager = {
    * Verschlüsselt und prüft die Größe, bevor irgendetwas geschrieben wird.
    * @returns {Object} Dokumentfelder ohne lastModified
    */
-  async _buildDoc(rawDataString) {
-    const doc = await CryptoHelper.encryptPayload(rawDataString, this.masterPassword);
+  async _buildDoc(rawDataString, password = this.masterPassword) {
+    const doc = await CryptoHelper.encryptPayload(rawDataString, password);
     const size = cloudDocSize(doc);
     if (size > CLOUD_MAX_BYTES) throw new CloudTooLargeError(size);
     this.lastUploadSize = size;
@@ -337,8 +333,8 @@ const SyncManager = {
    * Schreibt einen Cloud-Stand im alten Format (v1) unverändert im neuen Format zurück.
    * Inhalt und Versionskennung bleiben gleich – andere Geräte merken davon nichts.
    */
-  async upgradeCloudFormat(cloudData, cloudTimestamp) {
-    const doc = await this._buildDoc(cloudData);
+  async upgradeCloudFormat(cloudData, cloudTimestamp, password = this.masterPassword) {
+    const doc = await this._buildDoc(cloudData, password);
     const docRef = this._docRef();
     await this.db.runTransaction(async (tx) => {
       const snap = await tx.get(docRef);
@@ -354,13 +350,13 @@ const SyncManager = {
    * @param {*} expectedCloudTimestamp - Versionskennung, die in der Cloud stehen muss (null = Cloud muss leer sein)
    * @returns {number} die neue Versionskennung in der Cloud
    */
-  async saveToCloud(rawDataString, expectedCloudTimestamp) {
+  async saveToCloud(rawDataString, expectedCloudTimestamp, password = this.masterPassword) {
     if (!this.isInitialized || !this.currentUser) throw new Error("Nicht angemeldet.");
-    if (!this.masterPassword) {
+    if (!password) {
       throw new Error("Master-Passwort fehlt. Verschlüsselung nicht möglich.");
     }
 
-    const doc = await this._buildDoc(rawDataString);
+    const doc = await this._buildDoc(rawDataString, password);
     const docRef = this._docRef();
     let previous = null;
 
@@ -476,6 +472,8 @@ const SyncManager = {
     }
 
     this.updateStatus('checking');
+    // Ein Passwort für den ganzen Durchgang: geprüft beim Entschlüsseln, genau damit wird hochgeladen (AP10)
+    const password = this.masterPassword;
 
     try {
       const cloudPayload = await this.getCloudData();
@@ -484,7 +482,7 @@ const SyncManager = {
       const cloudTimestamp = hasCloud ? cloudPayload.lastModified : null;
 
       // Passwort-Probe: Ohne erfolgreiche Entschlüsselung geht nichts weiter.
-      const cloudData = hasCloud ? await this.decryptPayload(cloudPayload) : null;
+      const cloudData = hasCloud ? await this.decryptPayload(cloudPayload, password) : null;
 
       // Eigener Upload, dessen Antwort verloren ging: Das ist kein fremder Stand (BUGS T4)
       let recovered = null;
@@ -504,7 +502,7 @@ const SyncManager = {
       // Beim Hochladen passiert das ohnehin; ein Fehlschlag hier ist harmlos (nächster Sync versucht es erneut).
       if (hasCloud && cloudPayload.format === undefined && action !== 'upload') {
         try {
-          await this.upgradeCloudFormat(cloudData, cloudTimestamp);
+          await this.upgradeCloudFormat(cloudData, cloudTimestamp, password);
         } catch (e) {
           console.warn('SyncManager: Umstellung auf das neue Cloud-Format verschoben:', e.message);
         }
@@ -517,7 +515,7 @@ const SyncManager = {
 
       if (action === 'upload') {
         if (onBeforeUpload) await onBeforeUpload();
-        const newTimestamp = await this.saveToCloud(localDataString, cloudTimestamp);
+        const newTimestamp = await this.saveToCloud(localDataString, cloudTimestamp, password);
         this.updateStatus('synced');
         return { status: 'uploaded', cloudTimestamp: newTimestamp, recovered };
       }

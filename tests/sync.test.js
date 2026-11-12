@@ -599,7 +599,7 @@ describe('K9: Import einer Sicherung', () => {
 
   it('altes Backup führt nicht zum Konflikt-Dialog, sondern geht als Änderung in die Cloud', async () => {
     await sync();
-    app('importBackup')({ ...sampleDB('aus dem Backup'), syncSettings: { lastSyncedCloudTimestamp: 1, syncedLocalModified: 1 } });
+    await app('importBackup')({ ...sampleDB('aus dem Backup'), syncSettings: { lastSyncedCloudTimestamp: 1, syncedLocalModified: 1 } });
     app('clearTimeout(window.syncTimeout)');
     await sync();
     expect(app('window.currentConflict')).toBeFalsy();
