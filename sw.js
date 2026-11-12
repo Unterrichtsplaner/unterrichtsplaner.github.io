@@ -6,6 +6,7 @@ const ASSETS = [
   './js/grundlagen.js?v=556',
   './js/termine.js?v=556',
   './js/stundenplan.js?v=556',
+  './js/stunde.js?v=556',
   './app.js?v=556',
   './style.css?v=556',
   './manifest.json',
