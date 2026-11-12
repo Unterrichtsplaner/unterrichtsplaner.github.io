@@ -15,6 +15,7 @@ const ASSETS = [
   './js/dashboard.js?v=556',
   './js/einstellungen.js?v=556',
   './js/bericht.js?v=556',
+  './js/sync.js?v=556',
   './app.js?v=556',
   './style.css?v=556',
   './manifest.json',
