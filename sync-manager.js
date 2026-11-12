@@ -276,7 +276,21 @@ const SyncManager = {
       owner: this.currentUser.uid, updated: Date.now(),
     });
   },
-  // Gibt es das Dokument nicht (mehr), ist nichts zu tun – die Regeln erlaubten das Löschen dann auch nicht.
+  // Seite abschalten, Kennung aber behalten (AT2): Ein gelöschtes Dokument dürfte jeder neu anlegen, der die Kennung
+  // kennt (Regel: Besitzer = wer anlegt) – ein Schüler könnte dann der Klasse eigene Inhalte zeigen. Darum bleibt ein
+  // leeres Dokument im eigenen Konto stehen (`format: 0`, kein Inhalt); die Schülerseite zeigt „nicht freigegeben“.
+  async closeShare(id) {
+    if (!this.isInitialized || !this.currentUser) throw new Error('Nicht angemeldet.');
+    await this.db.collection('shares').doc(id).set({ format: 0, iv: '', data: '', owner: this.currentUser.uid, updated: Date.now() });
+  },
+  // Gehört das Dokument einem anderen Konto? (Fehlermeldung statt „Regeln fehlen“, AT4)
+  async shareTaken(id) {
+    try {
+      const snap = await this.db.collection('shares').doc(id).get();
+      return !!(snap.exists && this.currentUser && snap.data().owner !== this.currentUser.uid);
+    } catch (e) { return false; }
+  },
+  // Wirklich löschen: nur „Cloud leeren“ und „Konto löschen“. Gibt es das Dokument nicht (mehr), ist nichts zu tun.
   async deleteShare(id) {
     if (!this.isInitialized || !this.currentUser) throw new Error('Nicht angemeldet.');
     const ref = this.db.collection('shares').doc(id);

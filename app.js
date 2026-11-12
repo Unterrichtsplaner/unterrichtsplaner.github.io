@@ -5935,8 +5935,10 @@ async function importBackup(parsed) {
   if (db !== dbAtStart) { showToast('Nicht geladen: Die Daten haben sich gerade geändert. Bitte noch einmal.', 'error'); return; }
   const syncSettings = db.syncSettings;
   delete parsed.syncSettings;
+  const before = db;
   db = migrateDB(parsed);
   if (syncSettings) db.syncSettings = syncSettings;
+  keepLiveShareAccess(before, db);   // Schülerapp-Links gehören zum jetzigen Stand (AT6)
   saveDB();
   replaceDB(db);   // Darstellung, Leiste, Auswahl aus der Sicherung (AP18)
   closeModal('modal-settings');
@@ -5999,7 +6001,7 @@ async function clearAllDataEverywhere() {
     // Kein pendingUpload (T4): Käme die Antwort nicht an, würde der nächste Sync sonst die Daten dieses Geräts
     // als „eigenen Stand“ wieder hochladen. So gibt es schlimmstenfalls den Konflikt-Dialog.
     const newTimestamp = cloud ? await SyncManager.saveToCloud(JSON.stringify(empty), cloud.cloudTimestamp) : null;
-    await deleteAllStudentShares();   // Klassenseiten der Schülerapp mit weg (AJ1)
+    const sharesLeft = !(await deleteAllStudentShares());   // Klassenseiten der Schülerapp mit weg (AJ1); Rest bleibt vorgemerkt (AT5)
     let versionsLeft = false;   // Z4: auch die Tages-Sicherungen
     try { await SyncManager.deleteCloudVersions(); } catch (e) { versionsLeft = true; console.warn('Cloud-Sicherungen nicht gelöscht:', e.message); }
 
@@ -6013,7 +6015,8 @@ async function clearAllDataEverywhere() {
     SyncManager.updateStatus('synced');
     closeModal('modal-settings');
     updateSyncUI();
-    showToast(versionsLeft ? 'Alles gelöscht. Die Cloud-Sicherungen der letzten Tage ließen sich gerade nicht löschen: bitte mit Internet noch einmal „Alles löschen, auch in der Cloud“' : 'Alles gelöscht, auf diesem Gerät und in der Cloud.', versionsLeft ? 'error' : undefined);
+    const left = versionsLeft || sharesLeft;
+    showToast(left ? `Alles gelöscht. ${versionsLeft ? 'Die Cloud-Sicherungen der letzten Tage' : 'Einige Seiten der Schülerapp'} ließen sich gerade nicht löschen: bitte mit Internet noch einmal „Alles löschen, auch in der Cloud“` : 'Alles gelöscht, auf diesem Gerät und in der Cloud.', left ? 'error' : undefined);
   } catch (e) {
     if (e.name === 'WrongPasswordError') {
       rejectMasterPassword();
@@ -11442,7 +11445,8 @@ async function confirmDeleteAccount() {
       return;
     }
     try {
-      await deleteAllStudentShares();   // vorher: nach dem Löschen des Kontos darf niemand mehr ihre Dokumente löschen (AJ1)
+      // vorher: nach dem Löschen des Kontos darf niemand mehr ihre Dokumente löschen (AJ1, AT5)
+      if (!(await deleteAllStudentShares())) throw new Error('Die Seiten der Schülerapp ließen sich nicht alle löschen (keine Verbindung?)');
       await SyncManager.deleteAccount();
     } catch (e) {
       alert('❌ Das Konto konnte nicht gelöscht werden: ' + e.message
@@ -11889,7 +11893,7 @@ function onAppHidden() {
   }
   if (!document.getElementById('modal-lesson-topic').classList.contains('hidden')) storeLessonTopicForm();
   flushPendingSync();
-  if (saPendingAt) publishStudentApps(true);   // Schülerseiten: was noch wartet, jetzt (AK3)
+  if (saPendingAt) sendStudentAppsNow();   // Schülerseiten: was noch wartet, jetzt (AK3) – über einen Abgleich (AT7)
 }
 document.addEventListener('visibilitychange', () => { if (document.hidden) onAppHidden(); });
 window.addEventListener('pagehide', onAppHidden);
@@ -12202,8 +12206,10 @@ async function restoreMergeBackup() {
   try { const nowString = JSON.stringify(db); await keepMergeBackup(nowString, nowString, 'restore'); } catch (e) { console.warn('Sicherheitsnetz nicht gespeichert:', e.message); }
   const syncSettings = db.syncSettings;
   delete parsed.syncSettings;
+  const before = db;
   db = migrateDB(parsed);
   if (syncSettings) db.syncSettings = syncSettings;
+  keepLiveShareAccess(before, db);   // AT6
   saveDB();
   replaceDB(db);
   closeModal('modal-settings');
@@ -12254,7 +12260,7 @@ async function triggerSyncInternal({ manual = false } = {}) {
     }
     if (['uploaded', 'pulled', 'no_change'].includes(result.status)) syncErrorShown = false;
     // Schülerapp (AJ1): Klassenseiten nach jedem erfolgreichen Sync auffrischen (schreibt nur bei Änderung)
-    if (['uploaded', 'pulled', 'no_change'].includes(result.status)) publishStudentApps();
+    if (['uploaded', 'pulled', 'no_change'].includes(result.status)) { const f = saForceAfterSync; saForceAfterSync = false; publishStudentApps(f); }
 
     if (db !== dbAtStart) {
       // Während des Syncs wurde die ganze DB ersetzt („Alle Daten löschen“, Import, Cloud-Übernahme).
@@ -12651,16 +12657,61 @@ function studentAppSnapshot(g, now = new Date()) {
 
 const saRead = (k, fallback) => { try { const v = JSON.parse(localStorage.getItem(k)); return v === null ? fallback : v; } catch (e) { return fallback; } };
 const saWrite = (k, v) => { try { if (v === null) localStorage.removeItem(k); else localStorage.setItem(k, JSON.stringify(v)); } catch (e) { /* voll: nächstes Mal neu */ } };
+// Schülerapp-Links sind „lebender Zustand“ (AT6): Wer einen alten Stand lädt (Sicherung, früherer Stand), behält die
+// jetzigen Links der Klassen und Schüler (per id). Links, die nur der alte Stand kennt, waren schon aufgegeben und
+// bekommen einen neuen Zugang statt wiederbelebt zu werden; jetzige Links, die danach fehlen, werden abgeschaltet.
+function keepLiveShareAccess(oldDB, newDB) {
+  const accOf = x => (x && x.studentApp && typeof x.studentApp === 'object' && StudentShare.isAccess(x.studentApp.access) ? x.studentApp.access : null);
+  const carry = (now, old) => {
+    if (!now) return;
+    if (accOf(old)) now.studentApp = { ...(now.studentApp && typeof now.studentApp === 'object' ? now.studentApp : {}), access: accOf(old) };
+    else if (accOf(now)) now.studentApp.access = StudentShare.newAccess();
+    if (accOf(now)) live.add(accOf(now).id);
+  };
+  const live = new Set();
+  const oldGroups = new Map((oldDB.groups || []).filter(Boolean).map(g => [g.id, g]));
+  const oldStudents = new Map();
+  Object.values(oldDB.students || {}).forEach(list => (Array.isArray(list) ? list : []).forEach(st => { if (st) oldStudents.set(st.id, st); }));
+  (newDB.groups || []).forEach(g => carry(g, g && oldGroups.get(g.id)));
+  Object.values(newDB.students || {}).forEach(list => (Array.isArray(list) ? list : []).forEach(st => carry(st, st && oldStudents.get(st.id))));
+  [...oldGroups.values(), ...oldStudents.values()].forEach(x => { const a = accOf(x); if (a && !live.has(a.id)) queueShareDeletion(a.id); });
+}
 function queueShareDeletion(id) {
   if (!id) return;
   const q = saRead(SA_DELETE_QUEUE, []);
   if (!q.includes(id)) saWrite(SA_DELETE_QUEUE, [...q, id]);
   saWrite(SA_PUB_PREFIX + id, null);
 }
-async function processShareDeletions() {
+// Aufgegebene Kennungen: abschalten (leeres Dokument im eigenen Konto, AT2) oder bei „Cloud leeren“/„Konto löschen“
+// wirklich löschen (`remove`). Jede Kennung einzeln: Ein Fehler hält die übrigen nicht auf (AT4). Gehört ein Dokument
+// einem anderen Konto, lässt es sich nie ändern – dann fällt es aus der Liste. Liefert die Zahl der Fehlschläge.
+async function processShareDeletions(remove = false) {
+  let failed = 0, lastError = null;
   for (const id of saRead(SA_DELETE_QUEUE, [])) {
-    await SyncManager.deleteShare(id);
+    try {
+      if (remove) await SyncManager.deleteShare(id); else await SyncManager.closeShare(id);
+    } catch (e) {
+      if (!(e && e.code === 'permission-denied' && await SyncManager.shareTaken(id))) { failed++; lastError = e; continue; }
+      console.warn('Schülerapp: Seite gehört einem anderen Konto', id);
+    }
     saWrite(SA_DELETE_QUEUE, saRead(SA_DELETE_QUEUE, []).filter(x => x !== id));
+  }
+  if (lastError) saShareError(lastError);
+  return failed;
+}
+// Fehler einer einzelnen Seite merken (AT4); der Durchlauf geht weiter. „Regeln fehlen“ nur, wenn nicht
+// eine fremde Seite der Grund ist.
+let saErrors = null;
+function saShareError(e, taken = false) {
+  if (!saErrors) return;
+  saErrors.push(taken ? 'taken' : e && e.code === 'permission-denied' ? 'rules' : 'offline');
+}
+async function saTryPublish(id, write) {
+  try { await write(); return true; } catch (e) {
+    const taken = e && e.code === 'permission-denied' && await SyncManager.shareTaken(id);
+    saShareError(e, taken);
+    console.warn('Schülerapp: Seite nicht veröffentlicht', id, e);
+    return false;
   }
 }
 // Nach jedem erfolgreichen Sync: vorgemerkte Löschungen, dann jede freigegebene Klasse, deren Auszug sich geändert hat.
@@ -12680,6 +12731,7 @@ async function publishStudentApps(force = false) {
   if (saPublishing) { saPublishAgain = true; saForceAgain = saForceAgain || force; return; }
   saPublishing = true;
   saPendingAt = null;
+  saErrors = [];
   try {
     await processShareDeletions();
     const dbAtStart = db;
@@ -12693,32 +12745,34 @@ async function publishStudentApps(force = false) {
         const hash = await contentHash(JSON.stringify(snap));
         // Unveränderte Klassenseite nur überspringen, nicht die ganze Klasse: sonst kamen die persönlichen Seiten nie an (09.11.)
         if (saPublishDue(saRead(markKey, {}) || {}, hash, force)) {
-          await SyncManager.publishShare(sa.access.id, await StudentShare.encrypt({ ...snap, at: Date.now() }, sa.access.key));
-          saWrite(markKey, { hash, at: Date.now() });
+          const enc = await StudentShare.encrypt({ ...snap, at: Date.now() }, sa.access.key);
+          if (await saTryPublish(sa.access.id, () => SyncManager.publishShare(sa.access.id, enc))) saWrite(markKey, { hash, at: Date.now() });
         }
       } else if (saRead(markKey, null)) {
-        await SyncManager.deleteShare(sa.access.id);
-        saWrite(markKey, null);
+        if (await saTryPublish(sa.access.id, () => SyncManager.closeShare(sa.access.id))) saWrite(markKey, null);
       }
       await publishPersonalPages(g, personalActive(g), force);   // Stufe 2a (AJ2)
     }
-    studentAppProblem = null;
+    studentAppProblem = ['rules', 'offline', 'taken'].find(k => saErrors.includes(k)) || null;
   } catch (e) {
     studentAppProblem = e && e.code === 'permission-denied' ? 'rules' : 'offline';
     console.warn('Schülerapp: Veröffentlichen hat nicht geklappt', e);
   } finally {
+    saErrors = null;
     saPublishing = false;
     clearTimeout(saPublishTimer); saPublishTimer = null;
-    if (saPendingAt) saPublishTimer = setTimeout(() => { saPublishTimer = null; publishStudentApps(); }, Math.max(1000, saPendingAt - Date.now() + 500));
+    // Nachholen über einen Abgleich: Ein Gerät mit veraltetem Stand überschriebe sonst neuere Einträge (AT7)
+    if (saPendingAt) saPublishTimer = setTimeout(() => { saPublishTimer = null; triggerSyncInternal(); }, Math.max(1000, saPendingAt - Date.now() + 500));
     refreshStudentAppViews();
     if (saPublishAgain) { const f = saForceAgain; saPublishAgain = false; saForceAgain = false; publishStudentApps(f); }
   }
 }
 // Cloud leeren / Konto löschen: alle Schülerseiten mit weg (sonst blieben verschlüsselte, aber verwaiste Dokumente stehen)
+// Liefert true, wenn nichts mehr übrig ist (AT5: Konto löschen bricht sonst ab, die Seiten blieben für immer).
 async function deleteAllStudentShares() {
   db.groups.forEach(g => { const sa = studentAppOf(g); if (sa.access) queueShareDeletion(sa.access.id); queueStudentShares(g); });
-  if (!SyncManager.isInitialized || !SyncManager.currentUser || typeof SyncManager.deleteShare !== 'function') return;
-  try { await processShareDeletions(); } catch (e) { console.warn('Schülerapp: Löschen hat nicht geklappt', e); }
+  if (!SyncManager.isInitialized || !SyncManager.currentUser || typeof SyncManager.deleteShare !== 'function') return !saRead(SA_DELETE_QUEUE, []).length;
+  try { return (await processShareDeletions(true)) === 0; } catch (e) { console.warn('Schülerapp: Löschen hat nicht geklappt', e); return false; }
 }
 
 // ── Ändern (alles Nutzeränderungen → saveDB, Regel 2) ──
@@ -12806,12 +12860,20 @@ function updateStudentAppTabVisibility() {
   if (!studentAppOn() && currentClassDashboardTab === 'studentapp'
       && document.getElementById('view-students').classList.contains('active')) switchClassDashboardTab('students');
 }
-function wireSendNow(root) { const b = root.querySelector('#sa-send-now'); if (b) b.addEventListener('click', () => publishStudentApps(true)); }
+function wireSendNow(root) { const b = root.querySelector('#sa-send-now'); if (b) b.addEventListener('click', sendStudentAppsNow); }
+// Schülerseiten nur aus einem Stand, der gerade mit der Cloud abgeglichen ist (AT7): erst Sync, danach alles Wartende
+// sofort (`saForceAfterSync`). Ohne Netz oder bei Konflikt bleibt es vorgemerkt.
+let saForceAfterSync = false;
+function sendStudentAppsNow() {
+  saForceAfterSync = true;
+  triggerSyncInternal();
+}
 // „Jetzt senden“ nur, wenn etwas wartet (AK3)
 const studentAppSendNowHTML = () => (saPendingAt ? `<button type="button" class="btn-secondary" id="sa-send-now">${icon('refresh')}Jetzt senden</button>` : '');
 function studentAppStatusText(sa) {
   if (!sa.on) return 'Nicht freigegeben. Die Klasse sieht nichts.';
   if (studentAppProblem === 'rules') return 'Die Cloud lehnt die Freigabe ab: Die Firestore-Regeln für die Schülerapp fehlen noch.';
+  if (studentAppProblem === 'taken') return 'Eine Schülerseite gehört inzwischen einem anderen Konto und lässt sich nicht mehr schreiben. Abhilfe: für die Klasse „Neuer Link“. Die übrigen Seiten sind aktuell.';
   const mark = sa.access && saRead(SA_PUB_PREFIX + sa.access.id, null);
   if (studentAppProblem === 'offline') return 'Gerade keine Verbindung zur Cloud. Die Seite wird beim nächsten Sync aktualisiert.';
   if (saPendingAt) { const d = new Date(saPendingAt); return `Freigegeben. Neue Einträge gehen spätestens um ${minsToTime(d.getHours() * 60 + d.getMinutes())} an die Schüler.`; }
@@ -13166,7 +13228,7 @@ function studentPersonalSnapshot(g, s, now = new Date(), ctx = null) {
     xp: info.xp, level: info.level, from: info.from, next: info.next, rank: info.rank, nextRank: info.nextRank,
     jokers: { ...info.jokers, max: SA_JOKER_MAX, every: SA_JOKER_EVERY, list: p.jokers },
     feedback, streak: studentStreak(s, ctx.lessons, todayStr), ...(ctx.klasseRef ? { klasseRef: ctx.klasseRef } : {}),
-    year: studentYearMap(s, ctx, todayStr),
+    ...(year => ({ year, yearBest: studentYearBest(s, year) }))(studentYearMap(s, ctx, todayStr)),
     ...studentStickerSnapshot(g, s, ctx, todayStr),
     ...studentReviewPart(g, s, ctx, todayStr),
   };
@@ -13197,9 +13259,19 @@ function studentYearMap(s, ctx, todayStr) {
   yearParticipation(s, todayStr).filter(p => !p.label && PART_RANK[p.value]).forEach(p => {
     if (!best.has(p.date) || PART_RANK[p.value] > PART_RANK[best.get(p.date)]) best.set(p.date, p.value);
   });
-  const absent = new Set((s.attendance || []).filter(a => a && (a.type === 'abwesend' || a.type === 'entschuldigt')).map(a => a.date));
+  // Fehltage nie im Auszug (AT8, Regel 95): ein Fehltag ist ein leeres Feld wie „nichts eingetragen“
   return ctx.lessons.filter(d => d >= ctx.start).slice().reverse().slice(-160)
-    .map(d => ({ date: d, v: best.get(d) || (absent.has(d) ? 'a' : null) }));
+    .map(d => ({ date: d, v: best.get(d) || null }));
+}
+// Längste Plus-Serie der Jahreskarte; ein Fehltag unterbricht sie nicht (wie die Serie im Planer). Nur die Zahl geht raus.
+function studentYearBest(s, cells) {
+  const absent = new Set((s.attendance || []).filter(a => a && (a.type === 'abwesend' || a.type === 'entschuldigt')).map(a => a.date));
+  let best = 0, run = 0;
+  cells.forEach(c => {
+    if (c.v === 'positive' || c.v === 'excellent') best = Math.max(best, ++run);
+    else if (!(c.v === null && absent.has(c.date))) run = 0;
+  });
+  return best;
 }
 // Rückblick (AJ3k): nach dem Halbjahres-Stichtag aufs 1. Halbjahr (drei Wochen „frisch“, danach in der Sammlung),
 // in den letzten zwei Wochen vor dem Schuljahresende aufs ganze Schuljahr. Ohne Stichtag nichts (wie vor AJ3k).
@@ -13279,11 +13351,10 @@ async function publishPersonalPages(g, active, force = false) {
       const snap = studentPersonalSnapshot(g, st, new Date(), ctx);
       const hash = await contentHash(JSON.stringify(snap));
       if (!saPublishDue(saRead(markKey, {}) || {}, hash, force)) continue;
-      await SyncManager.publishShare(acc.id, await StudentShare.encrypt({ ...snap, at: Date.now() }, acc.key));
-      saWrite(markKey, { hash, at: Date.now() });
+      const enc = await StudentShare.encrypt({ ...snap, at: Date.now() }, acc.key);
+      if (await saTryPublish(acc.id, () => SyncManager.publishShare(acc.id, enc))) saWrite(markKey, { hash, at: Date.now() });
     } else if (saRead(markKey, null)) {
-      await SyncManager.deleteShare(acc.id);
-      saWrite(markKey, null);
+      if (await saTryPublish(acc.id, () => SyncManager.closeShare(acc.id))) saWrite(markKey, null);
     }
   }
 }

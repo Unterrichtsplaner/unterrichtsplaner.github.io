@@ -263,11 +263,22 @@ describe('Persönliche Seite (AJ2)', () => {
     page().innerHTML = window.SchuelerSeite.buildMePage(d, NOW);
     const months = [...page().querySelectorAll('.yr-month')].map(m => [m.querySelector('.yr-m').textContent, m.querySelectorAll('.yr-c').length]);
     expect(months).toEqual([['Sep', 3], ['Okt', 4], ['Nov', 1]]);
-    expect(page().querySelector('.yr-c.a').getAttribute('title')).toMatch(/gefehlt/);
+    // AT8: Fehltage nie zeigen – ein „a“ älterer Planer erscheint wie „nichts eingetragen“, auch nicht in der Legende
+    expect(page().textContent).not.toMatch(/gefehlt/);
+    expect([...page().querySelectorAll('.yr-c')].map(c => c.getAttribute('title')).join()).not.toMatch(/gefehlt/);
+    expect(page().querySelector('[title*="05.10"]').getAttribute('title')).toMatch(/nichts eingetragen/);
     const t = page().querySelector('.yr-stats').textContent;
     expect(t).toMatch(/8\s*Stunden/);
     expect(t).toMatch(/4\s*mit Plus/);
-    expect(t).toMatch(/3\s*längste Serie/);   // 21.09., 28.09., (05.10. gefehlt), 12.10.
+    expect(t).toMatch(/3\s*längste Serie/);   // 21.09., 28.09., (05.10.), 12.10. – älterer Planer
+  });
+  it('AT8: längste Serie kommt vom Planer (Fehltag als leeres Feld, ohne die Serie zu brechen)', () => {
+    const d = me();
+    d.year = [{ date: '2026-09-21', v: 'positive' }, { date: '2026-09-28', v: null }, { date: '2026-10-05', v: 'positive' }];
+    d.yearBest = 2;
+    window.SchuelerSeite.setMeTab('sammlung');
+    page().innerHTML = window.SchuelerSeite.buildMePage(d, NOW);
+    expect(page().querySelector('.yr-stats').textContent).toMatch(/2\s*längste Serie/);
   });
 
   it('AJ2b: Baustelle mit Textmarker, „Von Herrn …“ mit Grund, Album mit gesperrten Stickern und Hinweis', () => {
@@ -734,6 +745,24 @@ describe('Klassenseite per Verweis nachladen (AK3)', () => {
     expect(page().textContent).toMatch(/gerade nicht freigegeben/);
   });
 
+  it('AT2: abgeschaltete Seite (leeres Dokument): „nicht freigegeben“, nichts Altes aus dem Zwischenspeicher', async () => {
+    const { me } = await setup();
+    await window.SchuelerSeite.load();   // Zwischenspeicher gefüllt
+    docs[me.id] = { format: 0, iv: '', data: '', owner: 'u1', updated: 1 };
+    await window.SchuelerSeite.load();
+    expect(page().textContent).toMatch(/Gerade nicht freigegeben/);
+    failing = true;   // danach offline: kein alter Stand
+    await window.SchuelerSeite.load();
+    expect(page().textContent).not.toMatch(/Anna/);
+  });
+  it('AT2: Klassenseite abgeschaltet: persönliche Seite geht, Reiter „Klasse“ sagt es', async () => {
+    const { cls } = await setup();
+    docs[cls.id] = { format: 0, iv: '', data: '', owner: 'u1', updated: 1 };
+    await window.SchuelerSeite.load();
+    expect(page().querySelector('.hero .who').textContent).toBe('Anna');
+    page().querySelector('[data-tab="klasse"]').click();
+    expect(page().textContent).toMatch(/gerade nicht freigegeben/);
+  });
   it('älterer Planer schickt die Klassenseite noch mit: wird weiter gelesen (Regel 15)', async () => {
     await setup({ klasseRef: undefined, klasse: { v: 2, cls: '7b', goal: { target: 50, count: 7, since: '2026-09-01' } } });
     await window.SchuelerSeite.load();

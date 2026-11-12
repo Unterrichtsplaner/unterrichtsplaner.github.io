@@ -209,8 +209,9 @@
   }
   // Jahreskarte (AJ2c): ein Feld je Stunde, nach Monaten; Zahlen darunter. Längste Serie wie im Planer: Fehltag zählt nicht dagegen
   const MONTHS = ['Jan', 'Feb', 'Mär', 'Apr', 'Mai', 'Jun', 'Jul', 'Aug', 'Sep', 'Okt', 'Nov', 'Dez'];
-  const YR_WORD = { excellent: 'sehr gut', positive: 'gut', neutral: 'wenig', negative: 'schwach', a: 'gefehlt' };
-  function yearMapHTML(cells, extra = '') {
+  // Fehltage zeigt die Seite nie (AT8): ältere Planer schickten noch „a“, das erscheint wie „nichts eingetragen“
+  const YR_WORD = { excellent: 'sehr gut', positive: 'gut', neutral: 'wenig', negative: 'schwach' };
+  function yearMapHTML(cells, extra = '', bestFromPlanner) {
     if (!cells.length) return extra ? `<section class="f f-ink"><h2>Dein Schuljahr</h2>${extra}</section>` : '';
     const months = [];
     cells.forEach(c => {
@@ -220,11 +221,12 @@
     });
     let best = 0, run = 0;
     cells.forEach(c => { if (c.v === 'a') return; if (c.v === 'positive' || c.v === 'excellent') best = Math.max(best, ++run); else run = 0; });
+    if (Number.isInteger(bestFromPlanner) && bestFromPlanner >= 0) best = bestFromPlanner;   // zählt Fehltage nicht mit, ohne sie zu nennen
     const plus = cells.filter(c => c.v === 'positive' || c.v === 'excellent').length;
-    const cls = v => (PART[v] ? PART[v][1] : v === 'a' ? 'a' : 'none');
+    const cls = v => (PART[v] ? PART[v][1] : 'none');
     return `<section class="f f-ink"><h2>Dein Schuljahr</h2><div class="yr">${months.map(mo => `<div class="yr-month"><span class="yr-m">${MONTHS[Number(mo.m.slice(5)) - 1]}</span>
         <span class="yr-cells">${mo.cells.map(c => `<i class="yr-c ${cls(c.v)}" title="${esc(short(c.date))}: ${esc(YR_WORD[c.v] || 'nichts eingetragen')}"></i>`).join('')}</span></div>`).join('')}</div>
-      <div class="legend yr-legend">${[['pp', '++'], ['p', '+'], ['m', '−'], ['mm', '−−'], ['a', 'gefehlt'], ['none', 'nichts']].map(([c, l]) => `<span><i class="yr-c ${c}"></i>${l}</span>`).join('')}</div>
+      <div class="legend yr-legend">${[['pp', '++'], ['p', '+'], ['m', '−'], ['mm', '−−'], ['none', 'nichts']].map(([c, l]) => `<span><i class="yr-c ${c}"></i>${l}</span>`).join('')}</div>
       <div class="yr-stats"><span><b>${cells.length}</b> Stunden</span><span><b>${plus}</b> mit Plus</span><span><b>${best}</b> längste Serie</span></div>${extra}</section>`;
   }
   // Sticker und Baustelle (AJ2b). Symbole und Farben aus student-share.js, Unbekanntes als Stern.
@@ -367,7 +369,7 @@
     if (meTab === 'sammlung') {
       const rv = reviewOf(d);
       const again = rv ? `<button type="button" class="link" data-review>Rückblick ${esc(rv.label)} ansehen</button>` : '';
-      return html + giftsHTML(d) + albumHTML(d) + yearMapHTML(list(d.year).filter(c => c && isDate(c.date)), again) + rewardsHTML(level) + jokerInfoHTML(d, level) + footer;
+      return html + giftsHTML(d) + albumHTML(d) + yearMapHTML(list(d.year).filter(c => c && isDate(c.date)), again, d.yearBest) + rewardsHTML(level) + jokerInfoHTML(d, level) + footer;
     }
     // Reiter „Ich“ (AJ3l): Level-Fläche ganz oben, gleich darunter die letzten Stunden, dann Als Nächstes, Baustelle, Joker
     const jl = list(j.list).filter(Boolean);
@@ -557,7 +559,7 @@
     let doc = null, offline = false;
     try {
       const snap = await withTimeout(firebase.firestore().collection('shares').doc(ref.id).get(), 12000);
-      if (!snap.exists) { try { localStorage.removeItem(cacheKey); } catch (e) { /* egal */ } return null; }
+      if (!snap.exists || snap.data().format === 0) { try { localStorage.removeItem(cacheKey); } catch (e) { /* egal */ } return null; }
       doc = snap.data();
       try { localStorage.setItem(cacheKey, JSON.stringify(doc)); } catch (e) { /* voll oder privat */ }
     } catch (e) {
@@ -586,6 +588,11 @@
         return;
       }
       doc = snap.data();
+      if (doc && doc.format === 0) {   // abgeschaltet, Kennung bleibt beim Planer (AT2)
+        try { localStorage.removeItem(cacheKey); } catch (e) { /* egal */ }
+        message('Gerade nicht freigegeben', 'Deine Lehrkraft hat diese Seite ausgeschaltet oder einen neuen Code erzeugt.', true);
+        return;
+      }
       try { localStorage.setItem(cacheKey, JSON.stringify(doc)); } catch (e) { /* voll oder privat */ }
     } catch (e) {
       if (e && e.code === 'permission-denied') {   // Regeln lassen das Lesen nicht zu: wie „nicht freigegeben“

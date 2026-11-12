@@ -10,6 +10,7 @@ function createFakeFirebase() {
     shares: {},       // Schülerapp (AJ1): id -> Dokument der Sammlung `shares`
     shareWrites: 0,
     shareDenied: false, // true: wie fehlende Firestore-Regeln (permission-denied)
+    shareUid: null,     // gesetzt: Löschen nur für Dokumente dieses Besitzers (wie die Regel)
     versions: {},     // Cloud-Sicherungen (Z4): uid -> { docId -> Dokument } im Unterordner `versions`
     versionWrites: 0,
     versionsDenied: false, // true: Regel für `versions` fehlt noch
@@ -24,11 +25,14 @@ function createFakeFirebase() {
     },
     async set(data) {
       if (cloud.shareDenied) throw denied();
+      // Regel: Besitzer bleibt gleich (firestore.rules)
+      if (cloud.shares[id] && cloud.shares[id].owner !== data.owner) throw denied();
       cloud.shares[id] = { ...data };
       cloud.shareWrites++;
     },
     async delete() {
       if (cloud.shareDenied) throw denied();
+      if (cloud.shareUid && cloud.shares[id] && cloud.shares[id].owner !== cloud.shareUid) throw denied();   // nur der Besitzer
       delete cloud.shares[id];
     },
   });

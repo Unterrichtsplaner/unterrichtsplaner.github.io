@@ -57,6 +57,8 @@ function stubCloud(loggedIn = true) {
     if (cloud.denied) throw Object.assign(new Error('denied'), { code: 'permission-denied' });
     cloud.deletes.push(id); const had = !!cloud.docs[id]; delete cloud.docs[id]; return had;
   };
+  SM.closeShare = SM.deleteShare;   // AT2: abschalten statt löschen – hier zählt nur „Seite weg“
+  SM.shareTaken = async () => false;
 }
 const g = () => app('db.groups[0]');
 const publish = () => app('publishStudentApps()');
@@ -317,7 +319,7 @@ describe('Veröffentlichen (publishStudentApps)', () => {
 
   it('läuft nach einem erfolgreichen Sync an', () => {
     const src = fs.readFileSync(path.join(__dirname, '..', 'app.js'), 'utf8');
-    expect(src).toMatch(/\['uploaded', 'pulled', 'no_change'\]\.includes\(result\.status\)\)\s*publishStudentApps\(\)/);
+    expect(src).toMatch(/\['uploaded', 'pulled', 'no_change'\]\.includes\(result\.status\)\)\s*\{[^}]*publishStudentApps\(f\)/);
   });
 });
 

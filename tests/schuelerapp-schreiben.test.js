@@ -25,6 +25,8 @@ function stubCloud() {
   SM.isInitialized = true; SM.currentUser = { uid: 'u1' };
   SM.publishShare = async id => { writes.push(id); };
   SM.deleteShare = async () => true;
+  SM.closeShare = async () => {};   // AT2
+  SM.shareTaken = async () => false;
 }
 const at = (h, m) => vi.setSystemTime(new Date(2026, 10, 9, h, m));
 const publish = force => app(`publishStudentApps(${force ? 'true' : ''})`);
@@ -73,7 +75,11 @@ describe('Geänderte Seiten höchstens alle 10 Minuten', () => {
     expect(writes.sort()).toEqual([ANNA, CLASS].sort());
     expect(app('saPendingAt')).toBeNull();
   });
-  it('„Jetzt senden“ und Verlassen der App schreiben sofort', async () => {
+  it('„Jetzt senden“ und Verlassen der App schreiben sofort (nach einem Abgleich, AT7)', async () => {
+    app('globalThis.__tsi = triggerSyncInternal; triggerSyncInternal = () => { const f = saForceAfterSync; saForceAfterSync = false; return publishStudentApps(f); }');
+    try { await sendNowCase(); } finally { app('triggerSyncInternal = globalThis.__tsi'); }
+  });
+  async function sendNowCase() {
     await publish();
     writes.length = 0;
     at(10, 2);
@@ -87,7 +93,7 @@ describe('Geänderte Seiten höchstens alle 10 Minuten', () => {
     expect(writes).toEqual([]);
     app('onAppHidden()');
     await vi.waitFor(() => expect(writes.sort()).toEqual([BEN, CLASS].sort()));
-  });
+  }
   it('neue Seiten (noch nie geschrieben) gehen sofort raus, damit der Code gleich funktioniert', async () => {
     await publish();
     writes.length = 0;

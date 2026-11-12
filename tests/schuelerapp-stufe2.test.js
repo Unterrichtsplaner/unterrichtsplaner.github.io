@@ -28,6 +28,8 @@ function stubCloud() {
   SM.isInitialized = true; SM.currentUser = { uid: 'u1' };
   SM.publishShare = async (id, enc) => { cloud.publishes.push(id); cloud.docs[id] = enc; };
   SM.deleteShare = async id => { cloud.deletes.push(id); const had = !!cloud.docs[id]; delete cloud.docs[id]; return had; };
+  SM.closeShare = SM.deleteShare;   // AT2
+  SM.shareTaken = async () => false;
 }
 const anna = () => app('db.students.g1[0]');
 const answer = async v => { await vi.waitFor(() => expect(app('typeof choiceResolve === "function"')).toBe(true)); app(`answerChoice(${JSON.stringify(v)})`); };
@@ -92,11 +94,12 @@ describe('Auszug der persönlichen Seite', () => {
   it('Serie: Stunden in Folge mit Plus; Fehltag und heute ohne Eintrag unterbrechen nicht', () => {
     expect(snap().streak).toBe(3);   // 02.11. ++, 26.10. +, 19.10. fehlt (übersprungen), 12.10. +, 05.10. − → Schluss
   });
-  it('Jahreskarte (AJ2c): jede vergangene Stunde des Schuljahrs mit eigener Mitarbeit, Fehltag als „a“', () => {
+  it('Jahreskarte (AJ2c): jede vergangene Stunde des Schuljahrs mit eigener Mitarbeit, Fehltag als leeres Feld (AT8)', () => {
     const y = snap().year;
     expect(y[0]).toEqual({ date: '2026-09-21', v: 'positive' });   // beginnt mit dem ersten Eintrag der Klasse (ohne Ferien kein leerer August)
     expect(y.find(c => c.date === '2026-09-28')).toEqual({ date: '2026-09-28', v: 'excellent' });
-    expect(y.find(c => c.date === '2026-10-19')).toEqual({ date: '2026-10-19', v: 'a' });
+    expect(y.find(c => c.date === '2026-10-19')).toEqual({ date: '2026-10-19', v: null });   // Fehltag: nie im Auszug (AT8)
+    expect(Number.isInteger(snap().yearBest)).toBe(true);
     expect(y.find(c => c.date === '2026-11-02').v).toBe('excellent');   // „Referat“ mit Titel zählt hier nicht extra
     expect(y.map(c => c.date)).toEqual([...y.map(c => c.date)].sort());
     expect(y[y.length - 1].date).toBe('2026-11-09');   // heutige Stunde ist um 10 Uhr vorbei
