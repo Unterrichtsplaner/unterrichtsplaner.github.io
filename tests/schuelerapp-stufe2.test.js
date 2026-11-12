@@ -320,7 +320,8 @@ describe('AJ2b: Sticker und Baustellen', () => {
     expect(earned({ kind: 'any', n: 4, mode: 'streak' })).toBe(false);
     app('db.settings.halfYearEnd = "2026-10-31"');                        // 2. Halbjahr seit 01.11.: nur der 02.11.
     expect(earned({ kind: 'any', n: 2, mode: 'half' })).toBe(true);      // zwei Einträge am 02.11. (normal + Referat)
-    expect(earned({ kind: 'any', n: 3, mode: 'half' })).toBe(false);
+    expect(earned({ kind: 'any', n: 3, mode: 'half' })).toBe(true);      // im 1. Halbjahr (4 Plusse) geschafft: bleibt (AR18)
+    expect(earned({ kind: 'any', n: 5, mode: 'half' })).toBe(false);     // in keinem Halbjahr 5
   });
 
   it('Auszug: Geschenke mit Grund, Album, gesperrte Regeln mit Hinweis, offene Baustelle – nur eigene Daten', () => {

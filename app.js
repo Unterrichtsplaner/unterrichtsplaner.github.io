@@ -2899,7 +2899,10 @@ function closeWatchPop() {
   if (was && document.getElementById('view-classes')?.classList.contains('active')) renderSubjectGroups();
 }
 function openWatchPop(btn, groupId) {
-  closeWatchPop();
+  // Wechsel zu einer anderen Klasse: nur die alte Liste weg, nicht neu zeichnen – sonst gäbe es die angetippte
+  // Plakette nicht mehr, und die Liste stünde oben links (AR15). Neu gezeichnet wird beim endgültigen Schließen.
+  document.getElementById('watch-pop')?.remove();
+  watchPop = null;
   const g = db.groups.find(x => x.id === groupId);
   if (!g || !btn) return;
   const all = collectWarnings();
@@ -4047,8 +4050,15 @@ function updateInlineAttendance(studentId, date, value) {
   const s = db.students[currentOverviewGroupId]?.find(x => x.id === studentId);
   if (!s) return;
   if (!s.attendance) s.attendance = [];
-
-  const idx = s.attendance.findIndex(a => a.date === date);
+  // Doppelte Tageseinträge aus Altdaten (Q2, W4, Q6) zu einem zusammenfassen, Gründe bleiben (AR14, Regel 50)
+  const day = s.attendance.filter(a => a && a.date === date && DAY_ATTENDANCE_TYPES.includes(a.type));
+  const wasUnexcusedAny = day.some(a => a.type === 'abwesend');
+  if (day.length > 1) {
+    const notes = [...new Set(day.map(a => String(a.note || '').trim()).filter(Boolean))];
+    day[0].note = notes.join(' / ');
+    day.slice(1).forEach(a => s.attendance.splice(s.attendance.indexOf(a), 1));
+  }
+  const idx = s.attendance.findIndex(a => a.date === date && DAY_ATTENDANCE_TYPES.includes(a.type));
   
   const status = Object.keys(ATTENDANCE_SHORT).find(t => ATTENDANCE_SHORT[t] === value) || null;
 
@@ -4058,7 +4068,7 @@ function updateInlineAttendance(studentId, date, value) {
     renderOverviewTable(); // Eingabe zurücksetzen
     return;
   }
-  const wasUnexcused = idx !== -1 && s.attendance[idx].type === 'abwesend';
+  const wasUnexcused = wasUnexcusedAny;
   if (!status) {
     if (idx !== -1) s.attendance.splice(idx, 1);
   } else {
@@ -4702,9 +4712,9 @@ function importStudentsFromText() {
     }
     if (firstName || lastName) {
       if (skipDups) {
-        const exists = before.some(existing => 
-          existing.firstName === (firstName || '') && (existing.lastName || '') === lastName
-        );
+        // Voller Name: Altdaten haben einen einzelnen Namen im Nachnamen (AR20)
+        const full = x => `${x.firstName || ''} ${x.lastName || ''}`.trim().replace(/\s+/g, ' ').toLowerCase();
+        const exists = before.some(existing => full(existing) === full({ firstName, lastName }));
         if (exists) return;
       }
       db.students[currentGroupId].push({
@@ -5949,7 +5959,8 @@ function exportGradesCSVFile() {
   const fmt = v => v !== null ? v.toFixed(points ? 1 : 2).replace('.', ',') : '';
   
   const range = viewPeriod();   // Zeitraum wie in der Klassenansicht (Y7)
-  sortStudents(students).forEach(s => {
+  // Nachname steht vorne: danach sortieren (AR21)
+  students.filter(Boolean).slice().sort((a, b) => `${a.lastName || ''} ${a.firstName || ''}`.localeCompare(`${b.lastName || ''} ${b.firstName || ''}`, 'de')).forEach(s => {
     // Spalten wie die Gewichtung der Klasse (gradeCategory), damit sich die Gesamtnote daraus ergibt
     const parts = calculateGradeCategoryAverages(s, range);
     const total = calculateStudentAverage(s, g.id, range);
@@ -10370,7 +10381,9 @@ function addTopicsToDayTiles(grid) {
 // Sicherung zum Ausdrucken bzw. Weiterbearbeiten: je Klasse Noten (alle Einzelnoten + Schnitte), Fehlzeiten,
 // Mitarbeit, fehlende HA. Keine Hinweise/Inhalte (Entscheidung 02.11.). Die Dateien sind unverschlüsselt.
 function classReportData(g, range = viewPeriod()) {   // Zeitraum wie in der Klassenansicht (Y7)
-  const students = sortStudents(db.students[g.id] || []);
+  // „Nachname, Vorname“ → nach Nachname sortiert, sonst wirkt die Liste ungeordnet (AR21)
+  const key = s => `${s.lastName || ''} ${s.firstName || ''}`.trim();
+  const students = (db.students[g.id] || []).filter(Boolean).slice().sort((a, b) => key(a).localeCompare(key(b), 'de'));
   const cols = gradeColumns(g, students).filter(c => inPeriod(c.date, range));
   const count = (list, pred) => periodList(list, range).filter(pred).length;
   return {
@@ -10390,6 +10403,14 @@ function classReportData(g, range = viewPeriod()) {   // Zeitraum wie in der Kla
   };
 }
 const reportColTitle = c => [formatDateDE(parseDate(c.date)), c.label, gradeTypeShort(c.type)].filter(Boolean);
+// Schuljahr des Berichts aus den Daten (AR16): Im August gehören die Einträge noch zum alten Jahr
+function reportSchoolYear(g, todayStr = formatDate(new Date())) {
+  let latest = '';
+  (db.students[g.id] || []).forEach(st => YEAR_LISTS.forEach(f => (Array.isArray(st && st[f]) ? st[f] : []).forEach(x => {
+    if (x && isDateStr(x.date) && x.date <= todayStr && x.date > latest) latest = x.date;
+  })));
+  return schoolYearLabel(parseDate(latest || todayStr));
+}
 function schoolYearLabel(d = new Date()) { const y = d.getMonth() >= 7 ? d.getFullYear() : d.getFullYear() - 1; return `${y}/${String(y + 1).slice(-2)}`; }
 
 // ── Fenster ──
@@ -10429,7 +10450,7 @@ function buildClassReportPrint(groups) {
     const d = classReportData(g);
     const pts = d.scale.higherIsBetter;
     const head = `<div class="rp-head"><div><div class="rp-title">${escHtml(g.className)} <span>${escHtml(g.subject || '')}</span></div>
-      <div class="rp-sub">Klassen-Bericht · Schuljahr ${schoolYearLabel()}${d.period ? ' · ' + escHtml(d.period) : ''}${g.year ? ' · ' + escHtml(g.year) : ''} · Klassenarbeiten zählen ${d.weight} %</div></div>
+      <div class="rp-sub">Klassen-Bericht · Schuljahr ${escHtml(reportSchoolYear(g))}${d.period ? ' · ' + escHtml(d.period) : ''}${g.year ? ' · ' + escHtml(g.year) : ''} · Klassenarbeiten zählen ${d.weight} %</div></div>
       <div class="rp-meta">${school ? `<strong>${escHtml(school)}</strong><br>` : ''}${teacher ? escHtml(teacher) + '<br>' : ''}Stand ${escHtml(formatDateLong(formatDate(new Date())))}</div></div>`;
     if (!d.rows.length) return `<section class="rp-page">${head}<p class="rp-empty">Keine Schüler.</p></section>`;
     const overview = `<table class="rp-table"><thead><tr><th class="rp-name">Name</th><th>Ø Klassen&shy;arbeiten</th><th>Ø Sonstige</th><th>Ø Gesamt${pts ? ' (Pkt.)' : ''}</th>
@@ -10511,7 +10532,7 @@ function classReportSheetXML(g) {
   const header = ['Name', 'Ø Klassenarbeiten', 'Ø Sonstige', `Ø Gesamt${pts ? ' (Punkte)' : ''}`, 'Fehlt unentschuldigt', 'Fehlt entschuldigt', 'Zu spät',
     ...PART_LEVELS.map(l => `Mitarbeit ${l.word}`), 'HA fehlt', ...d.cols.map(c => reportColTitle(c).join(' '))];
   const rows = [
-    [[`Klassen-Bericht ${g.className} ${g.subject || ''} · Schuljahr ${schoolYearLabel()}${d.period ? ' · ' + d.period : ''}`, 1]],
+    [[`Klassen-Bericht ${g.className} ${g.subject || ''} · Schuljahr ${reportSchoolYear(g)}${d.period ? ' · ' + d.period : ''}`, 1]],
     [[`Stand ${formatDateLong(formatDate(new Date()))}${db.settings.teacherName ? ' · ' + db.settings.teacherName : ''}${db.settings.school ? ' · ' + db.settings.school : ''} · Klassenarbeiten zählen ${d.weight} %`, 0]],
     [],
     header.map(h => [h, 1]),
@@ -13375,7 +13396,11 @@ function autoStickerEarned(rule, s, lessonDates, todayStr) {
   const fits = p => (rule.kind === 'excellent' ? p.value === 'excellent' : !!SA_XP[p.value]);
   const parts = yearParticipation(s, todayStr).filter(fits);
   if (rule.mode === 'total') return parts.length >= rule.n;
-  if (rule.mode === 'half') { const r = runningHalf(todayStr); return parts.filter(p => inPeriod(p.date, r)).length >= rule.n; }
+  if (rule.mode === 'half') {   // in einem der beiden Halbjahre geschafft: ein Sticker wird nie wieder weggenommen (AR18)
+    const r = runningHalf(todayStr);
+    if (!r) return parts.length >= rule.n;
+    return ['h1', 'h2'].some(k => parts.filter(p => inPeriod(p.date, periodRange(k, todayStr))).length >= rule.n);
+  }
   const hit = new Set(parts.map(p => p.date));
   const absent = new Set((s.attendance || []).filter(a => a && (a.type === 'abwesend' || a.type === 'entschuldigt')).map(a => a.date));
   let run = 0, best = 0;
@@ -13552,7 +13577,10 @@ function classYearStart(g, todayStr) {
 // Veröffentlichen je Schüler (aus publishStudentApps); fehlt ein Zugang (neuer Schüler), wird er angelegt
 async function publishPersonalPages(g, active, force = false) {
   const students = db.students[g.id] || [];
-  if (active && students.map(ensureStudentAccess).includes(true)) saveDB();
+  let changed = active && students.map(ensureStudentAccess).includes(true);
+  // Nach dem Schuljahreswechsel: Tempo fest, sobald die Klasse wieder Stunden hat (AR19)
+  if (active && !(Number(personalOf(g).step) >= 5) && getGroupSlots(g.id).length) { ensurePersonal(g).step = personalStepFor(g, personalOf(g).level); changed = true; }
+  if (changed) saveDB();
   const ctx = active ? personalCtx(g) : null;
   for (const st of students) {
     const acc = studentAccessOf(st);
@@ -13944,6 +13972,7 @@ function hasYearData() {
 }
 // Die eigentliche Umstellung. Ändert db, speichert nicht. Klassen ohne Wahl (z. B. per Sync dazugekommen) bleiben unter
 // ihrem Namen (Regel 7: nie still löschen). Liefert eine kleine Zusammenfassung.
+const hasEntries = g => (db.students[g.id] || []).some(st => YEAR_LISTS.some(f => Array.isArray(st && st[f]) && st[f].length));
 function applyNewSchoolYear(choices, todayStr = formatDate(new Date())) {
   const byId = new Map((choices || []).map(c => [c.id, c]));
   const yearOfOld = schoolYearLabel(addDays(parseDate(todayStr), -60));   // der Wechsel läuft meist in den Sommerferien
@@ -13953,7 +13982,7 @@ function applyNewSchoolYear(choices, todayStr = formatDate(new Date())) {
     const topics = groupPlan(g).filter(t => String(t.title || '').trim());
     if (!c || !c.template || !topics.length) return;
     (db.planTemplates = Array.isArray(db.planTemplates) ? db.planTemplates : []).push({
-      id: uid(), name: [g.subject, g.className].filter(Boolean).join(' '), year: yearOfOld, created: todayStr,
+      id: uid(), name: [g.subject, g.className].filter(Boolean).join(' '), year: hasEntries(g) ? reportSchoolYear(g, todayStr) : yearOfOld, created: todayStr,
       topics: topics.map(t => {
         const x = { id: uid(), title: String(t.title).trim() };
         if (topicLength(t) > 1) x.lessons = topicLength(t);
@@ -13974,6 +14003,8 @@ function applyNewSchoolYear(choices, todayStr = formatDate(new Date())) {
     if (sa && typeof sa === 'object') {   // neuer Link: Ehemalige sehen die Klasse nicht mehr (Regel 95)
       if (sa.access && sa.access.id) { queueShareDeletion(sa.access.id); sa.access = StudentShare.newAccess(); }
       delete sa.goal;
+      // Level-Tempo passt zum alten Stundenplan: neu festlegen, sobald der neue steht (AR19, publishPersonalPages)
+      if (sa.personal && typeof sa.personal === 'object') delete sa.personal.step;
     }
     (db.students[g.id] || []).forEach(st => {
       if (!st) return;
@@ -14124,11 +14155,18 @@ function deletePlanTemplate(t) {
   });
 }
 // Leiser Hinweis im Dashboard ab den Sommerferien bzw. nach dem Schuljahresende (Regel 82: höchstens einer, nie ein Dialog)
+// Nur, wenn es noch Einträge aus dem alten Jahr gibt (AR17): von vor den laufenden Sommerferien bzw. vor dem
+// Schuljahresende, und das Ende liegt höchstens 8 Wochen zurück (sonst erschiene der Hinweis mitten im Schuljahr).
+function yearDataBefore(cutoff) {
+  return Object.values(db.students || {}).some(l => (l || []).some(s => s && YEAR_LISTS.some(f => (Array.isArray(s[f]) ? s[f] : []).some(x => x && isDateStr(x.date) && x.date < cutoff))))
+    || Object.keys(db.lessonData || {}).some(k => k.slice(k.lastIndexOf('_') + 1) < cutoff);
+}
 function newYearNoteDue(todayStr = formatDate(new Date())) {
   if (!hasYearData()) return false;
   const h = holidayAt(todayStr);
-  const summer = !!(h && /sommer/i.test(h.label || ''));
-  const after = isDateStr(db.settings.schoolYearEnd) && todayStr > db.settings.schoolYearEnd;
+  const summer = !!(h && /sommer/i.test(h.label || '')) && yearDataBefore(h.from);
+  const ye = db.settings.schoolYearEnd;
+  const after = isDateStr(ye) && todayStr > ye && todayStr <= formatDate(addDays(parseDate(ye), 56)) && yearDataBefore(formatDate(addDays(parseDate(ye), 1)));
   return (summer || after) && deviceHint(NEWYEAR_HINT_KEY) !== todayStr.slice(0, 4);
 }
 
