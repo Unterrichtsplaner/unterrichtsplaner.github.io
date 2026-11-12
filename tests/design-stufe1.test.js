@@ -3,7 +3,7 @@ const fs = require('fs');
 const path = require('path');
 const CSS = fs.readFileSync(path.join(__dirname, '..', 'style.css'), 'utf8');
 const HTML = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
-const JS = fs.readFileSync(path.join(__dirname, '..', 'app.js'), 'utf8');
+const JS = require('./helpers/load-app').appSource();
 
 describe('Anti-Slop Stufe 1', () => {
   it('keine Verlaufsschrift (Logo)', () => {

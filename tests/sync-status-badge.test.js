@@ -12,7 +12,7 @@ describe('Sync-Status in den Einstellungen', () => {
     expect(css).toMatch(/\.sync-status\{display:flex;flex-direction:column;/);
   });
   it('Status ohne Ausrufezeichen (Regel 68)', () => {
-    const app = fs.readFileSync(path.join(__dirname, '..', 'app.js'), 'utf8');
+    const app = require('./helpers/load-app').appSource();
     expect(app).not.toMatch(/'Status: [^']*!'/);
   });
 });

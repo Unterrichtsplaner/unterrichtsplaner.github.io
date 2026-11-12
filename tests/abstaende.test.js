@@ -25,7 +25,7 @@ describe('Abstände nur aus der festen Reihe', () => {
     expect(badValues(inline)).toEqual([]);
   });
   it('Inline-Stile in app.js', () => {
-    const inline = [...read('app.js').matchAll(/style="([^"]*)"/g)].map(m => m[1]).join(';');
+    const inline = [...require('./helpers/load-app').appSource().matchAll(/style="([^"]*)"/g)].map(m => m[1]).join(';');
     expect(badValues(inline)).toEqual([]);
   });
 });

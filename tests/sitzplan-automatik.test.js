@@ -188,7 +188,7 @@ describe('Während des Unterrichts im Sitzplan starten', () => {
     Object.defineProperty(document, 'hidden', { value: false, configurable: true });
   });
   it('Start-Code ruft es auf (index lädt app.js beim Öffnen)', () => {
-    const src = require('fs').readFileSync(require('path').join(__dirname, '..', 'app.js'), 'utf8');
+    const src = require('./helpers/load-app').appSource();
     expect(src).toMatch(/if \(shouldStartInSeating\(\)\) switchView\('seating'\);/);
   });
 });

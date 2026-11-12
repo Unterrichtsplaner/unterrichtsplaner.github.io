@@ -1,4 +1,3 @@
-/* ═══ app.js – LehrerApp v3 ═══ */
 
 // ─── Default blocks ──────────────────────────────────────────────────────
 const DEFAULT_BLOCKS = [
@@ -5491,7 +5490,7 @@ function openPrivacyNotice() {
 
 // Versionsnummer aus index.html (app.js?v=N, gesetzt von npm run bump), für Rückfragen bei Problemen (BUGS I22)
 function appVersion() {
-  const src = [...document.querySelectorAll('script[src]')].map(e => e.getAttribute('src')).find(x => /(^|\/)app\.js\?v=/.test(x));
+  const src = [...document.querySelectorAll('script[src]')].map(e => e.getAttribute('src')).find(x => /(^|\/)(app|start)\.js\?v=/.test(x));   // seit Y12: js/start.js
   const m = src && src.match(/v=(\d+)/);
   return m ? m[1] : '';
 }

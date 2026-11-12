@@ -318,7 +318,7 @@ describe('Veröffentlichen (publishStudentApps)', () => {
   });
 
   it('läuft nach einem erfolgreichen Sync an', () => {
-    const src = fs.readFileSync(path.join(__dirname, '..', 'app.js'), 'utf8');
+    const src = require('./helpers/load-app').appSource();
     expect(src).toMatch(/\['uploaded', 'pulled', 'no_change'\]\.includes\(result\.status\)\)\s*\{[^}]*publishStudentApps\(f\)/);
   });
 });

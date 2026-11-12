@@ -72,7 +72,7 @@ describe('App-Icons und Manifest (BUGS G5)', () => {
     expect(manifest.name).toBe(title);
     expect(html).toContain(`<meta name="apple-mobile-web-app-title" content="${title}" />`);
     // Standard-Design ist hell mit Eisblau (DEFAULT_THEME in app.js): Startbild und Statusleiste in derselben Farbe
-    const js = fs.readFileSync(path.join(root, 'app.js'), 'utf8');
+    const js = require('./helpers/load-app').appSource();
     const appBg = js.match(/const DEFAULT_THEME = \{ bg: '(#[0-9a-f]+)'/i)[1];
     expect(manifest.background_color).toBe(appBg);
     expect(manifest.theme_color).toBe(appBg);

@@ -462,7 +462,7 @@ describe('Paket 5c: Knöpfe, Einstellungen, Formular', () => {
 
   it('I22: Einstellungen zeigen die App-Version', () => {
     // gleiche Nummer wie app.js?v=N in index.html (setzt npm run bump)
-    const v = html.match(/app\.js\?v=(\d+)/)[1];
+    const v = html.match(/(?:app|js\/start)\.js\?v=(\d+)/)[1];   // seit Y12: js/start.js
     app('openSettings()');
     expect(document.getElementById('app-version-label').textContent).toBe(`Version ${v}`);
     app('closeModal("modal-settings")');
@@ -497,7 +497,7 @@ describe('Block J', () => {
   });
 
   it('J1: hexToRgba nimmt nur Hex-Farben – Aufrufe mit gradeColor gibt es nicht mehr', () => {
-    const src = fs.readFileSync(path.join(__dirname, '..', 'app.js'), 'utf8');
+    const src = require('./helpers/load-app').appSource();
     expect(src).not.toMatch(/hexToRgba\(\s*gradeColor/);
   });
 

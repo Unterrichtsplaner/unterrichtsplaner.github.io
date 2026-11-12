@@ -1,4 +1,9 @@
-const { calculateStudentAverage, db } = require('../app.js');
+// Früher per require('../app.js') geladen; seit der Aufteilung (Y12) wie alle anderen Tests über loadApp
+const { loadApp, app } = require('./helpers/load-app');
+localStorage.setItem('lehrerapp_v3', JSON.stringify({ settings: { blocks: null }, lessonSlots: [], lessonData: {}, groups: [], students: {} }));
+loadApp();
+const calculateStudentAverage = (...a) => app('calculateStudentAverage')(...a);
+const db = app('db');
 
 describe('calculateStudentAverage', () => {
   beforeEach(() => {
