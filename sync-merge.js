@@ -89,7 +89,7 @@ const MERGE_SPEC = {
       item: {
         together: [{ fields: ['day', 'block', 'part', 'specificDate'], what: 'Platz im Stundenplan', show: mergeSlotPlace }],
         fields: {
-          color: MERGE_LOCAL, startWeek: MERGE_LOCAL,
+          color: MERGE_LOCAL, startWeek: MERGE_LOCAL, splitFrom: MERGE_LOCAL,   // splitFrom: alte Stunde beim Wechsel (AP7)
           recurring: { atomic: 'ask', show: v => ({ weekly: 'jede Woche', biweekly: 'alle zwei Wochen' }[v] || (v === true ? 'jede Woche' : 'einmalig')) },
           groupId: { atomic: 'ask', show: (v, ctx) => (ctx.groupName && ctx.groupName(v)) || 'keine Klasse' },
         },
@@ -418,7 +418,18 @@ function mergeNormalizeMoves(b, l, c) {
       // Stundenplanwechsel (splitSlotFrom): alte Stunde endet am Vortag, Einträge ab dem Wechsel gehören zur neuen
       if (n.validFrom) {
         const end = mergeAddDays(n.validFrom, -1);
-        const old = (b.lessonSlots || []).find(s => s.validUntil !== end && (find(mover, s.id) || {}).validUntil === end && (find(mover, s.id) || {}).groupId === n.groupId);
+        const fits = s => s.validUntil !== end && (find(mover, s.id) || {}).validUntil === end && (find(mover, s.id) || {}).groupId === n.groupId;
+        // Neuere Versionen merken sich die alte Stunde (splitFrom). Ältere: Passt mehr als eine alte Stunde derselben
+        // Klasse und hat das andere Gerät dort ab dem Wechsel etwas geändert, nie raten (AP7, Regel 84).
+        let old = n.splitFrom ? (b.lessonSlots || []).find(s => s.id === n.splitFrom && fits(s)) : null;
+        if (!n.splitFrom) {
+          const cands = (b.lessonSlots || []).filter(fits);
+          const changedAfter = s => Object.keys(other.lessonData || {}).some(k => mergeKeySlot(k) === s.id && k.slice(k.lastIndexOf('_') + 1) >= n.validFrom
+            && JSON.stringify(other.lessonData[k]) !== JSON.stringify((b.lessonData || {})[k]));
+          if (cands.length > 1) {
+            if (cands.some(changedAfter)) throw new MergeUnsupportedError('Stundenplanwechsel mehrerer Stunden einer Klasse');
+          } else old = cands[0] || null;
+        }
         if (old) {
           const theirs = find(other, old.id);
           if (theirs && theirs.validUntil !== old.validUntil) throw new MergeUnsupportedError('Stundenplanwechsel auf beiden Geräten');

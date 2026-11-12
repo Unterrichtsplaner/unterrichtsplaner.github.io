@@ -2168,7 +2168,8 @@ function retargetDueItems(slot, fields, splitFrom) {
 
 // Stunde ab einem Tag ändern: alte endet davor, neue beginnt dort; Einträge ab dann ziehen um (BUGS M7, R1)
 function splitSlotFrom(slot, fromDateStr, fields) {
-  const newSlot = { ...slot, ...fields, id: uid(), validFrom: fromDateStr };
+  // splitFrom: Der Abgleich ordnet Einträge des anderen Geräts eindeutig der richtigen neuen Stunde zu (AP7)
+  const newSlot = { ...slot, ...fields, id: uid(), validFrom: fromDateStr, splitFrom: slot.id };
   slot.validUntil = formatDate(addDays(parseDate(fromDateStr), -1));
   const shift = fields.day !== undefined && fields.day !== slot.day ? splitShift(slot, fields.day, fromDateStr) : 0;
   const prefix = slot.id + '_';
