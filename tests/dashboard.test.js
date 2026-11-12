@@ -79,7 +79,8 @@ describe('H3: Stunden heute', () => {
 
   it('Namen werden escaped', () => {
     render();
-    expect(content().innerHTML).not.toContain('<b>2B</b>');
+    // kein echtes <b>-Element (innerHTML schreibt „<“ in Attributen wie aria-label ungeschützt aus, X3)
+    expect([...content().querySelectorAll('b')].some(b => b.textContent === '2B')).toBe(false);
     expect(content().textContent).toContain('<b>2B</b>');
   });
 

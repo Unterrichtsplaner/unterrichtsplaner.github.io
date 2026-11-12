@@ -1512,7 +1512,9 @@ function buildTimetableCell(d, dayIdx, block, clock = timetableClock()) {
     const badge = running ? `<span class="tt-lesson-badge" title="läuft noch ${range.end - clock.nowMins} min"><span class="tt-noch">noch </span>${range.end - clock.nowMins} min</span>`
                 : isNext ? `<span class="tt-lesson-badge">als Nächstes</span>` : '';
 
-    return `<div class="tt-lesson${isAusfall?' ausfall-lesson':''}${running?' running':''}${isNext?' next':''}"
+    const ttName = lessonTitle(lesson);   // Name für Tastatur und VoiceOver (X3, Regel 55)
+    return `<div class="tt-lesson${isAusfall?' ausfall-lesson':''}${running?' running':''}${isNext?' next':''}" role="button" tabindex="0"
+           aria-label="${escHtml([ttName.main, ttName.sub, formatWeekdayShort(dateStr), block.label, isAusfall ? 'fällt aus' : ''].filter(Boolean).join(', '))}"
            style="--lesson-color:${escHtml(safeColor(lesson.color))}"
            data-slot="${escHtml(lesson.id)}" data-date="${escHtml(dateStr)}"
            onclick="${timetableEditMode ? 'openEditLessonFor' : 'openLessonDetail'}(${jsArg(lesson.id)},${jsArg(dateStr)})">
@@ -1526,7 +1528,7 @@ function buildTimetableCell(d, dayIdx, block, clock = timetableClock()) {
   };
 
   const renderEmptyHTML = (part) => {
-    return `<div class="tt-empty-cell" title="${DAYS[dayIdx]}, ${escHtml(block.label)}: Stunde hinzufügen"
+    return `<div class="tt-empty-cell" role="button" tabindex="0" aria-label="${DAYS[dayIdx]}, ${escHtml(block.label)}: Stunde hinzufügen" title="${DAYS[dayIdx]}, ${escHtml(block.label)}: Stunde hinzufügen"
                  onclick="openAddLessonSlot(${dayIdx}, ${jsArg(block.num)}, ${jsArg(dateStr)}, ${jsArg(part)})">
               <span class="tt-add-icon">+</span>
             </div>`;
@@ -8733,6 +8735,7 @@ function openGradeForm(studentId, groupId, gradeIdx, defaultDateStr = '', defaul
     commitSeatingStudentForm(); // eingetippten Hinweis/Notiz sichern, bevor das Fenster (ohne closeModal) verschwindet
     seatingModal.classList.add('hidden');
     currentGradeFormCtx.wasSeatingModalOpen = true;
+    currentGradeFormCtx.returnFocus = modalReturnFocus['modal-seating-student'] || null;   // Auslöser merken (W14)
   }
 
 
@@ -8782,6 +8785,7 @@ function closeGradeForm() {
       const { studentId, groupId } = ctx;
       // Fenster wieder öffnen, „Mehr“ und „Anzeigen“ wie vorher (AH28)
       openSeatingStudentModal(studentId, groupId, window.currentSeatingStudent.dateStr, { keep: true, keepDay: true });
+      if (ctx.returnFocus) modalReturnFocus['modal-seating-student'] = ctx.returnFocus;   // Schließen führt zum Auslöser zurück (W14)
     }
   }
 }
@@ -8975,6 +8979,23 @@ function openModal(id) {
   const dialog = m.querySelector('.modal');
   if (dialog && !dialog.contains(document.activeElement)) dialog.focus({ preventScroll: true });
 }
+// Tab bleibt im obersten offenen Fenster (aria-modal, W14)
+function focusablesIn(root) {
+  return [...root.querySelectorAll('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])')]
+    .filter(el => !el.disabled && el.type !== 'hidden' && !el.closest('.hidden, [hidden]') && getComputedStyle(el).display !== 'none');
+}
+document.addEventListener('keydown', e => {
+  if (e.key !== 'Tab') return;
+  const open = [...document.querySelectorAll('.modal-overlay:not(.hidden)')];
+  const top = open[open.length - 1];
+  const dialog = top && top.querySelector('.modal');
+  if (!dialog) return;
+  const list = focusablesIn(dialog);
+  if (!list.length) return;
+  const first = list[0], last = list[list.length - 1], cur = document.activeElement;
+  if (e.shiftKey && (cur === first || !dialog.contains(cur))) { e.preventDefault(); last.focus(); }
+  else if (!e.shiftKey && (cur === last || !dialog.contains(cur))) { e.preventDefault(); first.focus(); }
+});
 function closeModal(id) {
   const m = document.getElementById(id);
   if (!m) return;
@@ -9343,6 +9364,33 @@ function makeCustomFormDropdown(selectEl) {
 
   const menu = document.createElement('div');
   menu.className = 'custom-form-dropdown-menu';
+  menu.setAttribute('role', 'listbox');
+  trigger.setAttribute('aria-haspopup', 'listbox');
+  trigger.setAttribute('aria-expanded', 'false');
+  // Tastatur (W13): ↓/Enter/Leertaste öffnet, ↑↓ wählt aus, Enter übernimmt, Escape schließt – Fokus zurück auf die Liste
+  const items = () => [...menu.querySelectorAll('[role="option"]')];
+  const setOpen = open => { menu.classList.toggle('show', open); trigger.setAttribute('aria-expanded', String(open)); };
+  const openWithFocus = () => {
+    document.querySelectorAll('.custom-form-dropdown-menu.show').forEach(m => m.classList.remove('show'));
+    setOpen(true);
+    const list = items();
+    (list.find(i => i.getAttribute('aria-selected') === 'true') || list[0])?.focus();
+  };
+  trigger.addEventListener('keydown', e => {
+    if (['ArrowDown', 'ArrowUp', 'Enter', ' '].includes(e.key)) { e.preventDefault(); e.stopPropagation(); openWithFocus(); }
+  });
+  menu.addEventListener('keydown', e => {
+    const list = items(), i = list.indexOf(document.activeElement);
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+      e.preventDefault();
+      const n = list[Math.max(0, Math.min(list.length - 1, i + (e.key === 'ArrowDown' ? 1 : -1)))];
+      if (n) n.focus();
+    } else if ((e.key === 'Enter' || e.key === ' ') && i >= 0) {
+      e.preventDefault(); e.stopPropagation(); list[i].click(); trigger.focus();
+    } else if (e.key === 'Escape') {
+      e.preventDefault(); e.stopPropagation(); setOpen(false); trigger.focus();
+    }
+  });
 
   container.appendChild(trigger);
   container.appendChild(menu);
@@ -9358,6 +9406,9 @@ function makeCustomFormDropdown(selectEl) {
       item.className = 'custom-form-dropdown-item';
       item.textContent = opt.textContent;
       item.dataset.value = opt.value;
+      item.setAttribute('role', 'option');   // Tastatur und VoiceOver (W13)
+      item.tabIndex = -1;
+      item.setAttribute('aria-selected', String(selectEl.value === opt.value));
       if (selectEl.value === opt.value) {
         item.classList.add('selected');
         selectedText = opt.textContent;
@@ -9366,7 +9417,7 @@ function makeCustomFormDropdown(selectEl) {
         e.stopPropagation();
         selectEl.value = opt.value;
         selectEl.dispatchEvent(new Event('change', { bubbles: true }));
-        menu.classList.remove('show');
+        setOpen(false);
         renderMenu(); // Re-render to update selected state
         
         // Execute inline onchange if present
@@ -9392,6 +9443,8 @@ function makeCustomFormDropdown(selectEl) {
     });
 
     label.textContent = selectedText;
+    const name = selectEl.getAttribute('aria-label') || (selectEl.labels && selectEl.labels[0] && selectEl.labels[0].textContent.trim()) || '';
+    trigger.setAttribute('aria-label', name ? `${name}: ${selectedText}` : selectedText);
   }
 
   // Initial render
@@ -9404,14 +9457,14 @@ function makeCustomFormDropdown(selectEl) {
     document.querySelectorAll('.custom-form-dropdown-menu.show').forEach(m => m.classList.remove('show'));
     const seatingMenu = document.getElementById('seating-group-menu');
     if (seatingMenu) seatingMenu.classList.add('hidden'); // Close seating menu
-    if (!isShowing) menu.classList.add('show');
+    setOpen(!isShowing);
   };
 
   // Ersetzte Auswahllisten (Neuzeichnen) melden sich beim nächsten Klick ab, sonst wachsen Beobachter und Speicher (AQ24)
   const onDocClick = (e) => {
     if (!container.isConnected) { document.removeEventListener('click', onDocClick); observer.disconnect(); return; }
     if (!container.contains(e.target) && !pressStartedIn(container)) { // im Menü gedrückt, außerhalb losgelassen: offen lassen
-      menu.classList.remove('show');
+      setOpen(false);
     }
   };
   document.addEventListener('click', onDocClick);
@@ -10969,7 +11022,7 @@ function renderDashboardToday() {
       if (due.tests.length) badges.push(`<span class="dash-badge test">Test ${due.tests.length}</span>`);
       if (data.notes)       badges.push(`<span class="dash-badge note">Notiz</span>`);
       const cNotes = l.slot.groupId ? activeClassNotes(db.groups.find(g => g.id === l.slot.groupId), dayStr) : [];
-      html += `<div class="dash-lesson ${state}" data-slot="${escHtml(l.slot.id)}" style="--lesson-color:${escHtml(safeColor(l.slot.color))}"
+      html += `<div class="dash-lesson ${state}" role="button" tabindex="0" aria-label="${escHtml([t.main, t.sub, l.block.label].filter(Boolean).join(', '))}" data-slot="${escHtml(l.slot.id)}" style="--lesson-color:${escHtml(safeColor(l.slot.color))}"
                     onclick="openLessonDetail(${jsArg(l.slot.id)},${jsArg(dayStr)})">
           <div class="dash-lesson-time">${l.range ? minsToTime(l.range.start) : ''}<small>${escHtml(l.block.label)}</small></div>
           <div class="dash-lesson-main">
@@ -11006,7 +11059,7 @@ function renderDashboardNext() {
     + itemList('Hausaufgaben fällig', 'hw', due.hw) + itemList('Test', 'test', due.tests);
   return `<section class="dash-section dash-coming">
     <h2 class="dash-heading">Als Nächstes</h2>
-    <div class="dash-next" data-slot="${escHtml(next.slot.id)}" style="--lesson-color:${escHtml(safeColor(next.slot.color))}" onclick="openLessonDetail(${jsArg(next.slot.id)},${jsArg(next.dateStr)})">
+    <div class="dash-next" role="button" tabindex="0" aria-label="${escHtml(['Als Nächstes', t.main, t.sub, when, next.block.label].filter(Boolean).join(', '))}" data-slot="${escHtml(next.slot.id)}" style="--lesson-color:${escHtml(safeColor(next.slot.color))}" onclick="openLessonDetail(${jsArg(next.slot.id)},${jsArg(next.dateStr)})">
       <div class="dash-next-title">${escHtml(t.main)}${t.sub ? ` <span>${escHtml(t.sub)}</span>` : ''}${next.slot.room ? ` <span>· ${escHtml(next.slot.room)}</span>` : ''}</div>
       <div class="dash-next-label">${escHtml(when)} · ${escHtml(next.block.label)}</div>
       ${body || '<div class="dash-empty">Keine Notizen, nichts fällig.</div>'}
@@ -11034,7 +11087,7 @@ function supervisionDashRow(x, isTodayShown, nowMins) {
   if (isTodayShown && end <= nowMins) { state = 'past'; status = 'vorbei'; }
   else if (isTodayShown && start <= nowMins) { state = 'running'; status = `läuft noch ${end - nowMins} min`; }
   else if (isTodayShown && start - nowMins <= 60) { state = 'next'; status = `beginnt in ${start - nowMins} min`; }
-  return `<div class="dash-lesson dash-supervision ${state}" onclick="openSupervisionForm(${jsArg(x.id)})">
+  return `<div class="dash-lesson dash-supervision ${state}" role="button" tabindex="0" aria-label="${escHtml(['Aufsicht', x.place, `${x.start || ''}–${x.end || ''}`].filter(Boolean).join(', '))}" onclick="openSupervisionForm(${jsArg(x.id)})">
       <div class="dash-lesson-time">${escHtml(x.start || '')}<small>Pause</small></div>
       <div class="dash-lesson-main">
         <div class="dash-lesson-title">${x.place ? `${escHtml(x.place)} <span>Aufsicht</span>` : 'Aufsicht'}</div>
@@ -11158,7 +11211,7 @@ function renderDashboardWarnings() {
       <div class="dash-warn-list">`;
     list.forEach(w => {
       html += `<div class="dash-warn" style="border-left-color:${colors[w.type]}">
-          <div class="dash-warn-text" onclick="openStudentDetailFromDashboard(${jsArg(w.student.id)}, ${jsArg(group.id)}, ${jsArg(w.type)})" title="Zum Schülerprofil springen">
+          <div class="dash-warn-text" role="button" tabindex="0" aria-label="${escHtml(studentListName(w.student) + ': ' + w.title)}" onclick="openStudentDetailFromDashboard(${jsArg(w.student.id)}, ${jsArg(group.id)}, ${jsArg(w.type)})" title="Zum Schülerprofil springen">
             <div class="dash-warn-title">${icons[w.type]}${w.title}${warningIsNew(w, seen) ? '<span class="tag-neu">neu</span>' : ''}</div>
             <div class="dash-warn-desc">${w.desc}</div>
           </div>
