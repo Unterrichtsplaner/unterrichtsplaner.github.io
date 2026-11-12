@@ -1141,13 +1141,20 @@ function undoTimetableChange(entry = ttUndoStack[ttUndoStack.length - 1]) {
 async function moveLessonByDrag(slotId, sourceDate, target) {
   const slot = db.lessonSlots.find(s => s.id === slotId);
   if (!slot || !target || !Number.isFinite(target.day) || !Number.isFinite(target.block)) return false;
-  const part = target.part || slot.part || 'full';
-  if (target.day === slot.day && target.block === slot.block && part === (slot.part || 'full') && target.dateStr === sourceDate) return false;
+  const dropPart = target.part || slot.part || 'full';
+  if (target.day === slot.day && target.block === slot.block && dropPart === (slot.part || 'full') && target.dateStr === sourceDate) return false;
   // Eine an dem Tag verlegte Stunde („verlegt“, durchgestrichen) belegt ihren Platz nicht mehr (AQ2)
-  const movedAway = s => !!(db.lessonData[`${s.id}_${target.dateStr}`] || {}).movedTo;
-  const occupants = lessonsAt(target.dateStr, target.block).filter(s => s !== slot && partsOverlap(part, s.part) && !movedAway(s));
+  const movedAwayOn = (s, d) => !!(db.lessonData[`${s.id}_${d}`] || {}).movedTo;
+  const occupants = lessonsAt(target.dateStr, target.block).filter(s => s !== slot && partsOverlap(dropPart, s.part) && !movedAwayOn(s, target.dateStr));
   if (occupants.length > 1) { showToast('Dort liegen schon zwei Stunden. Bitte zuerst eine davon verschieben', 'error'); return false; }
   const other = occupants[0] || null;
+  // Tauschen heißt: jede Stunde nimmt genau den Platz der anderen, auch die Hälfte (AQ7)
+  const part = other ? (other.part || 'full') : dropPart;
+  if (other) {
+    const back0 = { block: slot.block, part: slot.part || 'full' };
+    const third = lessonsAt(sourceDate, back0.block).filter(s => s !== slot && s !== other && partsOverlap(back0.part, s.part) && !movedAwayOn(s, sourceDate));
+    if (third.length) { showToast('Am alten Platz liegt noch eine Stunde. Bitte zuerst sie verschieben', 'error'); return false; }
+  }
   const isRegular = s => s && !isOneOffSlot(s);
   let scope = 'once';
   if (isRegular(slot) || isRegular(other)) {
@@ -1186,7 +1193,7 @@ async function moveLessonByDrag(slotId, sourceDate, target) {
       return commitLessonSlot(lessonInputFrom(s, to.day, to.block, to.part || s.part || 'full'), s, { ignoreConflictWith: ignore, scope });
     };
     ok = await place(slot, sourceDate, { ...target, part }, other);
-    if (ok && other) ok = await place(other, target.dateStr, { ...back, part: other.part || 'full' }, slot);
+    if (ok && other) ok = await place(other, target.dateStr, back, slot);
   } finally {
     currentSpecificDate = prevSpecific;
   }
@@ -1740,7 +1747,7 @@ function updateLessonPartVisibility(part) {
 }
 
 // ─── Add / Edit lesson slot ───────────────────────────────────────────────
-function openAddLessonSlot(preDay = null, preBlock = null, specificDateStr = null, part = 'full') {
+function openAddLessonSlot(preDay = null, preBlock = null, specificDateStr = null, part = 'full', { substitute = false } = {}) {
   // Gesperrte Hälften setzt updateLessonDateHint → refreshLessonPartOptions (unten)
   for (const r of document.getElementsByName('new-lesson-part')) r.checked = r.value === part;
   updateLessonPartVisibility(part);
@@ -1762,10 +1769,17 @@ function openAddLessonSlot(preDay = null, preBlock = null, specificDateStr = nul
   fillBlockSelector();
   if (preBlock !== null) document.getElementById('new-lesson-block').value = preBlock;
   document.getElementById('new-lesson-room').value = '';
-  document.getElementById('new-lesson-recurring').value = 'weekly';
+  // Vertretung schon vor dem Sperren der Hälften und vor openModal (AQ11): sonst ist die eigene Hälfte „belegt“,
+  // die andere wird angehakt, und der Stand beim Öffnen gilt danach als Eingabe
+  document.getElementById('new-lesson-recurring').value = substitute ? 'substitute' : 'weekly';
+  if (substitute) document.getElementById('add-lesson-title').textContent = 'Vertretung eintragen';
   selectedLessonColor = APP_COLORS[0];
   renderColorPicker('lesson-color-picker', APP_COLORS, val => { selectedLessonColor = val; });
   updateLessonDateHint();
+  if (substitute) {
+    const own = [...document.getElementsByName('new-lesson-part')].find(r => r.value === part);
+    if (own && !own.disabled) { own.checked = true; updateLessonPartVisibility(part); }
+  }
   openModal('modal-add-lesson');
   setTimeout(() => document.getElementById('new-lesson-subject').focus(), 80);
 }
@@ -1776,10 +1790,7 @@ function openSubstituteForLesson() {
   if (!slot || !activeLessonDate) return;
   const dateStr = activeLessonDate;
   leaveLessonModal();
-  openAddLessonSlot(slot.day, slot.block, dateStr, slot.part || 'full');
-  document.getElementById('add-lesson-title').textContent = 'Vertretung eintragen';
-  document.getElementById('new-lesson-recurring').value = 'substitute';
-  updateLessonDateHint();
+  openAddLessonSlot(slot.day, slot.block, dateStr, slot.part || 'full', { substitute: true });
 }
 
 function openEditLesson() {
@@ -1967,11 +1978,14 @@ async function commitLessonSlot(input, slot, { ignoreConflictWith = null, scope 
       return true;
     }
   }
-  const replaced = isOneOffSlot(candidate) && db.lessonSlots.find(s => s !== slot && !isOneOffSlot(s)
-    && s.block === block && slotOccursOn(s, specificDate) && partsOverlap(part, s.part));
+  // Alle ersetzten Stunden, auch beide Hälften eines Blocks (AQ12)
+  const replacedAll = isOneOffSlot(candidate) ? db.lessonSlots.filter(s => s !== slot && !isOneOffSlot(s)
+    && s.block === block && slotOccursOn(s, specificDate) && partsOverlap(part, s.part)) : [];
+  const replaced = replacedAll[0] || null;
   // Vertretung über schon vorbereiteten Notizen: die wären bis zum Löschen der Vertretung unsichtbar (BUGS V6)
-  if (replaced && lessonEntryDates(replaced.id).includes(specificDate)
-      && !confirm(`Für ${lessonTitle(replaced).main} am ${formatDateLong(specificDate)} gibt es schon Notizen oder Hausaufgaben. `
+  const withNotes = replacedAll.filter(r => lessonEntryDates(r.id).includes(specificDate));
+  if (withNotes.length
+      && !confirm(`Für ${withNotes.map(r => lessonTitle(r).main).join(' und ')} am ${formatDateLong(specificDate)} gibt es schon Notizen oder Hausaufgaben. `
         + 'Solange die Vertretung dort liegt, sind sie nicht zu sehen (sie bleiben aber gespeichert).\n\nVertretung trotzdem anlegen?')) return false;
   // Mit dem eigenen Beginn der Stunde: Eine Nachfolgerin, die erst nach der beendeten beginnt, überschneidet
   // sich nie mit ihr und darf weiter bearbeitet werden (Nachtrag BUGS V1)
@@ -1989,6 +2003,7 @@ async function commitLessonSlot(input, slot, { ignoreConflictWith = null, scope 
   }
   // HA/Tests, die auf Termine dieser Stunde zeigen – fallen welche weg, wird danach gefragt (BUGS V3)
   const dueBefore = changesSchedule ? dueItemsOnSlot(slot) : [];
+  const slotBefore = slot ? { ...slot } : null;   // alte Klasse für „hängende“ HA (AQ9)
 
   if (slot && splitFrom) {
     retargetDueItems(slot, fields, splitFrom);
@@ -2009,15 +2024,17 @@ async function commitLessonSlot(input, slot, { ignoreConflictWith = null, scope 
     if (candidate.validFrom) newSlot.validFrom = candidate.validFrom;
     db.lessonSlots.push(newSlot);
     const added = fields.substitute ? 'Vertretung eingetragen ✓' : 'Stunde hinzugefügt ✓';
-    showToast(replaced ? `${added.replace(' ✓', '')}, ersetzt ${lessonTitle(replaced).main} an diesem Tag ✓` : added);
+    showToast(replaced ? `${added.replace(' ✓', '')}, ersetzt ${replacedAll.map(r => lessonTitle(r).main).join(' und ')} an diesem Tag ✓` : added);
   }
   refreshMovedFrom();   // Verweise verlegter Kopien folgen ihrem Ursprung (AQ4)
   saveDB();
-  if (replaced) await offerMoveDueItems(replaced.id, specificDate, `${lessonTitle(replaced).main} fällt aus`); // BUGS R4
+  for (const r of replacedAll) {   // BUGS R4, für jede ersetzte Stunde (AQ12)
+    if (!(await offerMoveDueItems(r.id, specificDate, `${lessonTitle(r).main} fällt aus`))) break;
+  }
   closeModal('modal-add-lesson');
   renderScheduleViews();
   editingSlotId = null;
-  if (dueBefore.length) await offerRetargetHanging(dueBefore, slot);
+  if (dueBefore.length) await offerRetargetHanging(dueBefore, slotBefore);
   return true;
 }
 
@@ -2062,7 +2079,10 @@ async function offerRetargetHanging(candidates, slot) {
 // Hat sich an Tag, Block, Hälfte oder Rhythmus etwas geändert? (Raum, Farbe usw. zählen nicht)
 function scheduleChanged(slot, f) {
   const rec = s => isOneOffSlot(s) ? 'none' : s.recurring;
-  return slot.day !== f.day || slot.block !== f.block || (slot.part || 'full') !== f.part || rec(slot) !== rec(f)
+  // Andere Klasse (bei freien Stunden: anderes Fach) ist ein Stundenplanwechsel wie ein anderer Tag (AQ9):
+  // frühere Stunden, ihr Inhalt und ihre HA gehören weiter der alten Klasse
+  const owner = s => s.groupId ? 'g:' + s.groupId : 's:' + String(s.subject || '').trim().toLowerCase();
+  return slot.day !== f.day || slot.block !== f.block || (slot.part || 'full') !== f.part || rec(slot) !== rec(f) || owner(slot) !== owner(f)
     || (f.recurring === 'biweekly' && !!slot.startDate && !sameWeekParity(slot.startDate, f.startDate));
 }
 
