@@ -6095,6 +6095,10 @@ function refreshSeatingDateIfStale() {
 }
 setInterval(refreshSeatingDateIfStale, 60000);
 document.addEventListener('visibilitychange', refreshSeatingDateIfStale);
+// Offenes Schüler-Fenster beim Zurückkommen und im Minutentakt auf den neuen Tag stellen (AS2)
+const refreshSeatingStudentDayIfVisible = () => { if (!document.hidden) refreshSeatingStudentDay(); };
+setInterval(refreshSeatingStudentDayIfVisible, 60000);
+document.addEventListener('visibilitychange', refreshSeatingStudentDayIfVisible);
 
 // Klasse der laufenden (bzw. gleich beginnenden) Stunde. Über lessonsOnDate, damit halbe Blöcke ihre eigene Zeit
 // haben und ausfallende Stunden nicht vorgeschlagen werden (BUGS S3).
@@ -6505,8 +6509,10 @@ function cockpitMainHTML(t, ownLabel) {
 }
 let cockpitToday = null, cockpitHTML = '';
 // Fenster „Heute“: alles zur laufenden Stunde im Detail (Listen dürfen hier beliebig lang sein)
+let seatingTodayLesson = null;   // die Stunde, die das Fenster „Heute“ zeigt (AS4) – die Leiste rechnet weiter
 function openSeatingToday() {
   if (!cockpitToday) return;
+  seatingTodayLesson = { slotId: cockpitToday.info.lesson.slot.id, dateStr: cockpitToday.info.lesson.dateStr };
   renderSeatingToday();
   openModal('modal-seating-today');
 }
@@ -6542,6 +6548,12 @@ function renderSeatingToday() {
 }
 let cockpitLesson = null;
 // Notiz zur Stunde = Stunde abschließen: das Stunden-Fenster (Inhalt, Notizen, HA, Test) dieser Stunde
+function openSeatingTodayLesson() {
+  if (!seatingTodayLesson) return;
+  const { slotId, dateStr } = seatingTodayLesson;
+  closeModal('modal-seating-today');
+  openLessonDetail(slotId, dateStr);
+}
 function openCockpitLesson() {
   if (!cockpitLesson) return;
   closeModal('modal-seating-today');
@@ -6906,6 +6918,7 @@ function renderSeatingStudentNotes() {
       `<li><small>${n.date ? escHtml(formatDateShort(n.date)) : ''}</small>${escHtml(n.text)}</li>`).join('')}</ul>` : '';
 }
 function addSeatingStudentNote() {
+  refreshSeatingStudentDay();   // AS2: Notiz mit dem neuen Tag, nie verworfen
   const input = document.getElementById('seating-student-note-input');
   const ctx = window.currentSeatingStudent;
   const text = input ? input.value.trim() : '';
@@ -8042,11 +8055,16 @@ function removeAbsenceNote(groupId, dateStr, s) {
   const twin = (db.students[groupId] || []).some(x => x !== s && absenceNoteText(x) === text
     && (x.attendance || []).some(a => a.date === dateStr && a.type === 'abwesend'));
   if (twin) return;
-  replaceAbsenceNoteLines(groupId, dateStr, s, null);
+  // Hinweise zu anderen, weiter unentschuldigten Fehltagen (auch gleichnamiger Schüler) bleiben stehen (AS5)
+  const keep = new Set();
+  (db.students[groupId] || []).filter(x => absenceNoteText(x) === text).forEach(x => (x.attendance || [])
+    .filter(a => a && a.type === 'abwesend' && a.date !== dateStr && isDateStr(a.date))
+    .forEach(a => { const next = nextLessonOfGroup(groupId, a.date); if (next) keep.add(next.slotId + '_' + next.dateStr); }));
+  replaceAbsenceNoteLines(groupId, dateStr, s, null, keep);
 }
 // Hinweis-Zeilen dieses Schülers in den Stunden der Klasse bis 4 Wochen nach dateStr ersetzen (newText) oder
 // entfernen (null). Zeilenweise, nie per replace auf dem ganzen Text (Regel 25).
-function replaceAbsenceNoteLines(groupId, dateStr, s, newText) {
+function replaceAbsenceNoteLines(groupId, dateStr, s, newText, keep = null) {
   const notes = [absenceNoteText(s)];
   // Ältere Versionen schrieben nur den Vornamen – den nur entfernen, wenn er in der Klasse eindeutig ist
   if (s.firstName && (db.students[groupId] || []).filter(x => x.firstName === s.firstName).length === 1) {
@@ -8057,7 +8075,7 @@ function replaceAbsenceNoteLines(groupId, dateStr, s, newText) {
   Object.keys(db.lessonData).forEach(key => {
     const sep = key.lastIndexOf('_');
     const slotId = key.slice(0, sep), keyDate = key.slice(sep + 1);
-    if (!slotIds.has(slotId) || keyDate <= dateStr || keyDate > until) return;
+    if (!slotIds.has(slotId) || keyDate <= dateStr || keyDate > until || (keep && keep.has(key))) return;
     const entry = db.lessonData[key];
     if (!entry || !entry.notes) return;
     const lines = entry.notes.split('\n');
@@ -8091,8 +8109,27 @@ function cleanUpDeletedStudents(groupId, removed) {
   if (ack) Object.keys(ack).forEach(k => { if (ids.has(k.split('_')[0])) delete ack[k]; });
 }
 
+// Schüler-Fenster über Nacht offen (AS2): Ist seit dem Öffnen ein neuer Tag, das Fenster auf den neuen Tag stellen und
+// melden. Liefert true, wenn umgestellt wurde – Ein-Tipp-Knöpfe speichern dann nichts (man tippt nach dem Hinweis neu).
+function refreshSeatingStudentDay(now = new Date()) {
+  const ctx = window.currentSeatingStudent;
+  if (!ctx || ctx.fixedDate || !ctx.openedOn || ctx.openedOn === formatDate(now)) return false;
+  if (document.getElementById('modal-seating-student').classList.contains('hidden')) return false;
+  let dateStr = profileDefaultDate(now);
+  if (document.getElementById('view-seating')?.classList.contains('active')) {
+    if (refreshSeatingDate(now)) { renderSeatingDateStrip(); renderSeatingPlan(); }
+    dateStr = currentSeatingDateStr || dateStr;
+  }
+  const note = document.getElementById('seating-student-note-input');
+  const typed = note ? note.value : '';
+  openSeatingStudentModal(ctx.studentId, ctx.groupId, dateStr, { keep: true });
+  if (note) note.value = typed;   // Eingetipptes nie verwerfen (Regel 27)
+  showToast(`Neuer Tag: Einträge gelten jetzt für ${formatWeekdayShort(dateStr)}`);
+  return true;
+}
 function setSeatingAbsence(type) {
   if (!window.currentSeatingStudent) return;
+  if (refreshSeatingStudentDay()) return;
   const { studentId, groupId, dateStr } = window.currentSeatingStudent;
   const s = db.students[groupId]?.find(x => x.id === studentId);
   if (!s) return;
@@ -8136,6 +8173,7 @@ function setSeatingAbsence(type) {
 // BUGS H8: „zu spät“ direkt aus der Schnellbewertung; zweiter Klick nimmt es zurück
 function setSeatingLate() {
   if (!window.currentSeatingStudent) return;
+  if (refreshSeatingStudentDay()) return;   // AS2
   const { studentId, groupId, dateStr } = window.currentSeatingStudent;
   const s = db.students[groupId]?.find(x => x.id === studentId);
   if (!s) return;
@@ -8168,6 +8206,7 @@ function setSeatingLate() {
 
 function setSeatingHomework() {
   if (!window.currentSeatingStudent) return;
+  if (refreshSeatingStudentDay()) return;   // AS2
   const { studentId, groupId, dateStr } = window.currentSeatingStudent;
   const s = db.students[groupId]?.find(x => x.id === studentId);
   if (!s) return;
@@ -8320,7 +8359,10 @@ function openSeatingStudentModal(studentId, groupId, dateStr, opts = {}) {
   const sg = db.groups.find(x => x.id === groupId);
   document.getElementById('seating-student-sub').textContent = [sg && sg.className, sg && sg.subject, formatWeekdayShort(dateStr)].filter(Boolean).join(' · ');
 
-  window.currentSeatingStudent = { studentId, groupId, dateStr };
+  // Tag des Öffnens (AS2): Über Nacht offen, gilt am neuen Tag der neue Tag – außer aus einer Stunde geöffnet (fixedDate)
+  window.currentSeatingStudent = { studentId, groupId, dateStr,
+    openedOn: same && prev.openedOn && opts.keepDay ? prev.openedOn : formatDate(new Date()),
+    fixedDate: !!(opts.fixedDate || (same && prev.fixedDate)) };
   profileGroupId = groupId;
   currentStudentId = studentId;
   // QR-Knopf oben (AJ2e): schneller Weg zum Code, nur mit persönlichen Seiten der Klasse
@@ -8512,6 +8554,7 @@ function seatingMenuAction(action) {
   else if (action === 'delete') deleteCurrentStudent();
 }
 function giveQuickGrade(val) {
+  if (refreshSeatingStudentDay()) return;   // AS2
   const ctx = window.currentSeatingStudent;
   if (!ctx) return;
   const { studentId, groupId, dateStr } = ctx;
@@ -8539,6 +8582,7 @@ function giveQuickGrade(val) {
 }
 
 function openGradeFormForCurrentStudent() {
+  refreshSeatingStudentDay();   // AS2: Formular zeigt dann gleich den neuen Tag
   const { studentId, groupId, dateStr } = window.currentSeatingStudent;
   if (studentId && groupId) {
     openGradeForm(studentId, groupId, -1, dateStr || ''); // Datum wie Anwesenheit/Mitarbeit (BUGS N7)
@@ -8615,7 +8659,7 @@ function closeGradeForm() {
     if (ctx.wasSeatingModalOpen && window.currentSeatingStudent) {
       const { studentId, groupId } = ctx;
       // Fenster wieder öffnen, „Mehr“ und „Anzeigen“ wie vorher (AH28)
-      openSeatingStudentModal(studentId, groupId, window.currentSeatingStudent.dateStr, { keep: true });
+      openSeatingStudentModal(studentId, groupId, window.currentSeatingStudent.dateStr, { keep: true, keepDay: true });
     }
   }
 }
@@ -8682,7 +8726,8 @@ function deleteGradeFromForm() {
 // Nach Änderungen im Notenformular alles neu zeichnen, was gerade sichtbar ist und Noten zeigt
 function refreshGradeViews(s, groupId) {
   const win = document.getElementById('modal-seating-student');
-  if (win && !win.classList.contains('hidden') && profileGroupId === groupId) renderGradesList(s);
+  // Nur, wenn das Fenster genau diesen Schüler zeigt: „Rückgängig“ kommt oft, wenn schon der nächste offen ist (AS3)
+  if (win && !win.classList.contains('hidden') && profileGroupId === groupId && getCurrentStudent() === s) renderGradesList(s);
   refreshStudentViews(groupId);
 }
 
@@ -8728,7 +8773,7 @@ function openQuickStudentListFromLesson() {
       row.textContent = studentListName(s); // Namensformat nach Einstellung (BUGS M9)
       row.onclick = () => {
         closeModal('modal-lesson-students');
-        openSeatingStudentModal(s.id, slot.groupId, activeLessonDate);
+        openSeatingStudentModal(s.id, slot.groupId, activeLessonDate, { fixedDate: true });
       };
       listContainer.appendChild(row);
     });
@@ -8737,6 +8782,7 @@ function openQuickStudentListFromLesson() {
 }
 
 function addParticipationSmiley(type) {
+  if (refreshSeatingStudentDay()) return;   // AS2
   const { studentId, groupId, dateStr } = window.currentSeatingStudent;
   const s = db.students[groupId].find(x => x.id === studentId);
   if (!s) return;
@@ -8762,9 +8808,17 @@ function addParticipationSmiley(type) {
   
   saveDB();
   refreshStudentViews(groupId);
+  // Angefangene Fehlzeit/HA unter „Mehr“: Fenster offen lassen, sonst wäre sie still weg (AS6, Regel 27)
+  if (seatingStudentDraft()) {
+    markSeatingStudentState(s, dateStr);
+    renderStudentDetailLists(s);
+    showToast('Mitarbeit gespeichert. Fehlzeit oder HA ist noch nicht eingetragen');
+    return;
+  }
   showToast('Mitarbeit gespeichert');
   closeModal('modal-seating-student');
 }
+const seatingStudentDraft = () => ['new-att-note', 'new-hw-student-note'].some(id => document.getElementById(id)?.value.trim());
 
 // ─── Helpers ──────────────────────────────────────────────────────────────
 function createEntryItem(text, date, onDelete) {
@@ -9070,8 +9124,7 @@ function leaveGuardedForm(id) {
 // Notizen übernimmt das Schließen (commitSeatingStudentForm). Ein angefangener Grund oder eine HA-Spalte wäre ein neuer
 // Eintrag, den man noch nicht bestätigt hat: fragen statt raten.
 function leaveSeatingStudentWindow() {
-  const draft = ['new-att-note', 'new-hw-student-note'].some(id => document.getElementById(id)?.value.trim());
-  if (draft && !confirm('Du hast eine Fehlzeit oder Hausaufgabe angefangen, aber noch nicht eingetragen.\n\nVerwerfen?')) return;
+  if (seatingStudentDraft() && !confirm('Du hast eine Fehlzeit oder Hausaufgabe angefangen, aber noch nicht eingetragen.\n\nVerwerfen?')) return;
   closeModal('modal-seating-student');
 }
 function closeModalLikeButton(id) {
