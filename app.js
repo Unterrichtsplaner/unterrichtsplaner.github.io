@@ -6107,7 +6107,8 @@ async function clearAllDataEverywhere() {
     empty.settings.lastModified = Date.now();
     // Kein pendingUpload (T4): Käme die Antwort nicht an, würde der nächste Sync sonst die Daten dieses Geräts
     // als „eigenen Stand“ wieder hochladen. So gibt es schlimmstenfalls den Konflikt-Dialog.
-    const newTimestamp = cloud ? await SyncManager.saveToCloud(JSON.stringify(empty), cloud.cloudTimestamp) : null;
+    const emptyText = JSON.stringify(empty);
+    const newTimestamp = cloud ? await SyncManager.saveToCloud(emptyText, cloud.cloudTimestamp) : null;
     const sharesLeft = !(await deleteAllStudentShares());   // Klassenseiten der Schülerapp mit weg (AJ1); Rest bleibt vorgemerkt (AT5)
     let versionsLeft = false;   // Z4: auch die Tages-Sicherungen
     try { await SyncManager.deleteCloudVersions(); } catch (e) { versionsLeft = true; console.warn('Cloud-Sicherungen nicht gelöscht:', e.message); }
@@ -6117,6 +6118,7 @@ async function clearAllDataEverywhere() {
     if (newTimestamp !== null) {
       db.settings.lastModified = empty.settings.lastModified;
       markSynced(newTimestamp, empty.settings.lastModified);
+      saveSyncBase(newTimestamp, emptyText);   // gemeinsamer Stand passt zur neuen Cloud-Version (AP11, Regel 83)
     }
     if (window.currentConflict) { window.currentConflict = null; closeModal('modal-sync-conflict'); }
     SyncManager.updateStatus('synced');
@@ -11668,6 +11670,7 @@ function forgetCloudLogin() {
 // Cloud-Daten und Anmelde-Konto löschen (Recht auf Löschung, Nutzer hört auf). Firebase verlangt dafür eine
 // frische Anmeldung; die passiert vorher, damit nicht die Cloud leer ist, das Konto aber bleibt.
 let accountDeleteChoice = null;   // 'keep' | 'delete': Daten auf diesem Gerät behalten oder löschen
+let accountDeletePending = '';   // uid: Cloud-Daten schon gelöscht, Anmelde-Konto noch nicht (AP12)
 let accountDeleting = false;      // eigene Löschung läuft: die Markierung in der Cloud ist kein fremdes Ereignis
 async function startDeleteAccount() {
   if (!SyncManager.currentUser) return;
@@ -11692,6 +11695,7 @@ async function startDeleteAccount() {
   if (SyncManager.usesPasswordLogin()) document.getElementById('sync-delete-account-password').focus();
 }
 function cancelDeleteAccount() {
+  accountDeletePending = '';
   accountDeleteChoice = null;
   document.getElementById('sync-delete-account-group').classList.add('hidden');
   document.getElementById('sync-delete-account-password').value = '';
@@ -11711,7 +11715,9 @@ async function confirmDeleteAccount() {
       await SyncManager.reauthenticate(password);
     } catch (e) {
       const wrong = ['auth/wrong-password', 'auth/invalid-credential', 'auth/invalid-login-credentials'].includes(e && e.code);
-      alert((wrong ? '❌ Das Anmelde-Passwort stimmt nicht.' : '❌ Anmeldung nicht bestätigt: ' + e.message) + '\n\nEs wurde nichts gelöscht.');
+      const half = accountDeletePending === SyncManager.currentUser.uid;
+      alert((wrong ? '❌ Das Anmelde-Passwort stimmt nicht.' : '❌ Anmeldung nicht bestätigt: ' + e.message)
+        + (half ? '\n\nDeine Cloud-Daten sind schon gelöscht, nur das Anmelde-Konto noch nicht. Bitte noch einmal versuchen.' : '\n\nEs wurde nichts gelöscht.'));
       return;
     }
     try {
@@ -11719,10 +11725,17 @@ async function confirmDeleteAccount() {
       if (!(await deleteAllStudentShares())) throw new Error('Die Seiten der Schülerapp ließen sich nicht alle löschen (keine Verbindung?)');
       await SyncManager.deleteAccount();
     } catch (e) {
+      if (e && e.name === 'AccountHalfDeletedError') {   // Markierung steht, Anmelde-Konto nicht gelöscht: Formular bleibt offen (AP12)
+        accountDeletePending = SyncManager.currentUser ? SyncManager.currentUser.uid : '';
+        alert('❌ Deine Cloud-Daten sind schon gelöscht, nur das Anmelde-Konto noch nicht.\n\n'
+          + 'Bitte mit Internet noch einmal „Konto endgültig löschen“ tippen. Die Daten auf diesem Gerät sind unverändert.');
+        return;
+      }
       alert('❌ Das Konto konnte nicht gelöscht werden: ' + e.message
         + '\n\nBitte noch einmal versuchen. Die Daten auf diesem Gerät sind unverändert.');
       return;
     }
+    accountDeletePending = '';
     cancelDeleteAccount();
     forgetCloudLogin();
     if (window.currentConflict) { window.currentConflict = null; closeModal('modal-sync-conflict'); }
@@ -11747,7 +11760,18 @@ async function confirmDeleteAccount() {
 // Das Konto wurde auf einem anderen Gerät gelöscht (Markierung in der Cloud) oder Firebase kennt es nicht mehr:
 // abmelden, Daten bleiben – statt eines rätselhaften Sync-Fehlers nach jeder Eingabe (BUGS Z2).
 async function handleAccountDeleted() {
-  if (accountDeleting || !SyncManager.currentUser) return;
+  const user = SyncManager.currentUser;
+  if (accountDeleting || !user || accountDeletePending === user.uid) return;   // eigene, noch nicht fertige Löschung (AP12)
+  // Gibt es das Anmelde-Konto noch, ist eine Löschung nicht fertig geworden: anbieten, sie abzuschließen (AP12)
+  let stillThere = false;
+  if (typeof user.reload === 'function') { try { await user.reload(); stillThere = true; } catch (e) { stillThere = false; } }
+  if (stillThere) {
+    const answer = await askChoice('Konto löschen nicht fertig',
+      'Deine Cloud-Daten sind gelöscht, das Anmelde-Konto gibt es aber noch. Das Löschen ist nicht fertig geworden.\n\nJetzt abschließen?',
+      [{ label: 'Jetzt abschließen', value: 'finish', primary: true }]);
+    if (answer === 'finish' && SyncManager.currentUser === user) { accountDeletePending = user.uid; startDeleteAccount(); return; }
+  }
+  if (SyncManager.currentUser !== user) return;
   try { await SyncManager.logout(); } catch (e) { /* ohnehin abgemeldet */ }
   forgetCloudLogin();
   if (window.currentConflict) { window.currentConflict = null; closeModal('modal-sync-conflict'); }
@@ -11786,6 +11810,7 @@ function showNewPasswordConfirm() {
   if (!group) return;
   group.classList.remove('hidden');
   updateSyncAttention();
+  updateSyncIndicator();   // AP14
 }
 function cancelNewCloudPassword() {
   const group = document.getElementById('sync-master-password-confirm-group');
@@ -11793,6 +11818,7 @@ function cancelNewCloudPassword() {
   group.classList.add('hidden');
   document.getElementById('sync-master-password-confirm').value = '';
   updateSyncAttention();
+  updateSyncIndicator();   // AP14
 }
 function confirmNewMasterPassword(pwd) {
   if (!pwd) return;
@@ -11858,14 +11884,15 @@ async function confirmCloudPasswordReset() {
   const dbAtStart = db;
   const localModified = db.settings.lastModified;
   try {
-    const newTimestamp = await SyncManager.overwriteCloud(JSON.stringify(db), pwd);
+    const written = JSON.stringify(db);
+    const newTimestamp = await SyncManager.overwriteCloud(written, pwd);
     storeMasterPassword(pwd);
     rememberNewCloudPasswordConfirmed(pwd);
     cancelNewCloudPassword();
     const passInput = document.getElementById('sync-master-password');
     if (passInput) passInput.value = pwd;
     if (window.currentConflict) { window.currentConflict = null; closeModal('modal-sync-conflict'); }
-    if (db === dbAtStart) markSynced(newTimestamp, localModified); // sonst: DB inzwischen ersetzt (Regel 32)
+    if (db === dbAtStart) { markSynced(newTimestamp, localModified); saveSyncBase(newTimestamp, written); } // sonst: DB inzwischen ersetzt (Regel 32); Basis: AP11
     SyncManager.updateStatus('synced'); // sonst stand noch „Konflikt!“ da (BUGS T9)
     cancelCloudPasswordReset();
     updateSyncAttention();
@@ -11936,7 +11963,11 @@ function syncStateInfo(now = new Date()) {
   const changed = isLocalDBChanged();
   const offline = typeof navigator !== 'undefined' && navigator.onLine === false;
   const st = (kind, icon, head, detail, short) => ({ kind, icon, head, detail, short, long: detail ? `${head} · ${detail}` : head });
+  // Erst „wiederholen“, dann „fehlt“: Das offene Wiederholungsfeld zählt sonst als „Passwort fehlt“ (AP14)
+  const confirmGroup = document.getElementById('sync-master-password-confirm-group');
+  if (SyncManager.masterPassword && confirmGroup && !confirmGroup.classList.contains('hidden')) return st('problem', 'alert', 'Sync wartet', 'Passwort wiederholen', 'Sync wartet');
   if (syncNeedsAttention()) return st('problem', 'alert', 'Sync pausiert', 'Passwort fehlt', 'Sync pausiert');
+  if (hasForeignAccountData()) return st('problem', 'alert', 'Sync pausiert', 'anderes Konto', 'Sync pausiert');   // T6-Frage offen oder abgebrochen
   if (window.currentConflict || syncStatusNow === 'conflict') return st('problem', 'alert', 'Abgleich offen', 'wartet auf dich', 'Abgleich offen');
   if (syncStatusNow === 'confirm_password') return st('problem', 'alert', 'Sync wartet', 'Passwort wiederholen', 'Sync wartet');
   if (syncStatusNow === 'error') return changed ? st('problem', 'alert', 'Sync-Fehler', 'Änderungen nur hier', 'Sync-Fehler')
@@ -11947,6 +11978,9 @@ function syncStateInfo(now = new Date()) {
   // „Abgeglichen“ statt „Synchronisiert“: In der 160 px schmalen Leiste wurde das lange Wort auf dem iPad abgeschnitten
   return st('ok', 'check', 'Abgeglichen', when, when ? when.replace(/^heute /, '') : 'Abgeglichen');
 }
+// „heute/gestern“ im Takt und beim Zurückkommen neu rechnen, auch offline (AP15)
+setInterval(() => { if (!document.hidden) updateSyncIndicator(); }, 60000);
+document.addEventListener('visibilitychange', () => { if (!document.hidden) updateSyncIndicator(); });
 function updateSyncIndicator() {
   const info = syncStateInfo();
   const kinds = ['ok', 'busy', 'offline', 'wait', 'problem'];

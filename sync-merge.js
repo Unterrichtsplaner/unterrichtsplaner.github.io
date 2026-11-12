@@ -60,6 +60,8 @@ function mergeBlocksText(v, ctx, other) {
 const MERGE_WEEKDAYS = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'];
 const MERGE_PARTS = { first: ' (1. Hälfte)', second: ' (2. Hälfte)' };
 const mergeSlotPlace = p => `${p.specificDate ? `${mergeShortDate(p.specificDate)}, ` : `${MERGE_WEEKDAYS[p.day] || ''}, `}${p.block}. Stunde${MERGE_PARTS[p.part] || ''}`;
+const mergeSupervisionTime = s => `${s.specificDate ? mergeShortDate(s.specificDate) : MERGE_WEEKDAYS[s.day] || ''}, ${s.start || ''}–${s.end || ''}`
+  + (s.recurring === 'biweekly' ? ', alle 2 Wochen' : s.recurring === 'weekly' || s.recurring === true ? ', jede Woche' : '');
 const MERGE_ATTENDANCE_WORDS = { abwesend: 'Fehlt', entschuldigt: 'Entschuldigt', 'zuspät': 'Zu spät' };
 const MERGE_DAY_TYPES = Object.keys(MERGE_ATTENDANCE_WORDS);
 const MERGE_FACE_WORDS = { excellent: '++ sehr gut', positive: '+ gut', neutral: '− wenig', negative: '−− schwach' };   // Mitarbeit (AH52, wie PART_LEVELS)
@@ -80,6 +82,8 @@ const MERGE_SPEC = {
         blocks: { atomic: 'ask', what: 'Uhrzeiten der Stunden', title: () => 'Einstellungen', show: mergeBlocksText },
         holidays: { list: h => h.id, item: { other: MERGE_LOCAL }, onDelete: 'keep' },
       },
+      // Hintergrund, Karte und Hell/Dunkel nur zusammen, sonst entsteht eine unlesbare Mischung (AP16)
+      together: [{ fields: ['themeBg', 'themeCard', 'theme', 'themeAuto'], atomic: 'local' }],
       other: MERGE_LOCAL,   // Darstellung und Vorlieben: keine Frage wert
     },
     acknowledgedWarnings: { map: { atomic: 'max' }, onDelete: 'keep' },
@@ -131,7 +135,7 @@ const MERGE_SPEC = {
               goal: { atomic: 'ask', what: 'Klassenziel', show: gl => (gl && gl.target ? `${gl.target} Plusse${gl.reward ? `: ${gl.reward}` : ''}` : 'keins') },
               // Persönliche Seiten (AJ2): Tempo samt XP je Level gehört zusammen, Ränge und Joker als Ganzes
               personal: {
-                together: [{ fields: ['level', 'step'], what: 'Tempo der Level', show: p => (p.level || 'normal') }],
+                together: [{ fields: ['level', 'step'], what: 'Tempo der Level', show: p => ({ easy: 'entspannt', normal: 'normal', hard: 'sportlich' }[p.level] || 'normal') }],   // AP17
                 fields: { ranks: { atomic: 'ask', what: 'Ränge', show: r => (r || []).filter(Boolean).join(', ') || 'keine' },
                   jokers: { atomic: 'ask', what: 'Joker', show: j => (j || []).join(', ') || 'keine' },
                   stickers: { atomic: 'ask', what: 'Sticker von dir', show: l => (l || []).map(x => x.name).join(', ') || 'keine' },   // AJ2b
@@ -187,7 +191,9 @@ const MERGE_SPEC = {
       },
       onDelete: 'keep',   // Liste einer ganzen Klasse: das Löschen ganzer Klassen prüft mergeDB vorher
     },
-    supervisions: { list: s => s.id, onDelete: 'ask', title: s => `Aufsicht ${s.place || ''}`.trim(), item: {} },
+    // Zeit der Aufsicht als Ganzes und in Klartext (AP17)
+    supervisions: { list: s => s.id, onDelete: 'ask', title: s => `Aufsicht ${s.place || ''}`.trim(),
+      item: { together: [{ fields: ['day', 'start', 'end', 'recurring', 'startDate', 'specificDate', 'validFrom'], what: 'Zeit der Aufsicht', show: mergeSupervisionTime }] } },
     // Vorlagen der Planung (Y6): entstehen beim Schuljahreswechsel, werden danach nur übernommen oder gelöscht
     planTemplates: {
       list: t => t.id, onDelete: 'ask', title: t => `Vorlage „${t.name || ''}“`,
@@ -195,7 +201,8 @@ const MERGE_SPEC = {
     },
     todos: {
       list: t => t.id, onDelete: 'ask', title: t => `Merkzettel „${t.text || ''}“`,
-      item: { fields: { text: MERGE_TEXT, done: { atomic: 'max' }, doneAt: { atomic: 'max' } } },
+      item: { fields: { text: MERGE_TEXT, done: { atomic: 'max' }, doneAt: { atomic: 'max' },
+        groupId: { atomic: 'ask', show: (v, ctx) => (ctx.groupName && ctx.groupName(v)) || 'keine Klasse' } } },   // AP17
     },
   },
 };

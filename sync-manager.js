@@ -91,6 +91,7 @@ const SyncManager = {
   currentUser: null,
   config: null,
   masterPassword: '',
+  versionWaitMs: 5000,   // so lange wartet ein Upload höchstens auf die Tages-Sicherung (AP13)
   isInitialized: false,
 
   // Event-Callbacks, die von app.js registriert werden können
@@ -244,10 +245,16 @@ const SyncManager = {
     await this.deleteCloudVersions();   // vorher: nach dem Löschen des Kontos kommt niemand mehr an sie heran (Z4)
     const docRef = this._docRef();
     await this.db.runTransaction(async (tx) => {
-      await tx.get(docRef);
+      const snap = await tx.get(docRef);
+      if (snap.exists && snap.data().deleted) return;   // zweiter Versuch: Markierung steht schon (AP12)
       tx.set(docRef, { deleted: true, format: 'deleted', deletedAt: Date.now() });
     });
-    await user.delete();
+    try {
+      await user.delete();
+    } catch (e) {
+      // Markierung steht, Anmelde-Konto nicht gelöscht: eigener Fehler, damit die App ehrlich meldet (AP12)
+      throw Object.assign(new Error('Anmelde-Konto nicht gelöscht: ' + e.message), { name: 'AccountHalfDeletedError', code: e && e.code });
+    }
     this.masterPassword = '';
     this.currentUser = null;
   },
@@ -388,7 +395,9 @@ const SyncManager = {
       return ts;
     });
     // Erst nach dem Upload und ohne ihn zu gefährden: der bisherige Stand als Tages-Sicherung (Z4)
-    await this._keepDailyVersion(previous);
+    // Höchstens kurz warten: Ohne Netz kehrt ein Firestore-Schreiben erst zurück, wenn das Netz wieder da ist –
+    // der Upload ist aber schon fertig (AP13). Fehler fängt _keepDailyVersion selbst ab.
+    await Promise.race([this._keepDailyVersion(previous), new Promise(r => setTimeout(r, this.versionWaitMs))]);
     return newTimestamp;
   },
 
