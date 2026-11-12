@@ -14,6 +14,7 @@ const ASSETS = [
   './js/sitzplan.js?v=556',
   './js/dashboard.js?v=556',
   './js/einstellungen.js?v=556',
+  './js/bericht.js?v=556',
   './app.js?v=556',
   './style.css?v=556',
   './manifest.json',
