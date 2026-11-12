@@ -3,6 +3,7 @@ const ASSETS = [
   './',
   './index.html',
   './sync-merge.js?v=556',
+  './js/grundlagen.js?v=556',
   './app.js?v=556',
   './style.css?v=556',
   './manifest.json',
