@@ -61,7 +61,7 @@
       }
     })();
   </script>
-  <link rel="stylesheet" href="style.css?v=549" />
+  <link rel="stylesheet" href="style.css?v=550" />
   <script>
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
@@ -769,8 +769,11 @@
         <div class="form-group"><label for="new-student-first">Vorname</label><input type="text" id="new-student-first" placeholder="Vorname" class="form-input" /></div>
         <div class="form-group"><label for="new-student-last">Nachname</label><input type="text" id="new-student-last" placeholder="Nachname" class="form-input" /></div>
       </div>
+      <div id="student-hints-veil" class="lc-veil hidden"><span>Hinweise, am Beamer verborgen</span><button type="button" class="btn-secondary">Anzeigen</button></div>
+      <div id="student-hints-fields">
       <div class="form-group"><label for="new-student-important" class="label-important"><i data-icon="alert"></i>Wichtig (optional)</label><textarea id="new-student-important" placeholder="z. B. Diabetes, Allergie, Nachteilsausgleich …" class="form-input" rows="2"></textarea></div>
       <div class="form-group"><label for="new-student-notes">Sonstige Hinweise</label><textarea id="new-student-notes" placeholder="z. B. mag Fußball, sitzt gern am Fenster …" class="form-input" rows="2"></textarea><p class="field-hint-muted">Im Sitzplan nur als Symbol auf der Karte, Wichtiges als rotes Ausrufezeichen. Den Text siehst du erst beim Antippen.</p></div>
+      </div>
       <!-- Geburtstag am Ende: direkt unter dem Namen sprang „Weiter“ hinein, und iOS trug das heutige Datum ein (AH7) -->
       <div class="form-group"><label for="new-student-birthday">Geburtstag (optional)</label><input type="date" id="new-student-birthday" class="form-input" /></div>
     </div>
@@ -1847,15 +1850,15 @@
   </div>
 
   <script src="lib/crypto-js.min.js"></script>
-  <script src="crypto-helper.js?v=549"></script>
+  <script src="crypto-helper.js?v=550"></script>
   <script src="lib/firebase-app-compat.js"></script>
   <script src="lib/firebase-auth-compat.js"></script>
   <script src="lib/firebase-firestore-compat.js"></script>
-  <script src="firebase-config.js?v=549"></script>
-  <script src="sync-manager.js?v=549"></script>
-  <script src="sync-merge.js?v=549"></script>
+  <script src="firebase-config.js?v=550"></script>
+  <script src="sync-manager.js?v=550"></script>
+  <script src="sync-merge.js?v=550"></script>
   <script src="lib/qrcode.js"></script>
-  <script src="student-share.js?v=549"></script>
-  <script src="app.js?v=549"></script>
+  <script src="student-share.js?v=550"></script>
+  <script src="app.js?v=550"></script>
 </body>
 </html>

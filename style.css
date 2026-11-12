@@ -1242,6 +1242,9 @@ button.date-chip{font-family:inherit;padding:0;}
 #sw-more[hidden]{display:none;}
 /* Beamer (AH28): Noten, Mitarbeit, Notizen, Hinweise erst nach einem „Anzeigen“ */
 #sw-more:not(.is-veiled) .sw-veil{display:none;}
+/* Am Beamer verborgen (AS7, AS9): Klassennotizen/Merkzettel im Stunden-Fenster aus dem Sitzplan, Hinweise im Schüler-Formular */
+.lc-veil{display:flex;align-items:center;justify-content:space-between;gap:var(--space-2);padding:var(--space-2) var(--space-3);border:1px dashed var(--border);border-radius:var(--radius-sm);color:var(--text-secondary);font-size:13px;}
+#student-hints-veil{margin-bottom:var(--space-4);}
 #sw-more.is-veiled [data-private]{display:none;}
 .sw-sec .entry-list{max-height:none;overflow:visible;gap:0;}
 /* Einträge als ruhige Zeilen statt Einzelkarten (AH28) */

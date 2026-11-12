@@ -2315,9 +2315,20 @@ function findUpcomingLessonDates(slotId, fromDateStr, maxCount = 4) {
 let currentLessonDataKey = null;
 let lessonTogglesShown = { hwEnabled: false, testEnabled: false }; // Schalterstand beim Öffnen (BUGS R7)
 
-function openLessonDetail(slotId, dateStr) {
+// Aus dem Sitzplan geöffnet (Beamer): Klassennotizen und Merkzettel erst nach „Anzeigen“ (AS7, Regel 71/73). Nie gespeichert.
+let lessonPrivateVeiled = false;
+function showLessonPrivate() {
+  lessonPrivateVeiled = false;
+  const slot = activeLessonId && db.lessonSlots.find(s => s.id === activeLessonId);
+  if (!slot) return;
+  renderLessonClassNotes(slot, activeLessonDate, true);
+  renderLessonTodos(slot);
+}
+const lessonVeilHTML = (n, one, many) => `<div class="lc-veil"><span>${n} ${n === 1 ? one : many}, am Beamer verborgen</span><button type="button" class="btn-secondary lc-veil-btn">Anzeigen</button></div>`;
+function openLessonDetail(slotId, dateStr, { fromSeating = false } = {}) {
   const slot = db.lessonSlots.find(s => s.id === slotId);
   if (!slot) return;
+  lessonPrivateVeiled = !!fromSeating;
 
   activeLessonId   = slotId;
   activeLessonDate = dateStr;
@@ -4708,7 +4719,15 @@ function importStudentsFromText() {
   showToast(count + ' Schüler importiert ✓');
 }
 
+function setStudentHintsVeiled(veiled, n = 0) {
+  document.getElementById('student-hints-fields').classList.toggle('hidden', veiled);
+  const veil = document.getElementById('student-hints-veil');
+  veil.classList.toggle('hidden', !veiled);
+  veil.querySelector('span').textContent = `${n} ${n === 1 ? 'Hinweis' : 'Hinweise'}, am Beamer verborgen`;
+}
+document.querySelector('#student-hints-veil button')?.addEventListener('click', () => setStudentHintsVeiled(false));
 function openAddStudent() {
+  setStudentHintsVeiled(false);
   editingStudentId = null;
   document.getElementById('student-modal-title').textContent = 'Schüler hinzufügen';
   ['new-student-first','new-student-last','new-student-important','new-student-notes','new-student-birthday'].forEach(id => document.getElementById(id).value = '');
@@ -4874,7 +4893,7 @@ function deleteStudentNote(note) {
   const s = getCurrentStudent(); if (!s) return;
   const idx = (s.studentNotes||[]).indexOf(note);
   if (idx === -1) { renderStudentNotesList(s); return; }
-  s.studentNotes.splice(idx,1); saveDB(); renderStudentNotesList(s);
+  s.studentNotes.splice(idx,1); saveDB(); renderStudentNotesList(s); refreshStudentViews(profileGroupId);   // Notizzettel auf der Karte (AS10)
   offerProfileUndo('Anmerkung gelöscht', s, 'studentNotes', note);
 }
 // Ein Tipp aufs ✕ löscht sofort – deshalb „Rückgängig“ wie im Sitzplan (BUGS U3, Regel 45)
@@ -5064,6 +5083,9 @@ function openEditStudent() {
   document.getElementById('new-student-important').value = s.importantNote||'';
   document.getElementById('new-student-birthday').value = validBirthday(s.birthday) ? s.birthday : '';
   editingStudentGroupId = profileGroupId;
+  // Hinweise nur, wenn sie im Schüler-Fenster schon eingeblendet waren (AS9, Regel 67); die Felder behalten ihren Wert
+  const n = [s.importantNote, s.notes].filter(x => String(x || '').trim()).length;
+  setStudentHintsVeiled(n > 0 && !swShown, n);
   closeModal('modal-seating-student');
   openModal('modal-add-student');
 }
@@ -6597,12 +6619,12 @@ function openSeatingTodayLesson() {
   if (!seatingTodayLesson) return;
   const { slotId, dateStr } = seatingTodayLesson;
   closeModal('modal-seating-today');
-  openLessonDetail(slotId, dateStr);
+  openLessonDetail(slotId, dateStr, { fromSeating: true });
 }
 function openCockpitLesson() {
   if (!cockpitLesson) return;
   closeModal('modal-seating-today');
-  openLessonDetail(cockpitLesson.slotId, cockpitLesson.dateStr);
+  openLessonDetail(cockpitLesson.slotId, cockpitLesson.dateStr, { fromSeating: true });
 }
 // ─── Fenster „Thema der Stunde“ aus der Sitzplan-Leiste (AI2) ──────────────
 // Letzte Stunde (Unterrichtsinhalt), Thema dieser Stunde (Planung, wie die Thema-Karte im Stunden-Fenster) und ihr
@@ -7140,7 +7162,13 @@ function fillLessonTodos(slot) {
   if (!box) return;
   const open = slot && slot.groupId ? sortOpenTodos(todosOf().filter(t => !t.done && t.groupId === slot.groupId)) : [];
   box.classList.toggle('hidden', !open.length);
-  box.innerHTML = open.length ? `<div class="notes-section-header"><span class="notes-section-icon">${icon('todo')}</span><span class="notes-section-label">Merkzettel</span></div><div class="todo-list"></div>` : '';
+  const head = `<div class="notes-section-header"><span class="notes-section-icon">${icon('todo')}</span><span class="notes-section-label">Merkzettel</span></div>`;
+  if (open.length && lessonPrivateVeiled) {   // aus dem Sitzplan: am Beamer verborgen (AS7)
+    box.innerHTML = head + lessonVeilHTML(open.length, 'Punkt', 'Punkte');
+    box.querySelector('.lc-veil-btn').addEventListener('click', showLessonPrivate);
+    return;
+  }
+  box.innerHTML = open.length ? `${head}<div class="todo-list"></div>` : '';
   open.forEach(t => box.querySelector('.todo-list').appendChild(todoRow(t)));
 }
 function refreshTodoViews() {
@@ -8080,9 +8108,10 @@ function onToggleShowGridAlways(checked) {
 // Bei nur einem Namen („Max“) ohne führendes Leerzeichen, sonst findet removeAbsenceNote den Hinweis nie (BUGS L4)
 function absenceNoteText(s) { return `${[s.firstName, s.lastName].filter(Boolean).join(' ')} hat letzte Stunde unentschuldigt gefehlt`; }
 // Nächste Stunde der Klasse nach dateStr, die wirklich stattfindet (A/B-Woche, Vertretung, Ausfall)
+const ABSENCE_NOTE_DAYS = 70;   // Hinweis eintragen und wieder finden: gleich weit, auch über die Sommerferien (Y8, AS11)
 function nextLessonOfGroup(groupId, dateStr) {
   let d = parseDate(dateStr);
-  for (let i = 0; i < 70; i++) {   // auch über die Sommerferien (Y8)
+  for (let i = 0; i < ABSENCE_NOTE_DAYS; i++) {   // auch über die Sommerferien (Y8)
     d = addDays(d, 1);
     if (!isSchoolDay(d)) continue;
     const hit = lessonsOnDate(formatDate(d)).find(l => l.slot.groupId === groupId && !l.ausfall);
@@ -8123,7 +8152,7 @@ function replaceAbsenceNoteLines(groupId, dateStr, s, newText, keep = null) {
     notes.push(`${s.firstName} hat letzte Stunde unentschuldigt gefehlt`);
   }
   const slotIds = new Set(db.lessonSlots.filter(slot => slot.groupId === groupId).map(slot => slot.id));
-  const until = formatDate(addDays(parseDate(dateStr), 28));
+  const until = formatDate(addDays(parseDate(dateStr), ABSENCE_NOTE_DAYS));   // so weit wie beim Eintragen (AS11)
   Object.keys(db.lessonData).forEach(key => {
     const sep = key.lastIndexOf('_');
     const slotId = key.slice(0, sep), keyDate = key.slice(sep + 1);
@@ -8802,6 +8831,12 @@ function refreshStudentViews(groupId) {
   const lessonSlot = !document.getElementById('modal-lesson').classList.contains('hidden')
     && db.lessonSlots.find(s => s.id === activeLessonId);
   if (lessonSlot && lessonSlot.groupId === groupId) renderLessonAbsent(lessonSlot, activeLessonDate);
+  // Offenes Schüler-Fenster: Zentrale, „Heute: …“ und gedrückte Knöpfe oben passend zu „Mehr“ (AS10)
+  const ctx = window.currentSeatingStudent;
+  if (ctx && profileGroupId === groupId && !document.getElementById('modal-seating-student').classList.contains('hidden')) {
+    const cur = getCurrentStudent();
+    if (cur) markSeatingStudentState(cur, ctx.dateStr);
+  }
 }
 
 // ─── Lesson Quick Access ──────────────────────────────────────────────────
@@ -9623,14 +9658,17 @@ function fillLessonClassNotes(slot, dateStr, keepTyped) {
   box.classList.toggle('hidden', !g);
   if (!g) { box.innerHTML = ''; return; }
   const notes = activeClassNotes(g, dateStr);
+  const veiled = lessonPrivateVeiled && notes.length;
   box.innerHTML = `<div class="notes-section-header"><span class="notes-section-icon">${icon('pin')}</span><span class="notes-section-label">Notiz für die Klasse</span></div>`
-    + (notes.length ? `<div class="lcn-row">${classNotesInlineHTML(notes, 'lcn-notes')}<button type="button" class="btn-secondary lcn-btn">Ändern</button></div>` : '')
+    + (veiled ? lessonVeilHTML(notes.length, 'Notiz', 'Notizen')
+      : notes.length ? `<div class="lcn-row">${classNotesInlineHTML(notes, 'lcn-notes')}<button type="button" class="btn-secondary lcn-btn">Ändern</button></div>` : '')
     + `<div class="lcn-add"><input type="text" id="lesson-class-note-input" class="entry-input" placeholder="z. B. Buch vergessen" aria-label="Neue Notiz für die Klasse" />`
     + `<button type="button" class="btn-secondary btn-circle lcn-add-btn" aria-label="Notiz für die Klasse hinzufügen">${icon('plus')}</button></div>`;
   const input = box.querySelector('#lesson-class-note-input');
   input.value = typed;
   input.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); addLessonClassNote(); } });
   box.querySelector('.lcn-add-btn').addEventListener('click', () => addLessonClassNote());
+  box.querySelector('.lc-veil-btn')?.addEventListener('click', showLessonPrivate);
   const btn = box.querySelector('.lcn-btn');
   if (btn) btn.addEventListener('click', () => openClassNotes(g.id));
 }
@@ -10065,7 +10103,7 @@ function lessonCardHasContent(key) {
   const el = document.querySelector(LESSON_CARDS.find(c => c.key === key).sel);
   if (LESSON_CARDS.find(c => c.key === key).always) return true;
   if (key === 'plan') return !!el.querySelector('.lesson-plan-row.is-done') || !!(el.querySelector('#lesson-plan-input')?.value.trim());
-  if (key === 'classnotes') return !!el.querySelector('.cn-chip');
+  if (key === 'classnotes') return !!el.querySelector('.cn-chip, .lc-veil');
   if (key === 'content' || key === 'notes') return !!el.querySelector('textarea').value.trim();
   const incoming = document.getElementById(`${key}-incoming-list`);
   return document.getElementById(`${key}-toggle`).checked || !!document.querySelector(`#${key}-items-list .entry-item`)
@@ -10709,9 +10747,9 @@ function collectWarnings() {
           && warningAckFresh(ack, warningAckBase(s.id, 'grade', range))
           && (points ? avg >= ackAvg : avg <= ackAvg);
         if (critical && !notWorse && !warningAcknowledged(ack, s, 'grade', grades.length)) {
-          warnings.push({ student: s, group, type: 'grade', count: grades.length,
+          warnings.push({ student: s, group, type: 'grade', count: grades.length, avg,   // avg nur intern, nie angezeigt (AS8)
             title: 'Kritischer Notenstand',
-            desc: `${name} steht aktuell auf ${points ? formatGradeAverage(avg) + ' Punkten' : formatGradeAverage(avg, 2)}.` });
+            desc: `${name}: Notenstand kritisch.` });   // nie die Zahl: das Dashboard kann am Beamer offen sein (AS8, Regel 78)
         }
       }
     });
@@ -12045,7 +12083,8 @@ function flushPendingSync() {
 // verloren: Eingetipptes im Stunden-Fenster deshalb schon jetzt übernehmen, das Fenster bleibt offen (BUGS T3).
 function onAppHidden() {
   hideAllPasswords();
-  if (classGradesShown) { hideClassGrades(); rerenderClassTab(); }   // Beamer-Schutz: nach der Pause wieder verborgen (AH24 c)
+  if (classGradesShown) { hideClassGrades(); rerenderClassTab(); }
+  dashboardOpenGroups.clear();   // „Auffällig“ nach der Pause wieder zugeklappt (AS8)   // Beamer-Schutz: nach der Pause wieder verborgen (AH24 c)
   // Sitzplan genauso: Noten/Verlauf und ein aufgedecktes Schüler-Fenster sind beim Zurückkommen wieder verborgen (AS1)
   if (seatingShowGrades || seatingShowTrend) {
     hideSeatingGrades();

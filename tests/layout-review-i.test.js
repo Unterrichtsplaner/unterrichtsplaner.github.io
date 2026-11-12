@@ -367,7 +367,7 @@ describe('Paket 5a: Texte', () => {
     const texts = w.map(x => x.desc).join(' | ');
     expect(texts).toContain('hat einmal die Hausaufgaben vergessen');
     expect(texts).not.toContain('1-mal');
-    expect(texts).toMatch(/steht aktuell auf 4,50/);
+    expect(texts).toMatch(/Notenstand kritisch/);   // ohne Zahl (AS8, Beamer)
   });
 
   it('I14: „1 Note“ / „3 Noten“ statt „Note(n)“', () => {

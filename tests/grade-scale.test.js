@@ -143,8 +143,8 @@ describe('Warnungen', () => {
     const w = app('collectWarnings()').filter(x => x.type === 'grade');
     const names = w.map(x => x.student.firstName).sort();
     expect(names).toEqual(['Anna', 'Dora']); // Cara (13,5) und Ben (7,5) nicht, obwohl ≥ 4,5
-    expect(w.find(x => x.student.firstName === 'Dora').desc).toContain('3,5 Punkten');
-    expect(w.find(x => x.student.firstName === 'Anna').desc).toContain('5,00');
+    expect(w.find(x => x.student.firstName === 'Dora').avg).toBe(3.5);   // Zahl nicht im Text (AS8, Beamer)
+    expect(w.find(x => x.student.firstName === 'Anna').avg).toBe(5);
   });
 
   it('Schwelle für Punkte einstellbar, 0 = aus', () => {

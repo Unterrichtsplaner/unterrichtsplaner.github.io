@@ -194,7 +194,7 @@ describe('Warnungen: laufendes Halbjahr (Y7)', () => {
     expect(warn('grade')).toEqual([]);   // 1. Halbjahr: 2,5
     setNow(2027, 3, 15);
     expect(app('periodKey()')).toBe('year');
-    expect(warn('grade')[0].desc).toMatch(/4,50/);   // 2. Halbjahr: 4,5 (Schuljahr wäre 3,5)
+    expect(warn('grade')[0].avg).toBe(4.5);   // 2. Halbjahr: 4,5 (Schuljahr wäre 3,5)
   });
 
   it('Löschen eines Schülers räumt auch die Quittungen fürs 2. Halbjahr auf', () => {
