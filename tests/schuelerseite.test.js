@@ -196,6 +196,14 @@ describe('Schülerseite', () => {
     expect(page().textContent).toContain(`Peter's "Test"`);
   });
 
+  it('AT1: ein präparierter Zustand eines Themas landet nicht im HTML, unbekannte Zustände gelten als „später“', () => {
+    const d = sample();
+    d.toc = { fromLessons: false, items: [{ title: 'Brüche', state: `x"><img data-xss src=x onerror=alert(1)><i class="`, lessons: [{ date: '2026-11-02', text: 'Kürzen' }] }] };
+    window.renderStudentPage(d);
+    expect(document.querySelectorAll('[data-xss]').length).toBe(0);
+    expect(page().querySelector('.toc .row:not(.test)').className).toBe('row later');
+  });
+
   it('Aufträge für sich abhaken: bleibt nur auf dem Handy, Klick schaltet um', () => {
     vi.useFakeTimers({ toFake: ['Date'] });
     vi.setSystemTime(NOW);

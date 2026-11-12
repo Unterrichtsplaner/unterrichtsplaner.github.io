@@ -56,7 +56,7 @@ class AccountDeletedError extends Error {
 const CLOUD_MAX_BYTES = 1000000;
 // Ab hier wird gewarnt, damit der Nutzer rechtzeitig aufräumen kann.
 const CLOUD_WARN_BYTES = 750000;
-const CLOUD_VERSIONS_KEEP = 14;   // Tage mit Cloud-Sicherung (Z4)
+const CLOUD_VERSIONS_KEEP = 14;   // Cloud-Sicherungen: Kalendertage (heute und die 13 davor), höchstens so viele Stück (Z4, AU2)
 
 function cloudDocSize(doc) {
   return Object.entries(doc).reduce((n, [k, v]) => n + k.length + 1 + (typeof v === 'string' ? v.length + 1 : 8), 32);
@@ -410,8 +410,13 @@ const SyncManager = {
         await this._versionsRef().doc(day).set({ ...previous, keptAt: Date.now() });
         days.push({ day, savedAt: previous.lastModified });
         days.sort((a, b) => b.day.localeCompare(a.day));
-        await this._versionsRef().doc('index').set({ days: days.slice(0, CLOUD_VERSIONS_KEEP) });
-        for (const old of days.slice(CLOUD_VERSIONS_KEEP)) await this._versionsRef().doc(old.day).delete();
+        // „14 Tage lang“ heißt Kalendertage (heute und die 13 davor), höchstens 14 Stück: Nach Ferien ohne Upload
+        // blieben sonst alte Stände wochenlang liegen – mit Gelöschtem darin (AU2, Datenschutzhinweis).
+        const cut = new Date(); cut.setDate(cut.getDate() - (CLOUD_VERSIONS_KEEP - 1));
+        const oldest = this._localDay(cut);
+        const keep = days.filter(x => x.day >= oldest).slice(0, CLOUD_VERSIONS_KEEP);
+        await this._versionsRef().doc('index').set({ days: keep });
+        for (const old of days.filter(x => !keep.includes(x))) await this._versionsRef().doc(old.day).delete();
       }
       try { localStorage.setItem(mark, day); } catch (e) { /* privat: dann prüft das Verzeichnis */ }
       this.versionsProblem = null;

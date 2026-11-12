@@ -34,7 +34,9 @@
   // Inhaltsverzeichnis (AJ5). Neuer Auszug: d.toc = { items: [{ title, state: done|now|later, unit, of, from, lessons: [{ date, text }] }],
   // fromLessons }. Ältere Planer schicken d.topics (AJ1) – das wird hier umgebaut (Regel 15).
   function tocOf(d) {
-    if (d.toc && Array.isArray(d.toc.items)) return { items: d.toc.items.filter(x => x && x.title), fromLessons: !!d.toc.fromLessons };
+    // Nur bekannte Zustände: Der Wert landet als Klasse im HTML (AT1); Unbekanntes gilt als „später“
+    const STATES = ['done', 'now', 'later'];
+    if (d.toc && Array.isArray(d.toc.items)) return { items: d.toc.items.filter(x => x && x.title).map(x => STATES.includes(x.state) ? x : { ...x, state: 'later' }), fromLessons: !!d.toc.fromLessons };
     const t = d.topics;
     if (!t) return null;
     const items = [];
@@ -67,8 +69,8 @@
         : all.length === 1 && !ls.length ? `am ${short(all[0].date)}` : '';
     const head = `<span class="no">${n}</span><span class="tt"><span class="tx">${esc(x.title)}</span>${sub ? `<small>${esc(sub)}</small>` : ''}</span>
       <span class="lead" aria-hidden="true"></span><span class="pg">${esc(right)}</span>`;
-    if (!ls.length) return `<div class="row ${x.state}">${head}</div>`;
-    return `<details class="row ${x.state}"><summary>${head}</summary>
+    if (!ls.length) return `<div class="row ${esc(x.state)}">${head}</div>`;
+    return `<details class="row ${esc(x.state)}"><summary>${head}</summary>
       <div class="more"><p class="more-h">Das habt ihr gemacht</p>${lessonsHTML(ls)}</div></details>`;
   }
   function testRow(x, today) {

@@ -45,7 +45,7 @@ lib/crypto-js.min.js → crypto-helper.js → lib/firebase-*-compat.js → fireb
 | `firebase-config.js` | Öffentliche Firebase-Web-Config. Die ist absichtlich öffentlich, Schutz passiert über Firestore-Regeln + E2EE |
 | `lib/` | Fremdbibliotheken (vendored). **Nicht anfassen.** |
 | `server.js` | Nur Dev-Server (`npm run serve`), liefert keine versteckten Dateien aus |
-| `lib/qrcode.js`, `lib/fonts/` | QR-Code (qrcode-generator, MIT) und Schrift Archivo (OFL) für die Schülerapp, siehe `lib/LIZENZEN.txt` |
+| `lib/qrcode.js`, `lib/fonts/` | QR-Code (qrcode-generator, MIT), Schrift Archivo (OFL) für die Schülerapp und Inter (OFL) für den Planer, siehe `lib/LIZENZEN.txt`. Nichts von fremden Servern laden (Datenschutzhinweise, AU1) |
 
 ## Datenmodell
 
@@ -111,7 +111,7 @@ db = {
 - Vor jedem Upload merkt sich das Gerät, was es hochlädt (`syncSettings.pendingUpload`, SHA-256). Kam die Antwort nie an, erkennt der nächste Sync den eigenen Stand in der Cloud wieder (`ownUpload` → `recovered`), statt einen Konflikt gegen die eigenen Daten zu melden (T4).
 - Gehören die lokalen Daten laut `syncSettings.uid` zu einem anderen Konto, fragt der Sync vorher (übernehmen / vom Gerät löschen, `askAboutForeignAccountData`). Abmelden fragt, ob die Daten auf dem Gerät bleiben (T6).
 - Beim Verlassen der App (`onAppHidden`) wird ein offenes Stunden-Fenster übernommen, dann der wartende Autosave gesendet.
-- **Cloud-Sicherungen** (Z4): `saveToCloud` legt beim ersten Upload eines Tages den **bisherigen** Cloud-Stand unverändert (verschlüsselt) unter `users_data/<uid>/versions/<Tag>` ab, Verzeichnis `versions/index`, 14 Tage (`CLOUD_VERSIONS_KEEP`). Nur nach dem Upload und ohne ihn zu gefährden (`_keepDailyVersion` fängt alles ab, `versionsProblem`). Zurückholen über `restoreMergeBackup` (Gerät + Cloud, vorher Sicherheitsnetz `restore`). Wer die Cloud leert oder das Konto löscht, löscht auch die Sicherungen (`deleteCloudVersions`).
+- **Cloud-Sicherungen** (Z4): `saveToCloud` legt beim ersten Upload eines Tages den **bisherigen** Cloud-Stand unverändert (verschlüsselt) unter `users_data/<uid>/versions/<Tag>` ab, Verzeichnis `versions/index`, 14 Kalendertage (heute und die 13 davor, höchstens 14 Stück, `CLOUD_VERSIONS_KEEP`; so steht es in den Datenschutzhinweisen, AU2). Nur nach dem Upload und ohne ihn zu gefährden (`_keepDailyVersion` fängt alles ab, `versionsProblem`). Zurückholen über `restoreMergeBackup` (Gerät + Cloud, vorher Sicherheitsnetz `restore`). Wer die Cloud leert oder das Konto löscht, löscht auch die Sicherungen (`deleteCloudVersions`).
 - **Cloud leeren** (Z1, `clearAllDataEverywhere`): leerer Stand als neue Cloud-Version, Dokument bleibt; das Gerät behält den Sync-Stand (gilt nicht als neu). **Konto löschen** (Z2, `SyncManager.deleteAccount`): Dokument wird zur Markierung `{ deleted, format: 'deleted' }` ohne Daten, dann `user.delete()`. Wer die Cloud liest, prüft zuerst `deleted` (`AccountDeletedError`), nie ein fehlendes Dokument als „gelöscht“ deuten.
 
 Datumswerte sind Strings `YYYY-MM-DD` in **lokaler** Zeit (`formatDate()`). Nie `toISOString()` für Datumsstrings verwenden, und `new Date('YYYY-MM-DD')` nur mit `+ 'T12:00:00'`.

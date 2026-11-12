@@ -61,7 +61,7 @@
       }
     })();
   </script>
-  <link rel="stylesheet" href="style.css?v=536" />
+  <link rel="stylesheet" href="style.css?v=537" />
   <script>
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
@@ -1284,7 +1284,7 @@
       <ul>
         <li>Deine Daten (Klassen, Schüler, Noten, Fehlzeiten, Notizen) liegen <strong>auf diesem Gerät</strong>, im Speicher des Browsers.</li>
         <li>Ohne Anmeldung beim Cloud-Sync verlassen sie das Gerät nie.</li>
-        <li>Mit Cloud-Sync geht nur eine <strong>verschlüsselte</strong> Kopie auf einen Server. Verschlüsselt wird auf deinem Gerät mit deinem Master-Passwort. Ohne dieses Passwort kann niemand die Daten lesen, auch nicht der Betreiber der App oder Google.</li>
+        <li>Mit Cloud-Sync gehen nur <strong>verschlüsselte</strong> Kopien auf einen Server: der aktuelle Stand und eine Sicherung vom Beginn jedes Tages der letzten 14 Tage. Verschlüsselt wird auf deinem Gerät mit deinem Master-Passwort. Ohne dieses Passwort kann niemand die Daten lesen, auch nicht der Betreiber der App oder Google.</li>
         <li>Kein Tracking, keine Werbung, keine Analyse-Dienste, keine fremden Schriften oder Skripte.</li>
       </ul>
 
@@ -1302,7 +1302,8 @@
         <li>Anbieter: Google Firebase (Anmeldung und Datenbank Firestore).</li>
         <li>Gespeichert werden: deine E-Mail-Adresse bzw. dein Google-Konto für die Anmeldung und ein verschlüsseltes Datenpaket (AES-256-GCM, Schlüssel aus dem Master-Passwort per PBKDF2) mit dem Zeitpunkt der letzten Änderung.</li>
         <li>Wie jeder Server-Dienst verarbeitet Google dabei technische Daten wie deine IP-Adresse. Eine Übermittlung in die USA ist dabei nicht ausgeschlossen. Schülerdaten sind davon nur verschlüsselt betroffen.</li>
-        <li>Jedes Konto kann nur sein eigenes Datenpaket lesen und schreiben.</li>
+        <li>Sicherungen: Beim ersten Abgleich eines Tages legt die App den bisherigen Stand als Sicherung ab, genauso verschlüsselt. Sicherungen, die älter als 14 Tage sind, löscht sie beim nächsten Abgleich. Bis dahin stehen gelöschte Einträge (z. B. ein Schüler, der die Schule verlassen hat) noch in den Sicherungen. „Alles löschen, auch in der Cloud“ und „Cloud-Konto löschen“ entfernen auch alle Sicherungen.</li>
+        <li>Jedes Konto kann nur sein eigenes Datenpaket und seine eigenen Sicherungen lesen und schreiben.</li>
         <li>Schülerapp (nur wenn du sie einschaltest): Für jede freigegebene Klasse liegt ein eigenes kleines Datenpaket in Firestore, verschlüsselt mit einem Schlüssel, der nur im Link bzw. Code für die Klasse steht. Es enthält die Themen mit dem Text aus „Was wurde behandelt“ (nie die Stundennotizen), Hausaufgaben, Tests, nächste Stunden und die Plusse der ganzen Klasse je Stunde, nie Namen oder Noten. Schaltest du persönliche Seiten ein, kommt je Schüler ein eigenes Paket dazu (eigener Schlüssel im Link des Schülers): Vorname, Level, Rückmeldung zur Mitarbeit, Rang und Joker, nie Noten oder Fehlzeiten. Das vorher mit der Schulleitung bzw. Datenschutzbeauftragten klären. Lesen kann es, wer den Link hat; ändern und löschen nur dein Konto. Abschalten oder ein neuer Link löscht es.</li>
         <li>Deine Cloud-Daten und dein Konto löschen: selbst unter Einstellungen → Cloud-Synchronisierung → „Cloud-Konto löschen“ (nur die Cloud-Daten: Datenverwaltung → „Alles löschen, auch in der Cloud“). Klappt das nicht, genügt eine kurze E-Mail an den Betreiber (siehe unten).</li>
       </ul>
@@ -1845,15 +1846,15 @@
   </div>
 
   <script src="lib/crypto-js.min.js"></script>
-  <script src="crypto-helper.js?v=536"></script>
+  <script src="crypto-helper.js?v=537"></script>
   <script src="lib/firebase-app-compat.js"></script>
   <script src="lib/firebase-auth-compat.js"></script>
   <script src="lib/firebase-firestore-compat.js"></script>
-  <script src="firebase-config.js?v=536"></script>
-  <script src="sync-manager.js?v=536"></script>
-  <script src="sync-merge.js?v=536"></script>
+  <script src="firebase-config.js?v=537"></script>
+  <script src="sync-manager.js?v=537"></script>
+  <script src="sync-merge.js?v=537"></script>
   <script src="lib/qrcode.js"></script>
-  <script src="student-share.js?v=536"></script>
-  <script src="app.js?v=536"></script>
+  <script src="student-share.js?v=537"></script>
+  <script src="app.js?v=537"></script>
 </body>
 </html>

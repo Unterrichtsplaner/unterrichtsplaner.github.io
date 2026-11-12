@@ -1,2 +1,3 @@
 qrcode.js: qrcode-generator 1.4.4 von Kazuhiko Arase, MIT-Lizenz (https://github.com/kazuhikoarase/qrcode-generator)
 fonts/archivo-wdth.woff2: Archivo (Omnibus-Type), SIL Open Font License 1.1, siehe fonts/ARCHIVO-OFL.txt (Paket @fontsource-variable/archivo 5)
+fonts/inter-latin-wght.woff2, fonts/inter-latin-ext-wght.woff2: Inter (Rasmus Andersson), SIL Open Font License 1.1, siehe fonts/INTER-OFL.txt (Paket @fontsource-variable/inter 5.3.0, Teilmengen latin und latin-ext)

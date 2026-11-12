@@ -369,11 +369,13 @@ function adoptStoredDB() {
 
 // Ganze DB austauschen und alles, was an ihr hängt, neu zeichnen (Cloud-Übernahme, anderes Fenster, Löschen)
 function replaceDB(newDB) {
-  db = newDB;
-  updateAppliedThemeFromDB();
   // Offene Einstellungen zeigen sonst den alten Stand, und „Speichern“ schriebe ihn samt alter Blöcke zurück (BUGS P2).
   // Nur, wenn dort nichts eingetippt ist – dann wartet der neue Stand ohnehin bis zum Schließen (BUGS T5).
-  if (!document.getElementById('modal-settings').classList.contains('hidden') && !settingsDirty()) fillSettingsForm();
+  // VOR dem Laden der Farben fragen: Die neuen Farben stellen die Farbfelder um, das sähe sonst wie eine Eingabe aus (AP1).
+  const refillSettings = !document.getElementById('modal-settings').classList.contains('hidden') && !settingsDirty();
+  db = newDB;
+  updateAppliedThemeFromDB();
+  if (refillSettings) fillSettingsForm();
   renderTimetable();
   renderSubjectGroups();
   resetViewSelection();
@@ -1410,7 +1412,7 @@ function buildTimetableCell(d, dayIdx, block, clock = timetableClock()) {
 
   const renderEmptyHTML = (part) => {
     return `<div class="tt-empty-cell" title="${DAYS[dayIdx]}, ${escHtml(block.label)}: Stunde hinzufügen"
-                 onclick="openAddLessonSlot(${dayIdx}, ${block.num}, ${jsArg(dateStr)}, ${jsArg(part)})">
+                 onclick="openAddLessonSlot(${dayIdx}, ${jsArg(block.num)}, ${jsArg(dateStr)}, ${jsArg(part)})">
               <span class="tt-add-icon">+</span>
             </div>`;
   };
@@ -5923,7 +5925,9 @@ document.addEventListener('visibilitychange', refreshSeatingDateIfStale);
 function getSuggestedSeatingGroupId(now = new Date()) {
   const nowMins = now.getHours() * 60 + now.getMinutes();
   const buffer = db.settings.seatingBufferMins !== undefined ? db.settings.seatingBufferMins : 5;
-  const candidates = lessonsOnDate(formatDate(now)).filter(l => l.slot.groupId && !l.ausfall && l.range
+  // Nur Klassen, die es noch gibt: Stunden einer gelöschten Klasse (alte Version, Sync) ließen sonst Ansichten abstürzen (AQ3)
+  const known = new Set(db.groups.map(g => g.id));
+  const candidates = lessonsOnDate(formatDate(now)).filter(l => l.slot.groupId && known.has(l.slot.groupId) && !l.ausfall && l.range
     && nowMins >= l.range.start - buffer && nowMins <= l.range.end);
   const running = candidates.find(l => l.range.start <= nowMins && nowMins < l.range.end);
   // Läuft gerade eine und beginnt gleich die nächste (Vorlauf), gewinnt die nächste – aber nur mit Pause dazwischen.
@@ -11709,8 +11713,16 @@ function flushPendingSync() {
 function onAppHidden() {
   hideAllPasswords();
   if (classGradesShown) { hideClassGrades(); rerenderClassTab(); }   // Beamer-Schutz: nach der Pause wieder verborgen (AH24 c)
+  // Sitzplan genauso: Noten/Verlauf und ein aufgedecktes Schüler-Fenster sind beim Zurückkommen wieder verborgen (AS1)
+  if (seatingShowGrades || seatingShowTrend) {
+    hideSeatingGrades();
+    if (document.getElementById('view-seating')?.classList.contains('active')) renderSeatingPlan();
+  }
   if (!document.getElementById('modal-lesson').classList.contains('hidden')) storeLessonForm();
-  if (!document.getElementById('modal-seating-student').classList.contains('hidden')) commitSeatingStudentForm();
+  if (!document.getElementById('modal-seating-student').classList.contains('hidden')) {
+    commitSeatingStudentForm();
+    if (swShown) setSeatingStudentShown(false);
+  }
   if (!document.getElementById('modal-lesson-topic').classList.contains('hidden')) storeLessonTopicForm();
   flushPendingSync();
   if (saPendingAt) publishStudentApps(true);   // Schülerseiten: was noch wartet, jetzt (AK3)

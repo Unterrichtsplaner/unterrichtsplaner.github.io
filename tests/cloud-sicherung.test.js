@@ -86,6 +86,23 @@ describe('Tägliche Sicherung beim ersten Upload eines Tages', () => {
     expect(kept()[13]).toBe('2026-11-20');
     expect(index().days.length).toBe(14);
   });
+  it('AU2: „14 Tage lang“ heißt Kalendertage – nach einer Pause (Ferien) fallen ältere Sicherungen weg', async () => {
+    await sync();
+    day(3); edit('1B'); await sync();   // Sicherungen vom 02. und 03.11.
+    day(4); edit('1C'); await sync();
+    expect(kept()).toEqual(['2026-11-03', '2026-11-04']);
+    day(25); edit('1D'); await sync();   // drei Wochen nichts geändert, dann wieder
+    expect(kept()).toEqual(['2026-11-25']);
+    expect(index().days.map(x => x.day)).toEqual(['2026-11-25']);
+  });
+  it('genau 14 Kalendertage bleiben (heute und die 13 Tage davor)', async () => {
+    await sync();
+    day(5); edit('1B'); await sync();
+    day(18); edit('1C'); await sync();
+    expect(kept()).toEqual(['2026-11-05', '2026-11-18']);
+    day(19); edit('1D'); await sync();
+    expect(kept()).toEqual(['2026-11-18', '2026-11-19']);
+  });
   it('fehlt die Firestore-Regel: Sync läuft trotzdem, Hinweis für die Einstellungen', async () => {
     await sync();
     cloud.versionsDenied = true;
