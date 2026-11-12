@@ -3179,10 +3179,7 @@ function openEditGroup(id) {
 
   const btnDelete = document.getElementById('btn-delete-group');
   btnDelete.style.display = 'block';
-  btnDelete.onclick = () => {
-    closeModal('modal-add-group');
-    deleteGroup(id);
-  };
+  btnDelete.onclick = () => { if (deleteGroup(id)) closeModal('modal-add-group'); };   // erst fragen, dann schließen (AR12)
   updateGroupClassPreview();
 
   openModal('modal-add-group');
@@ -3262,6 +3259,7 @@ function saveSubjectGroup() {
   closeModal('modal-add-group');
   renderSubjectGroups();
   renderTimetable(); // Ensure timetable updates if colors changed
+  renderNav();   // Schnellzugriff mit neuem Namen/Farbe (AR11)
   if (editingGroupId && currentGroupId === editingGroupId) {
     const g = db.groups.find(x => x.id === editingGroupId);
     if (g) {
@@ -3404,7 +3402,7 @@ function deleteGroup(id) {
   if (!g) return;
   const studentCount = (db.students[id] || []).length;
   const slotIds = new Set(getGroupSlots(id).map(s => s.id));
-  if (!confirm(`Klasse ${g.className} (${g.subject}) mit ${studentCount} Schüler(n), allen Noten/Einträgen und ${slotIds.size} Stunde(n) im Stundenplan löschen?`)) return;
+  if (!confirm(`Klasse ${g.className} (${g.subject}) mit ${studentCount} Schüler(n), allen Noten/Einträgen und ${slotIds.size} Stunde(n) im Stundenplan löschen?`)) return false;
   removeGroupData(id);
   saveDB();
   if (currentSeatingGroupId === id) currentSeatingGroupId = '';
@@ -3417,6 +3415,7 @@ function deleteGroup(id) {
   renderTimetable();
   renderNav();
   showToast('Klasse gelöscht');
+  return true;
 }
 
 // Klasse samt Abhängigem aus db entfernen (Regel 10), ohne Rückfrage und ohne Speichern. Auch für den Schuljahreswechsel (Y6).
@@ -3452,6 +3451,7 @@ function openClassOverview(groupId) {
 let currentClassDashboardTab = 'students';
 
 function switchClassDashboardTab(tabName) {
+  if (tabName === 'studentapp' && !studentAppOn()) tabName = 'students';   // Schülerapp aus: Reiter gibt es nicht (AJ1, AR13)
   currentClassDashboardTab = tabName;
   overviewRenderedKey = null;   // neu geöffnet: neueste Spalte zeigen, nicht die alte Scroll-Stelle (AH24)
   document.querySelectorAll('#view-students .tab-btn').forEach(b => b.classList.remove('active'));
@@ -3463,7 +3463,6 @@ function switchClassDashboardTab(tabName) {
   const addColBtn = document.getElementById('btn-add-overview-col');
   const actionBtn = document.getElementById('btn-student-actions');
   
-  if (tabName === 'studentapp' && !studentAppOn()) tabName = 'students';   // Schülerapp aus: Reiter gibt es nicht (AJ1)
   if (tabName === 'plan' || tabName === 'studentapp') {   // Unterrichtsplanung (AD3), Schülerapp (AJ1)
     studentsContainer.classList.add('hidden');
     overviewContent.classList.remove('hidden');
@@ -4165,7 +4164,7 @@ function openAddColumnModal() {
   editingColumnCtx = null;
   document.getElementById('column-modal-title').textContent = 'Neue Spalte';
   document.getElementById('btn-delete-column').classList.add('hidden');
-  document.getElementById('new-col-date').value = formatDate(new Date());
+  document.getElementById('new-col-date').value = profileDefaultDate();   // Wochenende/Ferien: letzter Schultag (AR5)
   document.getElementById('new-col-label').value = '';
   
   if (currentOverviewTab === 'grades') {
@@ -4788,7 +4787,9 @@ function switchStudentTab(tab) {
 function openGradeFormForCurrentStudentDetailed() {
   const s = getCurrentStudent();
   if (!s) return;
-  openGradeForm(s.id, profileGroupId, -1);
+  refreshSeatingStudentDay();   // über Nacht offen (AS2)
+  const ctx = window.currentSeatingStudent;
+  openGradeForm(s.id, profileGroupId, -1, (ctx && ctx.studentId === s.id && ctx.dateStr) || '');   // Tag oben im Fenster (AR6, N7)
 }
 
 function getCurrentStudent() { return (db.students[profileGroupId]||[]).find(x => x.id === currentStudentId); }
@@ -4931,7 +4932,7 @@ function addAttendanceEntry() {
   }
   if (wasUnexcused && type !== 'abwesend') removeAbsenceNote(profileGroupId, date, s);
   if (!wasUnexcused && type === 'abwesend') addAbsenceNote(profileGroupId, date, s); // wie im Sitzplan (BUGS L3, Regel 25)
-  saveDB(); renderAttendanceList(s); refreshStudentViews(profileGroupId);
+  saveDB(); revealPeriodOf(date); renderAttendanceList(s); refreshStudentViews(profileGroupId);   // AR7
   if (existing) showToast('Eintrag vom ' + formatDateShort(date) + ' geändert');
   document.getElementById('new-att-date').value=profileDefaultDate();
   document.getElementById('new-att-note').value='';
@@ -5023,6 +5024,7 @@ function addStudentHomework() {
   }
   s.homework.push({ id: uid(), date: date, note: note });
   saveDB();
+  revealPeriodOf(date);   // AR7
   renderStudentHomeworkList(s);
   refreshStudentViews(profileGroupId);
   document.getElementById('new-hw-student-date').value = profileDefaultDate();
@@ -7473,6 +7475,7 @@ function giveRoundGrade(studentId, val) {
   round.given = [...(round.given || []), entry];
   round.count++;
   saveDB();
+  revealPeriodOf(entry.date);   // AR7
   renderGradeRoundBar();
   refreshGradeViews(s, groupId);
   const typeName = (QUICK_GRADE_TYPES.find(([k]) => k === type) || [])[1] || gradeTypeName(type);
@@ -8548,6 +8551,7 @@ function openSeatingGradePad(withTitle = false) {
   const ctx = window.currentSeatingStudent;
   const box = document.getElementById('sw-grade-slot');
   if (!ctx || !box) return;
+  if (withTitle) fillGradeTitleList(ctx.groupId);   // AR10
   const title = document.getElementById('sw-grade-title');
   const keepTitle = title ? title.value : '';
   box.innerHTML = quickGradePadHTML(ctx.groupId, withTitle);
@@ -8614,6 +8618,7 @@ function giveQuickGrade(val) {
   if (!Array.isArray(s.grades)) s.grades = [];
   s.grades.push(entry);
   saveDB();
+  revealPeriodOf(entry.date);   // sonst verschwände die Note im gezeigten Halbjahr (AR7)
   refreshGradeViews(s, groupId);
   closeModal('modal-seating-student');
   const typeName = (QUICK_GRADE_TYPES.find(([k]) => k === type) || [])[1] || gradeTypeName(type);
@@ -8640,6 +8645,14 @@ let profileGroupId = null;          // Klasse des offenen Schüler-Fensters (AH2
 let editingStudentGroupId = null;   // Klasse beim Bearbeiten aus dem Schüler-Fenster
 let currentGradeFormCtx = null; // { studentId, groupId, grade } – grade = Objekt-Referenz (null = neue Note)
 
+// Vorhandene Titel der Klasse vorschlagen (BUGS U2); auch für die schnelle Note im Schüler-Fenster (AR10)
+function fillGradeTitleList(groupId) {
+  const group = db.groups.find(g => g.id === groupId);
+  const titles = new Set([...(group && group.gradeEvents || []).map(e => e.label || ''),
+    ...(db.students[groupId] || []).flatMap(st => (st.grades || []).map(g => g.note || ''))]);
+  titles.delete('');
+  document.getElementById('gf-column-titles').innerHTML = [...titles].sort().map(t => `<option value="${escHtml(t)}"></option>`).join('');
+}
 function openGradeForm(studentId, groupId, gradeIdx, defaultDateStr = '', defaultLabel = '') {
   const s = db.students[groupId]?.find(x => x.id === studentId);
   if (!s) return;
@@ -8655,12 +8668,7 @@ function openGradeForm(studentId, groupId, gradeIdx, defaultDateStr = '', defaul
   }
 
 
-  // Das Feld ist der Spaltentitel in der Notentabelle: vorhandene Titel der Klasse vorschlagen (BUGS U2)
-  const group = db.groups.find(g => g.id === groupId);
-  const titles = new Set([...(group && group.gradeEvents || []).map(e => e.label || ''),
-    ...(db.students[groupId] || []).flatMap(st => (st.grades || []).map(g => g.note || ''))]);
-  titles.delete('');
-  document.getElementById('gf-column-titles').innerHTML = [...titles].sort().map(t => `<option value="${escHtml(t)}"></option>`).join('');
+  fillGradeTitleList(groupId);
 
   const scale = gradeScale(groupId);
   document.getElementById('gf-value-label').textContent = scale.inputLabel;
@@ -9061,7 +9069,8 @@ function formatGradeAverage(avg, digits = 1) {
 }
 // Gespeicherten Notenwert anzeigen: '2.5' → '2,5'; Tendenzen ('2-') und Text ('+') bleiben
 function gradeText(value) {
-  return String(value ?? '').replace('.', ',');
+  const v = String(value ?? '');
+  return GRADE_INPUT_RE.test(v.trim()) ? v.replace('.', ',') : v;   // Text wie „n. b.“ bleibt, wie er ist (AR9)
 }
 
 function gradeColor(val, scale = GRADE_SCALES['1-6']) {
