@@ -61,7 +61,7 @@
       }
     })();
   </script>
-  <link rel="stylesheet" href="style.css?v=555" />
+  <link rel="stylesheet" href="style.css?v=556" />
   <script>
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
@@ -1142,6 +1142,7 @@
           Synchronisiere deine Unterrichtsdaten sicher und Ende-zu-Ende-verschlüsselt (E2EE) mit unserem zentralen Firebase-Server.
           Niemand (nicht einmal der Administrator) kann deine verschlüsselten Schülerdaten lesen.
         </p>
+        <button type="button" class="link-btn cloud-help-link" onclick="openCloudHelp()">Wie funktioniert das?</button>
 
         <!-- Firebase Configured, Auth Area -->
         <div id="sync-auth-section">
@@ -1277,6 +1278,56 @@
 </div>
 
 <!-- Datenschutzhinweise (BUGS Y1). Nach den Einstellungen im Markup: liegt über ihnen (Escape schließt das oberste). -->
+<!-- Hilfe zur Cloud (Z5): kurz, ohne Technik, mit den Namen der echten Knöpfe -->
+<div id="modal-cloud-help" class="modal-overlay hidden" onclick="closeModalOnOverlay(event,'modal-cloud-help')">
+  <div class="modal modal-small" onclick="event.stopPropagation()">
+    <div class="modal-header">
+      <h2>So funktioniert die Cloud</h2>
+      <button class="modal-close" aria-label="Schließen" onclick="closeModalLikeButton('modal-cloud-help')">✕</button>
+    </div>
+    <div class="modal-body privacy-notice">
+      <h3>Zwei Passwörter</h3>
+      <ul>
+        <li>Das <strong>Anmelde-Passwort</strong> gehört zu deinem Konto (E-Mail). Damit meldest du dich an.</li>
+        <li>Das <strong>Master-Passwort</strong> verschlüsselt deine Daten auf dem Gerät, bevor sie in die Cloud gehen. Es verlässt dein Gerät nie, darum kann niemand sonst die Daten lesen. Auf jedem Gerät brauchst du dasselbe Master-Passwort.</li>
+        <li>Vergessen? „Master-Passwort vergessen oder ändern?“ legt ein neues fest. Die Cloud bekommt dann den Stand dieses Geräts, die anderen Geräte fragen nach dem neuen Passwort.</li>
+      </ul>
+      <h3>Wann abgeglichen wird</h3>
+      <ul>
+        <li>Kurz nach jeder Eingabe, beim Öffnen der App, beim Zurückkommen in die App und sobald wieder Internet da ist.</li>
+        <li>Auch ohne Internet arbeitest du ganz normal weiter. Die Änderungen gehen hoch, sobald das Gerät wieder online ist.</li>
+        <li>Wie der Stand ist, steht in der Leiste unter „Einstellungen“ (auf dem Handy im Dashboard), z. B. „Abgeglichen · heute 18:05“ oder „Offline · Änderungen warten“.</li>
+      </ul>
+      <h3>Mehrere Geräte</h3>
+      <ul>
+        <li>Hast du auf zwei Geräten etwas geändert, bevor sie sich abgeglichen haben, führt die App beides zusammen. Nur wenn derselbe Eintrag auf beiden Geräten verschieden geändert wurde, fragt sie, welche Fassung gilt.</li>
+        <li>Tipp: Nach Arbeit ohne Internet die App zuerst mit Internet öffnen und den Abgleich abwarten, dann am anderen Gerät weitermachen.</li>
+      </ul>
+      <h3>Das Fenster „Zwei Stände“</h3>
+      <p>Ganz selten kann die App nicht zusammenführen. Dann wählst du einen ganzen Stand. Beide Stände legt die App vorher zur Sicherheit ab.</p>
+      <ul>
+        <li>„Sicherheitskopie dieses Geräts speichern, dann Cloud laden“: der sichere Weg. Der Stand dieses Geräts landet als Datei bei dir.</li>
+        <li>„Cloud-Version laden“: Was du auf diesem Gerät seit dem letzten Abgleich geändert hast, fällt weg.</li>
+        <li>„Dieses Gerät hochladen“: Was auf den anderen Geräten geändert wurde, fällt weg.</li>
+      </ul>
+      <h3>Frühere Stände</h3>
+      <ul>
+        <li>Einstellungen → „Früheren Stand zurückholen“: die Stände vor den letzten Zusammenführungen und die Sicherungen in der Cloud aus den letzten 14 Tagen (eine je Tag).</li>
+        <li>Für länger zurück: regelmäßig „Exportieren“. Die Datei ist deine eigene Sicherung. Sie ist unverschlüsselt, also sicher aufbewahren.</li>
+      </ul>
+      <h3>Sicherung laden</h3>
+      <ul>
+        <li>„Importieren“ ersetzt alle Daten auf diesem Gerät und danach auch in der Cloud und auf deinen anderen Geräten. Der bisherige Stand bleibt unter „Früheren Stand zurückholen“.</li>
+      </ul>
+      <h3>Löschen</h3>
+      <ul>
+        <li>„Alles löschen, auch in der Cloud“ leert dieses Gerät und die Cloud samt Sicherungen. Das Konto bleibt.</li>
+        <li>„Cloud-Konto löschen …“ löscht die Cloud-Daten, die Sicherungen und das Konto.</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
 <div id="modal-privacy" class="modal-overlay hidden" onclick="closeModalOnOverlay(event,'modal-privacy')">
   <div class="modal modal-small" onclick="event.stopPropagation()">
     <div class="modal-header">
@@ -1850,15 +1901,15 @@
   </div>
 
   <script src="lib/crypto-js.min.js"></script>
-  <script src="crypto-helper.js?v=555"></script>
+  <script src="crypto-helper.js?v=556"></script>
   <script src="lib/firebase-app-compat.js"></script>
   <script src="lib/firebase-auth-compat.js"></script>
   <script src="lib/firebase-firestore-compat.js"></script>
-  <script src="firebase-config.js?v=555"></script>
-  <script src="sync-manager.js?v=555"></script>
-  <script src="sync-merge.js?v=555"></script>
+  <script src="firebase-config.js?v=556"></script>
+  <script src="sync-manager.js?v=556"></script>
+  <script src="sync-merge.js?v=556"></script>
   <script src="lib/qrcode.js"></script>
-  <script src="student-share.js?v=555"></script>
-  <script src="app.js?v=555"></script>
+  <script src="student-share.js?v=556"></script>
+  <script src="app.js?v=556"></script>
 </body>
 </html>

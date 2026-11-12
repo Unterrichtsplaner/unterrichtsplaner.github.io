@@ -90,6 +90,8 @@ db = {
 
 ### Cloud-Sync (so funktioniert er)
 
+- Für Nutzer erklärt das Fenster „So funktioniert die Cloud“ (`modal-cloud-help`, Z5) dasselbe in einfachen Worten, mit den echten Knopfnamen. Wer Sync, Sicherungen, Konfliktknöpfe oder Löschen ändert, passt diesen Text mit an (`tests/cloud-hilfe.test.js` prüft die Knopfnamen).
+
 - Die Cloud (Firestore `users_data/<uid>`) hält **einen** verschlüsselten Gesamtstand + `lastModified` als **Versionskennung**.
 - Lokal merkt sich `db.syncSettings`: `lastSyncedCloudTimestamp` (welche Cloud-Version zuletzt übereinstimmte) und `syncedLocalModified` (welches lokale `lastModified` dazu gehörte).
 - „Cloud geändert“ = `cloudTimestamp !== lastSyncedCloudTimestamp`, „lokal geändert“ = `lastModified !== syncedLocalModified` (`isLocalDBChanged()`). **Nur Gleichheit, nie größer/kleiner**, denn die Uhren verschiedener Geräte sind nicht vergleichbar.

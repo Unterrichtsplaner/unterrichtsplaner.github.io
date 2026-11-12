@@ -1516,6 +1516,7 @@ button.date-chip{font-family:inherit;padding:0;}
 /* ─── Unterrichtsplanung (AD3) und Klassen-Ansicht im Stundenplan (AD4) ─── */
 .form-row-2{display:grid;grid-template-columns:1fr 1fr;gap:var(--space-3);}
 .link-btn{font:inherit;color:var(--text-accent);background:none;border:none;padding:0;cursor:pointer;text-decoration:underline;text-underline-offset:2px;}
+.cloud-help-link{display:block;width:auto;margin:0 0 var(--space-3);text-align:left;justify-content:flex-start;}   /* Z5: linksbündig unter dem Text */
 .plan-summary{font-size:13px;color:var(--text-secondary);margin:0 0 var(--space-2);line-height:1.5;}
 .plan-summary b{color:var(--text-primary);}
 .plan-summary small{color:var(--text-muted);}
@@ -2199,7 +2200,7 @@ textarea.sa-jokers{min-height:120px;padding:var(--space-2) var(--space-3);resize
    Eingabefelder schon. Reihenfolge zählt: Grundsatz → Inhalte → Knöpfe darin → Eingaben. */
 body{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;}
 #overview-content, #sw-more, #lesson-notes-form, #seating-today-body,
-#modal-privacy .modal-body, #modal-whats-new .modal-body, .cn-chip, .seating-notes, .sw-hub-hint, .sw-hub-notes li{-webkit-user-select:text;user-select:text;-webkit-touch-callout:default;}
+#modal-privacy .modal-body, #modal-cloud-help .modal-body, #modal-whats-new .modal-body, .cn-chip, .seating-notes, .sw-hub-hint, .sw-hub-notes li{-webkit-user-select:text;user-select:text;-webkit-touch-callout:default;}
 button, [role="button"], .tab-btn{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;}
 input, textarea, [contenteditable="true"]{-webkit-user-select:text;user-select:text;-webkit-touch-callout:default;}
 /* Ende Markieren (AH17) */

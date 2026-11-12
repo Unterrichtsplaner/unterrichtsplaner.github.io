@@ -5484,6 +5484,7 @@ function fillSettingsForm() {
 }
 
 // Datenschutzhinweise (BUGS Y1): nur Text, liegt über den Einstellungen
+function openCloudHelp() { openModal('modal-cloud-help'); }   // Z5
 function openPrivacyNotice() {
   openModal('modal-privacy');
 }
