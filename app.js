@@ -3378,6 +3378,9 @@ function calculateStudentAverage(student, groupId, range = viewPeriod()) {
   const wSonstige = 100 - wSchularbeit;
   const { schularbeit: avgSchularbeit, sonstige: avgSonstige } = calculateGradeCategoryAverages(student, range);
 
+  // 100 % bzw. 0 %: Die andere Art zählt laut Tabelle nicht, also bildet sie auch allein keinen Schnitt (AR8)
+  if (wSchularbeit === 100) return avgSchularbeit === null ? null : smoothAverage(avgSchularbeit);
+  if (wSchularbeit === 0) return avgSonstige === null ? null : smoothAverage(avgSonstige);
   if (avgSchularbeit !== null && avgSonstige !== null) {
     return smoothAverage((avgSchularbeit * wSchularbeit + avgSonstige * wSonstige) / 100);
   } else if (avgSchularbeit !== null) {

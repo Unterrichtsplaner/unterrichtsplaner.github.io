@@ -107,3 +107,21 @@ describe('AR13: Reiter Schülerapp, obwohl sie aus ist', () => {
     expect(document.getElementById('overview-tab-students').classList.contains('active')).toBe(true);
   });
 });
+
+describe('AR8: Gewichtung 0 % bzw. 100 %', () => {
+  it('100 %: nur Klassenarbeiten zählen, vorher „–“', () => {
+    app('db.groups[0].schularbeitWeight = 100');
+    expect(app(`calculateStudentAverage(${S('a')}, "g1")`)).toBeNull();
+    app(`${S('a')}.grades.push({ type: 'schularbeit', value: '4', date: '2026-11-05' })`);
+    expect(app(`calculateStudentAverage(${S('a')}, "g1")`)).toBe(4);
+  });
+  it('0 %: Klassenarbeiten zählen nie', () => {
+    app('db.groups[0].schularbeitWeight = 0');
+    app(`${S('a')}.grades = [{ type: 'schularbeit', value: '5', date: '2026-11-05' }]`);
+    expect(app(`calculateStudentAverage(${S('a')}, "g1")`)).toBeNull();
+  });
+  it('dazwischen wie bisher: fehlt eine Art, gilt die andere', () => {
+    app('db.groups[0].schularbeitWeight = 70');
+    expect(app(`calculateStudentAverage(${S('a')}, "g1")`)).toBe(2);
+  });
+});
