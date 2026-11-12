@@ -1,6 +1,6 @@
 # Konzept: Plus-Konto und Laden (BUGS AV1)
 
-*Stand 12.11.2026 · Idee von Kevin · noch nichts gebaut. Wo „Vorschlag“ steht, ist es meine Empfehlung – bitte bestätigen oder ändern (Abschnitt 12).*
+*Stand 12.11.2026 · Idee von Kevin · noch nichts gebaut. Entscheidungen vom 12.11. stehen in Abschnitt 12; der Shop soll aussehen wie ein Item-Shop aus Spielen (Abschnitt 5a).*
 
 ## 1. Ziel in einem Satz
 
@@ -54,7 +54,7 @@ Die Plusse werden eine Währung: Jeder Schüler hat ein Konto, sieht es auf sein
 | Minus | Kostet nichts. Das Konto wird nur durch Einlösen kleiner. |
 | Kontostand | verdient − eingelöst. Nie unter 0: Einlösen geht nur, wenn es reicht. |
 | Gültigkeit | Ein Schuljahr. Beim Schuljahreswechsel beginnt das Konto bei 0 (wie XP und Joker heute). Kein Verfall zum Halbjahr. |
-| Mitarbeits-Einträge | Bleiben immer unverändert. Einlösen löscht keine Plusse aus der Tabelle – sie bleiben deine Grundlage für die Mitarbeitsnote. |
+| Mitarbeits-Einträge | Bleiben in der Tabelle stehen (nichts wird gelöscht). Eine Mitarbeitsnote entsteht aber **nur** über den Shop: Wer sich keine 1 holt, bekommt dafür keine Note (entschieden 12.11.). |
 | Level, XP, Ränge | Bleiben als Fortschritt und sinken beim Einlösen **nie** (sonst wäre Sparen bestraft). |
 
 ## 5. Der Laden
@@ -68,10 +68,10 @@ Pro Klasse einstellbar. Vorschlag für den Anfang (Preise selbst anpassbar):
 | Song aussuchen | 5 | Vorteil |
 | Aufgabe aussuchen | 5 | Vorteil |
 | Keine TÜ abgeben | 8 | Vorteil |
-| Eine 1 (mündlich) | 9 | Note |
+| Eine 1 (mündlich) | 6 | Note |
 | An die Klasse spenden | 1 / 3 / 5 / 10 | Spende |
 
-**Zur Einordnung:** Ein mittlerer Schüler sammelt etwa 0,5 Plusse pro Stunde. Bei 2 Wochenstunden sind das rund 17 im Halbjahr und 34 im Schuljahr. Deine bisherige Regel „3× ++ = 1“ entspricht etwa 6 bis 9 Plussen; 9 hält eine 1 etwas Besonderes.
+**Zur Einordnung:** Ein mittlerer Schüler sammelt etwa 0,5 Plusse pro Stunde. Bei 2 Wochenstunden sind das rund 17 im Halbjahr und 34 im Schuljahr. Eine 1 kostet 6 – das ist genau deine bisherige Regel „3× ++ = 1“ (entschieden 12.11.). **Offen:** Die Vorteile sind teils teurer als die 1 (keine TÜ 8). Vorschlag: Sitzplatz 2, Partner 2, Song 3, Aufgabe 3, keine TÜ 4, eine 1 6.
 
 **Arten:**
 - **Vorteil:** wird nur vermerkt („Song aussuchen am 12.11.“).
@@ -79,6 +79,18 @@ Pro Klasse einstellbar. Vorschlag für den Anfang (Preise selbst anpassbar):
 - **Spende:** zählt fürs Klassenziel zusätzlich. Auf der Klassenseite steht nur die Summe („34 Plusse gespendet“), **nie**, wer wie viel gespendet hat.
 
 **Hinweis zur Note:** Ob man eine 1 „kaufen“ darf, ist eine pädagogische Entscheidung. Rechtlich muss die Note die Leistung abbilden; die Plusse sind Mitarbeit, also passt es zur mündlichen Note. Am besten kurz mit Fachschaft oder Schulleitung absprechen. Wer das nicht will, lässt das Angebot einfach weg.
+
+## 5a. Aussehen: Item-Shop (Wunsch 12.11.: „cool wie ein Itemshop, z. B. Fortnite“)
+
+Eigener Reiter **SHOP** auf der persönlichen Seite (neben Ich · Sammlung · Klasse). Im Stil eines Spiele-Shops, aber in den Regeln der Schülerseite (DESIGN.md: große Farbflächen, Farben „Ozean“, Archivo, keine Schatten, keine Verläufe, kein Lila):
+
+- **Oben:** Kontostand als riesige Zahl mit Plus-Münze, darunter „+ = 1 · ++ = 2“.
+- **Highlight:** das teuerste Angebot (meist die 1) als große Karte über die ganze Breite.
+- **Alle Angebote** als Karten im Raster: großes Symbol, Name, Seltenheit, Preisschild. Was man sich noch nicht leisten kann, ist blass und zeigt „noch 2“.
+- **Seltenheit nach Preis** (automatisch): bis 2 GEWÖHNLICH (Nebeltürkis), 3 SELTEN (Meerblau), 4–5 EPISCH (Koralle), ab 6 LEGENDÄR (Sonne) – statt Spiele-Lila, das die Schülerseite nicht verwendet.
+- **Für die Klasse:** Spenden-Fläche mit Stand des Klassenziels und Knöpfen 1 · 3 · 5 · 10.
+- **Kaufen:** Karte antippen → ganze Seite in der Farbe der Seltenheit mit großem Symbol, Preis und QR-Code: „Zeig das deiner Lehrkraft“.
+- **Eingelöst:** Liste darunter, neueste zuerst.
 
 ## 6. Einlösen per QR-Code
 
@@ -145,16 +157,18 @@ Stufe 1 ist schon im Unterricht nutzbar (du tippst ein). Erst ausprobieren, dann
 - QR (Stufe 2): falsche Unterschrift wird abgelehnt, zweites Scannen meldet „schon eingelöst“, Code enthält keinen Schlüssel.
 - Im Browser: Laden und QR auf dem Handy, Scannen auf dem iPad, Beamer-Ansicht.
 
-## 12. Offene Entscheidungen
+## 12. Entscheidungen (12.11.2026)
 
-| # | Frage | Vorschlag |
+| # | Frage | Entscheidung |
 |---|---|---|
-| 1 | Zählen eingelöste Plusse weiter für die Mitarbeitsnote? | Ja – das Konto ist nur fürs Einlösen, die Einträge bleiben. Wie du Mitarbeit benotest, bleibt deine Sache. |
-| 2 | Ersetzt der Laden die Joker? | Ja (Abschnitt 7). |
-| 3 | Wert von ++ | 2 Plusse (wie beim Klassenziel). |
-| 4 | Kostet ein Minus Plusse? | Nein. |
-| 5 | Gültigkeit | Schuljahr, kein Verfall zum Halbjahr. |
-| 6 | Spenden anonym? | Ja, nur die Summe ist sichtbar. |
-| 7 | „Eine 1“ im Laden? | Ja, Preis 9, mit kurzer Absprache an der Schule. |
-| 8 | Wo scannen? | Sitzplan (bei Timer/Stoppuhr) und Reiter „Schülerapp“. |
-| 9 | Handys im Unterricht erlaubt? | Bitte mit der Schulregel klären; Einlösen im Schüler-Fenster geht immer. |
+| 1 | Zählen eingelöste Plusse weiter für die Mitarbeitsnote? | **Nein.** Eingelöst ist eingelöst. Eine Mitarbeitsnote gibt es nur über den Shop. |
+| 2 | Ersetzt der Shop die Joker? | **Ja**, und er sieht aus wie ein Item-Shop (5a). |
+| 3 | Wert von ++ | **2 Plusse.** |
+| 4 | Kostet ein Minus Plusse? | **Nein.** |
+| 5 | Gültigkeit | **Schuljahr**, kein Verfall zum Halbjahr. |
+| 6 | Spenden anonym? | **Ja**, nur die Summe. |
+| 7 | „Eine 1“ im Shop? | **Ja, für 6 Plusse.** |
+| 8 | Wo scannen? | **Sitzplan und Reiter „Schülerapp“.** |
+| 9 | Handys im Unterricht? | **Erlaubt**; Einlösen im Schüler-Fenster bleibt als zweiter Weg. |
+
+**Noch offen:** Preise der Vorteile (Vorschlag in Abschnitt 5), Aussehen des Shops nach dem Entwurf.
