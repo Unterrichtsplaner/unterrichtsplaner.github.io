@@ -119,7 +119,8 @@ const MERGE_SPEC = {
             list: p => p.id, ordered: true, onDelete: 'ask', title: p => `Thema „${p.title || ''}“`,
             item: {
               together: [{ fields: ['pinned', 'pinnedSlot'], what: 'Fester Termin', show: p => (p.pinned ? mergeShortDate(p.pinned) : 'kein') }],   // AH54
-              fields: { note: MERGE_TEXT, title: MERGE_TEXT, doneLessons: { list: k => k, onDelete: 'keep' } },
+              // Titel ist einzeilig: nie Zeile für Zeile zusammenführen, sondern fragen (AP9)
+              fields: { note: MERGE_TEXT, title: { atomic: 'ask' }, doneLessons: { list: k => k, onDelete: 'keep' } },
             },
           },
           classNotes: { list: n => n.id, onDelete: 'ask', title: n => `Klassennotiz „${n.text || ''}“`, item: { fields: { text: MERGE_TEXT } } },

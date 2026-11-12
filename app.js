@@ -6635,18 +6635,23 @@ function renderLessonTopicRow() {
   const p = plannedTopicOf(ctx.groupId, { slot, dateStr: ctx.dateStr });
   const t = p ? p.topic : null;
   const done = !!(p && p.done);
-  lessonTopicShown = done ? null : { slotId: slot.id, dateStr: ctx.dateStr, groupId: ctx.groupId, topic: t };
+  // Vergangene Stunde ohne erledigtes Thema: kein Planungsfeld wie im Stunden-Fenster (AQ16) – ein fester Termin in
+  // der Vergangenheit rutschte sonst still in die nächste Stunde. Was dran war, gehört unter „Unterrichtsinhalt“.
+  const past = !done && ctx.dateStr < formatDate(new Date());
+  lessonTopicShown = done || past ? null : { slotId: slot.id, dateStr: ctx.dateStr, groupId: ctx.groupId, topic: t };
   document.getElementById('lt-topic-label').textContent = `${done ? 'Erledigt' : t ? 'Geplant' : 'Thema'}${t && topicLength(t) > 1 ? ` · Stunde ${p.unit} von ${p.of}` : ''}`;
+  document.querySelector('.lt-topic-row').classList.toggle('hidden', past);
   const input = document.getElementById('lt-topic');
-  input.value = t ? String(t.title || '') : '';
-  input.disabled = done;
+  input.value = t ? normTopicTitle(t.title) : '';
+  input.disabled = done || past;
   const btn = document.getElementById('lt-topic-done');
+  btn.disabled = past;
   btn.textContent = done ? '✓ Erledigt' : 'Erledigt';
   btn.className = done ? 'btn-secondary' : 'btn-primary';
   btn.setAttribute('aria-pressed', done ? 'true' : 'false');
   const note = document.getElementById('lt-topic-note');
-  note.textContent = t && t.note ? t.note : '';
-  note.classList.toggle('hidden', !(t && t.note));
+  note.textContent = past ? 'Vergangene Stunde: Was dran war, unten unter „Unterrichtsinhalt“ eintragen.' : t && t.note ? t.note : '';
+  note.classList.toggle('hidden', !past && !(t && t.note));
 }
 const refreshLessonTopicRow = () => { if (!document.getElementById('modal-lesson-topic').classList.contains('hidden')) renderLessonTopicRow(); };
 // „Erledigt“: Thema übernehmen (neu oder geändert → geplant für diese Stunde), dann als erledigt markieren bzw. zurücknehmen
@@ -6655,6 +6660,7 @@ function lessonTopicDone() {
   const slot = ctx && db.lessonSlots.find(x => x.id === ctx.slotId);
   if (!slot) return;
   const p = plannedTopicOf(ctx.groupId, { slot, dateStr: ctx.dateStr });
+  if (!(p && p.done) && !lessonTopicShown) return;   // vergangene Stunde (AQ16)
   const topic = p && p.done ? p.topic : commitLessonTopic('lt-topic', lessonTopicShown, refreshLessonTopicRow);
   if (!topic) { if (!document.getElementById('lt-topic').value.trim()) showToast('Bitte zuerst ein Thema eintragen', 'error'); return; }
   toggleLessonTopicDone(slot, ctx.dateStr, topic, 'lt-done', renderLessonTopicRow);
@@ -9418,7 +9424,8 @@ function planAssignments(g, todayStr = formatDate(new Date())) {
   const { yearEnd } = schoolYearMarks(todayStr);
   const until = yearEnd || formatDate(addDays(parseDate(todayStr), 365));
   const consumed = new Set(plan.flatMap(t => Array.isArray(t.doneLessons) ? t.doneLessons : []));
-  const lessons = groupLessons(g.id, todayStr, until).filter(l => !l.ausfall && !consumed.has(lessonKeyOf(l)));
+  const allLessons = groupLessons(g.id, todayStr, until);
+  const lessons = allLessons.filter(l => !l.ausfall && !consumed.has(lessonKeyOf(l)));
   const byKey = new Map(), firstDate = new Map();
   const take = (t, list) => {
     let n = topicLength(t) - topicDoneCount(t), unit = topicDoneCount(t);
@@ -9436,8 +9443,15 @@ function planAssignments(g, todayStr = formatDate(new Date())) {
   const overflow = [];
   // Feste Termine: der späteste zuerst, damit ein früherer, mehrstündiger Termin einen späteren nicht verdrängt (AH54).
   // Ein im Stunden-Fenster eingetipptes Thema nimmt genau seine Stunde, falls sie stattfindet.
-  const pinnedFirst = open.filter(t => isDateStr(t.pinned))
-    .sort((a, b) => b.pinned.localeCompare(a.pinned) || (b.pinnedSlot ? 1 : 0) - (a.pinnedSlot ? 1 : 0));
+  // Verrutschte Termine (Tag vorbei oder ihre Stunde fällt aus) danach in ihrer eigenen Reihenfolge, frühester zuerst:
+  // sonst kämen zwei ausgefallene Themen vertauscht (AQ15, Entscheidung AH54 „rutscht zur nächsten Stunde“).
+  const ownLesson = t => l => l.dateStr === t.pinned && (!t.pinnedSlot || l.slot.id === t.pinnedSlot);
+  const slipped = t => t.pinned < todayStr || (!lessons.some(ownLesson(t)) && allLessons.some(ownLesson(t)));
+  const pinned = open.filter(t => isDateStr(t.pinned));
+  const pinnedFirst = [
+    ...pinned.filter(t => !slipped(t)).sort((a, b) => b.pinned.localeCompare(a.pinned) || (b.pinnedSlot ? 1 : 0) - (a.pinnedSlot ? 1 : 0)),
+    ...pinned.filter(slipped).sort((a, b) => a.pinned.localeCompare(b.pinned)),
+  ];
   pinnedFirst.forEach(t => {
     const from = lessons.filter(l => l.dateStr >= t.pinned);
     const exact = t.pinnedSlot ? from.findIndex(l => l.dateStr === t.pinned && l.slot.id === t.pinnedSlot) : -1;
@@ -9803,6 +9817,23 @@ function cancelPlanTopic() {
   planTopicSnapshot = null;
   closeModal('modal-plan-topic');
 }
+// Felder des Fensters in ein bestehendes Thema übernehmen (Speichern und „Als erledigt markieren“, AQ18). false = nichts geändert.
+function applyPlanTopicForm(ctx, plan) {
+  if (!plan.includes(ctx.topic)) { showToast('Dieses Thema gibt es nicht mehr (z. B. durch Sync)', 'error'); return false; }
+  const title = document.getElementById('plan-topic-title').value.trim();
+  if (!title) { showToast('Bitte ein Thema eingeben', 'error'); return false; }
+  const lessons = Math.max(1, Math.min(40, parseInt(document.getElementById('plan-topic-lessons').value) || 1));
+  const pinned = document.getElementById('plan-topic-pinned').value;
+  const note = document.getElementById('plan-topic-note').value.trim();
+  const t = ctx.topic;
+  t.title = title;
+  if (lessons > 1) t.lessons = lessons; else delete t.lessons;
+  if (t.pinned !== pinned) delete t.pinnedSlot;   // anderer Termin: gilt nicht mehr für die eingetippte Stunde
+  if (isDateStr(pinned)) t.pinned = pinned; else delete t.pinned;
+  if (note) t.note = note; else delete t.note;
+  if (t.done && topicDoneCount(t) < topicLength(t) && topicDoneCount(t) > 0) delete t.done; // länger geworden
+  return true;
+}
 function savePlanTopic() {
   const ctx = planTopicCtx;
   const g = ctx && db.groups.find(x => x.id === ctx.groupId);
@@ -9820,12 +9851,7 @@ function savePlanTopic() {
     return t;
   };
   if (ctx.topic) {
-    if (!plan.includes(ctx.topic)) { showToast('Dieses Thema gibt es nicht mehr (z. B. durch Sync)', 'error'); return; }
-    const title = titleRaw.trim();
-    if (!title) { showToast('Bitte ein Thema eingeben', 'error'); return; }
-    ctx.topic.title = title;
-    apply(ctx.topic);
-    if (ctx.topic.done && topicDoneCount(ctx.topic) < topicLength(ctx.topic) && topicDoneCount(ctx.topic) > 0) delete ctx.topic.done; // länger geworden
+    if (!applyPlanTopicForm(ctx, plan)) return;
   } else {
     // Mehrere Zeilen = mehrere Themen (z. B. aus dem Stoffverteilungsplan eingefügt)
     const titles = titleRaw.split('\n').map(x => x.replace(/^\s*(\d+[.)]|[-•*])\s*/, '').trim()).filter(Boolean);
@@ -9862,6 +9888,7 @@ function togglePlanTopicDoneFromForm() {
   const ctx = planTopicCtx;
   const g = ctx && db.groups.find(x => x.id === ctx.groupId);
   if (!g || !ctx.topic || !ensurePlan(g).includes(ctx.topic)) { closeModal('modal-plan-topic'); return; }
+  if (!applyPlanTopicForm(ctx, ensurePlan(g))) return;   // Eingetipptes zuerst übernehmen (AQ18)
   if (ctx.topic.done) { delete ctx.topic.done; ctx.topic.doneLessons = (ctx.topic.doneLessons || []).slice(0, Math.max(0, topicLength(ctx.topic) - 1)); }
   else ctx.topic.done = formatDate(new Date());
   saveDB();
@@ -9910,7 +9937,7 @@ function fillLessonPlanBox(slot, dateStr) {
     lessonPlanShown = { slotId: slot.id, dateStr, groupId: g.id, topic: t };
     const input = box.querySelector('#lesson-plan-input');
     const btn = box.querySelector('[data-act="toggle"]');
-    input.value = t ? String(t.title || '') : '';
+    input.value = t ? normTopicTitle(t.title) : '';
     const sync = () => { btn.disabled = !input.value.trim(); };
     sync();
     input.addEventListener('input', sync);
@@ -9934,14 +9961,17 @@ function lessonPrevHTML(slot, dateStr) {
 // Neu bzw. anders als geplant → eigenes Thema mit festem Termin für genau diese Stunde; die Reihe rutscht dahinter.
 // Ein Thema nur für diese Stunde (fester Termin heute, eine Stunde) wird umbenannt bzw. beim Leeren gelöscht.
 // Auch für das Fenster „Thema der Stunde“ (AI2): anderes Feld, anderer Stand, anderes Neuzeichnen.
+// Titel für das einzeilige Feld und den Vergleich gleich behandeln: Tab, doppelte Leerzeichen, Zeilenumbruch = ein
+// Leerzeichen (AQ10, AP9). Sonst gälte ein unveränderter Titel als „geändert“ und jedes Schließen legte ein Thema an.
+const normTopicTitle = t => String(t || '').trim().replace(/\s+/g, ' ');
 function commitLessonTopic(inputId = 'lesson-plan-input', shown = lessonPlanShown, refresh = refreshLessonPlanBox) {
   const input = document.getElementById(inputId);
   if (!input || !shown) return null;
-  const text = input.value.trim().replace(/\s+/g, ' ');
+  const text = normTopicTitle(input.value);
   const g = db.groups.find(x => x.id === shown.groupId);
   const topic = shown.topic && g && groupPlan(g).includes(shown.topic) ? shown.topic : null;
   // Unverändert: nichts anlegen. Ist das Thema inzwischen weg (Sync), meldet „Erledigt“ das (toggleLessonTopicDone)
-  if (text === (shown.topic ? String(shown.topic.title || '').trim() : '')) return shown.topic;
+  if (text === (shown.topic ? normTopicTitle(shown.topic.title) : '')) return shown.topic;
   if (!g) { showToast('Diese Klasse gibt es nicht mehr (z. B. durch Sync)', 'error'); return null; }
   const plan = ensurePlan(g);
   const own = topic && topic.pinned === shown.dateStr && topicLength(topic) === 1 && !topicDoneCount(topic);
