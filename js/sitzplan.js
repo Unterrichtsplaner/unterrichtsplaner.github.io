@@ -111,6 +111,26 @@ function initSeatingPlan() {
   renderSeatingPlan();
 }
 
+// Langer Klassenname (AW1): Passt der Name nicht ganz, zuerst die Wörter an den Werkzeugen weglassen (nur Symbole, wie in
+// schmaler Ansicht), erst dann kürzt CSS den Namen mit „…“. Gemessen, weil es vom Namen abhängt, nicht nur von der Breite.
+// Läuft bei jedem renderSeatingPlan, also auch nach Größenänderungen (mainContentObserver).
+// Reicht das nicht, bekommt der Name oben eine eigene Zeile (wrap) – dann ist darunter oft wieder Platz für die Wörter.
+// Gekürzt wird nur, was auch in der eigenen Zeile nicht passt.
+function fitSeatingHeader() {
+  const tools = document.querySelector('.seating-tools'), name = document.getElementById('seating-group-current-label');
+  const bar = name && name.closest('.seating-toolbar');
+  if (!tools || !name || !bar) return;
+  const cut = () => name.scrollWidth > name.clientWidth + 1;
+  tools.classList.remove('compact');
+  bar.classList.remove('wrap');
+  if (!cut()) return;
+  tools.classList.add('compact');
+  if (!cut()) return;
+  bar.classList.add('wrap');
+  tools.classList.remove('compact');
+  if (bar.scrollWidth > bar.clientWidth + 1) tools.classList.add('compact');
+}
+
 function renderSeatingGroupSelect() {
   const menu = document.getElementById('seating-group-menu');
   const label = document.getElementById('seating-group-current-label');
@@ -130,6 +150,8 @@ function renderSeatingGroupSelect() {
   const trigger = document.getElementById('seating-group-trigger');
   if (trigger) trigger.setAttribute('aria-label', activeGroup
     ? `Klasse wählen: ${[activeGroup.className, activeGroup.subject].filter(Boolean).join(' ')}` : 'Klasse wählen');
+  // Lange Namen sind gekürzt (AW1): beim Draufzeigen ganz
+  if (trigger) { if (activeGroup) trigger.title = [activeGroup.className, activeGroup.subject].filter(Boolean).join(' · '); else trigger.removeAttribute('title'); }
 
   const grouped = {};
   db.groups.forEach(g => {
@@ -780,6 +802,7 @@ function renderSeatingPlan() {
   if (gradeRound && gradeRound.groupId !== groupId) { gradeRound = null; closeGradeRoundPad(); renderGradeRoundBar(); }
   renderSeatingCockpit(); // vor dem Messen: die Leiste nimmt dem Raster Höhe weg
   updateSeatingRedeemButton();   // „Einlösen“ nur mit persönlichen Seiten (AV1)
+  fitSeatingHeader();            // langer Klassenname (AW1)
   const canvas = document.getElementById('seating-canvas');
   const emptyState = document.getElementById('seating-empty');
 

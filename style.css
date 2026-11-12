@@ -2253,9 +2253,11 @@ input, textarea, [contenteditable="true"]{-webkit-user-select:text;user-select:t
    Werkzeuge mit Namen. Darunter die Leiste (immer da, feste Höhe), das Raster ohne Rahmen, unten vier gleiche Knöpfe. */
 .seating-header h1{display:none;}
 .seating-toolbar{display:flex;align-items:center;gap:var(--space-2);flex:1;min-width:0;}
-.seating-class-pick{position:relative;flex-shrink:0;margin-right:var(--space-2);}
-.seating-class-btn{display:inline-flex;align-items:baseline;gap:var(--space-2);min-height:var(--control-h);padding:0 var(--space-2);margin-left:calc(var(--space-2) * -1);background:none;border:none;border-radius:var(--radius-sm);font-family:var(--font-display);font-size:26px;font-weight:600;line-height:var(--control-h);color:var(--text-primary);white-space:nowrap;cursor:pointer;}
-.seating-class-subject{font-size:16px;font-weight:400;color:var(--text-secondary);}
+/* Langer Klassenname (AW1): nur der Name schrumpft (Fach zuerst, dann „…“), Datum und Werkzeuge bleiben ganz im Bild */
+.seating-class-pick{position:relative;flex:0 1 auto;min-width:0;margin-right:var(--space-2);}
+.seating-class-btn{display:inline-flex;align-items:baseline;gap:var(--space-2);max-width:calc(100% + var(--space-2));min-height:var(--control-h);padding:0 var(--space-2);margin-left:calc(var(--space-2) * -1);background:none;border:none;border-radius:var(--radius-sm);font-family:var(--font-display);font-size:26px;font-weight:600;line-height:var(--control-h);color:var(--text-primary);white-space:nowrap;cursor:pointer;}
+.seating-class-name{flex-shrink:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.seating-class-subject{flex-shrink:10;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:16px;font-weight:400;color:var(--text-secondary);}
 .seating-class-subject:empty{display:none;}
 .seating-class-btn svg{align-self:center;color:var(--text-secondary);flex-shrink:0;}
 @media (hover: hover){.seating-class-btn:hover{background:var(--bg-elevated);}}
@@ -2306,6 +2308,17 @@ input, textarea, [contenteditable="true"]{-webkit-user-select:text;user-select:t
   .seating-tool-btn{flex:1;width:auto;}
 }
 @container seating (max-width: 360px){.seating-today-btn{display:none;}}
+/* Langer Klassenname (AW1, fitSeatingHeader): zuerst die Wörter an den Werkzeugen weg, erst dann wird der Name gekürzt.
+   Nur breit; schmal stehen die Werkzeuge ohnehin als Symbole in einer eigenen Zeile und ein langer Name bekommt seine eigene. */
+@container seating (min-width: 621px){
+  .seating-tools.compact .seating-tool-btn .btn-label{display:none;}
+  .seating-tools.compact .seating-tool-btn{width:var(--control-h);padding:0;}
+}
+/* Reicht auch das nicht: der Name bekommt oben eine eigene Zeile, gekürzt wird nur, was selbst dort nicht passt */
+.seating-toolbar.wrap{flex-wrap:wrap;row-gap:var(--space-2);}
+.seating-toolbar.wrap .seating-class-pick{flex:1 1 100%;}
+.seating-toolbar.wrap .seating-date-nav{margin-left:0;}
+.seating-header:has(.seating-toolbar.wrap){height:auto;min-height:68px;padding-top:var(--space-2);padding-bottom:var(--space-2);}
 
 /* Leiste oben: immer da, gleich hoch mit und ohne laufende Stunde */
 .seating-cockpit{margin:var(--space-3) var(--page-x) 0;}
