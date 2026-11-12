@@ -233,7 +233,7 @@ describe('Exporte', () => {
 
   it('CSV einer Punkte-Klasse: Spalten in Punkten, 1 Nachkomma', () => {
     app('currentGroupId = "g2"');
-    app('exportGradesCSV()');
+    app('exportGradesCSVFile()');
     const lines = exported.replace(/^﻿/, '').trim().split('\n');
     expect(lines[0]).toContain('Gesamt (Punkte)');
     expect(lines.find(l => l.includes('Ben'))).toContain('"7,5"');
@@ -241,7 +241,7 @@ describe('Exporte', () => {
 
   it('CSV einer 1–6-Klasse unverändert', () => {
     app('currentGroupId = "g1"');
-    app('exportGradesCSV()');
+    app('exportGradesCSVFile()');
     const lines = exported.replace(/^﻿/, '').trim().split('\n');
     expect(lines[0]).toContain('Gesamtnote');
     expect(lines.find(l => l.includes('Anna'))).toContain('"5,00"');
@@ -250,7 +250,7 @@ describe('Exporte', () => {
   it('Schülerakte nennt Punkte', () => {
     app('currentOverviewGroupId = "g2"; currentGroupId = "g2"');
     app('openStudentDetail("c1")');
-    app('exportCurrentStudent()');
+    app('exportCurrentStudentFile()');
     expect(exported).toContain('13,5 Punkte');
   });
 });

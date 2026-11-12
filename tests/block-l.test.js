@@ -266,7 +266,7 @@ describe('L10/L11: Exporte', () => {
     student('s1').homework.push({ id: 'h1', date: '2026-09-11', note: 'Arbeitsblatt' });
     app('openGroupStudents("g1")');
     app('openStudentDetail("s1")');
-    app('exportCurrentStudent()');
+    app('exportCurrentStudentFile()');
     expect(exported).toContain('Note: 2,5');
     expect(exported).toContain('HAUSAUFGABEN');
     expect(exported).toContain('Arbeitsblatt');
@@ -277,7 +277,7 @@ describe('L10/L11: Exporte', () => {
     student('s1').grades.push({ type: 'test', value: '11', date: '2026-09-10', note: 'T' });
     app('openGroupStudents("g1")');
     app('openStudentDetail("s1")');
-    app('exportCurrentStudent()');
+    app('exportCurrentStudentFile()');
     expect(exported).toContain('Punkte: 11');
     expect(exported).not.toContain('Note: 11');
   });
@@ -285,7 +285,7 @@ describe('L10/L11: Exporte', () => {
   it('CSV: Anführungszeichen im Namen werden verdoppelt', () => {
     student('s1').lastName = 'Muster "Mo"';
     app('openGroupStudents("g1")');
-    app('exportGradesCSV()');
+    app('exportGradesCSVFile()');
     expect(exported).toContain('"Muster ""Mo"""');
   });
 });

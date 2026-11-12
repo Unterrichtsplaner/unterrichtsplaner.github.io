@@ -85,7 +85,9 @@ input[type="date"] { min-height: 1.2em; } /* Fix iOS Safari date input collapse 
 /* ─── Sidebar ────────────────────────── */
 #sidebar{width:var(--sidebar-width);background:var(--sidebar-bg);border-right:1px solid var(--border);display:flex;flex-direction:column;padding:0;flex-shrink:0;z-index:100;position:sticky;left:0;transition:width var(--transition), padding var(--transition);overflow:hidden;}
 .sidebar-header{height:68px;box-sizing:border-box;padding:0 var(--space-2);border-bottom:1px solid var(--border);margin-bottom:var(--space-4);display:flex;align-items:center;}
-.nav-items{display:flex;flex-direction:column;gap:var(--space-1);flex:1;padding:0 var(--space-2);}
+.nav-items{display:flex;flex-direction:column;gap:var(--space-1);flex:1;padding:0 var(--space-2);min-height:0;}
+/* Viele angeheftete Klassen: nur der Schnellzugriff schrumpft und scrollt, „Einstellungen“ und Sync-Stand bleiben sichtbar (AU7) */
+#nav-quick{flex:0 1 auto;min-height:0;overflow-y:auto;}
 .nav-item{display:flex;align-items:center;gap:var(--space-2);padding:var(--space-2) var(--space-3);border-radius:var(--radius-sm);background:transparent;border:none;color:var(--text-secondary);cursor:pointer;font-family:inherit;font-size:14px;font-weight:500;transition:background-color var(--transition),color var(--transition),border-color var(--transition),box-shadow var(--transition),opacity var(--transition),transform var(--transition);width:100%;text-align:left;}
 @media (hover: hover){.nav-item:hover{background:var(--bg-elevated);color:var(--text-primary);}}
 .nav-item.active{background:var(--bg-elevated);color:var(--text-primary);font-weight:600;box-shadow:inset 0 0 0 1px var(--border);} /* gewählt ohne Farbe und ohne Kante (AE4) */
@@ -534,6 +536,9 @@ button.cr-name:focus-visible{outline:2px solid var(--accent);outline-offset:3px;
 }
 
 .modal-body{flex:1;overflow-y:auto;padding:var(--space-4);min-height:0;}
+/* Konflikt-Fenster „ganzer Stand“: Hülle reicht die Höhe weiter, damit der Inhalt scrollt und die Knöpfe sichtbar bleiben (AU6) */
+.conflict-whole{display:flex;flex-direction:column;flex:1 1 auto;min-height:0;}
+.conflict-actions button{white-space:normal;height:auto;text-align:left;}
 .modal-footer{display:flex;justify-content:flex-end;align-items:center;flex-wrap:wrap;gap:var(--space-2);padding:var(--space-3) var(--space-4);border-top:1px solid var(--border);flex-shrink:0;}
 .whats-new-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:var(--space-3);}
 .whats-new-list li{display:flex;gap:var(--space-3);align-items:flex-start;font-size:13px;line-height:1.5;color:var(--text-secondary);}

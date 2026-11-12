@@ -5042,7 +5042,19 @@ function openEditStudent() {
   openModal('modal-add-student');
 }
 
-function exportCurrentStudent() {
+// Dateien mit Schülerdaten sind unverschlüsselt (Regel 70): vor dem Herunterladen darauf hinweisen (AU3)
+async function confirmUnencryptedFile(what) {
+  return (await askChoice('Datei mit Schülerdaten', `${what} enthält Schülerdaten unverschlüsselt. Sicher aufbewahren, nicht über private Mail verschicken.`,
+    [{ label: 'Herunterladen', value: 'ok', primary: true }])) === 'ok';
+}
+async function exportCurrentStudent() {
+  const s = getCurrentStudent();
+  if (!s) return;
+  if (!(await confirmUnencryptedFile('Die Schülerakte (mit Hinweisen und Notizen)'))) return;
+  if (getCurrentStudent() !== s) return;   // inzwischen anderer Schüler oder neuer Stand (Regel 43)
+  exportCurrentStudentFile();
+}
+function exportCurrentStudentFile() {
   const s = getCurrentStudent();
   if (!s) return;
   // Das Profil gehört zu profileGroupId (getCurrentStudent), nicht zur zuletzt geöffneten Tabelle
@@ -5870,7 +5882,14 @@ function saveSettings() {
 // CSV-Feld in Anführungszeichen; Anführungszeichen im Wert werden verdoppelt (BUGS L11)
 function csvCell(v) { return '"' + String(v ?? '').replace(/"/g, '""') + '"'; }
 
-function exportGradesCSV() {
+async function exportGradesCSV() {
+  const gid = currentGroupId;
+  if (!gid || !db.groups.some(x => x.id === gid)) return;
+  if (!(await confirmUnencryptedFile('Der Notenexport'))) return;
+  if (currentGroupId !== gid) return;
+  exportGradesCSVFile();
+}
+function exportGradesCSVFile() {
   if (!currentGroupId) return;
   const g = db.groups.find(x => x.id === currentGroupId);
   if (!g) return;
@@ -9159,8 +9178,12 @@ document.addEventListener('keydown', e => {
   }
 });
 
+// Nur Felder für neue Einträge springen leer auf heute (Regel 58). Einstellungen und optionale Felder (Halbjahresende,
+// Geburtstag, Frist, „Gilt bis“) heißen leer „nicht eingetragen“ und bleiben leer (AU4).
+const TODAY_DATE_FIELDS = new Set(['new-hw-date', 'new-test-date', 'gf-date', 'new-col-date', 'sup-date', 'print-from',
+  'new-att-date', 'new-hw-student-date', 'new-student-note-date']);
 document.addEventListener('focusin', e => {
-  if (e.target.type === 'date' && !e.target.value) e.target.value = formatDate(new Date());
+  if (e.target.type === 'date' && !e.target.value && TODAY_DATE_FIELDS.has(e.target.id)) e.target.value = formatDate(new Date());
 });
 
 // Fix for iOS Safari keyboard scroll bug in fixed modals
@@ -13862,6 +13885,12 @@ function applyNewSchoolYear(choices, todayStr = formatDate(new Date())) {
 
 function openNewYear() {
   if (!db.groups.length) { showToast('Noch keine Klassen', 'error'); return; }
+  // Einstellungen wie mit ihrem Schließen-Knopf verlassen (Rückfrage, Farbvorschau zurück); bleiben sie offen, abbrechen (AU5)
+  const settings = document.getElementById('modal-settings');
+  if (!settings.classList.contains('hidden')) {
+    closeModalLikeButton('modal-settings');
+    if (!settings.classList.contains('hidden')) return;
+  }
   newYearState = {
     step: 1, backedUp: false,
     choices: db.groups.slice().sort((a, b) => (a.className || '').localeCompare(b.className || '', undefined, { numeric: true }))

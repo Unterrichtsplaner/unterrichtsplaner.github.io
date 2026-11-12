@@ -61,7 +61,7 @@
       }
     })();
   </script>
-  <link rel="stylesheet" href="style.css?v=542" />
+  <link rel="stylesheet" href="style.css?v=543" />
   <script>
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
@@ -1107,7 +1107,7 @@
 <!-- Cloud-Synchronisierung (E2EE) -->
       <div class="settings-section">
         <h3>Datenverwaltung</h3>
-        <p style="font-size:12px;color:var(--text-muted);margin:var(--space-1) 0 0">Regelmäßig exportieren: Die Datei ist deine Sicherung.</p>
+        <p style="font-size:12px;color:var(--text-muted);margin:var(--space-1) 0 0">Regelmäßig exportieren: Die Datei ist deine Sicherung. Sie enthält alle Schülerdaten unverschlüsselt, also sicher aufbewahren.</p>
         <div style="display:flex;gap:var(--space-2);flex-wrap:wrap;margin-top:var(--space-2);">
           <button class="btn-secondary" onclick="exportData()"><i data-icon="download"></i>Exportieren</button>
           <button class="btn-secondary" onclick="openClassReport()"><i data-icon="printer"></i>Klassen-Bericht (PDF/Excel)</button>
@@ -1294,7 +1294,7 @@
         <li>Die Daten liegen unverschlüsselt im Browser-Speicher (<code>localStorage</code>). Wer das Gerät entsperrt benutzen kann, kann sie sehen. Sperre das Gerät deshalb mit Code, Fingerabdruck oder Gesicht und nutze die App nicht in einem geteilten Benutzerkonto.</li>
         <li>Für den Abgleich hebt die App auf diesem Gerät den letzten gemeinsamen Stand und die letzten drei Stände vor einem Zusammenführen auf, ebenfalls unverschlüsselt im Browser-Speicher. „Alles löschen“ entfernt auch sie.</li>
         <li>Wenn du den Cloud-Sync nutzt, ist auch dein Master-Passwort auf diesem Gerät gespeichert, damit der Abgleich ohne erneute Eingabe läuft. Beim Abmelden wird es gelöscht.</li>
-        <li>Exportierte Dateien (Sicherung, Klassen-Bericht als PDF/Excel, Notenexport als CSV) sind <strong>nicht</strong> verschlüsselt. Bewahre sie so sicher auf wie die Notenliste auf Papier und verschicke sie nicht über private Mail-Konten.</li>
+        <li>Exportierte Dateien (Sicherung, Klassen-Bericht als PDF/Excel, Notenexport als CSV, Schülerakte als Textdatei mit Hinweisen und Notizen) sind <strong>nicht</strong> verschlüsselt. Bewahre sie so sicher auf wie die Notenliste auf Papier und verschicke sie nicht über private Mail-Konten.</li>
         <li>Löschen: Einstellungen → Datenverwaltung → „Alles löschen“. Beim Abmelden fragt die App außerdem, ob die Daten auf dem Gerät bleiben sollen.</li>
       </ul>
 
@@ -1746,7 +1746,7 @@
   </div>
 
   <div id="modal-sync-conflict" class="modal-overlay hidden" onclick="event.stopPropagation()">
-    <div class="modal modal-medium" onclick="event.stopPropagation()" style="max-width: 520px;">
+    <div class="modal modal-small" onclick="event.stopPropagation()">
       <div class="modal-header">
         <h2 id="conflict-title" class="conflict-title"><i data-icon="alert"></i><span id="conflict-title-text">Zwei Stände</span></h2>
       </div>
@@ -1847,15 +1847,15 @@
   </div>
 
   <script src="lib/crypto-js.min.js"></script>
-  <script src="crypto-helper.js?v=542"></script>
+  <script src="crypto-helper.js?v=543"></script>
   <script src="lib/firebase-app-compat.js"></script>
   <script src="lib/firebase-auth-compat.js"></script>
   <script src="lib/firebase-firestore-compat.js"></script>
-  <script src="firebase-config.js?v=542"></script>
-  <script src="sync-manager.js?v=542"></script>
-  <script src="sync-merge.js?v=542"></script>
+  <script src="firebase-config.js?v=543"></script>
+  <script src="sync-manager.js?v=543"></script>
+  <script src="sync-merge.js?v=543"></script>
   <script src="lib/qrcode.js"></script>
-  <script src="student-share.js?v=542"></script>
-  <script src="app.js?v=542"></script>
+  <script src="student-share.js?v=543"></script>
+  <script src="app.js?v=543"></script>
 </body>
 </html>

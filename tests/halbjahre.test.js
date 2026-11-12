@@ -162,7 +162,7 @@ describe('Schüler-Fenster, Bericht, CSV', () => {
     const realBlob = window.Blob, realUrl = { c: URL.createObjectURL, r: URL.revokeObjectURL };
     window.Blob = function (parts) { txt = parts.join(''); return new realBlob(parts); };
     URL.createObjectURL = () => 'blob:test'; URL.revokeObjectURL = () => {};
-    try { app('profileGroupId = "g1"; currentStudentId = "a"; exportCurrentStudent()'); }
+    try { app('profileGroupId = "g1"; currentStudentId = "a"; exportCurrentStudentFile()'); }
     finally { window.Blob = realBlob; URL.createObjectURL = realUrl.c; URL.revokeObjectURL = realUrl.r; }
     expect(txt).toMatch(/Schnitt aller Noten: 3,50, 1\. Halbjahr: 2,50, 2\. Halbjahr: 4,50/);
     expect((txt.match(/Klassenarbeit \| Note|Sonstige Leistung \| Note/g) || []).length).toBe(4);

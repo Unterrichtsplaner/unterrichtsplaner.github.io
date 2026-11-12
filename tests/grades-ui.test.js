@@ -170,7 +170,7 @@ describe('B4: CSV-Export nach Gewichtungs-Kategorien', () => {
     try {
       anna().grades.push({ type: 'projekt', value: '5.0', date: '2026-09-04', note: 'Referat' });
       app('currentGroupId = "g1"');
-      app('exportGradesCSV()');
+      app('exportGradesCSVFile()');
     } finally {
       URL.createObjectURL = origCreate; URL.revokeObjectURL = origRevoke;
       HTMLAnchorElement.prototype.click = origClick;

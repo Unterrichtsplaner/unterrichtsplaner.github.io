@@ -188,7 +188,7 @@ describe('C6: Schülerakten-Export', () => {
 
   it('schreibt kein „undefined“ und die Bemerkungen der Fehlzeiten', () => {
     openAnna();
-    app('exportCurrentStudent()');
+    app('exportCurrentStudentFile()');
     expect(exported).not.toContain('undefined');
     expect(exported).toContain('neu');
     expect(exported).toContain('neue Anmerkung');
@@ -201,7 +201,7 @@ describe('C6: Schülerakten-Export', () => {
     s.attendance.push({ type: 'zuspät' });
     s.studentNotes.push({ text: 'ohne Datum' });
     openAnna();
-    expect(() => app('exportCurrentStudent()')).not.toThrow();
+    expect(() => app('exportCurrentStudentFile()')).not.toThrow();
     expect(exported).toContain('ohne Datum');
     expect(exported).toContain('Zu spät');
     expect(exported).not.toContain('Invalid');
