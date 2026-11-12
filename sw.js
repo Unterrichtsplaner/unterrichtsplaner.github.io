@@ -16,6 +16,7 @@ const ASSETS = [
   './js/einstellungen.js?v=556',
   './js/bericht.js?v=556',
   './js/sync.js?v=556',
+  './js/schuelerapp-planer.js?v=556',
   './app.js?v=556',
   './style.css?v=556',
   './manifest.json',
