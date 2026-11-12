@@ -28,12 +28,12 @@ function setPlusScanStatus(text, kind = '') {
   el.textContent = text;
   el.className = 'plus-scan-status' + (kind ? ' is-' + kind : '');
 }
-// Sitzplan-Leiste: Knopf nur, wenn die gezeigte Klasse persönliche Seiten hat
+// Sitzplan-Leiste: Knopf nur, wenn die gezeigte Klasse persönliche Seiten mit eingeschaltetem Laden hat
 function updateSeatingRedeemButton() {
   const btn = document.getElementById('btn-tool-redeem');
   if (!btn) return;
   const g = db.groups.find(x => x.id === currentSeatingGroupId);
-  btn.classList.toggle('hidden', !(g && personalActive(g)));
+  btn.classList.toggle('hidden', !(g && shopActive(g)));
 }
 async function openPlusScanner() {
   if (plusScan) return;

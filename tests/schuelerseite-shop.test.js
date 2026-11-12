@@ -52,6 +52,8 @@ describe('Reiter SHOP', () => {
     show(me());
     expect(page().querySelector('.shop-bal .shop-num').textContent.trim()).toBe('5');
     expect(page().querySelector('.shop-bal').textContent).toMatch(/\+ ist 1 Plus wert · \+\+ sind 2 · 4 schon eingelöst/);
+    show(me({ account: { ...me().account, since: '2026-11-12' } }));
+    expect(page().querySelector('.shop-bal').textContent).toMatch(/Plusse zählen ab Do 12\.11\./);   // Laden eingeschaltet am 12.11.
   });
   it('Highlight ist das teuerste Angebot; die übrigen im Raster; Seltenheit nach Preis', () => {
     show(me());

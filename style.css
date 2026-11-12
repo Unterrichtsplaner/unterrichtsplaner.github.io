@@ -2184,6 +2184,9 @@ textarea.form-input,.notes-textarea{min-height:calc(var(--control-h) * 2.5);}
 .sw-sa-private{display:flex;flex-direction:column;gap:var(--space-2);}
 .sw-sa-bau{display:flex;align-items:center;gap:var(--space-2);flex-wrap:wrap;font-size:14px;}
 .sw-sa-bau span{flex:1;min-width:0;overflow-wrap:anywhere;}
+textarea.sa-jokers{min-height:120px;padding:var(--space-2) var(--space-3);resize:vertical;font:inherit;font-size:14px;line-height:1.45;}
+.sw-sa-used{display:flex;flex-wrap:wrap;gap:var(--space-1);}
+.sw-sa-used span{font-size:12px;color:var(--text-secondary);background:var(--bg-elevated);border:1px solid var(--border);border-radius:var(--radius-xs);padding:2px var(--space-2);}
 .sw-sa-given .entry-item .gs-tile,.sw-sa-redeemed .entry-item .gs-tile{width:28px;height:28px;}
 .sw-sa-given .entry-item .gs-tile svg,.sw-sa-redeemed .entry-item .gs-tile svg{width:16px;height:16px;}
 

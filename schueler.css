@@ -346,6 +346,7 @@ html.story-open, html.story-open body { overflow: hidden; }
 .shop-num { display: flex; align-items: center; gap: var(--s3); margin-top: var(--s2); font-size: 112px; font-weight: 900; font-stretch: 125%; line-height: .85; letter-spacing: -.04em; color: var(--c-sig); font-variant-numeric: tabular-nums; }
 .shop-num .coin { width: 64px; height: 64px; }
 .shop-rule { margin-top: var(--s3); color: var(--c-paper-soft); font-size: 15px; }
+.shop-rule + .shop-rule { margin-top: var(--s1); }
 .shop-h { padding: var(--s5) var(--s5) var(--s3); font-size: 22px; font-weight: 800; font-stretch: 62%; text-transform: uppercase; letter-spacing: .03em; }
 .shop-empty { padding: 0 var(--s5) var(--s5); color: var(--c-paper-soft); }
 .r-common { --rc: var(--c-mist); --rt: var(--c-ink); }

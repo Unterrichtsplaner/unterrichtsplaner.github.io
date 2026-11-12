@@ -174,5 +174,7 @@ Stufe 1 ist schon im Unterricht nutzbar (du tippst ein). Erst ausprobieren, dann
 | 9 | Handys im Unterricht? | **Erlaubt**; Einlösen im Schüler-Fenster bleibt als zweiter Weg. |
 | 10 | Preise der Vorteile | **Wie vorgeschlagen:** Sitzplatz 2, Partner 2, Song 3, Aufgabe 3, Rätsel 3, keine TÜ 4, eine 1 6 (Startwerte, je Klasse änderbar). |
 | 11 | Aussehen | **Entwurf passt** (5a). |
+| 12 | Gilt der Laden für alle Klassen sofort? | **Nein:** Schalter je Klasse, Standard aus (sonst hätten andere Lehrkräfte ungefragt eine eintauschbare Note). Aus = Joker wie bisher. |
+| 13 | Ab wann zählen die Plusse aufs Konto? | **Ab dem Einschalten des Ladens** (nicht seit Schuljahresbeginn); Aus und wieder an behält das Datum. |
 
 **Noch offen:** nur ein Versuch mit der echten iPad-Kamera. Stufe 1 und Stufe 2 sind gebaut (12.11.): Der Kauf-Bildschirm zeigt den QR-Code, eingelöst wird per Scan (Sitzplan, Reiter Schülerapp) oder im Schüler-Fenster.

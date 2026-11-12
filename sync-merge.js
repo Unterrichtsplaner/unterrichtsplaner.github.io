@@ -135,7 +135,8 @@ const MERGE_SPEC = {
               goal: { atomic: 'ask', what: 'Klassenziel', show: gl => (gl && gl.target ? `${gl.target} Plusse${gl.reward ? `: ${gl.reward}` : ''}` : 'keins') },
               // Persönliche Seiten (AJ2): Tempo samt XP je Level gehört zusammen, Ränge und Joker als Ganzes
               personal: {
-                together: [{ fields: ['level', 'step'], what: 'Tempo der Level', show: p => ({ easy: 'entspannt', normal: 'normal', hard: 'sportlich' }[p.level] || 'normal') }],   // AP17
+                together: [{ fields: ['level', 'step'], what: 'Tempo der Level', show: p => ({ easy: 'entspannt', normal: 'normal', hard: 'sportlich' }[p.level] || 'normal') },   // AP17
+                  { fields: ['shopOn', 'shopSince'], what: 'Plus-Konto und Laden', show: p => (p.shopOn ? `an, Plusse ab ${p.shopSince ? mergeShortDate(p.shopSince) : 'Schuljahresbeginn'}` : 'aus') }],   // AV1
                 fields: { ranks: { atomic: 'ask', what: 'Ränge', show: r => (r || []).filter(Boolean).join(', ') || 'keine' },
                   jokers: { atomic: 'ask', what: 'Joker', show: j => (j || []).join(', ') || 'keine' },
                   shop: { atomic: 'ask', what: 'Laden', show: l => (l || []).map(x => `${x.name || ''} (${x.price})`).join(', ') || 'leer' },   // AV1

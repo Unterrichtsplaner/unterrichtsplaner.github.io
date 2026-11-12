@@ -430,7 +430,8 @@
     const waiting = x => waits.some(w => w.item === x.id && w.n === x.price);
     const top = items.reduce((b, x, i) => (b < 0 || x.price > items[b].price ? i : b), -1);   // Highlight: das teuerste
     let html = `<section class="f-ink shop-bal"><p class="k">Dein Konto</p><div class="shop-num">${coin()}<span>${bal}</span></div>
-      <p class="shop-rule">+ ist 1 Plus wert · ++ sind 2${spent ? ` · ${spent} schon eingelöst` : ''}</p></section>`;
+      <p class="shop-rule">+ ist 1 Plus wert · ++ sind 2${spent ? ` · ${spent} schon eingelöst` : ''}</p>
+      ${isDate(acc.since) ? `<p class="shop-rule">Plusse zählen ab ${esc(short(acc.since))}</p>` : ''}</section>`;
     if (top < 0) html += '<p class="shop-empty">Gerade gibt es nichts im Shop.</p>';
     else {
       html += `<h2 class="shop-h">Highlight</h2>${shopCard(items[top], top, bal, true, waiting(items[top]))}`;

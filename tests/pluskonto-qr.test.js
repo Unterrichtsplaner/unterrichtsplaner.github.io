@@ -12,7 +12,7 @@ function sampleDB() {
     lessonSlots: [{ id: 's1', day: 0, block: 1, part: 'full', subject: 'Mathe', groupId: 'g1', color: '#6366f1', recurring: 'weekly' }],
     lessonData: {}, supervisions: [],
     groups: [{ id: 'g1', subject: 'Mathe', className: '7b', color: '#6366f1', schularbeitWeight: 50,
-      studentApp: { on: true, access: { id: 'K'.repeat(22), key: 'k'.repeat(43) }, personal: { on: true, step: 10 }, goal: { target: 50, reward: 'Spielestunde', since: '2026-09-01' } } }],
+      studentApp: { on: true, access: { id: 'K'.repeat(22), key: 'k'.repeat(43) }, personal: { on: true, step: 10, shopOn: true, shopSince: '2026-08-01' }, goal: { target: 50, reward: 'Spielestunde', since: '2026-09-01' } } }],
     students: { g1: [
       { id: 'a', firstName: 'Anna', lastName: 'Muster', grades: [], attendance: [], homework: [], studentNotes: [], studentApp: { access: ACC },
         participation: [P('p1', '2026-09-21', 'excellent'), P('p2', '2026-10-05', 'excellent'), P('p3', '2026-10-12', 'positive')] },   // 5 Plusse
@@ -146,6 +146,11 @@ describe('Prüfen und Einlösen im Planer (redeemFromCode)', () => {
     app('db.groups[0].studentApp.personal.on = false');
     expect((await scan(await code('l-song', 3))).result.msg).toMatch(/ausgeschaltet/);
   });
+  it('Laden der Klasse aus: abgelehnt', async () => {
+    app('db.groups[0].studentApp.personal.shopOn = false');
+    expect((await scan(await code('l-song', 3))).result.msg).toMatch(/Laden der 7b ist ausgeschaltet/);
+    expect(anna().redeemed || []).toEqual([]);
+  });
 });
 
 describe('Abgleich: derselbe Code auf zwei Geräten gescannt', () => {
@@ -242,7 +247,9 @@ describe('Kamera-Fenster „Plusse einlösen“', () => {
   it('Knopf „Einlösen“ im Sitzplan nur mit persönlichen Seiten; „Codes scannen“ im Reiter Schülerapp', () => {
     app('switchView("seating"); openSeatingForGroup("g1")');
     expect(document.getElementById('btn-tool-redeem').classList.contains('hidden')).toBe(false);
-    app('db.groups[0].studentApp.personal.on = false; renderSeatingPlan()');
+    app('db.groups[0].studentApp.personal.shopOn = false; renderSeatingPlan()');
+    expect(document.getElementById('btn-tool-redeem').classList.contains('hidden')).toBe(true);   // Laden aus
+    app('db.groups[0].studentApp.personal.shopOn = true; db.groups[0].studentApp.personal.on = false; renderSeatingPlan()');
     expect(document.getElementById('btn-tool-redeem').classList.contains('hidden')).toBe(true);
     const SM = app('SyncManager');
     SM.isInitialized = true; SM.currentUser = { uid: 'u1' }; SM.publishShare = async () => {}; SM.closeShare = async () => true;

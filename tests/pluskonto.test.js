@@ -10,7 +10,7 @@ function sampleDB() {
     lessonSlots: [{ id: 's1', day: 0, block: 1, part: 'full', subject: 'Mathe', groupId: 'g1', color: '#6366f1', recurring: 'weekly' }],
     lessonData: {}, supervisions: [],
     groups: [{ id: 'g1', subject: 'Mathe', className: '7b', color: '#6366f1', schularbeitWeight: 50,
-      studentApp: { on: true, access: { id: 'K'.repeat(22), key: 'k'.repeat(43) }, personal: { on: true, step: 10 } } }],
+      studentApp: { on: true, access: { id: 'K'.repeat(22), key: 'k'.repeat(43) }, personal: { on: true, step: 10, shopOn: true, shopSince: '2026-08-01' } } }],
     students: { g1: [
       { id: 'a', firstName: 'Anna', lastName: 'Geheimrath', notes: 'Diabetes', importantNote: 'Allergie', studentNotes: [{ text: 'Elterngespräch', date: '2026-10-01' }],
         grades: [{ type: 'test', value: '5.0', date: '2026-10-12', note: 'Kurztest' }], attendance: [{ id: 'x', date: '2026-10-19', type: 'abwesend' }], homework: [],
@@ -233,5 +233,73 @@ describe('Abgleich und Schuljahreswechsel', () => {
   });
   it('Schuljahreswechsel leert die Einlösungen (das Konto beginnt neu)', () => {
     expect(app('YEAR_LISTS')).toContain('redeemed');
+  });
+});
+
+describe('Laden je Klasse einschalten (Standard aus, Wunsch 12.11. vor dem Live-Gang)', () => {
+  const content = () => document.getElementById('overview-content');
+  const off = () => app('delete db.groups[0].studentApp.personal.shopOn; delete db.groups[0].studentApp.personal.shopSince');
+  const toggle = on => { const t = content().querySelector('#sa-shop-on'); t.checked = on; t.dispatchEvent(new Event('change')); };
+  afterEach(() => { if (choiceOpen()) app('answerChoice(null)'); app('closeModal("modal-seating-student")'); });
+
+  it('aus: alles wie vorher – Joker im Auszug und im Schüler-Fenster, kein Konto, kein Einlösen', () => {
+    off();
+    expect(app('personalOf(db.groups[0])')).toMatchObject({ shopOn: false, shopSince: null });
+    const snap = app('studentPersonalSnapshot(db.groups[0], db.students.g1[0], new Date())');
+    expect(snap.account).toBeUndefined();
+    expect(snap.jokers).toMatchObject({ max: 4, every: 4 });
+    app('openStudentDetail("a", "g1")');
+    expect(sec().querySelector('#sw-sa-redeem')).toBeNull();
+    expect(sec().textContent).toMatch(/Joker: .*frei/);
+  });
+  it('Einschalten im Reiter „Schülerapp“: Rückfrage nennt die Note; das Konto zählt ab heute', async () => {
+    off();
+    app('openGroupStudents("g1", "studentapp")');
+    expect(content().querySelector('#sa-shop-on').checked).toBe(false);
+    expect(content().querySelector('#sa-shop-list')).toBeNull();
+    expect(content().querySelector('#sa-jokers')).not.toBeNull();   // aus: Joker wie bisher
+    toggle(true);
+    await vi.waitFor(() => expect(choiceOpen()).toBe(true));
+    expect(document.getElementById('modal-choice-text').textContent).toMatch(/Note/);
+    expect(document.getElementById('modal-choice-text').textContent).toMatch(/ersetzt die Joker/);
+    app('answerChoice("on")');
+    await vi.waitFor(() => expect(app('personalOf(db.groups[0]).shopOn')).toBe(true));
+    expect(app('personalOf(db.groups[0]).shopSince')).toBe(TODAY);
+    expect(account()).toMatchObject({ earned: 0, balance: 0 });   // Plusse von vorher zählen nicht
+    expect(content().querySelector('#sa-shop-list')).not.toBeNull();
+    expect(content().querySelector('#sa-jokers')).toBeNull();
+    app(`db.students.g1[0].participation.push({ id: "n1", date: "${TODAY}", value: "excellent" })`);
+    expect(account().earned).toBe(2);
+    expect(app('studentPersonalSnapshot(db.groups[0], db.students.g1[0], new Date())').account.since).toBe(TODAY);
+  });
+  it('Abbrechen lässt den Laden aus', async () => {
+    off();
+    app('openGroupStudents("g1", "studentapp")');
+    toggle(true);
+    await vi.waitFor(() => expect(choiceOpen()).toBe(true));
+    app('answerChoice(null)');
+    await vi.waitFor(() => expect(content().querySelector('#sa-shop-on').checked).toBe(false));
+    expect(app('personalOf(db.groups[0]).shopOn')).toBe(false);
+  });
+  it('Aus und wieder an: das Startdatum bleibt (kein versehentliches Zurücksetzen der Konten)', async () => {
+    app('db.groups[0].studentApp.personal.shopSince = "2026-10-01"');
+    window.confirm = () => true;
+    app('openGroupStudents("g1", "studentapp")');
+    toggle(false);
+    expect(app('personalOf(db.groups[0])')).toMatchObject({ shopOn: false, shopSince: '2026-10-01' });
+    toggle(true);
+    await vi.waitFor(() => expect(choiceOpen()).toBe(true));
+    app('answerChoice("on")');
+    await vi.waitFor(() => expect(app('personalOf(db.groups[0]).shopOn')).toBe(true));
+    expect(app('personalOf(db.groups[0]).shopSince')).toBe('2026-10-01');
+  });
+  it('Abgleich: An/Aus und Startdatum als Ganzes', () => {
+    const base = sampleDB();
+    const l = JSON.parse(JSON.stringify(base)), c = JSON.parse(JSON.stringify(base));
+    delete base.groups[0].studentApp.personal.shopOn; delete base.groups[0].studentApp.personal.shopSince;
+    l.groups[0].studentApp.personal.shopSince = '2026-11-02';
+    c.groups[0].studentApp.personal.shopSince = '2026-11-05';
+    const r = app('mergeDB')(base, l, c);
+    expect(r.conflicts.map(q => q.what)).toEqual(['Plus-Konto und Laden']);
   });
 });

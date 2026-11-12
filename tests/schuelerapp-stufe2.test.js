@@ -1,6 +1,6 @@
 // Schülerapp Stufe 2a (BUGS AJ2): persönliche Seiten. Je Schüler ein Link; Seite „Ich“ mit Level/XP aus den Plussen
-// (berechnet), Rückmeldung, Serie, Rang (die Joker ersetzt seit AV1 das Plus-Konto, tests/pluskonto.test.js).
-// Nie Noten, Fehlzeiten, Hinweise, Notizen oder andere Schüler.
+// (berechnet), Rückmeldung, Serie, Rang, Joker. Nie Noten, Fehlzeiten, Hinweise, Notizen oder andere Schüler.
+// Die Joker gelten weiter, solange der Laden der Klasse aus ist (AV1, Standard); mit Laden: tests/pluskonto.test.js.
 const { loadApp, app } = require('./helpers/load-app');
 
 const TODAY = '2026-11-09';   // Montag
@@ -49,7 +49,7 @@ beforeEach(() => {
 });
 afterEach(() => vi.useRealTimers());
 
-describe('Level, XP, Rang (berechnet, nie gespeichert)', () => {
+describe('Level, XP, Rang, Joker (berechnet, nie gespeichert)', () => {
   it('XP: + 10, ++ 20, nur dieses Schuljahr; Minus zieht nie ab', () => {
     expect(app('studentXP(db.students.g1[0])')).toBe(10 + 20 + 10 + 10 + 20 + 20);   // p3 (−) zählt 0, p0 (Juli) fällt raus
   });
@@ -65,11 +65,13 @@ describe('Level, XP, Rang (berechnet, nie gespeichert)', () => {
     app("db.lessonSlots.push({ id: 's2', day: 3, block: 2, part: 'full', groupId: 'g1', recurring: 'weekly' })");
     expect(app('personalStepFor(db.groups[0], "normal")')).toBe(35);
   });
-  it('Rang je Klasse; Joker gibt es nicht mehr (AV1: der Laden ersetzt sie)', () => {
+  it('Rang je Klasse, Joker alle 4 Level, eingelöste abgezogen', () => {
     app('db.groups[0].studentApp.personal = { on: true, step: 10, ranks: ["Bleistift","Buntstift","Fineliner","Füller","Goldfüller"] }');
     const i = app('studentPersonalInfo(db.groups[0], db.students.g1[0])');   // 90 XP, Schritt 10 → Level 10
     expect(i).toMatchObject({ xp: 90, level: 10, rank: 'Goldfüller', tier: 4, nextRank: null });
-    expect(i.jokers).toBeUndefined();
+    expect(i.jokers).toEqual({ earned: 2, used: 0, open: 2 });
+    app('db.students.g1[0].jokersUsed = [{ id: "j1", date: "2026-10-20" }, { id: "j0", date: "2026-06-01" }]');
+    expect(app('studentPersonalInfo(db.groups[0], db.students.g1[0]).jokers')).toEqual({ earned: 2, used: 1, open: 1 });
   });
 });
 
@@ -188,15 +190,16 @@ describe('Reiter „Schülerapp“: Karte „Persönliche Seiten“', () => {
     expect(content().querySelector('#sa-level').value).toBe('normal');
     expect(content().textContent).toMatch(/Ein Level braucht 15 XP/);
   });
-  it('Ränge: Vorlage übernehmen und einzeln ändern; Laden statt Joker (AV1)', () => {
+  it('Ränge: Vorlage übernehmen und einzeln ändern; Joker zeilenweise', () => {
     app('db.groups[0].studentApp.personal = { on: true, step: 15 }; openGroupStudents("g1", "studentapp")');
     content().querySelector('[data-preset="gaming"]').click();
     expect(app('personalOf(db.groups[0]).ranks')).toEqual(['Neuling', 'Entdecker', 'Durchblicker', 'Taktiker', 'Legende']);
     const r = content().querySelector('[data-rank="0"]');
     r.value = 'Rookie'; r.dispatchEvent(new Event('change'));
     expect(app('personalOf(db.groups[0]).ranks[0]')).toBe('Rookie');
-    expect(content().querySelector('#sa-jokers')).toBeNull();
-    expect(content().querySelector('#sa-shop-list')).not.toBeNull();
+    const j = content().querySelector('#sa-jokers');
+    j.value = 'DJ für 5 Minuten\n\n  Hausaufgabe streichen  '; j.dispatchEvent(new Event('change'));
+    expect(app('personalOf(db.groups[0]).jokers')).toEqual(['DJ für 5 Minuten', 'Hausaufgabe streichen']);
   });
   it('Kärtchen drucken: je Schüler Name, Klasse und Code', () => {
     app('db.groups[0].studentApp.personal = { on: true, step: 15 }; window.print = () => {}');
@@ -219,7 +222,17 @@ describe('Schüler-Fenster: Abschnitt „Schülerapp“', () => {
     expect(sec().querySelector('.sw-sa-private').hasAttribute('data-private')).toBe(true);   // … Level, Joker, Texte nicht
     expect(sec().querySelector('#sw-sa-sticker')).not.toBeNull();
     expect(sec().textContent).toMatch(/Level 10/);
-    expect(sec().textContent).toMatch(/Konto: 9 Plusse/);   // AV1 statt „2 Joker frei“
+    expect(sec().textContent).toMatch(/2 frei/);
+    app('closeModal("modal-seating-student")');
+  });
+  it('Joker einlösen: Auswahl aus der Liste, mit „Rückgängig“', async () => {
+    app('db.groups[0].studentApp.personal = { on: true, step: 10, jokers: ["Song vorschlagen", "Platz wählen"] }; openStudentDetail("a", "g1")');
+    document.getElementById('sw-sa-joker').click();
+    await answer('Platz wählen');
+    await vi.waitFor(() => expect(anna().jokersUsed.length).toBe(1));
+    expect(anna().jokersUsed[0]).toMatchObject({ date: TODAY, text: 'Platz wählen' });
+    expect(sec().textContent).toMatch(/1 frei/);
+    expect(document.getElementById('toast-container').textContent).toMatch(/Rückgängig/);
     app('closeModal("modal-seating-student")');
   });
   it('„Code zeigen“: großer Code mit Warnung, nicht am Beamer', () => {

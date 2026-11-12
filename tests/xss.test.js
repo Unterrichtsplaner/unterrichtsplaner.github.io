@@ -125,7 +125,11 @@ describe('Ansichten mit präparierten Daten', () => {
       app(`db.students[${G}][0].jokersUsed = [{ id: ${JSON.stringify(X)}, date: "2026-09-21", text: ${JSON.stringify(X)} }]`);
       app(`closeModal("modal-seating-student"); openStudentDetail(${S})`);
       expect(document.querySelector('#sw-studentapp .sw-sa-given')).not.toBeNull();   // AJ2b: Liste wirklich gezeichnet
-      expect(document.querySelectorAll('#sw-studentapp .sw-sa-redeemed .entry-item').length).toBe(2);   // AV1: Einlösung und alter Joker
+      expect(document.querySelector('#sw-studentapp .sw-sa-used span')).not.toBeNull();   // Laden aus: eingelöste Joker
+      expect(injected()).toBe(0); expect(brokenHandlers()).toEqual([]);
+      app(`db.groups[0].studentApp.personal.shopOn = true; db.groups[0].studentApp.personal.shopSince = "2026-08-01"`);   // AV1: Laden an
+      app(`closeModal("modal-seating-student"); openStudentDetail(${S})`);
+      expect(document.querySelectorAll('#sw-studentapp .sw-sa-redeemed .entry-item').length).toBe(2);   // Einlösung und alter Joker
       expect(injected()).toBe(0); expect(brokenHandlers()).toEqual([]);
       app(`openGive("sticker", ${G}, db.students[${G}][0].id)`);
       expect(injected()).toBe(0);
