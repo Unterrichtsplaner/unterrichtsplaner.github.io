@@ -2140,11 +2140,8 @@ textarea.form-input,.notes-textarea{min-height:calc(var(--control-h) * 2.5);}
 .rank-chip.t-bronze{background:#b87333;} .rank-chip.t-silver{background:#b8c0c8;} .rank-chip.t-gold{background:#d4a017;}
 .rank-chip.t-platinum{background:#a9d0dc;} .rank-chip.t-diamond{background:#3fbbe8;}
 .sa-row-btns{display:flex;flex-wrap:wrap;gap:var(--space-2);}
-textarea.sa-jokers{min-height:120px;padding:var(--space-2) var(--space-3);resize:vertical;font:inherit;font-size:14px;line-height:1.45;}
 .sw-sa-line{font-size:14px;color:var(--text-primary);}
 .sw-sa-line small{color:var(--text-muted);font-size:12px;}
-.sw-sa-used{display:flex;flex-wrap:wrap;gap:var(--space-1);}
-.sw-sa-used span{font-size:12px;color:var(--text-secondary);background:var(--bg-elevated);border:1px solid var(--border);border-radius:var(--radius-xs);padding:2px var(--space-2);}
 @container (max-width: 480px){.sa-ranks{grid-template-columns:repeat(2,minmax(0,1fr));}}
 #print-area .sa-cards{display:grid;grid-template-columns:1fr 1fr;gap:0;}
 #print-area .sa-card-print{display:flex;gap:4mm;align-items:center;padding:5mm;border:.3mm dashed #999;break-inside:avoid;height:62mm;box-sizing:border-box;}
@@ -2179,8 +2176,8 @@ textarea.sa-jokers{min-height:120px;padding:var(--space-2) var(--space-3);resize
 .sw-sa-private{display:flex;flex-direction:column;gap:var(--space-2);}
 .sw-sa-bau{display:flex;align-items:center;gap:var(--space-2);flex-wrap:wrap;font-size:14px;}
 .sw-sa-bau span{flex:1;min-width:0;overflow-wrap:anywhere;}
-.sw-sa-given .entry-item .gs-tile{width:28px;height:28px;}
-.sw-sa-given .entry-item .gs-tile svg{width:16px;height:16px;}
+.sw-sa-given .entry-item .gs-tile,.sw-sa-redeemed .entry-item .gs-tile{width:28px;height:28px;}
+.sw-sa-given .entry-item .gs-tile svg,.sw-sa-redeemed .entry-item .gs-tile svg{width:16px;height:16px;}
 
 /* Schuljahreswechsel (Y6) */
 .ny-modal .modal-body{display:flex;flex-direction:column;gap:var(--space-3);overflow-y:auto;}

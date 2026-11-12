@@ -833,7 +833,7 @@ function nextYearLabel(y) {
   const m = /^(\d{4})\/(\d{2})$/.exec(String(y || '').trim());
   return m ? `${Number(m[1]) + 1}/${String((Number(m[2]) + 1) % 100).padStart(2, '0')}` : y;
 }
-const YEAR_LISTS = ['grades', 'attendance', 'participation', 'homework', 'studentNotes', 'jokersUsed', 'stickersGiven', 'baustellen'];
+const YEAR_LISTS = ['grades', 'attendance', 'participation', 'homework', 'studentNotes', 'jokersUsed', 'stickersGiven', 'baustellen', 'redeemed'];
 function hasYearData() {
   return Object.values(db.students || {}).some(l => (l || []).some(s => s && YEAR_LISTS.some(f => (s[f] || []).length)))
     || Object.keys(db.lessonData || {}).length > 0;

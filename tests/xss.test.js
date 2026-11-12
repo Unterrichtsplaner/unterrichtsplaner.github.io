@@ -110,7 +110,7 @@ describe('Ansichten mit präparierten Daten', () => {
       expect(document.getElementById('settings-studentapp-classes').querySelector('.sa-class-row')).not.toBeNull();
       expect(injected()).toBe(0); expect(brokenHandlers()).toEqual([]);
       // Stufe 2a (AJ2): Karte „Persönliche Seiten“, Abschnitt im Schüler-Fenster, Kärtchen
-      app(`db.groups[0].studentApp.personal = { on: true, step: 10, ranks: [${JSON.stringify(X)}], jokers: [${JSON.stringify(X)}] }`);
+      app(`db.groups[0].studentApp.personal = { on: true, step: 10, ranks: [${JSON.stringify(X)}], jokers: [${JSON.stringify(X)}], shop: [{ id: ${JSON.stringify(X)}, name: ${JSON.stringify(X)}, price: 2, kind: 'perk', icon: ${JSON.stringify(X)} }] }`);
       app('closeModal("modal-settings")');
       app(`openGroupStudents(${G}, "studentapp")`);
       expect(document.querySelector('#sa-personal [data-rank]')).not.toBeNull();
@@ -121,14 +121,18 @@ describe('Ansichten mit präparierten Daten', () => {
       app(`db.students[${G}][0].stickersGiven = [{ id: ${JSON.stringify(X)}, date: "2026-09-21", name: ${JSON.stringify(X)}, icon: ${JSON.stringify(X)}, color: 1, xp: 20, reason: ${JSON.stringify(X)} }]`);
       app(`db.students[${G}][0].baustellen = [{ id: ${JSON.stringify(X)}, date: "2026-09-21", text: ${JSON.stringify(X)} }]`);
       app(`db.groups[0].studentApp.personal.stickers = [{ id: ${JSON.stringify(X)}, name: ${JSON.stringify(X)}, icon: "star", color: 1, xp: 20 }]`);
+      app(`db.students[${G}][0].redeemed = [{ id: ${JSON.stringify(X)}, date: "2026-09-21", name: ${JSON.stringify(X)}, price: 1, kind: ${JSON.stringify(X)}, icon: ${JSON.stringify(X)} }]`);   // AV1
+      app(`db.students[${G}][0].jokersUsed = [{ id: ${JSON.stringify(X)}, date: "2026-09-21", text: ${JSON.stringify(X)} }]`);
       app(`closeModal("modal-seating-student"); openStudentDetail(${S})`);
       expect(document.querySelector('#sw-studentapp .sw-sa-given')).not.toBeNull();   // AJ2b: Liste wirklich gezeichnet
+      expect(document.querySelectorAll('#sw-studentapp .sw-sa-redeemed .entry-item').length).toBe(2);   // AV1: Einlösung und alter Joker
       expect(injected()).toBe(0); expect(brokenHandlers()).toEqual([]);
       app(`openGive("sticker", ${G}, db.students[${G}][0].id)`);
       expect(injected()).toBe(0);
       app('closeModal("modal-give-sticker")');
       app(`openGroupStudents(${G}, "studentapp")`);
       expect(document.querySelector('#sa-stk-list .sa-stk-row')).not.toBeNull();
+      expect(document.querySelector('#sa-shop-list .sa-stk-row')).not.toBeNull();   // AV1: Laden
       expect(injected()).toBe(0); expect(brokenHandlers()).toEqual([]);
       app(`closeModal("modal-seating-student"); window.print = () => {}; printStudentCards(${G})`);
       expect(document.querySelector('#print-area .sa-card-print')).not.toBeNull();

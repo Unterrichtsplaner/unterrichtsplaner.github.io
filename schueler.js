@@ -202,11 +202,14 @@
   // ── Persönliche Seite (AJ2): Reiter „Ich“, „Sammlung“ und „Klasse“ (AJ3b: weniger auf einmal) ──
   const PART = { excellent: ['++', 'pp'], positive: ['+', 'p'], neutral: ['−', 'm'], negative: ['−−', 'mm'] };
   let meTab = 'ich';   // nur Ansicht, nie gespeichert
+  // Plus-Konto (AV1): nur in Auszügen neuerer Planer; ältere schicken Joker (Regel 15)
+  const accountOf = d => (d && d.account && typeof d.account === 'object' ? d.account : null);
   function meHead(d) {
     const sub = [d.subject, d.teacher ? `bei ${dativ(d.teacher)}` : ''].filter(Boolean).join(' ');
     const head = [d.cls, sub].filter(Boolean).join(' ');   // „7b Mathematik bei Herrn …“ klein, die Reiter groß (AJ3l)
+    const tabs = [['ich', 'Ich'], ['sammlung', 'Sammlung'], ['klasse', 'Klasse'], ...(accountOf(d) ? [['shop', 'Shop']] : [])];
     return `<header class="me-top">${head ? `<div class="class-sub">${esc(head)}</div>` : ''}
-      <div class="tabs" role="tablist">${[['ich', 'Ich'], ['sammlung', 'Sammlung'], ['klasse', 'Klasse']].map(([k, l]) =>
+      <div class="tabs${tabs.length > 3 ? ' four' : ''}" role="tablist">${tabs.map(([k, l]) =>
         `<button type="button" role="tab" data-tab="${k}" aria-selected="${meTab === k}"${meTab === k ? ' class="on"' : ''}>${l}</button>`).join('')}</div></header>`;
   }
   // Jahreskarte (AJ2c): ein Feld je Stunde, nach Monaten; Zahlen darunter. Längste Serie wie im Planer: Fehltag zählt nicht dagegen
@@ -355,6 +358,8 @@
   function buildMePage(d, now = new Date(), opts = {}) {
     const today = fmt(now);
     fbToday = today;
+    const acc = accountOf(d);
+    if (meTab === 'shop' && !acc) meTab = 'ich';
     let html = meHead(d);
     if (opts.offline) html += '<div class="banner">Offline: zuletzt geladener Stand</div>';
     if (meTab === 'klasse') {
@@ -368,10 +373,11 @@
     if (d.at) { const a = new Date(d.at); foot.push(`Stand: ${fmt(a) === today ? 'heute' : short(fmt(a))}, ${pad2(a.getHours())}:${pad2(a.getMinutes())}.`); }
     const footer = `<footer class="foot">${foot.map(f => `<p>${esc(f)}</p>`).join('')}<p class="muted">Diese Seite gehört nur dir. Gib den Link nicht weiter. Noten stehen hier nie.</p></footer>`;
     const j = d.jokers && typeof d.jokers === 'object' ? d.jokers : {};
+    if (meTab === 'shop') return html + shopHTML(acc, d.klasse) + footer;
     if (meTab === 'sammlung') {
       const rv = reviewOf(d);
       const again = rv ? `<button type="button" class="link" data-review>Rückblick ${esc(rv.label)} ansehen</button>` : '';
-      return html + giftsHTML(d) + albumHTML(d) + yearMapHTML(list(d.year).filter(c => c && isDate(c.date)), again, d.yearBest) + rewardsHTML(level) + jokerInfoHTML(d, level) + footer;
+      return html + giftsHTML(d) + albumHTML(d) + yearMapHTML(list(d.year).filter(c => c && isDate(c.date)), again, d.yearBest) + rewardsHTML(level) + (acc ? '' : jokerInfoHTML(d, level)) + footer;
     }
     // Reiter „Ich“ (AJ3l): Level-Fläche ganz oben, gleich darunter die letzten Stunden, dann Als Nächstes, Baustelle, Joker
     const jl = list(j.list).filter(Boolean);
@@ -384,7 +390,8 @@
       <div class="rank-row">${tier < 4 ? `Ab Level ${2 * (tier + 1) + 1}: ${rankInk(tier + 1, d.nextRank && d.nextRank.name)}` : 'Höchster Rang erreicht'}
         <details class="xp-help"><summary>Wie funktioniert das?</summary>
           <p>+ gibt 10 XP, ++ gibt 20${d.giver ? `. Sticker von ${esc(dativ(d.giver))} und` : '. Sticker und'} geschaffte Baustellen bringen extra. Abgezogen wird nie etwas.</p>
-          <p>Alle 2 Level steigt dein Rang, alle ${Number(j.every) || 4} Level gibt es einen Joker.</p></details></div></section>`;
+          ${acc ? '<p>Alle 2 Level steigt dein Rang. Deine Plusse kannst du außerdem im Shop einlösen: + ist 1 Plus wert, ++ sind 2. XP und Level bleiben dabei.</p>'
+            : `<p>Alle 2 Level steigt dein Rang, alle ${Number(j.every) || 4} Level gibt es einen Joker.</p>`}</details></div></section>`;
     const fbAllList = list(d.feedback).filter(x => x && isDate(x.date) && PART[x.v]).sort((a, b) => a.date.localeCompare(b.date));
     const fbHTML = `<section class="f f-ink"><h2>${fbAll ? 'Rückmeldung <small>dieses Schuljahr</small>' : 'Letzte Stunden'}</h2>
       ${fbAllList.length ? `${fbAll ? fbAllHTML(fbAllList) : fbRow(fbAllList.slice(-6))}
@@ -393,7 +400,84 @@
         : '<p class="empty">Noch keine Einträge in diesem Schuljahr.</p>'}</section>`;
     const joker = Number(j.open) > 0 ? `<section class="card f f-mist joker"><p class="k">${Number(j.open) === 1 ? 'Ein Joker frei' : `${Number(j.open)} Joker frei`}</p>
       <p class="tall">Such dir einen aus</p>${jl.length ? `<ul>${jl.map(x => `<li>${esc(x)}</li>`).join('')}</ul>` : ''}<p class="sub">Zeig das deiner Lehrkraft.</p></section>` : '';
-    return html + hero + fbHTML + reviewStripHTML(reviewOf(d)) + soonHTML(d.klasse, now) + bauHTML(d) + joker + newRewardHTML(level) + footer;
+    return html + hero + fbHTML + reviewStripHTML(reviewOf(d)) + soonHTML(d.klasse, now) + bauHTML(d) + (acc ? acctHTML(acc) : joker) + newRewardHTML(level) + footer;
+  }
+
+  // ── Plus-Konto und Shop (AV1): wie ein Item-Shop aus Spielen, in den Farben der Seite. Der Planer schickt Kontostand,
+  // Laden und die eigenen Einlösungen; eingelöst wird bei der Lehrkraft (die Seite selbst kann nichts schreiben). ──
+  const RARITY = p => (p >= 6 ? ['r-legend', 'Legendär'] : p >= 4 ? ['r-epic', 'Episch'] : p >= 3 ? ['r-rare', 'Selten'] : ['r-common', 'Gewöhnlich']);
+  const coin = () => `<span class="coin" aria-hidden="true">${StudentShare.stickerSvg('plus')}</span>`;
+  const plusWord = n => (n === 1 ? '1 Plus' : `${n} Plusse`);
+  const shopItems = acc => list(acc.shop).filter(x => x && x.name && Number(x.price) > 0).map(x => ({ ...x, price: Math.round(Number(x.price)) }));
+  const shopGoal = k => (k && typeof k === 'object' && k.goal && Number(k.goal.target) > 0 ? k.goal : null);
+  function acctHTML(acc) {
+    const bal = num(acc.balance);
+    return `<button type="button" class="card f f-mist acct" data-tab="shop"><span class="k">Dein Konto</span>
+      <span class="acct-row"><span class="huge">${bal}</span><span class="t">${bal === 1 ? 'Plus' : 'Plusse'}<br>zum Einlösen</span></span><span class="go">Zum Shop</span></button>`;
+  }
+  function shopCard(x, i, bal, hl) {
+    const [cls, tier] = RARITY(x.price), need = x.price - bal;
+    const inner = `<span class="tier">${tier}</span><span class="ic">${StudentShare.stickerSvg(x.icon)}</span><span class="name">${esc(x.name)}</span>
+      <span class="price">${need > 0 ? `noch ${plusWord(need)}` : `${coin()}${x.price}<span class="vh"> Plusse</span>`}</span>`;
+    const c = `shop-item ${cls}${hl ? ' shop-hl' : ''}${need > 0 ? ' locked' : ''}`;
+    return need > 0 ? `<div class="${c}">${inner}</div>` : `<button type="button" class="${c}" data-buy="${i}">${inner}</button>`;
+  }
+  function shopHTML(acc, klasse) {
+    const bal = num(acc.balance), spent = num(acc.spent);
+    const items = shopItems(acc);
+    const top = items.reduce((b, x, i) => (b < 0 || x.price > items[b].price ? i : b), -1);   // Highlight: das teuerste
+    let html = `<section class="f-ink shop-bal"><p class="k">Dein Konto</p><div class="shop-num">${coin()}<span>${bal}</span></div>
+      <p class="shop-rule">+ ist 1 Plus wert · ++ sind 2${spent ? ` · ${spent} schon eingelöst` : ''}</p></section>`;
+    if (top < 0) html += '<p class="shop-empty">Gerade gibt es nichts im Shop.</p>';
+    else {
+      html += `<h2 class="shop-h">Highlight</h2>${shopCard(items[top], top, bal, true)}`;
+      const rest = items.map((x, i) => [x, i]).filter(([, i]) => i !== top);
+      if (rest.length) html += `<h2 class="shop-h">Im Shop</h2><div class="shop-grid">${rest.map(([x, i]) => shopCard(x, i, bal, false)).join('')}</div>`;
+    }
+    const g = shopGoal(klasse);
+    if (g) {
+      const target = Number(g.target), count = num(g.count), donated = num(g.donated);
+      html += `<section class="f f-sea shop-give"><h2>Für die Klasse spenden</h2>
+        <p class="shop-goal">${count} von ${target} Plussen${g.reward ? `, dann gibt es: <b>${esc(g.reward)}</b>` : ''}.</p>
+        <p class="shop-goal">Gespendete Plusse zählen noch einmal${donated ? `, ${donated} schon gespendet` : ''}.</p>
+        <div class="shop-bar" role="img" aria-label="${count} von ${target} Plussen"><i style="width:${Math.min(100, Math.round(count / target * 100))}%"></i></div>
+        <div class="shop-chips">${[1, 3, 5, 10].map(n => `<button type="button" data-donate="${n}"${n > bal ? ' disabled' : ''}>${coin()}${n}<span class="vh"> ${n === 1 ? 'Plus' : 'Plusse'} spenden</span></button>`).join('')}</div></section>`;
+    }
+    const done = list(acc.redeemed).filter(r => r && r.name && isDate(r.date)).sort((a, b) => b.date.localeCompare(a.date));
+    if (done.length) {
+      html += `<h2 class="shop-h">Eingelöst</h2><ul class="shop-done">${done.map(r => `<li><span class="ic">${StudentShare.stickerSvg(r.kind === 'donate' ? 'heart' : r.icon)}</span>
+        <b>${esc(r.name)}</b><small>${esc(short(r.date))}</small>${num(r.price) ? `<span class="minus">−${num(r.price)}</span>` : ''}</li>`).join('')}</ul>`;
+    }
+    return html;
+  }
+  // Kauf-Bildschirm: ganze Seite in der Farbe der Seltenheit, zum Zeigen. Eingelöst wird bei der Lehrkraft.
+  let buy = null;   // { el, opener, onKey } – nur Ansicht
+  function closeBuy() {
+    if (!buy) return;
+    document.removeEventListener('keydown', buy.onKey);
+    buy.el.remove();
+    document.documentElement.classList.remove('story-open');
+    const back = buy.opener;
+    buy = null;
+    if (back && document.contains(back)) back.focus();
+  }
+  function openBuy(x, bal, opener) {
+    closeBuy();
+    const [cls, tier] = x.donate ? ['r-give', 'Spende'] : RARITY(x.price);
+    const el = document.createElement('div');
+    el.className = `shop-buy ${cls}`;
+    el.setAttribute('role', 'dialog');
+    el.setAttribute('aria-modal', 'true');
+    el.setAttribute('aria-label', String(x.name));
+    el.innerHTML = `<div class="shop-buy-in"><div class="shop-buy-bar"><span class="tier">${tier}</span><button type="button" class="shop-buy-close" aria-label="Schließen">✕</button></div>
+      <span class="ic">${StudentShare.stickerSvg(x.icon)}</span><p class="name">${esc(x.name)}</p><span class="price">${coin()}${x.price}<span class="vh"> Plusse</span></span>
+      <p class="show">Zeig das deiner Lehrkraft</p><p class="fine">Sie löst es in ihrem Planer ein, danach ${plusWord(Math.max(0, bal - x.price))} übrig.</p></div>`;
+    document.body.appendChild(el);
+    document.documentElement.classList.add('story-open');
+    buy = { el, opener, onKey: e => { if (e.key === 'Escape') closeBuy(); } };
+    document.addEventListener('keydown', buy.onKey);
+    el.querySelector('.shop-buy-close').addEventListener('click', closeBuy);
+    el.querySelector('.shop-buy-close').focus();
   }
 
   // ── Rückblick als Geschichte (AJ3k): rechnet der Planer, die Seite zeichnet nur. Karten ohne Inhalt fallen weg. ──
@@ -534,6 +618,14 @@
     page.querySelectorAll('[data-tab]').forEach(b => b.addEventListener('click', () => { meTab = b.dataset.tab; draw(current.data, current.opts); }));
     page.querySelectorAll('[data-fb-all]').forEach(b => b.addEventListener('click', () => { fbAll = !fbAll; draw(current.data, current.opts); }));
     page.querySelectorAll('[data-review]').forEach(b => b.addEventListener('click', () => { const r = reviewOf(current.data); if (r) openStory(r, current.data, b); }));
+    page.querySelectorAll('[data-buy]').forEach(b => b.addEventListener('click', () => {
+      const acc = accountOf(current.data), x = acc && shopItems(acc)[Number(b.dataset.buy)];
+      if (x) openBuy(x, num(acc.balance), b);
+    }));
+    page.querySelectorAll('[data-donate]').forEach(b => b.addEventListener('click', () => {
+      const acc = accountOf(current.data), n = Number(b.dataset.donate);
+      if (acc && n) openBuy({ name: 'Für die Klasse spenden', price: n, icon: 'heart', donate: true }, num(acc.balance), b);
+    }));
     if (me) data = data.klasse && typeof data.klasse === 'object' ? data.klasse : {};   // Aufträge und Kalender: aus der Klassenseite
     const hw = list(data.hw).filter(x => isDate(x.date) && x.date >= fmt(new Date()));
     const today = fmt(new Date());

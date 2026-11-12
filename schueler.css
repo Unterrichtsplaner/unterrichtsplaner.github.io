@@ -334,3 +334,75 @@ html.story-open, html.story-open body { overflow: hidden; }
 .st-end button:active { transform: translateY(1px); }
 @media (prefers-reduced-motion: reduce) { .hero .lvl b, .st-card.on > * { animation: none; } .st-bars i.now b { animation: none; transform: none; } details.row > summary .pg::after { transition: none; } }
 @media (min-width: 38rem) { .heft { padding: var(--s5) 0; } .pad { border-radius: 28px; overflow: hidden; } }
+
+/* Shop (AV1): Plus-Konto wie ein Item-Shop aus Spielen, aber in den Farben der Seite. Seltenheit nach Preis
+   (gewöhnlich Nebeltürkis, selten Meerblau, episch Koralle, legendär Sonne); keine Schatten, keine Verläufe, kein Lila. */
+.tabs.four { gap: var(--s3); }
+.tabs.four button { font-size: min(28px, calc((100vw - 84px) * 0.095)); }   /* passt bis 320 px Breite */
+.coin { flex: none; display: inline-grid; place-items: center; width: 1em; height: 1em; border-radius: 50%; background: var(--c-sig); color: var(--c-ink); }
+.coin svg { width: 62%; height: 62%; stroke-width: 3.2; }
+.shop-bal { padding: var(--s5) var(--s5) var(--s6); }
+.shop-bal .k { color: var(--c-paper-soft); text-transform: uppercase; font-stretch: 62%; font-weight: 800; letter-spacing: .06em; font-size: 15px; }
+.shop-num { display: flex; align-items: center; gap: var(--s3); margin-top: var(--s2); font-size: 112px; font-weight: 900; font-stretch: 125%; line-height: .85; letter-spacing: -.04em; color: var(--c-sig); font-variant-numeric: tabular-nums; }
+.shop-num .coin { width: 64px; height: 64px; }
+.shop-rule { margin-top: var(--s3); color: var(--c-paper-soft); font-size: 15px; }
+.shop-h { padding: var(--s5) var(--s5) var(--s3); font-size: 22px; font-weight: 800; font-stretch: 62%; text-transform: uppercase; letter-spacing: .03em; }
+.shop-empty { padding: 0 var(--s5) var(--s5); color: var(--c-paper-soft); }
+.r-common { --rc: var(--c-mist); --rt: var(--c-ink); }
+.r-rare { --rc: var(--c-sea); --rt: var(--c-paper); }
+.r-epic { --rc: oklch(76% 0.13 30); --rt: var(--c-ink); }
+.r-legend { --rc: oklch(90% 0.15 95); --rt: var(--c-ink); }
+.r-give { --rc: var(--c-sig); --rt: var(--c-ink); }
+.shop-item { display: flex; flex-direction: column; gap: var(--s2); min-height: 196px; padding: var(--s4); border: 0; border-radius: 6px; background: var(--rc); color: var(--rt); text-align: left; overflow-wrap: break-word; }
+.shop-item .tier { font-size: 12px; font-weight: 800; font-stretch: 62%; letter-spacing: .1em; text-transform: uppercase; }
+.shop-item .ic { width: 64px; height: 64px; margin: var(--s2) 0 auto; }
+.shop-item .ic svg { width: 100%; height: 100%; stroke-width: 1.9; }
+.shop-item .name { font-size: 19px; font-weight: 700; line-height: 1.12; }
+.shop-item .price, .shop-buy .price { align-self: flex-start; display: inline-flex; align-items: center; gap: 6px; padding: 5px 10px 5px 6px; border-radius: 6px; background: var(--c-ink); color: var(--c-paper); font-size: 20px; font-weight: 900; font-stretch: 125%; line-height: 1; }
+.shop-item .price .coin { width: 22px; height: 22px; }
+button.shop-item:active, .shop-chips button:active { transform: translateY(1px); }
+.shop-item.locked { background: color-mix(in oklab, var(--rc) 28%, var(--c-ink)); color: var(--c-paper-dim); }
+.shop-item.locked .price { background: none; color: var(--c-paper); padding-left: 0; font-size: 15px; font-stretch: 100%; font-weight: 700; }
+.shop-grid { display: grid; grid-template-columns: 1fr 1fr; gap: var(--s3); padding: 0 var(--s5); }
+.shop-hl { width: calc(100% - 2 * var(--s5)); margin: 0 var(--s5); min-height: 260px; }
+.shop-hl.locked { background: var(--rc); color: var(--rt); }
+.shop-hl.locked .price { background: var(--c-ink); color: var(--c-paper); padding: 6px 12px; font-size: 18px; }
+.shop-hl .ic { width: 112px; height: 112px; }
+.shop-hl .name { font-size: 34px; font-weight: 800; font-stretch: 62%; text-transform: uppercase; line-height: 1; }
+.shop-hl .price { font-size: 26px; }
+.shop-hl .price .coin { width: 28px; height: 28px; }
+.shop-give { margin-top: var(--s6); }
+.shop-goal { font-size: 15px; margin-top: var(--s2); }
+.shop-goal b { font-weight: 800; }
+.shop-bar { height: 10px; border-radius: 5px; background: var(--c-paper-line); margin: var(--s3) 0 var(--s4); overflow: hidden; }
+.shop-bar i { display: block; height: 100%; background: var(--c-sig); border-radius: 5px; }
+.shop-chips { display: flex; gap: var(--s2); }
+.shop-chips button { flex: 1; min-height: 52px; border: 0; border-radius: 6px; background: var(--c-paper); color: var(--c-ink); font-size: 22px; font-weight: 900; font-stretch: 125%; display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
+.shop-chips button .coin { width: 20px; height: 20px; }
+.shop-chips button:disabled { background: var(--c-paper-line); color: var(--c-paper-dim); cursor: default; transform: none; }
+.shop-done { list-style: none; padding: 0 var(--s5) var(--s6); }
+.shop-done li { display: flex; align-items: center; gap: var(--s3); padding: var(--s3) 0; border-top: 1px solid var(--c-paper-line); }
+.shop-done .ic { width: 28px; height: 28px; flex: none; }
+.shop-done .ic svg { width: 100%; height: 100%; }
+.shop-done b { font-weight: 700; flex: 1; min-width: 0; overflow-wrap: break-word; }
+.shop-done small { color: var(--c-paper-soft); white-space: nowrap; }
+.shop-done .minus { font-weight: 900; font-stretch: 125%; }
+/* Konto auf „Ich“ (statt der Joker) */
+.acct { display: block; width: 100%; border: 0; text-align: left; }
+.acct-row { display: flex; align-items: flex-end; gap: var(--s3); margin-top: var(--s3); }
+.acct-row .huge { font-size: 88px; }
+.acct-row .t { font-size: 17px; font-weight: 700; line-height: 1.2; padding-bottom: var(--s1); }
+.acct .go { display: inline-grid; place-items: center; margin-top: var(--s4); }
+/* Kauf-Bildschirm: ganze Seite in der Farbe der Seltenheit, zum Zeigen */
+.shop-buy { position: fixed; inset: 0; z-index: 50; overflow-y: auto; background: var(--rc); color: var(--rt); }
+.shop-buy-in { max-width: 36rem; min-height: 100%; margin: 0 auto; display: flex; flex-direction: column; padding: max(var(--s5), env(safe-area-inset-top)) var(--s5) max(var(--s6), env(safe-area-inset-bottom)); }
+.shop-buy-bar { display: flex; justify-content: space-between; align-items: center; }
+.shop-buy .tier { font-size: 14px; font-weight: 800; font-stretch: 62%; letter-spacing: .12em; text-transform: uppercase; }
+.shop-buy-close { width: 48px; height: 48px; border: 0; border-radius: 6px; background: var(--c-ink); color: var(--c-paper); font-size: 22px; }
+.shop-buy .ic { width: 120px; height: 120px; margin-top: var(--s6); }
+.shop-buy .ic svg { width: 100%; height: 100%; stroke-width: 1.8; }
+.shop-buy .name { margin-top: var(--s4); font-size: 52px; font-weight: 800; font-stretch: 62%; text-transform: uppercase; line-height: .95; overflow-wrap: break-word; }
+.shop-buy .price { margin-top: var(--s4); font-size: 26px; }
+.shop-buy .price .coin { width: 28px; height: 28px; }
+.shop-buy .show { margin-top: var(--s7); font-size: 34px; font-weight: 800; font-stretch: 62%; text-transform: uppercase; line-height: 1; }
+.shop-buy .fine { margin-top: var(--s2); font-size: 16px; }

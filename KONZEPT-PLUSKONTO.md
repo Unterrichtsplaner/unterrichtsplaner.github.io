@@ -1,6 +1,6 @@
 # Konzept: Plus-Konto und Laden (BUGS AV1)
 
-*Stand 12.11.2026 · Idee von Kevin · noch nichts gebaut. Entscheidungen vom 12.11. stehen in Abschnitt 12; der Shop soll aussehen wie ein Item-Shop aus Spielen (Abschnitt 5a).*
+*Stand 12.11.2026 · Idee von Kevin · **Stufe 1 gebaut** (Konto, Laden, Einlösen im Schüler-Fenster, Spende, Reiter SHOP), Stufe 2 (QR) offen. Entscheidungen vom 12.11. stehen in Abschnitt 12; der Shop sieht aus wie ein Item-Shop aus Spielen (Abschnitt 5a).*
 
 ## 1. Ziel in einem Satz
 
@@ -172,8 +172,7 @@ Stufe 1 ist schon im Unterricht nutzbar (du tippst ein). Erst ausprobieren, dann
 | 7 | „Eine 1“ im Shop? | **Ja, für 6 Plusse.** |
 | 8 | Wo scannen? | **Sitzplan und Reiter „Schülerapp“.** |
 | 9 | Handys im Unterricht? | **Erlaubt**; Einlösen im Schüler-Fenster bleibt als zweiter Weg. |
-
 | 10 | Preise der Vorteile | **Wie vorgeschlagen:** Sitzplatz 2, Partner 2, Song 3, Aufgabe 3, Rätsel 3, keine TÜ 4, eine 1 6 (Startwerte, je Klasse änderbar). |
 | 11 | Aussehen | **Entwurf passt** (5a). |
 
-**Noch offen:** nichts. Nächster Schritt: Stufe 1 bauen (Aufwand Hoch).
+**Noch offen:** nichts. Stufe 1 ist gebaut (12.11.); in Stufe 1 zeigt der Kauf-Bildschirm noch keinen QR-Code, sondern „Zeig das deiner Lehrkraft“, eingelöst wird im Schüler-Fenster. Nächster Schritt: Stufe 2 (QR, Aufwand Hoch).

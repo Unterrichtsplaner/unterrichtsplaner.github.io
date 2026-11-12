@@ -42,13 +42,22 @@ function studentAppLink(access) {
   } catch (e) { /* Standardadresse */ }
   return StudentShare.linkFor(access, base);
 }
-// Plusse der ganzen Klasse seit `since` (++ zählt doppelt, Minus gar nicht) – nur die Summe, keine Namen
+// Plusse der ganzen Klasse seit `since` (++ zählt doppelt, Minus gar nicht) – nur die Summe, keine Namen.
+// Gespendete Plusse (Plus-Konto, AV1) zählen ein zweites Mal dazu.
 function classGoalCount(g, since) {
   let n = 0;
   (db.students[g.id] || []).forEach(s => (s.participation || []).forEach(p => {
     if (!p || (since && String(p.date || '') < since)) return;
     if (p.value === 'excellent') n += 2;
     else if (p.value === 'positive') n += 1;
+  }));
+  return n + classDonated(g, since);
+}
+// Summe der Spenden ans Klassenziel seit `since` (AV1): nie, wer wie viel gespendet hat
+function classDonated(g, since) {
+  let n = 0;
+  (db.students[g.id] || []).forEach(s => (Array.isArray(s.redeemed) ? s.redeemed : []).forEach(r => {
+    if (r && r.kind === 'donate' && isDateStr(r.date) && (!since || r.date >= since)) n += clampInt(r.price, 0, 999, 0);
   }));
   return n;
 }
@@ -157,7 +166,7 @@ function studentAppSnapshot(g, now = new Date()) {
   }
   if (sa.show.expedition) snap.toc = studentAppToc(g, sa, todayStr, nowMins);
   if (sa.goal) {
-    snap.goal = { target: sa.goal.target, reward: sa.goal.reward, count: classGoalCount(g, sa.goal.since), since: sa.goal.since,
+    snap.goal = { target: sa.goal.target, reward: sa.goal.reward, count: classGoalCount(g, sa.goal.since), donated: classDonated(g, sa.goal.since), since: sa.goal.since,
       stamps: classGoalStamps(g, sa.goal.since, todayStr, nowMins) };
   }
   return snap;
@@ -575,19 +584,19 @@ function renderSettingsStudentApps() {
 // ─── Schülerapp Stufe 2a: persönliche Seiten (AJ2) ───────────────────────────
 // Je Schüler ein eigener Link (students[].studentApp.access, Dokument shares/<id> wie die Klassenseite). Seite „Ich“:
 // Level und XP aus den Plussen des Schuljahrs (+ 10, ++ 20; berechnet, nie gespeichert, nie Abzug außer Korrektur),
-// Rückmeldung der letzten Stunden mit allen vier Stufen, Serie, Rang (je Klasse benannt), Joker (alle 4 Level, höchstens
-// 4 im Jahr; eingelöst wird im Schüler-Fenster, students[].jokersUsed). Nie Noten, Fehlzeiten, Hinweise, Notizen oder
-// andere Schüler; nur der eigene Vorname. Dazu die Klassenseite als zweiter Reiter.
+// Rückmeldung der letzten Stunden mit allen vier Stufen, Serie, Rang (je Klasse benannt), Plus-Konto mit Laden (AV1,
+// ersetzt die Joker; eingelöst wird im Schüler-Fenster, students[].redeemed). Nie Noten, Fehlzeiten, Hinweise, Notizen
+// oder andere Schüler; nur der eigene Vorname. Dazu die Klassenseite als zweiter Reiter.
 const SA_LEVELS = { easy: 14, normal: 12, hard: 11 };   // Ziel-Level der Mittleren am Schuljahresende (Punkte-Rechner 09.11.)
 const SA_LEVEL_NAMES = { easy: 'entspannt', normal: 'normal', hard: 'sportlich' };
 const SA_RANK_PRESETS = {
   heft: ['Bleistift', 'Buntstift', 'Fineliner', 'Füller', 'Goldfüller'],
   gaming: ['Neuling', 'Entdecker', 'Durchblicker', 'Taktiker', 'Legende'],
 };
+// Joker gibt es seit AV1 nicht mehr (der Laden ersetzt sie). Die Startwerte bleiben, um eigene Joker-Texte zu erkennen.
 const SA_JOKERS_DEFAULT = ['Sitzplatz für eine Stunde aussuchen', 'Song zum Analysieren vorschlagen', 'Aufgabe aussuchen', 'Partner wählen', 'Rätsel der Stunde stellen'];
 const SA_XP = { positive: 10, excellent: 20 };
 const SA_FIRST_LEVEL_XP = 10;              // Level 2 mit dem ersten Plus
-const SA_JOKER_EVERY = 4, SA_JOKER_MAX = 4;
 const SA_MIDDLE_XP_PER_LESSON = 4.7;       // mittlere Schüler, gemessen im Punkte-Rechner (170 XP bei 36 Stunden)
 // Sticker (AJ2b): von Hand mit Grund (Katalog je Klasse, XP einstellbar), automatisch nach Regeln (0 XP, sonst zählten
 // die Plusse doppelt), Baustelle geschafft (XP einstellbar). Feste Kennungen der Startwerte, damit Vergebenes passt.
@@ -625,7 +634,7 @@ function personalOf(g) {
     level: SA_LEVELS[p.level] ? p.level : 'normal',
     step: Number(p.step) >= 5 ? Math.round(Number(p.step)) : null,
     ranks,
-    jokers: Array.isArray(p.jokers) ? p.jokers.map(x => String(x || '').trim()).filter(Boolean).slice(0, 12) : SA_JOKERS_DEFAULT.slice(),
+    shop: Array.isArray(p.shop) ? p.shop.map(cleanShopItem).filter(Boolean).slice(0, 16) : shopFromJokers(p.jokers),   // AV1
     stickers: (Array.isArray(p.stickers) ? p.stickers : SA_STICKERS_DEFAULT).map(cleanSticker).filter(Boolean).slice(0, 20),
     autoStickers: (Array.isArray(p.autoStickers) ? p.autoStickers : SA_AUTO_DEFAULT).map(cleanAuto).filter(Boolean).slice(0, 20),
     bauXP: clampInt(p.bauXP, 0, 200, SA_BAU_DEFAULT_XP),
@@ -693,9 +702,7 @@ function studentPersonalInfo(g, s, todayStr = formatDate(new Date())) {
   const p = personalOf(g), step = personalStep(g), xp = studentXP(s, todayStr), li = levelInfo(xp, step);
   const r = rankIndex(li.level);
   const nextRank = r < 4 ? { name: rankName(p, r + 1), level: 2 * (r + 1) + 1 } : null;
-  const earned = Math.min(SA_JOKER_MAX, Math.floor(li.level / SA_JOKER_EVERY));
-  const used = (Array.isArray(s.jokersUsed) ? s.jokersUsed : []).filter(j => j && isDateStr(j.date) && j.date >= schoolYearStart(todayStr)).length;
-  return { xp, step, ...li, rank: rankName(p, r), tier: r, nextRank, jokers: { earned, used, open: Math.max(0, earned - used) } };
+  return { xp, step, ...li, rank: rankName(p, r), tier: r, nextRank };
 }
 // Vergangene Stunden der Klasse im Schuljahr (neueste zuerst, je Tag einmal) – einmal je Klasse rechnen
 function pastLessonDates(g, now) {
@@ -727,14 +734,14 @@ function personalCtx(g, now = new Date()) {
 function studentPersonalSnapshot(g, s, now = new Date(), ctx = null) {
   const todayStr = formatDate(now);
   ctx = ctx || personalCtx(g, now);
-  const p = personalOf(g), info = studentPersonalInfo(g, s, todayStr);
+  const info = studentPersonalInfo(g, s, todayStr);
   const feedback = yearParticipation(s, todayStr).filter(x => !x.label && partLevel(x.value))
     .sort((a, b) => a.date.localeCompare(b.date)).slice(-400).map(x => ({ date: x.date, v: x.value }));   // ganzes Schuljahr (AJ3g), Grenze nur gegen Ausreißer
   return {
     v: 1, kind: 'me', first: String(s.firstName || '').trim(),
     cls: g.className || '', subject: g.subject || '', teacher: studentAppTeacherName(), color: g.color || '',
     xp: info.xp, level: info.level, from: info.from, next: info.next, rank: info.rank, nextRank: info.nextRank,
-    jokers: { ...info.jokers, max: SA_JOKER_MAX, every: SA_JOKER_EVERY, list: p.jokers },
+    account: studentAccountSnapshot(g, s, todayStr),   // AV1, statt der Joker
     feedback, streak: studentStreak(s, ctx.lessons, todayStr), ...(ctx.klasseRef ? { klasseRef: ctx.klasseRef } : {}),
     ...(year => ({ year, yearBest: studentYearBest(s, year) }))(studentYearMap(s, ctx, todayStr)),
     ...studentStickerSnapshot(g, s, ctx, todayStr),
@@ -882,7 +889,7 @@ async function setPersonalOn(groupId, on) {
   if (!g) return;
   if (on) {
     const ok = await askChoice('Persönliche Seiten einschalten?',
-      'Jeder Schüler bekommt einen eigenen Link mit Vorname, Level, Rückmeldung zur Mitarbeit (auch − und −−), Rang und Jokern. Keine Noten, keine Fehlzeiten. '
+      'Jeder Schüler bekommt einen eigenen Link mit Vorname, Level, Rückmeldung zur Mitarbeit (auch − und −−), Rang und Plus-Konto (Kontostand und eigene Einlösungen). Keine Noten, keine Fehlzeiten. '
       + 'Die Seiten liegen verschlüsselt in der Cloud, lesen kann sie nur, wer den Link hat. Es sind trotzdem Daten über einzelne Schüler: '
       + 'Kläre das vorher mit der Schulleitung bzw. der/dem Datenschutzbeauftragten und informiere die Eltern.',
       [{ label: 'Ist geklärt, einschalten', value: 'on', primary: true }]);   // „Abbrechen“ hängt askChoice selbst an (AT13)
@@ -895,7 +902,7 @@ async function setPersonalOn(groupId, on) {
     (db.students[g.id] || []).forEach(ensureStudentAccess);
   } else queueStudentShares(g);
   saveDB();
-  renderStudentAppTab();   // Tempo, Ränge, Joker, Sticker erscheinen bzw. verschwinden sofort (AT13)
+  renderStudentAppTab();   // Tempo, Ränge, Laden, Sticker erscheinen bzw. verschwinden sofort (AT13)
   refreshStudentAppViews();
 }
 function setPersonalLevel(groupId, level) {
@@ -918,33 +925,7 @@ function setPersonalRanks(groupId, ranks) {
   if (list.some(Boolean)) p.ranks = list; else delete p.ranks;
   saveDB();
 }
-function setPersonalJokers(groupId, text) {
-  const g = db.groups.find(x => x.id === groupId);
-  if (!g) return;
-  ensurePersonal(g).jokers = String(text || '').split('\n').map(x => x.trim().slice(0, 80)).filter(Boolean).slice(0, 12);
-  saveDB();
-}
 function findStudentIn(groupId, studentId) { return (db.students[groupId] || []).find(x => x.id === studentId) || null; }
-async function redeemJoker(groupId, studentId) {
-  const g = db.groups.find(x => x.id === groupId), s = findStudentIn(groupId, studentId);
-  if (!g || !s) return;
-  if (!studentPersonalInfo(g, s).jokers.open) { showToast('Gerade kein Joker frei', 'error'); return; }
-  const list = personalOf(g).jokers;
-  const text = await askChoice(`Joker für ${s.firstName}`, 'Was hat sich der Schüler ausgesucht?',
-    [...list.map((t, i) => ({ label: t, value: t, primary: i === 0 })), { label: 'Ohne Angabe', value: '-' }]);
-  if (!text || !findStudentIn(groupId, studentId)) return;
-  const entry = { id: uid(), date: formatDate(new Date()), ...(text !== '-' ? { text } : {}) };
-  (s.jokersUsed = Array.isArray(s.jokersUsed) ? s.jokersUsed : []).push(entry);
-  saveDB();
-  refreshOpenProfile(s);
-  showUndoToast('Joker eingelöst', () => {
-    const i = (s.jokersUsed || []).indexOf(entry);
-    if (i === -1) return;
-    s.jokersUsed.splice(i, 1);
-    saveDB();
-    refreshOpenProfile(s);
-  });
-}
 function showStudentCode(groupId, studentId) {
   const g = db.groups.find(x => x.id === groupId), s = findStudentIn(groupId, studentId);
   if (!g || !s) return;
@@ -1139,6 +1120,180 @@ function wireStickerEditor(content, g) {
   content.querySelector('#sa-bau-xp')?.addEventListener('change', e => setPersonalBauXP(g.id, e.target.value));
 }
 
+// ─── Plus-Konto und Laden (BUGS AV1, Stufe 1; KONZEPT-PLUSKONTO.md) ───────────────────────────────────────
+// Die Plusse sind eine Währung: + ist 1 Plus wert, ++ sind 2 (alle Einträge des Schuljahrs, auch mit Titel, wie beim
+// Klassenziel). Das Konto wird nur berechnet (verdient − eingelöst, nie unter 0), nie gespeichert; Level und XP sinken
+// beim Einlösen nie. Eingelöst wird im Schüler-Fenster: Vorteil (nur vermerkt), Note (trägt eine mündliche 1 „Plus-Konto“
+// ein) oder Spende ans Klassenziel (zählt dort ein zweites Mal; die Klassenseite kennt nur die Summe). Name, Preis, Art
+// und Symbol werden beim Einlösen gespeichert (students[].redeemed), spätere Änderungen am Laden ändern sie nicht.
+// Der Laden ersetzt die Joker: schon eingelöste Joker (jokersUsed) stehen weiter in der Liste, ohne Preis.
+const SA_PLUS_VALUE = { positive: 1, excellent: 2 };
+const SA_SHOP_DEFAULT = [   // feste Kennungen, damit beide Geräte dieselben Startwerte haben (abgesprochen 12.11.)
+  { id: 'l-platz', name: 'Sitzplatz aussuchen', price: 2, kind: 'perk', icon: 'seat' },
+  { id: 'l-partner', name: 'Partner wählen', price: 2, kind: 'perk', icon: 'pair' },
+  { id: 'l-song', name: 'Song aussuchen', price: 3, kind: 'perk', icon: 'music' },
+  { id: 'l-aufgabe', name: 'Aufgabe aussuchen', price: 3, kind: 'perk', icon: 'puzzle' },
+  { id: 'l-raetsel', name: 'Rätsel der Stunde stellen', price: 3, kind: 'perk', icon: 'ask' },
+  { id: 'l-tue', name: 'Keine TÜ abgeben', price: 4, kind: 'perk', icon: 'skip' },
+  { id: 'l-eins', name: 'Eine 1 (mündlich)', price: 6, kind: 'grade', icon: 'one' },
+];
+const SA_JOKER_SHOP = { 'Sitzplatz für eine Stunde aussuchen': 'l-platz', 'Song zum Analysieren vorschlagen': 'l-song', 'Aufgabe aussuchen': 'l-aufgabe',
+  'Partner wählen': 'l-partner', 'Rätsel der Stunde stellen': 'l-raetsel' };
+const SA_SHOP_KINDS = { perk: 'Vorteil', grade: 'Note: eine 1' };
+const SA_SHOP_ICON_NAMES = { seat: 'Stuhl', pair: 'Zwei Personen', music: 'Musik', puzzle: 'Puzzle', ask: 'Frage', skip: 'Blatt durchgestrichen', one: 'Eins',
+  gift: 'Geschenk', star: 'Stern', rocket: 'Rakete', bulb: 'Glühbirne', heart: 'Herz', medal: 'Medaille', flame: 'Flamme', bubble: 'Sprechblase', hands: 'Hände' };
+const SA_DONATE_STEPS = [1, 3, 5, 10];
+const SA_GRADE_NOTE = 'Plus-Konto';   // Titel der Note, die eine eingelöste 1 einträgt
+const plusWord = n => (n === 1 ? '1 Plus' : `${n} Plusse`);
+const cleanShopItem = x => x && x.id && String(x.name || '').trim()
+  ? { id: String(x.id), name: String(x.name).trim().slice(0, 40), price: clampInt(x.price, 1, 99, 3), kind: SA_SHOP_KINDS[x.kind] ? x.kind : 'perk',
+    icon: SA_SHOP_ICON_NAMES[x.icon] ? x.icon : 'star' } : null;
+// Laden ohne eigene Einstellung: die Startwerte; wer die Joker selbst geschrieben hatte, bekommt seine Texte als erste
+// Angebote (bekannte mit ihrem Preis, sonst 3 Plusse), dazu die 1 (Konzept Abschnitt 7). Nur gelesen, nie gespeichert.
+function shopFromJokers(jokers) {
+  const list = Array.isArray(jokers) ? jokers.map(x => String(x || '').trim()).filter(Boolean) : null;
+  if (!list || list.join('\n') === SA_JOKERS_DEFAULT.join('\n')) return SA_SHOP_DEFAULT.map(x => ({ ...x }));
+  const known = t => SA_SHOP_DEFAULT.find(x => x.id === SA_JOKER_SHOP[t] || x.name.toLowerCase() === t.toLowerCase());
+  const items = list.slice(0, 12).map((t, i) => known(t) || { id: 'j-' + i, name: t.slice(0, 40), price: 3, kind: 'perk', icon: 'star' });
+  return [...items.filter((x, i) => items.indexOf(x) === i), ...SA_SHOP_DEFAULT.filter(x => x.kind === 'grade')].map(x => ({ ...x }));
+}
+// Konto eines Schülers im Schuljahr: verdient (+ 1, ++ 2), eingelöst (Preise beim Einlösen), Stand
+function studentAccount(g, s, todayStr = formatDate(new Date())) {
+  const earned = yearParticipation(s, todayStr).reduce((n, p) => n + (SA_PLUS_VALUE[p.value] || 0), 0);
+  const redeemed = yearList(s.redeemed, todayStr);
+  const spent = redeemed.reduce((n, r) => n + clampInt(r.price, 0, 999, 0), 0);
+  return { earned, spent, balance: Math.max(0, earned - spent), redeemed };
+}
+const redeemIcon = r => (r.kind === 'donate' ? 'heart' : SA_SHOP_ICON_NAMES[r.icon] ? r.icon : 'star');
+// Für die persönliche Seite: nur das eigene Konto, der Laden und die eigenen Einlösungen (neueste zuerst)
+function studentAccountSnapshot(g, s, todayStr) {
+  const acc = studentAccount(g, s, todayStr);
+  const kinds = ['perk', 'grade', 'donate'];
+  const redeemed = [
+    ...acc.redeemed.map(r => ({ date: r.date, name: String(r.name || ''), price: clampInt(r.price, 0, 999, 0), kind: kinds.includes(r.kind) ? r.kind : 'perk', icon: redeemIcon(r) })),
+    ...yearList(s.jokersUsed, todayStr).map(j => ({ date: j.date, name: j.text ? `Joker: ${String(j.text)}` : 'Joker', price: 0, kind: 'joker', icon: 'star' })),
+  ].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 40);
+  return { balance: acc.balance, earned: acc.earned, spent: acc.spent,
+    shop: personalOf(g).shop.map(x => ({ id: x.id, name: x.name, price: x.price, kind: x.kind, icon: x.icon })), redeemed };
+}
+function afterRedeemChange(g, s, grade, created = false) {
+  if (grade) {
+    if (created) revealPeriodOf(grade.date);   // sonst verschwände die Note im gezeigten Halbjahr (AR7)
+    refreshGradeViews(s, g.id);
+  }
+  refreshOpenProfile(s);
+  refreshStudentAppViews();   // Klassenziel (Spende)
+}
+// Einlösen im Schüler-Fenster. Ohne „Anzeigen“ steht nirgends der Kontostand, nur was reicht (Beamer, Regel 16/67).
+async function redeemShop(groupId, studentId) {
+  const g = db.groups.find(x => x.id === groupId), s = findStudentIn(groupId, studentId);
+  if (!g || !s || !personalActive(g)) return;
+  const balance = studentAccount(g, s).balance;
+  const items = personalOf(g).shop.filter(x => x.price <= balance);
+  const canGive = !!studentAppOf(g).goal && balance >= SA_DONATE_STEPS[0];
+  if (!items.length && !canGive) { showToast(`Das Konto von ${s.firstName} reicht gerade für kein Angebot`, 'error'); return; }
+  const pick = await askChoice(`Einlösen für ${s.firstName}`, 'Was wird eingelöst? Hier steht nur, wofür das Konto reicht.',
+    [...items.map(x => ({ label: `${x.name} · ${plusWord(x.price)}`, value: x.id })), ...(canGive ? [{ label: 'Für die Klasse spenden', value: 'donate' }] : [])]);
+  if (!pick) return;
+  let item;
+  if (pick === 'donate') {
+    const n = await askChoice('Für die Klasse spenden', `Wie viele Plusse spendet ${s.firstName}? Sie zählen fürs Klassenziel ein zweites Mal.`,
+      SA_DONATE_STEPS.filter(k => k <= balance).map(k => ({ label: plusWord(k), value: k })));
+    if (!n) return;
+    item = { name: 'Spende an die Klasse', price: n, kind: 'donate' };
+  } else {
+    const x = personalOf(g).shop.find(i => i.id === pick);
+    if (!x) return;
+    item = { itemId: x.id, name: x.name, price: x.price, kind: x.kind, icon: x.icon };
+  }
+  // Nach dem Warten (Regel 43): Schüler noch da und Konto reicht noch (ein Abgleich kann dazwischen gekommen sein)
+  if (!db.groups.includes(g) || findStudentIn(groupId, studentId) !== s) { showToast('Diesen Schüler gibt es nicht mehr (z. B. durch Sync)', 'error'); return; }
+  if (studentAccount(g, s).balance < item.price) { showToast('Das Konto reicht inzwischen nicht mehr', 'error'); return; }
+  const today = formatDate(new Date());
+  const entry = { id: uid(), date: today, ...item };
+  let grade = null;
+  if (item.kind === 'grade') {   // die beste Note der Skala: 1 bzw. 15 Punkte (Regel 1)
+    const scale = gradeScale(g);
+    grade = { type: 'muendlich', value: parseGradeInput(String(scale.higherIsBetter ? scale.max : scale.min), scale).value, date: today, note: SA_GRADE_NOTE };
+    (s.grades = Array.isArray(s.grades) ? s.grades : []).push(grade);
+  }
+  (s.redeemed = Array.isArray(s.redeemed) ? s.redeemed : []).push(entry);
+  saveDB();
+  afterRedeemChange(g, s, grade, true);
+  showUndoToast(`${s.firstName}: ${item.name} eingelöst`, () => {
+    const i = (db.students[groupId] || []).includes(s) ? s.redeemed.indexOf(entry) : -1;
+    if (i === -1) { showToast('Nicht mehr möglich: Die Daten wurden inzwischen ersetzt', 'error'); return; }
+    s.redeemed.splice(i, 1);
+    const k = grade ? (s.grades || []).indexOf(grade) : -1;
+    if (k !== -1) s.grades.splice(k, 1);
+    saveDB();
+    afterRedeemChange(g, s, grade);
+  });
+}
+// Einlösung entfernen (Verklickt): die Plusse sind wieder auf dem Konto, eine eingelöste 1 nimmt ihre Note mit
+function removeRedemption(groupId, studentId, entry) {
+  const g = db.groups.find(x => x.id === groupId), s = findStudentIn(groupId, studentId);
+  const list = s && s.redeemed;
+  const i = Array.isArray(list) ? list.indexOf(entry) : -1;
+  if (!g || i === -1) return;   // inzwischen weg (Sync): nichts löschen (Regel 9)
+  list.splice(i, 1);
+  let grade = null, gi = -1;
+  if (entry.kind === 'grade') {
+    (s.grades || []).forEach((x, k) => { if (x && x.date === entry.date && x.note === SA_GRADE_NOTE) gi = k; });
+    if (gi !== -1) grade = s.grades.splice(gi, 1)[0];
+  }
+  saveDB();
+  afterRedeemChange(g, s, grade);
+  showUndoToast(grade ? 'Einlösung und Note entfernt' : 'Einlösung entfernt', () => {
+    if (list.includes(entry) || !(db.students[groupId] || []).includes(s)) return;
+    list.splice(Math.min(i, list.length), 0, entry);
+    if (grade && !(s.grades || []).includes(grade)) {
+      if (!Array.isArray(s.grades)) s.grades = [];
+      s.grades.splice(Math.min(gi, s.grades.length), 0, grade);
+    }
+    saveDB();
+    afterRedeemChange(g, s, grade);
+  });
+}
+// Laden einrichten im Reiter „Schülerapp“ (Farbe der Kachel wie die Seltenheit auf der Schülerseite)
+const shopTileColor = price => (price >= 6 ? 5 : price >= 4 ? 0 : price >= 3 ? 3 : 4);
+function shopEditorHTML(g, p) {
+  const year = weeklyLessons(g) * 36 * SA_MIDDLE_XP_PER_LESSON / 10;   // + gibt 10 XP und ist 1 Plus wert
+  const scale = gradeScale(g), best = gradeText(String(scale.higherIsBetter ? scale.max : scale.min)) + (scale.unit ? ` ${scale.unit}` : '');
+  return `<div class="form-group"><span class="group-label">Laden</span>
+      <div class="sa-stk-list" id="sa-shop-list">${p.shop.map(x => `<div class="sa-stk-row" data-id="${escHtml(x.id)}">${stickerTile(x.icon, shopTileColor(x.price))}
+        <input type="text" class="form-input" data-f="name" maxlength="40" value="${escHtml(x.name)}" aria-label="Name des Angebots">
+        <button type="button" class="btn-icon" data-del aria-label="Angebot ${escHtml(x.name)} entfernen">✕</button>
+        <div class="sa-stk-opts"><label class="sa-xp"><input type="number" class="form-input" data-f="price" min="1" max="99" value="${x.price}" aria-label="Preis in Plussen"> Plusse</label>
+          <select class="form-input" data-f="kind" aria-label="Art">${optionList(SA_SHOP_KINDS, x.kind)}</select>
+          <select class="form-input" data-f="icon" aria-label="Symbol">${optionList(SA_SHOP_ICON_NAMES, x.icon)}</select></div></div>`).join('')}</div>
+      <div class="sa-row-btns"><button type="button" class="btn-secondary" id="sa-shop-add">+ Angebot</button></div>
+      <p class="field-hint-muted" id="sa-shop-hint">+ ist 1 Plus wert, ++ sind 2. Ein mittlerer Schüler sammelt etwa ${Math.round(year / 2)} Plusse im Halbjahr und ${Math.round(year)} im Schuljahr.
+        Eingelöst wird im Schüler-Fenster (Mehr → Schülerapp → Plusse einlösen); „Note: eine 1“ trägt dabei eine mündliche ${escHtml(best)} mit Titel „${SA_GRADE_NOTE}“ ein.
+        Mit Klassenziel können die Schüler Plusse auch für die Klasse spenden.</p></div>`;
+}
+function wireShopEditor(content, g) {
+  const box = content.querySelector('#sa-shop-list');
+  if (!box) return;
+  const read = () => [...box.querySelectorAll('.sa-stk-row')].map(row => {
+    const f = k => row.querySelector(`[data-f="${k}"]`).value;
+    return cleanShopItem({ id: row.dataset.id, name: f('name'), price: f('price'), kind: f('kind'), icon: f('icon') });
+  }).filter(Boolean);
+  box.addEventListener('change', e => {
+    setPersonalList(g.id, 'shop', read());
+    if (e.target.matches('[data-f="icon"], [data-f="price"]')) renderStudentAppTab();   // Kachel zeigt Symbol und Seltenheit
+  });
+  box.querySelectorAll('[data-del]').forEach(b => b.addEventListener('click', () => {
+    b.closest('.sa-stk-row').remove();
+    setPersonalList(g.id, 'shop', read());
+    renderStudentAppTab();
+  }));
+  content.querySelector('#sa-shop-add')?.addEventListener('click', () => {
+    setPersonalList(g.id, 'shop', [...personalOf(g).shop, { id: uid(), name: 'Neues Angebot', price: 3, kind: 'perk', icon: 'gift' }]);
+    renderStudentAppTab();
+  });
+}
+
 // ── Anzeigen ──
 function personalCardHTML(g) {
   const p = personalOf(g), n = (db.students[g.id] || []).length, cls = escHtml(g.className);
@@ -1146,7 +1301,7 @@ function personalCardHTML(g) {
   const rankPh = i => i < 4 ? `Level ${2 * i + 1}–${2 * i + 2}` : 'ab Level 9';
   return `<section class="set-card sa-card" id="sa-personal">
     <div class="sa-head"><div><h3 class="sa-subtitle">Persönliche Seiten</h3>
-      <p class="sa-status">Jeder Schüler bekommt einen eigenen Link: Level, Rückmeldung zur Mitarbeit, Rang und Joker. Keine Noten, keine Fehlzeiten.</p></div>
+      <p class="sa-status">Jeder Schüler bekommt einen eigenen Link: Level, Rückmeldung zur Mitarbeit, Rang und Plus-Konto mit Laden. Keine Noten, keine Fehlzeiten.</p></div>
       <label class="toggle-switch" title="Persönliche Seiten"><input type="checkbox" id="sa-personal-on" aria-label="Persönliche Seiten für die ${cls}"${p.on ? ' checked' : ''}><span class="toggle-slider"></span></label></div>
     <p class="sa-privacy">Datenschutz: Das sind Daten über einzelne Schüler (verschlüsselt in der Cloud, lesbar nur mit dem Link). Vorher mit Schulleitung bzw. Datenschutzbeauftragten klären und die Eltern informieren.</p>
     ${p.on ? `<div class="form-group"><label for="sa-level">Tempo der Level</label>
@@ -1157,9 +1312,7 @@ function personalCardHTML(g) {
           <input type="text" class="form-input" data-rank="${i}" maxlength="24" value="${escHtml(r)}" placeholder="${SA_TIERS[i][1]} (${rankPh(i)})" aria-label="Rang ${SA_TIERS[i][1]}, ${rankPh(i)}"></label>`).join('')}</div>
         <div class="sa-row-btns"><button type="button" class="btn-secondary" data-preset="heft">Vorlage Heft</button><button type="button" class="btn-secondary" data-preset="gaming">Vorlage Gaming</button><button type="button" class="btn-secondary" data-preset="">Leeren</button></div>
         <p class="field-hint-muted">Jeder Rang hat seine Farbe (Bronze, Silber, Gold, Platin, Diamant). Leer lassen heißt: der Rang heißt wie seine Farbe. Alle in der Klasse sehen dieselben Namen.</p></div>
-      <div class="form-group"><label for="sa-jokers">Joker, einer pro Zeile</label>
-        <textarea id="sa-jokers" class="form-input sa-jokers" rows="5">${escHtml(p.jokers.join('\n'))}</textarea>
-        <p class="field-hint-muted">Alle ${SA_JOKER_EVERY} Level gibt es einen Joker, höchstens ${SA_JOKER_MAX} im Schuljahr. Der Schüler sucht beim Einlösen aus, du hakst ihn im Schüler-Fenster ab.</p></div>
+      ${shopEditorHTML(g, p)}
       ${stickerEditorHTML(p)}
       <div class="sa-row-btns"><button type="button" class="btn-secondary" id="sa-cards">${icon('printer')}Kärtchen drucken (${n})</button></div>
       <p class="field-hint-muted">Einzeln zum Scannen: Schüler-Fenster → Mehr → Schülerapp → „Code zeigen“.</p>` : ''}
@@ -1174,12 +1327,12 @@ function wirePersonalCard(content, g) {
     setPersonalRanks(g.id, SA_RANK_PRESETS[b.dataset.preset] || []);
     renderStudentAppTab();
   }));
-  content.querySelector('#sa-jokers')?.addEventListener('change', e => setPersonalJokers(g.id, e.target.value));
+  wireShopEditor(content, g);   // AV1
   content.querySelector('#sa-cards')?.addEventListener('click', () => printStudentCards(g.id));
   wireStickerEditor(content, g);   // AJ2b
 }
-// Schüler-Fenster, Abschnitt „Schülerapp“: Geben offen (im Unterricht ohne „Anzeigen“), Level, Joker, Baustellen-Text
-// und vergebene Sticker erst nach „Anzeigen“ (data-private, Regel 16/80)
+// Schüler-Fenster, Abschnitt „Schülerapp“: Geben und Einlösen offen (im Unterricht ohne „Anzeigen“), Level, Kontostand,
+// Eingelöstes, Baustellen-Text und vergebene Sticker erst nach „Anzeigen“ (data-private, Regel 16/80)
 function renderStudentAppSection(s) {
   const sec = document.getElementById('sw-sec-studentapp'), box = document.getElementById('sw-studentapp');
   if (!sec || !box) return;
@@ -1189,31 +1342,39 @@ function renderStudentAppSection(s) {
   if (!on) { box.innerHTML = ''; return; }
   const today = formatDate(new Date());
   const info = studentPersonalInfo(g, s, today);
-  const used = yearList(s.jokersUsed, today);
+  const acc = studentAccount(g, s, today);
+  const redeemed = acc.redeemed.slice().sort((a, b) => b.date.localeCompare(a.date));
+  const jokers = yearList(s.jokersUsed, today).slice().reverse();   // aus der Zeit vor dem Laden (AV1), ohne Preis
   const openBau = (s.baustellen || []).filter(b => b && !b.done && String(b.text || '').trim());
   const given = yearList(s.stickersGiven, today).slice().sort((a, b) => b.date.localeCompare(a.date));
   const doneBau = yearList(s.baustellen, today, 'done');
   box.innerHTML = `<div class="sa-row-btns"><button type="button" class="btn-primary" id="sw-sa-sticker">${icon('star')}Sticker geben</button>
       <button type="button" class="btn-secondary" id="sw-sa-bau">Baustelle geben</button>
+      <button type="button" class="btn-secondary" id="sw-sa-redeem">Plusse einlösen</button>
       <button type="button" class="btn-secondary" id="sw-sa-code">${icon('qr')}Code zeigen</button></div>
     ${openBau.length ? `<p class="sw-sa-count">${openBau.length === 1 ? '1 Baustelle offen' : `${openBau.length} Baustellen offen`}</p>` : ''}
     <div class="sw-sa-private" data-private>
       <div class="sw-sa-line"><b>Level ${info.level}</b>${info.rank ? ` · ${escHtml(info.rank)}` : ''} · ${info.xp} XP <small>(noch ${info.next - info.xp} bis Level ${info.level + 1})</small></div>
-      <div class="sw-sa-line">Joker: <b>${info.jokers.open} frei</b> <small>(${info.jokers.earned} verdient, ${info.jokers.used} eingelöst)</small></div>
-      ${used.length ? `<div class="sw-sa-used">${used.slice().reverse().map(j => `<span>${escHtml(formatDateShort(j.date))}${j.text ? ': ' + escHtml(j.text) : ''}</span>`).join('')}</div>` : ''}
+      <div class="sw-sa-line sw-sa-acct">Konto: <b>${plusWord(acc.balance)}</b> <small>(${acc.earned} verdient, ${acc.spent} eingelöst)</small></div>
+      ${redeemed.length || jokers.length ? `<div class="entry-list sw-sa-redeemed">${redeemed.map((r, i) => `<div class="entry-item">${stickerTile(redeemIcon(r), shopTileColor(clampInt(r.price, 0, 999, 0)))}
+          <span class="entry-item-text"><b>${escHtml(r.name)}</b> · ${plusWord(clampInt(r.price, 0, 999, 0))}${r.kind === 'grade' ? ' · Note eingetragen' : ''}</span><span class="entry-item-date">${escHtml(formatDateShort(r.date))}</span>
+          <button class="entry-item-delete" data-red-del="${i}" aria-label="Einlösung ${escHtml(r.name)} entfernen">✕</button></div>`).join('')}
+        ${jokers.map((j, i) => `<div class="entry-item">${stickerTile('star', 5)}<span class="entry-item-text"><b>Joker${j.text ? `: ${escHtml(j.text)}` : ''}</b></span><span class="entry-item-date">${escHtml(formatDateShort(j.date))}</span>
+          <button class="entry-item-delete" data-jok-del="${i}" aria-label="Joker vom ${escHtml(formatDateShort(j.date))} entfernen">✕</button></div>`).join('')}</div>` : ''}
       ${openBau.map((b, i) => `<div class="sw-sa-bau"><span>Baustelle seit ${escHtml(formatDateShort(b.date))}: <b>${escHtml(b.text)}</b></span>
         <button type="button" class="btn-secondary" data-bau-done="${i}">Geschafft</button><button type="button" class="entry-item-delete" data-bau-del="${i}" aria-label="Baustelle entfernen">✕</button></div>`).join('')}
       ${given.length || doneBau.length ? `<div class="entry-list sw-sa-given">${given.map((x, i) => `<div class="entry-item">${stickerTile(x.icon, x.color)}
           <span class="entry-item-text"><b>${escHtml(x.name)}</b>${x.reason ? ` · ${escHtml(x.reason)}` : ''}</span><span class="entry-item-date">${escHtml(formatDateShort(x.date))}</span>
           <button class="entry-item-delete" data-stk-del="${i}" aria-label="Sticker ${escHtml(x.name)} entfernen">✕</button></div>`).join('')}
         ${doneBau.map(b => `<div class="entry-item">${stickerTile('crane', 1)}<span class="entry-item-text"><b>Baustelle geschafft</b> · ${escHtml(b.text)}</span><span class="entry-item-date">${escHtml(formatDateShort(b.done))}</span></div>`).join('')}</div>` : ''}
-      <div class="sa-row-btns">${info.jokers.open ? '<button type="button" class="btn-secondary" id="sw-sa-joker">Joker einlösen</button>' : ''}
-        <button type="button" class="btn-secondary" id="sw-sa-renew">${icon('refresh')}Neuer Link</button></div>
+      <div class="sa-row-btns"><button type="button" class="btn-secondary" id="sw-sa-renew">${icon('refresh')}Neuer Link</button></div>
     </div>`;
   box.querySelector('#sw-sa-sticker').addEventListener('click', () => openGive('sticker', g.id, s.id));
   box.querySelector('#sw-sa-bau').addEventListener('click', () => openGive('bau', g.id, s.id));
   box.querySelector('#sw-sa-code').addEventListener('click', () => showStudentCode(g.id, s.id));
-  box.querySelector('#sw-sa-joker')?.addEventListener('click', () => redeemJoker(g.id, s.id));
+  box.querySelector('#sw-sa-redeem').addEventListener('click', () => redeemShop(g.id, s.id));
+  box.querySelectorAll('[data-red-del]').forEach(b => b.addEventListener('click', () => removeRedemption(g.id, s.id, redeemed[Number(b.dataset.redDel)])));
+  box.querySelectorAll('[data-jok-del]').forEach(b => b.addEventListener('click', () => removeStudentAppEntry(g.id, s.id, 'jokersUsed', jokers[Number(b.dataset.jokDel)], 'Joker entfernt')));
   box.querySelector('#sw-sa-renew').addEventListener('click', () => renewStudentAccess(g.id, s.id));
   box.querySelectorAll('[data-bau-done]').forEach(b => b.addEventListener('click', () => finishBaustelle(g.id, s.id, openBau[Number(b.dataset.bauDone)])));
   box.querySelectorAll('[data-bau-del]').forEach(b => b.addEventListener('click', () => removeStudentAppEntry(g.id, s.id, 'baustellen', openBau[Number(b.dataset.bauDel)], 'Baustelle entfernt')));

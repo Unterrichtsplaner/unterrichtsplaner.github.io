@@ -66,6 +66,13 @@ const StudentShare = (() => {
     plus: '<path d="M12 6v12M6 12h12"/>',
     check: '<path d="M5 12.5l4.5 4.5L19 7.5"/>',
     crane: '<rect x="2.5" y="7" width="19" height="7" rx="1"/><path d="M7 7l-3.5 7M12.5 7l-3.5 7M18 7l-3.5 7"/><path d="M5 14v6M19 14v6"/>',
+    // Laden (AV1): Angebote wie Sitzplatz, Partner, Song, keine TÜ, eine 1
+    seat: '<path d="M7 3v8h10V3"/><path d="M5 11h14v3H5z"/><path d="M7 14v7M17 14v7"/>',
+    pair: '<circle cx="8" cy="8" r="3"/><circle cx="16.5" cy="8" r="3"/><path d="M2.5 20c0-3.2 2.4-5.4 5.5-5.4s5.5 2.2 5.5 5.4M13.5 15.2c.9-.4 1.9-.6 3-.6 3.1 0 5 2.2 5 5.4"/>',
+    music: '<path d="M9 18V5l11-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="17" cy="16" r="3"/>',
+    skip: '<path d="M6 3h9l4 4v14H6z"/><path d="M9.5 11.5l5 5M14.5 11.5l-5 5"/>',
+    one: '<circle cx="12" cy="12" r="9.5"/><path d="M9.6 9.2L13 7v10.5"/>',
+    gift: '<rect x="3.5" y="8" width="17" height="4" rx="1"/><path d="M5 12v8h14v-8M12 8v12"/><path d="M12 8c-1.5-3-5-3.5-5-1.2C7 8 9.5 8 12 8zM12 8c1.5-3 5-3.5 5-1.2C17 8 14.5 8 12 8z"/>',
   };
   const STICKER_COLORS = ['#ff8a3d', '#2fb37a', '#e84d8a', '#3a8ee6', '#14a3b8', '#e0a800'];   // Nr. 4 Türkis statt Lila (Wunsch 09.11.)
   const stickerSvg = icon => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${STICKER_ICONS[icon] || STICKER_ICONS.star}</svg>`;

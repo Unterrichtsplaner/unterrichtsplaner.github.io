@@ -61,7 +61,7 @@
       }
     })();
   </script>
-  <link rel="stylesheet" href="style.css?v=557" />
+  <link rel="stylesheet" href="style.css?v=558" />
   <script>
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
@@ -1359,7 +1359,7 @@
         <li>Wie jeder Server-Dienst verarbeitet Google dabei technische Daten wie deine IP-Adresse. Eine Übermittlung in die USA ist dabei nicht ausgeschlossen. Schülerdaten sind davon nur verschlüsselt betroffen.</li>
         <li>Sicherungen: Beim ersten Abgleich eines Tages legt die App den bisherigen Stand als Sicherung ab, genauso verschlüsselt. Sicherungen, die älter als 14 Tage sind, löscht sie beim nächsten Abgleich. Bis dahin stehen gelöschte Einträge (z. B. ein Schüler, der die Schule verlassen hat) noch in den Sicherungen. „Alles löschen, auch in der Cloud“ und „Cloud-Konto löschen“ entfernen auch alle Sicherungen.</li>
         <li>Jedes Konto kann nur sein eigenes Datenpaket und seine eigenen Sicherungen lesen und schreiben.</li>
-        <li>Schülerapp (nur wenn du sie einschaltest): Für jede freigegebene Klasse liegt ein eigenes kleines Datenpaket in Firestore, verschlüsselt mit einem Schlüssel, der nur im Link bzw. Code für die Klasse steht. Es enthält die Themen mit dem Text aus „Was wurde behandelt“ (nie die Stundennotizen), Hausaufgaben, Tests, nächste Stunden und die Plusse der ganzen Klasse je Stunde, nie Namen oder Noten. Schaltest du persönliche Seiten ein, kommt je Schüler ein eigenes Paket dazu (eigener Schlüssel im Link des Schülers): Vorname, Level, Rückmeldung zur Mitarbeit, Rang und Joker, nie Noten oder Fehlzeiten. Das vorher mit der Schulleitung bzw. Datenschutzbeauftragten klären. Lesen kann es, wer den Link hat; ändern und löschen nur dein Konto. Abschalten oder ein neuer Link löscht den Inhalt; ein leeres Dokument ohne Daten bleibt stehen, damit niemand anderes den alten Link übernehmen kann. Ganz weg ist alles mit „Alles löschen, auch in der Cloud“ oder „Cloud-Konto löschen“.</li>
+        <li>Schülerapp (nur wenn du sie einschaltest): Für jede freigegebene Klasse liegt ein eigenes kleines Datenpaket in Firestore, verschlüsselt mit einem Schlüssel, der nur im Link bzw. Code für die Klasse steht. Es enthält die Themen mit dem Text aus „Was wurde behandelt“ (nie die Stundennotizen), Hausaufgaben, Tests, nächste Stunden und die Plusse der ganzen Klasse je Stunde (gespendete Plusse nur als Summe), nie Namen oder Noten. Schaltest du persönliche Seiten ein, kommt je Schüler ein eigenes Paket dazu (eigener Schlüssel im Link des Schülers): Vorname, Level, Rückmeldung zur Mitarbeit, Rang und Plus-Konto (Kontostand und die eigenen Einlösungen mit Angebot, Datum und Preis), nie Noten aus der Notenliste oder Fehlzeiten. Einlösungen speichert der Planer je Schüler; eine eingelöste 1 steht zusätzlich als mündliche Note in der Notenliste. Das vorher mit der Schulleitung bzw. Datenschutzbeauftragten klären. Lesen kann es, wer den Link hat; ändern und löschen nur dein Konto. Abschalten oder ein neuer Link löscht den Inhalt; ein leeres Dokument ohne Daten bleibt stehen, damit niemand anderes den alten Link übernehmen kann. Ganz weg ist alles mit „Alles löschen, auch in der Cloud“ oder „Cloud-Konto löschen“.</li>
         <li>Deine Cloud-Daten und dein Konto löschen: selbst unter Einstellungen → Cloud-Synchronisierung → „Cloud-Konto löschen“ (nur die Cloud-Daten: Datenverwaltung → „Alles löschen, auch in der Cloud“). Klappt das nicht, genügt eine kurze E-Mail an den Betreiber (siehe unten).</li>
       </ul>
 
@@ -1901,29 +1901,29 @@
   </div>
 
   <script src="lib/crypto-js.min.js"></script>
-  <script src="crypto-helper.js?v=557"></script>
+  <script src="crypto-helper.js?v=558"></script>
   <script src="lib/firebase-app-compat.js"></script>
   <script src="lib/firebase-auth-compat.js"></script>
   <script src="lib/firebase-firestore-compat.js"></script>
-  <script src="firebase-config.js?v=557"></script>
-  <script src="sync-manager.js?v=557"></script>
-  <script src="sync-merge.js?v=557"></script>
+  <script src="firebase-config.js?v=558"></script>
+  <script src="sync-manager.js?v=558"></script>
+  <script src="sync-merge.js?v=558"></script>
   <script src="lib/qrcode.js"></script>
-  <script src="student-share.js?v=557"></script>
-  <script src="js/grundlagen.js?v=557"></script>
-  <script src="js/termine.js?v=557"></script>
-  <script src="js/stundenplan.js?v=557"></script>
-  <script src="js/stunde.js?v=557"></script>
-  <script src="js/planung.js?v=557"></script>
-  <script src="js/klassen.js?v=557"></script>
-  <script src="js/noten.js?v=557"></script>
-  <script src="js/schueler-fenster.js?v=557"></script>
-  <script src="js/sitzplan.js?v=557"></script>
-  <script src="js/dashboard.js?v=557"></script>
-  <script src="js/einstellungen.js?v=557"></script>
-  <script src="js/bericht.js?v=557"></script>
-  <script src="js/sync.js?v=557"></script>
-  <script src="js/schuelerapp-planer.js?v=557"></script>
-  <script src="js/start.js?v=557"></script>
+  <script src="student-share.js?v=558"></script>
+  <script src="js/grundlagen.js?v=558"></script>
+  <script src="js/termine.js?v=558"></script>
+  <script src="js/stundenplan.js?v=558"></script>
+  <script src="js/stunde.js?v=558"></script>
+  <script src="js/planung.js?v=558"></script>
+  <script src="js/klassen.js?v=558"></script>
+  <script src="js/noten.js?v=558"></script>
+  <script src="js/schueler-fenster.js?v=558"></script>
+  <script src="js/sitzplan.js?v=558"></script>
+  <script src="js/dashboard.js?v=558"></script>
+  <script src="js/einstellungen.js?v=558"></script>
+  <script src="js/bericht.js?v=558"></script>
+  <script src="js/sync.js?v=558"></script>
+  <script src="js/schuelerapp-planer.js?v=558"></script>
+  <script src="js/start.js?v=558"></script>
 </body>
 </html>
