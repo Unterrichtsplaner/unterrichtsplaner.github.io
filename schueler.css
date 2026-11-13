@@ -32,6 +32,8 @@
 * { box-sizing: border-box; margin: 0; padding: 0; }
 /* Wie eine App (Wunsch 09.11.): nur senkrecht wischen, kein Zoom, kein seitliches Verschieben, kein Doppeltipp-Zoom */
 html, body { min-height: 100%; background: var(--c-ink); overflow-x: clip; touch-action: pan-y; overscroll-behavior-x: none; -webkit-tap-highlight-color: transparent; }
+/* Kein Zoom (AW2): jedes Element nur senkrecht wischen, auch Fenster mit eigenem Scrollbereich (Kauf-Bildschirm, Rückblick) */
+*, *::before, *::after { touch-action: pan-y; }
 body { font-family: 'Archivo', system-ui, -apple-system, sans-serif; font-size: 17px; line-height: 1.4; color: var(--c-paper); -webkit-font-smoothing: antialiased; -webkit-text-size-adjust: 100%; }
 button { font: inherit; color: inherit; cursor: pointer; }
 :focus-visible { outline: 3px solid var(--c-sig); outline-offset: 2px; }
@@ -341,7 +343,7 @@ html.story-open, html.story-open body { overflow: hidden; }
 .tabs.four button { font-size: min(28px, calc((100vw - 84px) * 0.095)); }   /* passt bis 320 px Breite */
 .coin { flex: none; display: inline-grid; place-items: center; width: 1em; height: 1em; border-radius: 50%; background: var(--c-sig); color: var(--c-ink); }
 .coin svg { width: 62%; height: 62%; stroke-width: 3.2; }
-.shop-bal { padding: var(--s5) var(--s5) var(--s6); }
+.shop-bal { padding: var(--s5) var(--s5) var(--s5); }
 .shop-bal .k { color: var(--c-paper-soft); text-transform: uppercase; font-stretch: 62%; font-weight: 800; letter-spacing: .06em; font-size: 15px; }
 .shop-num { display: flex; align-items: center; gap: var(--s3); margin-top: var(--s2); font-size: 112px; font-weight: 900; font-stretch: 125%; line-height: .85; letter-spacing: -.04em; color: var(--c-sig); font-variant-numeric: tabular-nums; }
 .shop-num .coin { width: 64px; height: 64px; }
@@ -355,7 +357,8 @@ html.story-open, html.story-open body { overflow: hidden; }
 .r-legend { --rc: oklch(90% 0.15 95); --rt: var(--c-ink); }
 .r-give { --rc: var(--c-sig); --rt: var(--c-ink); }
 .shop-item { display: flex; flex-direction: column; gap: var(--s2); min-height: 196px; padding: var(--s4); border: 0; border-radius: 6px; background: var(--rc); color: var(--rt); text-align: left; overflow-wrap: break-word; }
-.shop-item .tier { font-size: 12px; font-weight: 800; font-stretch: 62%; letter-spacing: .1em; text-transform: uppercase; }
+/* Seltenheit als Schild (AW3): dunkle Fläche, Schrift in der Farbe der Seltenheit (aufgehellt, damit Meerblau lesbar bleibt) */
+.shop-item .tier { align-self: flex-start; padding: 3px var(--s2); border-radius: 4px; background: var(--c-ink); color: color-mix(in oklab, var(--rc) 70%, white); font-size: 13px; font-weight: 800; font-stretch: 62%; letter-spacing: .1em; text-transform: uppercase; }
 .shop-item .ic { width: 64px; height: 64px; margin: var(--s2) 0 auto; }
 .shop-item .ic svg { width: 100%; height: 100%; stroke-width: 1.9; }
 .shop-item .name { font-size: 19px; font-weight: 700; line-height: 1.12; }
@@ -365,13 +368,24 @@ button.shop-item:active, .shop-chips button:active { transform: translateY(1px);
 .shop-item.locked { background: color-mix(in oklab, var(--rc) 28%, var(--c-ink)); color: var(--c-paper-dim); }
 .shop-item.locked .price { background: none; color: var(--c-paper); padding-left: 0; font-size: 15px; font-stretch: 100%; font-weight: 700; }
 .shop-grid { display: grid; grid-template-columns: 1fr 1fr; gap: var(--s3); padding: 0 var(--s5); }
-.shop-hl { width: calc(100% - 2 * var(--s5)); margin: 0 var(--s5); min-height: 260px; }
+/* Top-Angebot (AW3): gleich unter dem Konto, Seltenheit als Band, Note als riesige Zahl, gesperrt mit Fortschritt */
+.shop-hl { width: calc(100% - 2 * var(--s5)); margin: 0 var(--s5) var(--s2); min-height: 0; padding: 0; gap: 0; overflow: hidden; border: 4px solid var(--rc); }   /* Rahmen: das dunkle Band gehört sichtbar zur Karte */
 .shop-hl.locked { background: var(--rc); color: var(--rt); }
-.shop-hl.locked .price { background: var(--c-ink); color: var(--c-paper); padding: 6px 12px; font-size: 18px; }
-.shop-hl .ic { width: 112px; height: 112px; }
-.shop-hl .name { font-size: 34px; font-weight: 800; font-stretch: 62%; text-transform: uppercase; line-height: 1; }
-.shop-hl .price { font-size: 26px; }
-.shop-hl .price .coin { width: 28px; height: 28px; }
+.shop-ribbon { display: flex; align-items: center; justify-content: center; gap: var(--s2); padding: var(--s2) var(--s4); background: var(--c-ink); color: var(--rc); font-size: 24px; font-weight: 800; font-stretch: 62%; letter-spacing: .16em; text-transform: uppercase; line-height: 1.1; }
+.shop-ribbon .star { display: inline-grid; width: 18px; height: 18px; }
+.shop-ribbon .star svg { width: 100%; height: 100%; fill: currentColor; }
+.shop-hl-body { display: flex; align-items: center; gap: var(--s4); padding: var(--s4) var(--s4) var(--s3); }
+.shop-grade { flex: none; font-size: min(128px, 28vw); font-weight: 900; font-stretch: 125%; line-height: .78; letter-spacing: -.05em; font-variant-numeric: tabular-nums; }
+.shop-hl .ic { flex: none; width: 96px; height: 96px; margin: 0; }
+.shop-hl-text { display: flex; flex-direction: column; gap: var(--s2); min-width: 0; }
+.shop-hl .name { font-size: min(30px, 8vw); font-weight: 800; font-stretch: 62%; text-transform: uppercase; line-height: 1; overflow-wrap: break-word; }
+.shop-hl .price, .shop-hl.locked .price { font-size: 24px; background: var(--c-ink); color: var(--c-paper); padding: 5px 10px 5px 6px; font-stretch: 125%; font-weight: 900; }
+.shop-hl .price .coin { width: 26px; height: 26px; }
+.shop-progress { display: block; padding: 0 var(--s4) var(--s4); }
+.shop-progress .bar { display: block; height: 12px; border-radius: 6px; background: color-mix(in oklab, var(--c-ink) 16%, transparent); overflow: hidden; }
+.shop-progress .bar i { display: block; height: 100%; border-radius: 6px; background: var(--c-ink); }
+.shop-progress .t { display: block; margin-top: var(--s2); font-size: 16px; font-weight: 700; }
+.shop-hl .shop-wait { margin: 0 var(--s4) var(--s4); }
 .shop-give { margin-top: var(--s6); }
 .shop-goal { font-size: 15px; margin-top: var(--s2); }
 .shop-goal b { font-weight: 800; }
@@ -394,6 +408,7 @@ button.shop-item:active, .shop-chips button:active { transform: translateY(1px);
 .acct-row .huge { font-size: 88px; }
 .acct-row .t { font-size: 17px; font-weight: 700; line-height: 1.2; padding-bottom: var(--s1); }
 .acct .go { display: inline-grid; place-items: center; margin-top: var(--s4); }
+.acct-aim { display: block; margin-top: var(--s3); font-size: 17px; font-weight: 700; }
 /* Kauf-Bildschirm: ganze Seite in der Farbe der Seltenheit, zum Zeigen */
 .shop-buy { position: fixed; inset: 0; z-index: 50; overflow-y: auto; background: var(--rc); color: var(--rt); }
 .shop-buy-in { max-width: 36rem; min-height: 100%; margin: 0 auto; display: flex; flex-direction: column; padding: max(var(--s5), env(safe-area-inset-top)) var(--s5) max(var(--s6), env(safe-area-inset-bottom)); }

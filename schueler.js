@@ -410,16 +410,37 @@
   const plusWord = n => (n === 1 ? '1 Plus' : `${n} Plusse`);
   const shopItems = acc => list(acc.shop).filter(x => x && x.name && Number(x.price) > 0).map(x => ({ ...x, price: Math.round(Number(x.price)) }));
   const shopGoal = k => (k && typeof k === 'object' && k.goal && Number(k.goal.target) > 0 ? k.goal : null);
+  // Das teuerste Angebot steht groß oben (AW3: als „Highlight“ wurde es übersehen)
+  const topIndex = items => items.reduce((b, x, i) => (b < 0 || x.price > items[b].price ? i : b), -1);
   function acctHTML(acc) {
     const bal = num(acc.balance);
+    const items = shopItems(acc), top = items[topIndex(items)];
+    // Das Ziel gleich mit nennen (AW3): „noch 1 bis Eine 1 (mündlich)“ bzw. „reicht für …“
+    const aim = top ? (top.price > bal ? `Noch ${plusWord(top.price - bal)} bis: ${esc(top.name)}` : `Reicht für: ${esc(top.name)}`) : '';
     return `<button type="button" class="card f f-mist acct" data-tab="shop"><span class="k">Dein Konto</span>
-      <span class="acct-row"><span class="huge">${bal}</span><span class="t">${bal === 1 ? 'Plus' : 'Plusse'}<br>zum Einlösen</span></span><span class="go">Zum Shop</span></button>`;
+      <span class="acct-row"><span class="huge">${bal}</span><span class="t">${bal === 1 ? 'Plus' : 'Plusse'}<br>zum Einlösen</span></span>
+      ${aim ? `<span class="acct-aim">${aim}</span>` : ''}<span class="go">Zum Shop</span></button>`;
   }
+  const starSvg = () => `<span class="star" aria-hidden="true">${StudentShare.stickerSvg('star')}</span>`;
   function shopCard(x, i, bal, hl, waiting) {
     const [cls, tier] = RARITY(x.price), need = x.price - bal;
-    const inner = `<span class="tier">${tier}</span><span class="ic">${StudentShare.stickerSvg(x.icon)}</span><span class="name">${esc(x.name)}</span>
-      <span class="price">${need > 0 ? `noch ${plusWord(need)}` : `${coin()}${x.price}<span class="vh"> Plusse</span>`}</span>
-      ${waiting && need <= 0 ? '<span class="shop-wait">Wartet auf Bestätigung</span>' : ''}`;
+    const wait = waiting && need <= 0 ? '<span class="shop-wait">Wartet auf Bestätigung</span>' : '';
+    const priceTag = `<span class="price">${coin()}${x.price}<span class="vh"> Plusse</span></span>`;
+    let inner;
+    if (hl) {
+      // Top-Angebot (AW3): Seltenheit als Band über die ganze Breite; eine Note als riesige Zahl wie das Level, nicht als
+      // Symbol (der Kreis mit „1“ las sich wie eine Nummerierung); gesperrt mit Fortschritt statt nur „noch 1 Plus“
+      const grade = x.kind === 'grade' ? (String(x.name).match(/\d+/) || [])[0] : null;
+      const pct = Math.max(0, Math.min(100, Math.round(bal / x.price * 100)));
+      inner = `<span class="shop-ribbon">${starSvg()}<span>${tier}</span>${starSvg()}</span>
+        <span class="shop-hl-body">${grade ? `<span class="shop-grade" aria-hidden="true">${esc(grade)}</span>` : `<span class="ic">${StudentShare.stickerSvg(x.icon)}</span>`}
+          <span class="shop-hl-text"><span class="name">${esc(x.name)}</span>${priceTag}</span></span>
+        ${need > 0 ? `<span class="shop-progress"><span class="bar" role="img" aria-label="${bal} von ${x.price} Plussen"><i style="width:${pct}%"></i></span>
+          <span class="t">${bal} von ${x.price} Plussen · noch ${plusWord(need)}</span></span>` : ''}${wait}`;
+    } else {
+      inner = `<span class="tier">${tier}</span><span class="ic">${StudentShare.stickerSvg(x.icon)}</span><span class="name">${esc(x.name)}</span>
+        ${need > 0 ? `<span class="price">noch ${plusWord(need)}</span>` : priceTag}${wait}`;
+    }
     const c = `shop-item ${cls}${hl ? ' shop-hl' : ''}${need > 0 ? ' locked' : ''}`;
     return need > 0 ? `<div class="${c}">${inner}</div>` : `<button type="button" class="${c}" data-buy="${i}">${inner}</button>`;
   }
@@ -428,13 +449,13 @@
     const items = shopItems(acc);
     const waits = waitList(acc);
     const waiting = x => waits.some(w => w.item === x.id && w.n === x.price);
-    const top = items.reduce((b, x, i) => (b < 0 || x.price > items[b].price ? i : b), -1);   // Highlight: das teuerste
+    const top = topIndex(items);
     let html = `<section class="f-ink shop-bal"><p class="k">Dein Konto</p><div class="shop-num">${coin()}<span>${bal}</span></div>
       <p class="shop-rule">+ ist 1 Plus wert · ++ sind 2${spent ? ` · ${spent} schon eingelöst` : ''}</p>
       ${isDate(acc.since) ? `<p class="shop-rule">Plusse zählen ab ${esc(short(acc.since))}</p>` : ''}</section>`;
     if (top < 0) html += '<p class="shop-empty">Gerade gibt es nichts im Shop.</p>';
     else {
-      html += `<h2 class="shop-h">Highlight</h2>${shopCard(items[top], top, bal, true, waiting(items[top]))}`;
+      html += shopCard(items[top], top, bal, true, waiting(items[top]));   // ohne Überschrift: das Band sagt, was es ist (AW3)
       const rest = items.map((x, i) => [x, i]).filter(([, i]) => i !== top);
       if (rest.length) html += `<h2 class="shop-h">Im Shop</h2><div class="shop-grid">${rest.map(([x, i]) => shopCard(x, i, bal, false, waiting(x))).join('')}</div>`;
     }
@@ -762,6 +783,19 @@
 
   // Safari auf dem iPhone ignoriert user-scalable=no: Zwei-Finger-Zoom hier abfangen (wie eine App, Wunsch 09.11.)
   ['gesturestart', 'gesturechange'].forEach(t => document.addEventListener(t, e => e.preventDefault(), { passive: false }));
+  // Dichter (AW2, 13.11.): zwei Finger auch über touchmove (Browser ohne gesture-Ereignisse); Doppeltippen zoomt nicht:
+  // das zweite Tippen kurz danach an derselben Stelle wird abgefangen, außer auf Knöpfen (die dürfen schnell hintereinander)
+  document.addEventListener('touchmove', e => { if (e.touches && e.touches.length > 1) e.preventDefault(); }, { passive: false });
+  const TAP_KEEP = 'button, a, summary, label, input, select, textarea, [data-tab], [role="button"]';
+  let lastTap = null;
+  document.addEventListener('touchend', e => {
+    const t = e.changedTouches && e.changedTouches[0];
+    if (!t || (e.touches && e.touches.length)) { lastTap = null; return; }
+    const now = Date.now();
+    const again = !!lastTap && now - lastTap.at < 350 && Math.abs(t.clientX - lastTap.x) < 40 && Math.abs(t.clientY - lastTap.y) < 40;
+    if (again && !(e.target && e.target.closest && e.target.closest(TAP_KEEP))) e.preventDefault();
+    lastTap = again ? null : { at: now, x: t.clientX, y: t.clientY };
+  }, { passive: false });
 
   const preview = /[?&]vorschau\b/.test(location.search);
   // Vorschau im Planer: Inhalt kommt vom Planer, nichts wird geladen

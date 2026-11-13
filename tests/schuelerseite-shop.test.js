@@ -196,3 +196,72 @@ describe('Code zum Einlösen (Stufe 2)', () => {
     expect(localStorage.getItem('sa_wait_vorschau')).toBeNull();
   });
 });
+
+describe('Legendär auf einen Blick (AW3, Rückmeldung 13.11.: „alle sind über die 1 drübergescrollt“)', () => {
+  it('das Top-Angebot trägt seine Seltenheit als großes Band; keine Überschrift „Highlight“ mehr', () => {
+    show(me());
+    expect(page().querySelector('.shop-h') && [...page().querySelectorAll('.shop-h')].map(h => h.textContent).join('|')).not.toMatch(/Highlight/i);
+    const hl = page().querySelector('.shop-hl');
+    expect(hl.querySelector('.shop-ribbon').textContent).toMatch(/Legendär/);
+    expect(hl.querySelector('.tier')).toBeNull();   // nicht doppelt
+  });
+  it('eine eintauschbare Note zeigt die Zahl riesig wie eine Note, nicht als Symbol', () => {
+    show(me());
+    expect(page().querySelector('.shop-hl .shop-grade').textContent.trim()).toBe('1');
+    expect(page().querySelector('.shop-hl .ic')).toBeNull();
+    const pts = me(); pts.account = { ...pts.account, shop: [...SHOP.slice(0, 3), { id: 'l-15', name: '15 Punkte (mündlich)', price: 6, kind: 'grade', icon: 'one' }] };
+    show(pts);
+    expect(page().querySelector('.shop-hl .shop-grade').textContent.trim()).toBe('15');
+  });
+  it('gesperrt: wie weit es noch ist, als Balken und in Worten', () => {
+    show(me());   // 5 von 6
+    const p = page().querySelector('.shop-hl .shop-progress');
+    expect(p.textContent).toMatch(/5 von 6 Plussen · noch 1 Plus\b/);
+    expect(p.querySelector('i').style.width).toBe('83%');
+    show(me({ account: { ...me().account, balance: 9 } }));
+    expect(page().querySelector('.shop-hl .shop-progress')).toBeNull();   // reicht: Karte ist der Knopf
+    expect(page().querySelector('.shop-hl').tagName).toBe('BUTTON');
+  });
+  it('„Ich“ nennt das Ziel gleich mit: wie viel noch bis zum Top-Angebot', () => {
+    show(me(), 'ich');
+    expect(page().querySelector('.acct .acct-aim').textContent).toBe('Noch 1 Plus bis: Eine 1 (mündlich)');
+    show(me({ account: { ...me().account, balance: 6 } }), 'ich');
+    expect(page().querySelector('.acct .acct-aim').textContent).toBe('Reicht für: Eine 1 (mündlich)');
+  });
+  it('jede Karte zeigt ihre Seltenheit als Schild (dunkle Fläche, Farbe der Seltenheit)', () => {
+    show(me());
+    expect(page().querySelector('.shop-grid .shop-item .tier')).not.toBeNull();
+    expect(css).toMatch(/\.shop-item \.tier \{[^}]*background: var\(--c-ink\)/);
+  });
+});
+
+describe('Kein Zoom (AW2, „soll sich wie eine echte App anfühlen“)', () => {
+  let x = 10;
+  const touch = (type, target, n = 0, pos = null) => {
+    const e = new Event(type, { bubbles: true, cancelable: true });
+    const p = pos || { clientX: x, clientY: 40 };
+    Object.defineProperty(e, 'touches', { value: Array.from({ length: n }, () => p) });
+    Object.defineProperty(e, 'changedTouches', { value: [p] });
+    target.dispatchEvent(e);
+    return e;
+  };
+  beforeEach(() => { x += 100; });   // jeder Test tippt woanders: kein Doppeltipp über Tests hinweg
+  it('doppeltes Tippen auf Text zoomt nicht; schnelles Tippen auf Knöpfe bleibt', () => {
+    show(me(), 'ich');
+    const text = page().querySelector('.hero .k');
+    expect(touch('touchend', text).defaultPrevented).toBe(false);
+    expect(touch('touchend', text).defaultPrevented).toBe(true);   // zweites Tippen gleich danach an derselben Stelle
+    show(me());
+    const chip = page().querySelector('[data-donate="1"]');
+    expect(touch('touchend', chip).defaultPrevented).toBe(false);
+    expect(touch('touchend', chip).defaultPrevented).toBe(false);   // Knöpfe dürfen schnell hintereinander
+  });
+  it('zwei Finger: Bewegung wird abgefangen, ein Finger wischt weiter', () => {
+    show(me());
+    expect(touch('touchmove', page(), 2).defaultPrevented).toBe(true);
+    expect(touch('touchmove', page(), 1).defaultPrevented).toBe(false);
+  });
+  it('auch Flächen mit eigenem Scrollbereich: nur senkrecht wischen', () => {
+    expect(css).toMatch(/\*, \*::before, \*::after \{[^}]*touch-action: pan-y/);
+  });
+});

@@ -52,6 +52,8 @@ Die Schülerliste besteht aus Zeilen mit Trennlinien (gleiche Angaben in festen 
 - **Sammlung:** Sticker von der Lehrkraft (Meerblau, runde Aufkleber mit hellem Rand), Album (Hell), Jahreskarte (Tiefblau), „Färb deine Seite“ (Leuchtfarbe), Joker.
 - **Klasse** (auch der Klassen-Link): großer Klassenname, Klassenziel als große Zahl mit Stempelkarte (Meerblau), Aufträge (Hell), Inhaltsverzeichnis (Tiefblau, aktuelles Thema in der Leuchtfarbe, Klassenarbeit in Koralle), Termine (Sand).
 - **Belohnungen** sind Leuchtfarben für die Level-Fläche, alle zwei Level ab Level 3 eine neue (Sand, Koralle, Mint, Sonne, Himmel, Rosa, Limette, Pfirsich). Nur auf dem Handy gemerkt (`sa_farbe_<id>`); die Klassenseite bleibt Aqua.
+- **Shop** (AV1, AW3): Konto als riesige Zahl, gleich darunter das teuerste Angebot ohne Überschrift: Rahmen und Fläche in der Farbe der Seltenheit, dunkles Band „★ LEGENDÄR ★“ oben, eine Note als riesige Zahl wie das Level (kein Symbol), gesperrt mit Fortschritt. Dann das Raster, jede Karte mit der Seltenheit als dunklem Schild. Seltenheit nach Preis: gewöhnlich Nebeltürkis, selten Meerblau, episch Koralle, legendär Sonne.
+- Kein Zoom, nur senkrecht wischen (Wunsch 09.11., AW2): `touch-action: pan-y` für jedes Element, Zwei-Finger- und Doppeltipp-Zoom per Skript abgefangen.
 - Bewegung nur einmal: die Level-Zahl rutscht beim Öffnen hoch und ist dabei immer sichtbar.
 - **Rückblick** (AJ3k): Geschichte zum Durchtippen über den ganzen Bildschirm, eine Farbfläche je Karte, Fortschrittsbalken oben, ✕ oben rechts; links tippen zurück, rechts weiter, Gedrückthalten pausiert. Große Wörter passen sich der Breite an (`min(…, vw)`), nichts bricht im Wort.
 
