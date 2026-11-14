@@ -569,7 +569,7 @@ function exportGradesCSVFile() {
   const points = gradeScale(g).higherIsBetter;
   const header = points ? 'Klassenarbeiten (Punkte);Sonstige (Punkte);Gesamt (Punkte)' : 'Klassenarbeiten;Sonstige;Gesamtnote';
   let csvContent = `\uFEFFNachname;Vorname;${header}\n`; // \uFEFF is BOM for Excel to read UTF-8 correctly
-  const fmt = v => v !== null ? v.toFixed(points ? 1 : 2).replace('.', ',') : '';
+  const fmt = v => (v !== null ? formatGradeAverage(v, points ? 1 : 2) : '');   // kaufmännisch wie App und PDF (Regel 1, BA1)
   
   const range = viewPeriod();   // Zeitraum wie in der Klassenansicht (Y7)
   // Nachname steht vorne: danach sortieren (AR21)

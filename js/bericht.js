@@ -144,10 +144,15 @@ const colLetter = n => { let s = ''; for (n++; n > 0; n = Math.floor((n - 1) / 2
 function xlsxCell(ref, v, style = 0) {
   if (v === null || v === undefined || v === '') return '';
   const st = style ? ` s="${style}"` : '';
-  if (typeof v === 'number' && isFinite(v)) return `<c r="${ref}"${st}><v>${Math.round(v * 100) / 100}</v></c>`;
+  if (typeof v === 'number' && isFinite(v)) {
+    // Kaufmännisch wie formatGradeAverage (BA1): 2,175 liegt intern bei 2,17499…, Math.round allein ergäbe 2,17
+    const scaled = Number((smoothAverage(v) * 100).toPrecision(12));
+    return `<c r="${ref}"${st}><v>${Math.sign(scaled) * Math.round(Math.abs(scaled)) / 100}</v></c>`;
+  }
   return `<c r="${ref}" t="inlineStr"${st}><is><t xml:space="preserve">${xmlEsc(v)}</t></is></c>`;
 }
-function gradeCellValue(v) { return typeof v === 'string' && /^\d+(\.\d+)?$/.test(v.trim()) ? parseFloat(v) : v; } // „2.5“ → 2,5; „2-“, „+“ bleiben Text
+// „2.5“ → Zahl 2,5; „2-“, „+“ bleiben Text, mit Komma wie im PDF („2.5-“ → „2,5-“, BA1)
+function gradeCellValue(v) { return typeof v === 'string' && /^\d+(\.\d+)?$/.test(v.trim()) ? parseFloat(v) : typeof v === 'string' ? gradeText(v) : v; }
 function classReportSheetXML(g) {
   const d = classReportData(g);
   const pts = d.scale.higherIsBetter;

@@ -873,6 +873,8 @@ function openImportStudentsModal() {
   openModal('modal-import-students');
 }
 
+// Voller Name zum Vergleichen: Altdaten haben einen einzelnen Namen im Nachnamen, neue Listen im Vornamen (AR20, BA4)
+const studentFullKey = x => `${(x && x.firstName) || ''} ${(x && x.lastName) || ''}`.trim().replace(/\s+/g, ' ').toLowerCase();
 function importStudentsFromGroup() {
   const fromId = document.getElementById('import-from-group').value;
   if (!fromId) {
@@ -889,9 +891,7 @@ function importStudentsFromGroup() {
   let count = 0;
   fromStudents.forEach(s => {
     if (skipDups) {
-      const exists = before.some(existing => 
-        existing.firstName === s.firstName && existing.lastName === s.lastName
-      );
+      const exists = before.some(existing => studentFullKey(existing) === studentFullKey(s));   // BA4
       if (exists) return;
     }
     db.students[currentGroupId].push({
@@ -937,8 +937,7 @@ function importStudentsFromText() {
     if (firstName || lastName) {
       if (skipDups) {
         // Voller Name: Altdaten haben einen einzelnen Namen im Nachnamen (AR20)
-        const full = x => `${x.firstName || ''} ${x.lastName || ''}`.trim().replace(/\s+/g, ' ').toLowerCase();
-        const exists = before.some(existing => full(existing) === full({ firstName, lastName }));
+        const exists = before.some(existing => studentFullKey(existing) === studentFullKey({ firstName, lastName }));
         if (exists) return;
       }
       db.students[currentGroupId].push({
@@ -1372,9 +1371,14 @@ function warningSignature(s, type, range = runningHalf()) {
 }
 // Noch quittiert? Anzahl nicht gestiegen und (falls gemerkt) dieselben Einträge
 // Quittung aus einem früheren Schuljahr gilt nicht mehr (AR2): Der Name im 1. Halbjahr hat kein Schuljahr
+// Quittungen ohne Datum (vor v537 oder von älteren App-Versionen) gelten nur im Schuljahr 2026/27, in dem es das Datum
+// noch nicht gab (BA5); danach fallen sie weg (höchstens eine Warnung zu viel). Keine Migration: Ein Import alter
+// Sicherungen in einem späteren Jahr bekäme sonst ein frisches Datum.
+const WARN_ACK_UNDATED_UNTIL = '2026-08-01';
 function warningAckFresh(ack, base) {
   const at = ack[`${base}_at`];
-  return !isDateStr(at) || schoolYearStart(at) === schoolYearStart();
+  if (!isDateStr(at)) return schoolYearStart() <= WARN_ACK_UNDATED_UNTIL;
+  return schoolYearStart(at) === schoolYearStart();
 }
 function warningAcknowledged(ack, s, type, count) {
   const base = warningAckBase(s.id, type);
