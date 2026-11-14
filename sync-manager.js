@@ -297,6 +297,13 @@ const SyncManager = {
       return !!(snap.exists && this.currentUser && snap.data().owner !== this.currentUser.uid);
     } catch (e) { return false; }
   },
+  // Kennungen aller Schülerseiten dieses Kontos, auch abgeschaltete und die anderer Geräte (BC2). Braucht die Regel
+  // „list, wenn owner == Anmeldung“ (firestore.rules); mit älteren Regeln wirft es permission-denied.
+  async listOwnShareIds() {
+    if (!this.isInitialized || !this.currentUser) throw new Error('Nicht angemeldet.');
+    const snap = await this.db.collection('shares').where('owner', '==', this.currentUser.uid).get();
+    return snap.docs.map(d => d.id);
+  },
   // Wirklich löschen: nur „Cloud leeren“ und „Konto löschen“. Gibt es das Dokument nicht (mehr), ist nichts zu tun.
   async deleteShare(id) {
     if (!this.isInitialized || !this.currentUser) throw new Error('Nicht angemeldet.');

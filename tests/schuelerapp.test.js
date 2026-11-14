@@ -317,9 +317,11 @@ describe('Veröffentlichen (publishStudentApps)', () => {
     expect(document.getElementById('overview-content').textContent).toMatch(/Firestore-Regeln/);
   });
 
-  it('läuft nach einem erfolgreichen Sync an', () => {
+  it('läuft nach einem erfolgreichen Sync an (Pull erst nach dem Übernehmen, AY1)', () => {
     const src = require('./helpers/load-app').appSource();
-    expect(src).toMatch(/\['uploaded', 'pulled', 'no_change'\]\.includes\(result\.status\)\)\s*\{[^}]*publishStudentApps\(f\)/);
+    expect(src).toMatch(/const publishNow = \(\) => \{[^}]*publishStudentApps\(f\)/);
+    expect(src).toMatch(/applyCloudData\(result\.data, result\.cloudTimestamp\);[^}]*publishNow\(\)/);
+    expect(src).toMatch(/status === 'uploaded'\) \{[^}]*publishNow\(\)/);
   });
 });
 
@@ -477,10 +479,10 @@ describe('Abgleich zwischen Geräten (Regel 83)', () => {
 
 describe('Firestore-Regeln (firestore.rules)', () => {
   const rules = fs.readFileSync(path.join(__dirname, '..', 'firestore.rules'), 'utf8');
-  it('Schülerseiten: einzeln lesbar ohne Konto, nie auflistbar, schreiben/löschen nur der Besitzer', () => {
+  it('Schülerseiten: einzeln lesbar ohne Konto, auflistbar nur die eigenen (BC2), schreiben/löschen nur der Besitzer', () => {
     const block = rules.slice(rules.indexOf('match /shares/{shareId}'));
     expect(block).toMatch(/allow get: if shareId\.matches/);
-    expect(block).toMatch(/allow list: if false/);
+    expect(block).toMatch(/allow list: if request\.auth != null && resource\.data\.owner == request\.auth\.uid;/);
     expect(block).toMatch(/request\.resource\.data\.owner == request\.auth\.uid/);
     expect(block).toMatch(/allow delete: if request\.auth != null && resource\.data\.owner == request\.auth\.uid/);
   });

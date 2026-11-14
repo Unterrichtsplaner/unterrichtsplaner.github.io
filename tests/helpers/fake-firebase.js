@@ -11,6 +11,7 @@ function createFakeFirebase() {
     shareWrites: 0,
     shareDenied: false, // true: wie fehlende Firestore-Regeln (permission-denied)
     shareUid: null,     // gesetzt: Löschen nur für Dokumente dieses Besitzers (wie die Regel)
+    shareListDenied: false, // true: alte Regeln ohne „list“ für den Besitzer (BC2)
     versions: {},     // Cloud-Sicherungen (Z4): uid -> { docId -> Dokument } im Unterordner `versions`
     versionWrites: 0,
     versionsDenied: false, // true: Regel für `versions` fehlt noch
@@ -73,7 +74,17 @@ function createFakeFirebase() {
 
   const firestore = {
     enablePersistence: () => Promise.resolve(),
-    collection: (name) => (name === 'shares' ? { doc: (id) => shareRef(id) } : { doc: (uid) => docRef(uid) }),
+    collection: (name) => (name === 'shares' ? {
+      doc: (id) => shareRef(id),
+      // Auflisten nur der eigenen (Regel: list, wenn owner == Anmeldung, BC2)
+      where: (field, op, value) => ({
+        async get() {
+          if (cloud.shareDenied || cloud.shareListDenied || field !== 'owner' || op !== '==') throw denied();
+          const docs = Object.keys(cloud.shares).filter(id => cloud.shares[id].owner === value).map(id => ({ id, data: () => ({ ...cloud.shares[id] }) }));
+          return { docs, empty: !docs.length, size: docs.length };
+        },
+      }),
+    } : { doc: (uid) => docRef(uid) }),
     async runTransaction(fn) {
       const pending = [];
       const tx = {

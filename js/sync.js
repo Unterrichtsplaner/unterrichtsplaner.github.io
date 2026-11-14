@@ -743,9 +743,11 @@ function applyCloudData(dataString, cloudTimestamp) {
     throw new Error('Die Cloud-Daten haben ein unerwartetes Format und wurden nicht übernommen.');
   }
   const newDB = migrateDB(parsed);
+  const before = db;
   db = newDB;
   markSynced(cloudTimestamp, db.settings.lastModified);
   saveSyncBase(cloudTimestamp, dataString);
+  queueVanishedShares([before], newDB);   // AY1: Links, die der neue Stand nicht mehr kennt, abschalten
   replaceDB(newDB);
 }
 
@@ -983,6 +985,8 @@ async function applyMergedDB(out, conflictInfo) {
   db = fresh;
   if (!persistDB()) { db = previous; return false; }   // sonst käme hoch, was das Gerät selbst nicht gespeichert hat
   const saved = saveSyncBase(conflictInfo.cloudTimestamp, conflictInfo.cloudData);
+  // Links, die keiner der beiden Seiten mehr gehören (z. B. der nicht gewählte von zwei Geräten), abschalten (BC2)
+  try { queueVanishedShares([previous, JSON.parse(conflictInfo.cloudData)], fresh); } catch (e) { console.warn('Schülerapp: Links nicht geprüft', e); }
   replaceDB(fresh);
   SyncManager.updateStatus('synced');
   await saved;
@@ -1170,8 +1174,10 @@ async function triggerSyncInternal({ manual = false } = {}) {
       saveSyncBase(result.recovered.cloudTimestamp, result.recovered.data);
     }
     if (['uploaded', 'pulled', 'no_change'].includes(result.status)) syncErrorShown = false;
-    // Schülerapp (AJ1): Klassenseiten nach jedem erfolgreichen Sync auffrischen (schreibt nur bei Änderung)
-    if (['uploaded', 'pulled', 'no_change'].includes(result.status)) { const f = saForceAfterSync; saForceAfterSync = false; publishStudentApps(f); }
+    // Schülerapp (AJ1): Klassenseiten nach jedem erfolgreichen Sync auffrischen (schreibt nur bei Änderung). Nur, wenn das Gerät
+    // jetzt auf dem Stand der Cloud ist (AY1): Ein Pull, der noch wartet (Fenster offen, während des Ladens getippt), veröffentlichte
+    // sonst den alten Stand – mit Links, die ein anderes Gerät schon abgeschaltet hat.
+    const publishNow = () => { const f = saForceAfterSync; saForceAfterSync = false; publishStudentApps(f); };
 
     if (db !== dbAtStart) {
       // Während des Syncs wurde die ganze DB ersetzt („Alle Daten löschen“, Import, Cloud-Übernahme).
@@ -1193,12 +1199,14 @@ async function triggerSyncInternal({ manual = false } = {}) {
       } else {
         applyCloudData(result.data, result.cloudTimestamp);
         showToast('Stand aus der Cloud übernommen ✓');
+        publishNow();
       }
     } else if (result.status === 'uploaded') {
       // Nur den hochgeladenen Stand als synchron markieren; Eingaben während des Uploads
       // bleiben „geändert“ und gehen mit dem nächsten Sync hoch.
       markSynced(result.cloudTimestamp, localModified);
       saveSyncBase(result.cloudTimestamp, localDataString);
+      publishNow();
       if (manual) showToast('In die Cloud hochgeladen ✓');
       warnIfCloudNearlyFull();
       updateSyncUI();
@@ -1208,6 +1216,7 @@ async function triggerSyncInternal({ manual = false } = {}) {
         markSynced(result.cloudTimestamp, localModified);
         saveSyncBase(result.cloudTimestamp, localDataString);
       }
+      publishNow();
       if (manual) showToast('Daten bereits auf dem neuesten Stand.');
       updateSyncUI();
     } else if (result.status === 'offline') {
@@ -1310,6 +1319,8 @@ async function resolveConflict(decision) {
           markSynced(newTimestamp, localModified); // sonst: DB inzwischen ersetzt (BUGS K1)
           saveSyncBase(newTimestamp, uploaded);
         }
+        // Links, die nur der überschriebene Cloud-Stand kannte, abschalten (BC2)
+        try { queueVanishedShares([JSON.parse(conflict.cloudData)], JSON.parse(uploaded)); } catch (e) { console.warn('Schülerapp: Links nicht geprüft', e); }
       } finally {
         syncRunning = false;
       }

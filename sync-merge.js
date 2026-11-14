@@ -377,13 +377,27 @@ function mergeAddDays(dateStr, days) {
   d.setDate(d.getDate() + days);
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
+// Gegenstück zu splitShift (js/stundenplan.js): Abstand in Tagen beim Stundenplanwechsel von Wochentag `oldDay` auf `newDay` ab `from`
+function mergeSplitShift(oldDay, newDay, from) {
+  let shift = newDay - oldDay;
+  let first = from;
+  while ((new Date(`${first}T12:00:00`).getDay() + 6) % 7 !== oldDay) first = mergeAddDays(first, 1);
+  if (mergeAddDays(first, shift) < from) shift += 7;
+  return shift;
+}
 const mergeKeySlot = key => String(key).slice(0, String(key).lastIndexOf('_'));
 const mergeKeyDate = key => String(key).slice(String(key).lastIndexOf('_') + 1);
-// Einträge einer Stunde umziehen, alle auf einmal (wie moveLessonData: verschieben sich gemeinsam, also keine Kollision)
+// Einträge einer Stunde umziehen, alle auf einmal (wie moveLessonData: verschieben sich gemeinsam, also keine Kollision).
+// Fielen doch zwei auf denselben Termin oder auf einen vorhandenen Eintrag, nie überschreiben (AY2): Abbruch, Fenster mit dem ganzen Stand.
 function mergeRekey(d, slotId, rename) {
   const data = d.lessonData;
   if (!data) return;
   const moved = Object.keys(data).filter(k => mergeKeySlot(k) === slotId).map(k => [k, rename(mergeKeyDate(k))]).filter(([k, to]) => to && to !== k);
+  const leaving = new Set(moved.map(([k]) => k)), targets = new Set();
+  moved.forEach(([, to]) => {
+    if (targets.has(to) || (Object.prototype.hasOwnProperty.call(data, to) && !leaving.has(to))) throw new MergeUnsupportedError('Zwei Einträge fielen auf denselben Termin');
+    targets.add(to);
+  });
   const values = moved.map(([k]) => data[k]);
   moved.forEach(([k]) => delete data[k]);
   moved.forEach(([, to], i) => { data[to] = values[i]; });
@@ -397,12 +411,39 @@ function mergeRekey(d, slotId, rename) {
     }
   }));
 }
+// HA/Tests, die die andere Seite selbst auf einen Termin der verlegten Stunde gesetzt hat, ziehen mit (AY3). Sonst wären sie
+// nirgends mehr fällig (Regel 52). Wie retargetDueItems/retargetMovedItems in der App: nicht, wenn dort noch eine Stunde der
+// Klasse liegt, und nie vor den Tag nach der Aufgabe. Was schon in der Basis auf diesen Termin zeigte, hat das Gerät, das
+// verlegt hat, selbst versorgt. `map(Termin)` liefert den neuen Termin oder null; jeder Eintrag zieht höchstens einmal um.
+function mergeRetargetDue(b, mover, other, slot, map, done) {
+  const classOf = x => (x.groupId ? `g|${x.groupId}` : `s|${x.subject || ''}`);
+  const cls = classOf(slot);
+  const classIds = new Set([...(mover.lessonSlots || []), ...(other.lessonSlots || [])].filter(x => classOf(x) === cls).map(x => x.id));
+  const stillDue = t => (mover.lessonSlots || []).some(x => classOf(x) === cls && mergeSlotFits(x, t) && !((mover.lessonData || {})[`${x.id}_${t}`] || {}).ausfall);
+  const baseTarget = new Map();
+  Object.values(b.lessonData || {}).forEach(v => { if (v) [...(v.hwItems || []), ...(v.testItems || [])].forEach(it => { if (it && it.id) baseTarget.set(it.id, it.targetDate); }); });
+  Object.keys(other.lessonData || {}).forEach(key => {
+    const v = other.lessonData[key];
+    if (!v || !classIds.has(mergeKeySlot(key))) return;
+    const givenAfter = mergeAddDays(mergeKeyDate(key), 1);
+    [...(v.hwItems || []), ...(v.testItems || [])].forEach(it => {
+      if (!it || !it.targetDate || done.has(it)) return;
+      if (it.id && baseTarget.has(it.id) && baseTarget.get(it.id) === it.targetDate) return;
+      let to = map(it.targetDate);
+      if (!to || to === it.targetDate || stillDue(it.targetDate)) return;
+      while (to < givenAfter) to = mergeAddDays(to, 7);
+      it.targetDate = to;
+      done.add(it);
+    });
+  });
+}
 // Verlegen ändert die Schlüssel der Stundendaten (Regel 13). Das andere Gerät kennt nur die alten; seine Einträge lägen danach
 // unter einem Termin, den es nicht mehr gibt. Darum zieht es hier jede Verlegung auch in Basis und anderem Gerät nach.
 // Geht das nicht eindeutig (beide verlegen verschieden), wird nicht geraten: Abbruch, Fenster mit dem ganzen Stand.
 function mergeNormalizeMoves(b, l, c) {
   const inBase = id => (b.lessonSlots || []).some(s => s.id === id);
   const find = (d, id) => (d.lessonSlots || []).find(s => s.id === id);
+  const retargeted = new Set();   // AY3
   (b.lessonSlots || []).forEach(s => {
     const sl = find(l, s.id), sc = find(c, s.id);
     if (!sl || !sc) return;
@@ -413,6 +454,7 @@ function mergeNormalizeMoves(b, l, c) {
       if (movedL !== movedC && placeChangedOnce(movedL ? sc : sl)) throw new MergeUnsupportedError('Stunde auf einem Gerät verlegt, auf dem anderen anders geändert');
       const to = movedL ? sl.specificDate : movedC ? sc.specificDate : null;
       if (to) [b, l, c].forEach(d => mergeRekey(d, s.id, date => (date === s.specificDate ? `${s.id}_${to}` : null)));
+      if (to && movedL !== movedC) mergeRetargetDue(b, movedL ? l : c, movedL ? c : l, s, t => (t === s.specificDate ? to : null), retargeted);
       return;
     }
     const movedL = sl.day !== s.day, movedC = sc.day !== s.day;
@@ -424,6 +466,7 @@ function mergeNormalizeMoves(b, l, c) {
     if (!movedL && !movedC) return;
     const shift = (movedL ? sl.day : sc.day) - s.day;
     [b, ...(movedL && movedC ? [] : [movedL ? c : l])].forEach(d => mergeRekey(d, s.id, date => `${s.id}_${mergeAddDays(date, shift)}`));
+    if (movedL !== movedC) mergeRetargetDue(b, movedL ? l : c, movedL ? c : l, s, t => (mergeSlotFits(s, t) ? mergeAddDays(t, shift) : null), retargeted);
   });
   [[l, c], [c, l]].forEach(([mover, other]) => {
     (mover.lessonSlots || []).filter(n => !inBase(n.id)).forEach(n => {
@@ -445,13 +488,11 @@ function mergeNormalizeMoves(b, l, c) {
         if (old) {
           const theirs = find(other, old.id);
           if (theirs && theirs.validUntil !== old.validUntil) throw new MergeUnsupportedError('Stundenplanwechsel auf beiden Geräten');
-          const shift = n.day - old.day;
-          [b, other].forEach(d => mergeRekey(d, old.id, date => {
-            if (date < n.validFrom) return null;
-            let to = mergeAddDays(date, shift);
-            while (to < n.validFrom) to = mergeAddDays(to, 7);
-            return `${n.id}_${to}`;
-          }));
+          // Ein Abstand für alle Einträge, wie splitShift in der App (AQ1, AY2): Der erste Termin der alten Stunde ab dem
+          // Wechsel fällt auf den ersten der neuen. Einzeln „−4 Tage, sonst +7“ legte zwei Freitage auf denselben Montag.
+          const shift = mergeSplitShift(old.day, n.day, n.validFrom);
+          [b, other].forEach(d => mergeRekey(d, old.id, date => (date < n.validFrom ? null : `${n.id}_${mergeAddDays(date, shift)}`)));
+          mergeRetargetDue(b, mover, other, old, t => (t >= n.validFrom && mergeSlotFits(old, t) ? mergeAddDays(t, shift) : null), retargeted);
         }
       }
       // „Nur an diesem Tag“ (moveOccurrenceOnce): Der Ursprung bleibt nur Verweis, Einträge gehören zur verlegten Stunde
@@ -461,6 +502,8 @@ function mergeNormalizeMoves(b, l, c) {
           throw new MergeUnsupportedError('Dieselbe Stunde auf beiden Geräten verlegt');
         }
         [b, other].forEach(d => mergeRekey(d, slotId, day => (day === date ? `${n.id}_${n.specificDate}` : null)));
+        const origin = (b.lessonSlots || []).find(x => x.id === slotId);
+        if (origin) mergeRetargetDue(b, mover, other, origin, t => (t === date ? n.specificDate : null), retargeted);
       }
     });
   });

@@ -193,6 +193,20 @@ function keepLiveShareAccess(oldDB, newDB) {
   Object.values(newDB.students || {}).forEach(list => (Array.isArray(list) ? list : []).forEach(st => carry(st, st && oldStudents.get(st.id))));
   [...oldGroups.values(), ...oldStudents.values()].forEach(x => { const a = accOf(x); if (a && !live.has(a.id)) queueShareDeletion(a.id); });
 }
+// Kennungen aller Links eines Stands (Klassen und Schüler)
+function shareAccessIds(d) {
+  const ids = new Set();
+  const add = x => { if (x && x.studentApp && typeof x.studentApp === 'object' && StudentShare.isAccess(x.studentApp.access)) ids.add(x.studentApp.access.id); };
+  ((d && d.groups) || []).forEach(add);
+  Object.values((d && d.students) || {}).forEach(list => (Array.isArray(list) ? list : []).forEach(add));
+  return ids;
+}
+// Links, die mit einem neuen Stand verschwinden (Pull, Abgleich, Konfliktwahl), zum Abschalten vormerken (AY1, BC2):
+// Sonst kennt danach kein Gerät mehr die Kennung, und ein Gerät mit altem Stand könnte die Seite wieder füllen.
+function queueVanishedShares(oldDBs, newDB) {
+  const keep = shareAccessIds(newDB);
+  oldDBs.forEach(o => shareAccessIds(o).forEach(id => { if (!keep.has(id)) queueShareDeletion(id); }));
+}
 function queueShareDeletion(id) {
   if (!id) return;
   const q = saRead(SA_DELETE_QUEUE, []);
@@ -286,9 +300,14 @@ async function publishStudentApps(force = false) {
 }
 // Cloud leeren / Konto löschen: alle Schülerseiten mit weg (sonst blieben verschlüsselte, aber verwaiste Dokumente stehen)
 // Liefert true, wenn nichts mehr übrig ist (AT5: Konto löschen bricht sonst ab, die Seiten blieben für immer).
+// Dazu alle Seiten, die die Cloud diesem Konto zuordnet (BC2): früher abgeschaltete, die anderer Geräte, nicht gewählte
+// Links aus einem Abgleich. Ältere Firestore-Regeln erlauben das Auflisten nicht, dann nur die bekannten.
 async function deleteAllStudentShares() {
   db.groups.forEach(g => { const sa = studentAppOf(g); if (sa.access) queueShareDeletion(sa.access.id); queueStudentShares(g); });
   if (!SyncManager.isInitialized || !SyncManager.currentUser || typeof SyncManager.deleteShare !== 'function') return !saRead(SA_DELETE_QUEUE, []).length;
+  if (typeof SyncManager.listOwnShareIds === 'function') {
+    try { (await SyncManager.listOwnShareIds()).forEach(queueShareDeletion); } catch (e) { console.warn('Schülerapp: eigene Seiten nicht auflistbar (Regel „list“ fehlt?)', e); }
+  }
   try { return (await processShareDeletions(true)) === 0; } catch (e) { console.warn('Schülerapp: Löschen hat nicht geklappt', e); return false; }
 }
 

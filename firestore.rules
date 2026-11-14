@@ -11,11 +11,12 @@ service cloud.firestore {
     }
 
     // Schülerapp (BUGS AJ1): je freigegebene Klasse ein Dokument, Inhalt mit dem Schlüssel aus dem Link verschlüsselt.
-    // Lesen: wer die zufällige Kennung kennt (Link/Code der Klasse), ohne Konto. Auflisten: niemand.
+    // Lesen: wer die zufällige Kennung kennt (Link/Code der Klasse), ohne Konto. Auflisten: nur das eigene Konto seine
+    // eigenen Seiten (BC2: „Cloud leeren“/„Konto löschen“ finden so auch früher abgeschaltete).
     // Schreiben/Löschen: nur das Konto, das in `owner` steht. Nur die bekannten Felder, Inhalt höchstens ~200 KB.
     match /shares/{shareId} {
       allow get: if shareId.matches('^[A-Za-z0-9_-]{22}$');
-      allow list: if false;
+      allow list: if request.auth != null && resource.data.owner == request.auth.uid;
       allow create, update: if request.auth != null
         && shareId.matches('^[A-Za-z0-9_-]{22}$')
         && request.resource.data.owner == request.auth.uid
