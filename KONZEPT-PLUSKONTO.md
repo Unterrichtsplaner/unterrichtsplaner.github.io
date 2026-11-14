@@ -130,7 +130,7 @@ Die Joker (alle 4 Level einer, höchstens 4: Sitzplatz, Song, Aufgabe, Partner, 
 
 - **Daten:**
   - `groups[].studentApp.personal.shop = [{ id, name, price, kind: 'perk' | 'grade' | 'donate' }]`
-  - `students[gid][i].redeemed = [{ id, date, itemId, name, price, kind, nonce?, gradeRef? }]` – Name und Preis werden beim Einlösen mitgespeichert (wie bei den Stickern), damit spätere Änderungen am Laden alte Einträge nicht verändern.
+  - `students[gid][i].redeemed = [{ id, date, itemId, name, price, kind, nonce? }]`, die eingetragene Note trägt umgekehrt `redeemRef` = id der Einlösung (BC8, 14.11.) – Name und Preis werden beim Einlösen mitgespeichert (wie bei den Stickern), damit spätere Änderungen am Laden alte Einträge nicht verändern.
 - **Rechnen statt speichern:** Kontostand, „verdient“ und Spendensumme werden immer berechnet, nie gespeichert (wie XP, Regel 95).
 - **Klassenziel:** `classGoalCount` zählt gespendete Plusse seit Beginn des Ziels zusätzlich.
 - **Auszüge:** Persönliche Seite bekommt `account: { balance, earned, spent, shop, redeemed }` (ohne Nachnamen, ohne andere Schüler). Klassenseite bekommt `donated` (nur Summe). Neues Format → `StudentShare.FORMAT` bleibt, wenn die Seite alte Auszüge weiter liest (Regel 15).

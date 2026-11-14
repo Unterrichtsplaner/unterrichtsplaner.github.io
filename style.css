@@ -2123,8 +2123,10 @@ textarea.form-input,.notes-textarea{min-height:calc(var(--control-h) * 2.5);}
 .sa-beamer{width:min(92vw,1000px);max-width:none;}
 /* Plus-Konto: Codes scannen (AV1 Stufe 2). Kamerabild im Quadrat, darunter was zuletzt passiert ist. */
 .plus-scan{width:min(92vw,520px);}
-.plus-scan-body{display:flex;flex-direction:column;gap:var(--space-3);padding:var(--space-4);}
-.plus-scan-frame{position:relative;width:100%;aspect-ratio:1;border-radius:var(--radius-md);background:var(--bg-elevated);border:1px solid var(--border);overflow:hidden;}
+/* Quer auf dem Handy (BC4): Fenster scrollt, das Kamerabild bleibt so klein, dass die Statuszeile darüber zu sehen ist */
+.plus-scan-body{display:flex;flex-direction:column;gap:var(--space-3);padding:var(--space-4);flex:1;min-height:0;overflow-y:auto;}
+.plus-scan-status{order:-1;}
+.plus-scan-frame{position:relative;width:min(100%,50dvh);margin-inline:auto;flex-shrink:0;aspect-ratio:1;border-radius:var(--radius-md);background:var(--bg-elevated);border:1px solid var(--border);overflow:hidden;}
 .plus-scan-frame video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;}
 .plus-scan-status{margin:0;min-height:var(--control-h);display:flex;align-items:center;padding:var(--space-2) var(--space-3);border-radius:var(--radius-sm);background:var(--bg-elevated);font-size:16px;line-height:1.4;color:var(--text-primary);}
 .plus-scan-status.is-ok{background:var(--success-soft);color:var(--success);font-weight:600;}
@@ -2355,6 +2357,12 @@ input, textarea, [contenteditable="true"]{-webkit-user-select:text;user-select:t
   .seating-tool .ico{width:16px;height:16px;}
   /* Fünf Knöpfe (mit „Einlösen“, AV1): Symbol über dem Wort, sonst passen die Wörter nicht */
   .seating-tools-bar:has(#btn-tool-redeem:not(.hidden)) .seating-tool{flex-direction:column;gap:2px;font-size:11px;line-height:1.1;}
+}
+/* Fünf Knöpfe bis 700 px (BB6, z. B. iPad halb im Split View, Handy quer): auch dort Symbol über dem Wort, sonst ragen
+   „Stoppuhr“ und „Einlösen“ in den Nachbarknopf */
+@container seating (min-width: 521px) and (max-width: 700px){
+  .seating-tools-bar:has(#btn-tool-redeem:not(.hidden)) .seating-tool{flex:1 1 0;flex-direction:column;gap:2px;padding:0 var(--space-1);font-size:12px;line-height:1.1;}
+  .seating-tools-bar:has(#btn-tool-redeem:not(.hidden)) .seating-tool .ico{width:18px;height:18px;}
 }
 /* Ende Sitzplan neu (AH50) */
 

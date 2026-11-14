@@ -161,7 +161,8 @@ const MERGE_SPEC = {
           fields: {
             notes: MERGE_TEXT, importantNote: MERGE_TEXT,
             grades: {
-              list: g => `${g.date || ''}|${g.type || ''}|${g.note || ''}`, ignore: ['id'], onDelete: 'ask', keepBoth: g => !g.note,   // ohne Titel gibt es mehrere am Tag; mit Titel ist es eine Spalte, also ein echter Widerspruch
+              // Eingelöste Note aus dem Plus-Konto: über ihre Einlösung (BC8), zwei am selben Tag sind zwei Noten
+              list: g => (g.redeemRef ? `r|${g.redeemRef}` : `${g.date || ''}|${g.type || ''}|${g.note || ''}`), ignore: ['id', 'redeemRef'], onDelete: 'ask', keepBoth: g => !g.note,   // ohne Titel gibt es mehrere am Tag; mit Titel ist es eine Spalte, also ein echter Widerspruch
               what: g => `${g.note || 'Note'}${g.date ? ` (${mergeShortDate(g.date)})` : ''}`,
               item: { fields: { value: { atomic: 'ask', show: v => mergeShow(v).replace('.', ',') } } },
             },

@@ -655,7 +655,7 @@ function personalOf(g) {
     step: Number(p.step) >= 5 ? Math.round(Number(p.step)) : null,
     ranks,
     jokers: Array.isArray(p.jokers) ? p.jokers.map(x => String(x || '').trim()).filter(Boolean).slice(0, 12) : SA_JOKERS_DEFAULT.slice(),
-    shop: Array.isArray(p.shop) ? p.shop.map(cleanShopItem).filter(Boolean).slice(0, 16) : shopFromJokers(p.jokers),   // AV1
+    shop: Array.isArray(p.shop) ? p.shop.map(cleanShopItem).filter(Boolean).slice(0, 16) : shopFromJokers(p.jokers, gradeScale(g)),   // AV1; Startwerte je Skala (BC5)
     shopOn: p.shopOn === true,   // Laden eingeschaltet (AV1, Standard aus: dann Joker wie bisher)
     shopSince: isDateStr(p.shopSince) ? p.shopSince : null,   // erstes Einschalten: ab da zählt das Konto (bleibt beim Aus- und Einschalten)
     stickers: (Array.isArray(p.stickers) ? p.stickers : SA_STICKERS_DEFAULT).map(cleanSticker).filter(Boolean).slice(0, 20),
@@ -1192,7 +1192,7 @@ const SA_SHOP_DEFAULT = [   // feste Kennungen, damit beide Geräte dieselben St
 ];
 const SA_JOKER_SHOP = { 'Sitzplatz für eine Stunde aussuchen': 'l-platz', 'Song zum Analysieren vorschlagen': 'l-song', 'Aufgabe aussuchen': 'l-aufgabe',
   'Partner wählen': 'l-partner', 'Rätsel der Stunde stellen': 'l-raetsel' };
-const SA_SHOP_KINDS = { perk: 'Vorteil', grade: 'Note: eine 1' };
+const SA_SHOP_KINDS = { perk: 'Vorteil', grade: 'Note: Bestnote' };   // 1 bzw. 15 Punkte (BC5)
 const SA_SHOP_ICON_NAMES = { seat: 'Stuhl', pair: 'Zwei Personen', music: 'Musik', puzzle: 'Puzzle', ask: 'Frage', skip: 'Blatt durchgestrichen', one: 'Eins',
   gift: 'Geschenk', star: 'Stern', rocket: 'Rakete', bulb: 'Glühbirne', heart: 'Herz', medal: 'Medaille', flame: 'Flamme', bubble: 'Sprechblase', hands: 'Hände' };
 const SA_DONATE_STEPS = [1, 3, 5, 10];
@@ -1203,19 +1203,23 @@ const cleanShopItem = x => x && x.id && String(x.name || '').trim()
     icon: SA_SHOP_ICON_NAMES[x.icon] ? x.icon : 'star' } : null;
 // Laden ohne eigene Einstellung: die Startwerte; wer die Joker selbst geschrieben hatte, bekommt seine Texte als erste
 // Angebote (bekannte mit ihrem Preis, sonst 3 Plusse), dazu die 1 (Konzept Abschnitt 7). Nur gelesen, nie gespeichert.
-function shopFromJokers(jokers) {
+// In Punkte-Klassen heißt das Notenangebot nach der Skala (BC5): „15 Punkte (mündlich)“, die Schülerseite zeigt dann „15“.
+// Ein selbst gespeicherter Laden bleibt, wie er ist (Regel 48).
+const shopDefaultItem = (x, scale) => (x.kind === 'grade' && scale && scale.higherIsBetter ? { ...x, name: `${scale.max} ${scale.unit || 'Punkte'} (mündlich)` } : { ...x });
+function shopFromJokers(jokers, scale = null) {
   const list = Array.isArray(jokers) ? jokers.map(x => String(x || '').trim()).filter(Boolean) : null;
-  if (!list || list.join('\n') === SA_JOKERS_DEFAULT.join('\n')) return SA_SHOP_DEFAULT.map(x => ({ ...x }));
+  if (!list || list.join('\n') === SA_JOKERS_DEFAULT.join('\n')) return SA_SHOP_DEFAULT.map(x => shopDefaultItem(x, scale));
   const known = t => SA_SHOP_DEFAULT.find(x => x.id === SA_JOKER_SHOP[t] || x.name.toLowerCase() === t.toLowerCase());
   const items = list.slice(0, 12).map((t, i) => known(t) || { id: 'j-' + i, name: t.slice(0, 40), price: 3, kind: 'perk', icon: 'star' });
-  return [...items.filter((x, i) => items.indexOf(x) === i), ...SA_SHOP_DEFAULT.filter(x => x.kind === 'grade')].map(x => ({ ...x }));
+  return [...items.filter((x, i) => items.indexOf(x) === i), ...SA_SHOP_DEFAULT.filter(x => x.kind === 'grade')].map(x => shopDefaultItem(x, scale));
 }
 // Konto eines Schülers im Schuljahr: verdient (+ 1, ++ 2), eingelöst (Preise beim Einlösen), Stand
 function studentAccount(g, s, todayStr = formatDate(new Date())) {
   const since = personalOf(g).shopSince;   // Plusse zählen ab dem Einschalten des Ladens (Wunsch 12.11.), längstens das Schuljahr
   const earned = yearParticipation(s, todayStr).filter(p => !since || p.date >= since).reduce((n, p) => n + (SA_PLUS_VALUE[p.value] || 0), 0);
   const seen = new Set();   // ein Code (Einmal-Nummer) zählt nur einmal, auch wenn zwei Geräte ihn gescannt haben (Stufe 2)
-  const redeemed = yearList(s.redeemed, todayStr).filter(r => !r.nonce || (!seen.has(r.nonce) && seen.add(r.nonce)));
+  // Einlösungen wie die Plusse erst ab dem Startdatum (BC1): sonst „verdient ab heute, abgezogen ab August“
+  const redeemed = yearList(s.redeemed, todayStr).filter(r => (!since || r.date >= since) && (!r.nonce || (!seen.has(r.nonce) && seen.add(r.nonce))));
   const spent = redeemed.reduce((n, r) => n + clampInt(r.price, 0, 999, 0), 0);
   return { earned, spent, balance: Math.max(0, earned - spent), redeemed };
 }
@@ -1276,7 +1280,8 @@ function applyRedemption(g, s, item) {
   let grade = null;
   if (item.kind === 'grade') {   // die beste Note der Skala: 1 bzw. 15 Punkte (Regel 1)
     const scale = gradeScale(g);
-    grade = { type: 'muendlich', value: parseGradeInput(String(scale.higherIsBetter ? scale.max : scale.min), scale).value, date: today, note: SA_GRADE_NOTE };
+    // redeemRef verbindet Note und Einlösung (BC8): Der Abgleich hält zwei am selben Tag auseinander, Entfernen nimmt genau diese
+    grade = { type: 'muendlich', value: parseGradeInput(String(scale.higherIsBetter ? scale.max : scale.min), scale).value, date: today, note: SA_GRADE_NOTE, redeemRef: entry.id };
     (s.grades = Array.isArray(s.grades) ? s.grades : []).push(grade);
   }
   (s.redeemed = Array.isArray(s.redeemed) ? s.redeemed : []).push(entry);
@@ -1346,7 +1351,9 @@ function removeRedemption(groupId, studentId, entry) {
   list.splice(i, 1);
   let grade = null, gi = -1;
   if (entry.kind === 'grade') {
-    (s.grades || []).forEach((x, k) => { if (x && x.date === entry.date && x.note === SA_GRADE_NOTE) gi = k; });
+    // Die eigene Note (redeemRef, BC8); ältere Einlösungen ohne Verweis: die letzte gleichen Tags ohne Verweis
+    gi = (s.grades || []).findIndex(x => x && entry.id && x.redeemRef === entry.id);
+    if (gi === -1) (s.grades || []).forEach((x, k) => { if (x && !x.redeemRef && x.date === entry.date && x.note === SA_GRADE_NOTE) gi = k; });
     if (gi !== -1) grade = s.grades.splice(gi, 1)[0];
   }
   saveDB();
@@ -1381,6 +1388,9 @@ async function setShopOn(groupId, on) {
     return;
   }
   const p = ensurePersonal(g);
+  // Ausschalten im zweiten Schuljahr: Startdatum aus dem Vorjahr auf den 1. August, damit Wiedereinschalten es behält
+  // und das Konto nicht auf null fällt (BC1). Ein schon im Vorjahr ausgeschalteter Laden zählt beim Einschalten ab heute.
+  if (!on && p.shopOn && since && !keep) p.shopSince = schoolYearStart();
   p.shopOn = !!on;
   if (on && !keep) p.shopSince = formatDate(new Date());
   saveDB();
@@ -1412,7 +1422,7 @@ function shopEditorHTML(g, p) {
           <select class="form-input" data-f="icon" aria-label="Symbol">${optionList(SA_SHOP_ICON_NAMES, x.icon)}</select></div></div>`).join('')}</div>
       <div class="sa-row-btns"><button type="button" class="btn-secondary" id="sa-shop-add">+ Angebot</button></div>
       <p class="field-hint-muted" id="sa-shop-hint">+ ist 1 Plus wert, ++ sind 2. Ein mittlerer Schüler sammelt etwa ${Math.round(year / 2)} Plusse im Halbjahr und ${Math.round(year)} im Schuljahr.
-        Eingelöst wird per Code aus der App (Knopf „Codes scannen“ unten oder „Einlösen“ im Sitzplan) oder im Schüler-Fenster (Mehr → Schülerapp → Plusse einlösen); „Note: eine 1“ trägt dabei eine mündliche ${escHtml(best)} mit Titel „${SA_GRADE_NOTE}“ ein.
+        Eingelöst wird per Code aus der App (Knopf „Codes scannen“ unten oder „Einlösen“ im Sitzplan) oder im Schüler-Fenster (Mehr → Schülerapp → Plusse einlösen); „Note: Bestnote“ trägt dabei eine mündliche ${escHtml(best)} mit Titel „${SA_GRADE_NOTE}“ ein.
         Mit Klassenziel können die Schüler Plusse auch für die Klasse spenden.</p></div>`;
 }
 function wireShopEditor(content, g) {

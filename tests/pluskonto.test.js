@@ -123,7 +123,7 @@ describe('Einlösen im Schüler-Fenster', () => {
     await answer('l-eins');
     await vi.waitFor(() => expect((anna().redeemed || []).length).toBe(1));
     expect(anna().redeemed[0]).toMatchObject({ kind: 'grade', price: 6 });
-    expect(anna().grades).toContainEqual({ type: 'muendlich', value: ONE(), date: TODAY, note: 'Plus-Konto' });
+    expect(anna().grades).toContainEqual(expect.objectContaining({ type: 'muendlich', value: ONE(), date: TODAY, note: 'Plus-Konto' }));   // dazu redeemRef (BC8)
     expect(account().balance).toBe(3);
     undo();
     expect(anna().redeemed).toEqual([]);

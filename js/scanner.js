@@ -37,13 +37,15 @@ function updateSeatingRedeemButton() {
 }
 async function openPlusScanner() {
   if (plusScan) return;
-  plusScan = { stream: null, timer: null, busy: false, last: null, done: new Set(), canvas: null };
+  // Dieser Aufruf gehört zu genau diesem Scanner (BC3): Schnell geschlossen und wieder geöffnet, liefe der alte sonst
+  // weiter und holte sich eine zweite Kamera, die niemand mehr stoppt (Regel 100).
+  const me = plusScan = { stream: null, timer: null, busy: false, last: null, done: new Set(), canvas: null };
   const video = document.getElementById('plus-scan-video');
   video.hidden = true;
   setPlusScanStatus('Kamera startet …');
   openModal('modal-plus-scan');
   const ready = await loadJsQR();
-  if (!plusScan) return;   // inzwischen geschlossen
+  if (plusScan !== me) return;   // inzwischen geschlossen
   const fallback = 'Einlösen geht auch im Schüler-Fenster (Mehr → Schülerapp → Plusse einlösen).';
   if (!ready) { setPlusScanStatus('Das Lesen der Codes lässt sich gerade nicht laden. ' + fallback, 'error'); return; }
   if (!navigator.mediaDevices || typeof navigator.mediaDevices.getUserMedia !== 'function') {
@@ -52,29 +54,30 @@ async function openPlusScanner() {
   }
   try {
     const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' }, audio: false });
-    if (!plusScan) { stream.getTracks().forEach(t => t.stop()); return; }
-    plusScan.stream = stream;
+    if (plusScan !== me) { stream.getTracks().forEach(t => t.stop()); return; }
+    me.stream = stream;
     video.srcObject = stream;
     video.hidden = false;
     await video.play().catch(() => {});
+    if (plusScan !== me) return;   // stopPlusScanner hat den Stream schon beendet
     setPlusScanStatus('Halte den Code aus der App des Schülers vor die Kamera.');
-    plusScanLoop();
+    plusScanLoop(me);
   } catch (e) {
-    if (!plusScan) return;
+    if (plusScan !== me) return;
     setPlusScanStatus((e && e.name === 'NotAllowedError'
       ? 'Die Kamera ist für den Planer nicht erlaubt. Du kannst sie in den Einstellungen des Geräts erlauben. '
       : 'Die Kamera lässt sich gerade nicht starten. ') + fallback, 'error');
   }
 }
-function plusScanLoop() {
-  if (!plusScan) return;
-  plusScan.timer = setTimeout(async () => {
-    if (!plusScan) return;
-    if (!plusScan.busy) {
+function plusScanLoop(me = plusScan) {
+  if (!me || plusScan !== me) return;
+  me.timer = setTimeout(async () => {
+    if (plusScan !== me) return;
+    if (!me.busy) {
       const text = readPlusScanFrame();
       if (text) await handleScannedCode(text);
     }
-    plusScanLoop();
+    plusScanLoop(me);
   }, PLUS_SCAN_EVERY_MS);
 }
 // Ein Bild der Kamera nach einem QR-Code durchsuchen (verkleinert, das reicht für einen Handy-Bildschirm)
@@ -94,8 +97,19 @@ function readPlusScanFrame() {
 }
 // Derselbe Code bleibt meist eine Weile im Bild. Eben eingelöst: still übergehen (sonst stünde gleich „schon eingelöst“ da,
 // als hätte es nicht geklappt). Abgelehnt oder abgebrochen: erst nach PLUS_SCAN_SAME_MS wieder.
+// Ob der Code wirklich noch eingelöst ist (BC6): nach „Rückgängig“ gilt er wieder
+function plusCodeStillUsed(text) {
+  const c = StudentShare.parsePlusCode(text);
+  const hit = c && findStudentByAccess(c.id);
+  return !!(hit && codeUsed(hit.s, c.nonce));
+}
 async function handleScannedCode(text) {
-  if (!plusScan || plusScan.done.has(text)) return;
+  if (!plusScan) return;
+  if (plusScan.done.has(text)) {
+    if (plusCodeStillUsed(text)) return;
+    plusScan.done.delete(text);   // zurückgenommen: wie ein neuer Code behandeln
+    plusScan.last = null;
+  }
   const now = Date.now();
   if (plusScan.last && plusScan.last.text === text && now - plusScan.last.at < PLUS_SCAN_SAME_MS) return;
   plusScan.busy = true;
@@ -104,6 +118,8 @@ async function handleScannedCode(text) {
     const r = await redeemFromCode(text);
     if (plusScan && r.kind === 'ok') plusScan.done.add(text);
     if (plusScan) setPlusScanStatus(r.msg, r.kind === 'ok' ? 'ok' : r.kind === 'error' ? 'error' : '');
+    // Abgelehnt: auch als Hinweis oben, falls die Statuszeile gerade nicht zu sehen ist (Handy quer, BC4)
+    if (plusScan && r.kind === 'error') showToast(r.msg, 'error');
   } catch (e) {
     if (plusScan) setPlusScanStatus('Das hat nicht geklappt. Versuch es noch einmal.', 'error');
   } finally {
