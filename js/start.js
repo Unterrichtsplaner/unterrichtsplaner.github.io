@@ -39,6 +39,7 @@ document.addEventListener('visibilitychange', refreshTimetableClock);
     resizeTimer = setTimeout(() => {
       const view = document.getElementById('view-timetable');
       if (view && view.classList.contains('active')) renderTimetable();
+      hubOnResize();   // Schülerapp-Übersicht: Vorschau rechts oder unter der Karte (BE1)
     }, 150);
   });
 })();

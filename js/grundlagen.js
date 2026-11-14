@@ -394,13 +394,14 @@ function switchView(name) {
   if (name !== 'seating') closeToolPops();   // Timer-/Stoppuhr-Feld (AH50)
   if (name !== 'seating' && typeof gradeRound !== 'undefined' && gradeRound) endGradeRound();   // Notenrunde (AH28)
   if (name !== 'students') hideClassGrades();   // Beamer-Schutz (AH24 c)
+  if (name !== 'studentapp') hubVeil();   // persönliche Seite in der Schülerapp-Übersicht wieder verborgen (BE1)
   if (name !== 'seating') hideSeatingGrades();   // „Noten zeigen“ gilt nur im Sitzplan (W1, Regel 16)
   if (typeof closeParticipationPicker === 'function') closeParticipationPicker();
   document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
   document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
   const viewEl = document.getElementById('view-' + name);
   // Die Klassenansicht gehört zu „Klassen“ (BUGS I11: sonst war kein Menüpunkt markiert)
-  const navEl = document.getElementById('nav-' + (name === 'students' ? 'classes' : name));
+  const navEl = document.getElementById('nav-' + (name === 'students' || name === 'studentapp' ? 'classes' : name));
   if (viewEl) viewEl.classList.add('active');
   if (navEl) navEl.classList.add('active');
 
@@ -409,6 +410,7 @@ function switchView(name) {
   if (name === 'classes') renderSubjectGroups();
   if (name === 'timetable') renderTimetable();
   if (name === 'todos') renderTodos();   // Merkzettel (AH18)
+  if (name === 'studentapp') renderStudentAppHub();   // Schülerapp-Übersicht (BE1)
   markNavActive();   // Schnellzugriff statt Menüpunkt markieren, wenn er passt (AH48)
 }
 
@@ -550,7 +552,7 @@ function markNavActive() {
     b.classList.toggle('active', on);
     if (on) b.setAttribute('aria-current', 'page'); else b.removeAttribute('aria-current');
   });
-  const navView = view === 'students' ? 'classes' : view;
+  const navView = view === 'students' || view === 'studentapp' ? 'classes' : view;
   document.querySelectorAll('.nav-item[data-view]').forEach(n => n.classList.toggle('active', !hit && n.dataset.view === navView));
 }
 

@@ -432,6 +432,7 @@ function studentAppQR(text, label) {
   return q.createSvgTag({ cellSize: 4, margin: 2, scalable: true, alt: label });
 }
 function updateStudentAppTabVisibility() {
+  updateStudentAppHubButton();   // Knopf „Schülerapp“ in der Klassen-Übersicht (BE1)
   const b = document.getElementById('overview-tab-studentapp');
   if (!b) return;
   b.classList.toggle('hidden', !studentAppOn());
@@ -634,6 +635,7 @@ function refreshStudentAppViews() {
   }
   const list = document.getElementById('settings-studentapp-classes');
   if (list && !document.getElementById('modal-settings').classList.contains('hidden')) renderSettingsStudentApps();
+  refreshStudentAppHub();   // BE1
 }
 function showStudentAppBeamer(groupId) {
   const g = db.groups.find(x => x.id === groupId);

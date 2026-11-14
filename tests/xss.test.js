@@ -142,6 +142,12 @@ describe('Ansichten mit präparierten Daten', () => {
       expect(document.querySelector('#print-area .sa-card-print')).not.toBeNull();
       expect(injected()).toBe(0);
       document.getElementById('print-area').innerHTML = '';
+      // Schülerapp-Übersicht (BE1) mit Rangliste und aufgedeckter persönlicher Seite
+      app(`db.groups[0].studentApp.ranking = true; hubGroupId = ${G}; hubMode = "me"; hubShown = true; hubStudentId = db.students[${G}][0].id; openStudentAppHub(); hubShown = true; renderStudentAppHub()`);
+      expect(document.querySelector('#hub-content .hub-card')).not.toBeNull();
+      expect(document.querySelector('#hub-content #hub-student')).not.toBeNull();
+      expect(injected()).toBe(0); expect(brokenHandlers()).toEqual([]);
+      app('switchView("dashboard")');
       // Der Auszug selbst geht verschlüsselt raus; escapen muss die Schülerseite (tests/schuelerseite.test.js)
       app('SyncManager.isInitialized = false; SyncManager.currentUser = null');
     },

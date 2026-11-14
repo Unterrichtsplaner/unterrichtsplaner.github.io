@@ -157,7 +157,8 @@ input[type="date"] { min-height: 1.2em; } /* Fix iOS Safari date input collapse 
 #main-content:has(#view-dashboard.active),
 #main-content:has(#view-classes.active),
 #main-content:has(#view-students.active),
-#main-content:has(#view-todos.active){min-width:0;}
+#main-content:has(#view-todos.active),
+#main-content:has(#view-studentapp.active){min-width:0;}
 /* Sitzplan passt sich ebenfalls an (BUGS H13), braucht dafür aber Container-Queries (iOS 16+).
    Ältere Geräte behalten die 800 px mit seitlichem Scrollen wie bisher. */
 @supports (container-type: inline-size) {
@@ -2163,6 +2164,43 @@ textarea.form-input,.notes-textarea{min-height:calc(var(--control-h) * 2.5);}
 .rank-chip.t-bronze{background:#b87333;} .rank-chip.t-silver{background:#b8c0c8;} .rank-chip.t-gold{background:#d4a017;}
 .rank-chip.t-platinum{background:#a9d0dc;} .rank-chip.t-diamond{background:#3fbbe8;}
 .sa-row-btns{display:flex;flex-wrap:wrap;gap:var(--space-2);}
+/* Schülerapp-Übersicht (BE1): Karten links, Vorschau rechts (breit) bzw. unter der gewählten Karte (schmal, HUB_WIDE_MIN) */
+#hub-content{padding:var(--space-4) var(--page-x);width:100%;box-sizing:border-box;}
+.hub-grid{display:grid;grid-template-columns:minmax(0,1fr);gap:var(--space-5);align-items:start;max-width:1100px;}
+.hub-grid.is-wide{grid-template-columns:minmax(0,1fr) 340px;}
+.hub-aside{position:sticky;top:0;min-width:0;}
+.hub-preview{display:flex;flex-direction:column;gap:var(--space-2);min-width:0;}
+.hub-prev-head{display:flex;flex-direction:column;gap:var(--space-2);}
+.hub-preview .sa-phone{width:100%;max-width:400px;}
+.hub-sum{margin:0;font-size:13px;color:var(--text-secondary);}
+.hub-card.is-selected{border-color:var(--text-secondary);}
+.hub-card-head{display:flex;align-items:center;gap:var(--space-2);}
+.hub-card-name{flex:1;min-width:0;display:flex;align-items:center;justify-content:space-between;gap:var(--space-3);min-height:var(--control-h);padding:0;border:none;background:none;font:inherit;color:inherit;text-align:left;cursor:pointer;}
+.hub-card-title{min-width:0;font-size:16px;font-weight:600;overflow-wrap:anywhere;}
+.hub-card-title small{display:block;font-size:12px;font-weight:400;color:var(--text-muted);}
+.hub-card-go{display:inline-flex;align-items:center;gap:var(--space-1);flex-shrink:0;font-size:13px;color:var(--text-secondary);}
+.hub-card-go svg{width:16px;height:16px;}
+.hub-card.is-selected .hub-card-go{color:var(--text-primary);font-weight:600;}
+.hub-switches{display:flex;flex-direction:column;}
+.hub-switch{display:flex;justify-content:space-between;align-items:center;gap:var(--space-3);min-height:var(--control-h);padding:var(--space-1) 0;border-top:1px solid var(--border);font-size:14px;}
+.hub-switch-text small{display:block;font-size:12px;color:var(--text-muted);}
+.hub-facts{display:grid;gap:var(--space-2);margin:0;font-size:13px;}
+.hub-facts > div{display:grid;grid-template-columns:120px minmax(0,1fr);gap:var(--space-2);}
+.hub-facts dt{color:var(--text-secondary);}
+.hub-facts dd{margin:0;min-width:0;overflow-wrap:anywhere;}
+.hub-facts .sa-bar{display:block;max-width:240px;margin-top:var(--space-1);}
+.hub-veil{display:flex;flex-direction:column;align-items:flex-start;gap:var(--space-2);padding:var(--space-4);border:1px dashed var(--border);border-radius:var(--radius-md);font-size:13px;color:var(--text-secondary);}
+.hub-veil p{margin:0;}
+.hub-veil-bar{display:flex;justify-content:space-between;align-items:center;gap:var(--space-2);font-size:13px;color:var(--text-secondary);}
+@media (max-width: 480px){ .hub-facts > div{grid-template-columns:minmax(0,1fr);gap:0;} }
+#hub-status-btns:empty{display:none;}
+.hub-mode{align-self:flex-start;}
+/* Handy: Knopf als Symbol in der ersten Zeile neben der Lupe, „+ Fach/Klasse“ bleibt in Zeile 2 */
+@media (max-width: 600px){
+  #btn-studentapp-hub .btn-label{display:none;}
+  #btn-studentapp-hub{width:var(--control-h);padding:0;justify-content:center;}
+  #level-subjects .classes-search-btn{margin-left:auto;}
+}
 .sw-sa-line{font-size:14px;color:var(--text-primary);}
 .sw-sa-line small{color:var(--text-muted);font-size:12px;}
 @container (max-width: 480px){.sa-ranks{grid-template-columns:repeat(2,minmax(0,1fr));}}

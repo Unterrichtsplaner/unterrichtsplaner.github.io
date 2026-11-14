@@ -200,6 +200,7 @@ function classesClockSignature(now = new Date()) {
 }
 
 function renderSubjectGroups() {
+  updateStudentAppHubButton();   // Knopf „Schülerapp“ (BE1)
   const classesView = classesViewSetting(), sort = classesSortSetting();
   classesClockSig = classesClockSignature();
   const sortSel = document.getElementById('classes-sort');

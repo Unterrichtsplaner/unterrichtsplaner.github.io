@@ -795,6 +795,7 @@ function onAppHidden() {
   hideAllPasswords();
   if (plusScan) closePlusScanner();   // Kamera nie im Hintergrund weiterlaufen lassen (AV1)
   if (classGradesShown) { hideClassGrades(); rerenderClassTab(); }
+  hubOnAppHidden();   // persönliche Seite in der Schülerapp-Übersicht (BE1)
   dashboardOpenGroups.clear();   // „Auffällig“ nach der Pause wieder zugeklappt (AS8)   // Beamer-Schutz: nach der Pause wieder verborgen (AH24 c)
   // Sitzplan genauso: Noten/Verlauf und ein aufgedecktes Schüler-Fenster sind beim Zurückkommen wieder verborgen (AS1)
   if (seatingShowGrades || seatingShowTrend) {
