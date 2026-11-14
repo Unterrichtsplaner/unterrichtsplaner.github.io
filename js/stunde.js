@@ -33,8 +33,18 @@ let lessonTogglesShown = { hwEnabled: false, testEnabled: false }; // Schalterst
 
 // Aus dem Sitzplan geöffnet (Beamer): Klassennotizen und Merkzettel erst nach „Anzeigen“ (AS7, Regel 71/73). Nie gespeichert.
 let lessonPrivateVeiled = false;
+let lessonFromSeating = false;   // offen aus dem Sitzplan: beim Verlassen der App wieder verbergen (BB3)
 function showLessonPrivate() {
   lessonPrivateVeiled = false;
+  const slot = activeLessonId && db.lessonSlots.find(s => s.id === activeLessonId);
+  if (!slot) return;
+  renderLessonClassNotes(slot, activeLessonDate, true);
+  renderLessonTodos(slot);
+}
+// Pause, iPad gesperrt: Aufgedecktes aus dem Sitzplan beim Zurückkommen am Beamer wieder verborgen (BB3, wie AS1)
+function veilLessonPrivate() {
+  if (!lessonFromSeating || lessonPrivateVeiled) return;
+  lessonPrivateVeiled = true;
   const slot = activeLessonId && db.lessonSlots.find(s => s.id === activeLessonId);
   if (!slot) return;
   renderLessonClassNotes(slot, activeLessonDate, true);
@@ -45,6 +55,7 @@ function openLessonDetail(slotId, dateStr, { fromSeating = false } = {}) {
   const slot = db.lessonSlots.find(s => s.id === slotId);
   if (!slot) return;
   lessonPrivateVeiled = !!fromSeating;
+  lessonFromSeating = !!fromSeating;
 
   activeLessonId   = slotId;
   activeLessonDate = dateStr;

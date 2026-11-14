@@ -180,8 +180,7 @@ function addAttendanceEntry() {
   if (!s.attendance) s.attendance=[];
   // Fehlen, entschuldigt und „zu spät“ schließen sich am selben Tag aus. Ein nachgetragener Grund („Attest“)
   // ersetzt das „Unentschuldigt“ aus dem Sitzplan, statt einen zweiten Eintrag anzulegen (BUGS Q2).
-  const existing = s.attendance.find(a => a.date === date && DAY_ATTENDANCE_TYPES.includes(a.type));
-  const wasUnexcused = !!existing && existing.type === 'abwesend';
+  const { entry: existing, wasUnexcused } = mergeDayAttendance(s, date);   // doppelte aus Altdaten zuerst zusammen (BA3)
   if (existing) {
     existing.type = type;
     if (note) existing.note = note;
@@ -208,7 +207,15 @@ function deleteAttendance(a) {
 }
 
 function renderStudentParticipationList(s) {
-  const pList = periodList(s.participation, viewPeriod());   // Halbjahr (Y7)
+  const range = viewPeriod();   // Halbjahr wie in der Klassenansicht (Y7)
+  const pList = periodList(s.participation, range);
+  // Bilanz über der Liste: bei jeder Änderung neu, nicht nur beim Öffnen (BB4)
+  const sum = document.getElementById('seating-student-participation-summary');
+  if (sum) {
+    const partN = partCounts(pList);
+    sum.innerHTML = `${range ? `Mitarbeit im ${PERIOD_NAMES[range.key]}` : 'Mitarbeit bisher'}: ` +
+      PART_LEVELS.map((l, i) => `<span>${partSignHTML(l.value)} ${partN[i]}</span>`).join(' · ');
+  }
   const list = document.getElementById('participation-list');
   if (!list) return;
   list.innerHTML = '';
@@ -605,6 +612,7 @@ function refreshSeatingStudentDay(now = new Date()) {
   const note = document.getElementById('seating-student-note-input');
   const typed = note ? note.value : '';
   openSeatingStudentModal(ctx.studentId, ctx.groupId, dateStr, { keep: true });
+  resetProfileDates();            // neuer Tag: Datumsfelder auf den neuen Tag (BB2 lässt sie sonst stehen)
   if (note) note.value = typed;   // Eingetipptes nie verwerfen (Regel 27)
   showToast(`Neuer Tag: Einträge gelten jetzt für ${formatWeekdayShort(dateStr)}`);
   return true;
@@ -616,6 +624,7 @@ function setSeatingAbsence(type) {
   const s = db.students[groupId]?.find(x => x.id === studentId);
   if (!s) return;
   if (!s.attendance) s.attendance = [];
+  mergeDayAttendance(s, dateStr);   // doppelte Tageseinträge aus Altdaten: genau einer bleibt (BA3, Regel 50)
   
   const existingIdx = s.attendance.findIndex(a => a.date === dateStr && (a.type === 'abwesend' || a.type === 'entschuldigt'));
   if (existingIdx !== -1 && s.attendance[existingIdx].type === type) {
@@ -625,8 +634,8 @@ function setSeatingAbsence(type) {
     const [removed] = s.attendance.splice(existingIdx, 1);
     saveDB();
     refreshStudentViews(groupId);
-    closeModal('modal-seating-student');
-    showUndoToast('Fehlzeit entfernt', () => restoreSeatingEntry(groupId, s, 'attendance', removed,
+    const rest = finishSeatingEntry(s, dateStr);
+    showUndoToast('Fehlzeit entfernt' + rest, () => restoreSeatingEntry(groupId, s, 'attendance', removed,
       () => { if (removed.type === 'abwesend') addAbsenceNote(groupId, removed.date, s); }));
     return;
   }
@@ -648,8 +657,7 @@ function setSeatingAbsence(type) {
 
   saveDB();
   refreshStudentViews(groupId);
-  closeModal('modal-seating-student');
-  showToast(type === 'abwesend' ? 'Unentschuldigt eingetragen' : 'Entschuldigt eingetragen');
+  showToast((type === 'abwesend' ? 'Unentschuldigt eingetragen' : 'Entschuldigt eingetragen') + finishSeatingEntry(s, dateStr));
 }
 
 // BUGS H8: „zu spät“ direkt aus der Schnellbewertung; zweiter Klick nimmt es zurück
@@ -660,14 +668,15 @@ function setSeatingLate() {
   const s = db.students[groupId]?.find(x => x.id === studentId);
   if (!s) return;
   if (!s.attendance) s.attendance = [];
+  mergeDayAttendance(s, dateStr);   // BA3
 
   const existing = s.attendance.find(a => a.date === dateStr && a.type === 'zuspät');
   if (existing) {
     s.attendance.splice(s.attendance.indexOf(existing), 1);
     saveDB();
     refreshStudentViews(groupId);
-    closeModal('modal-seating-student');
-    showUndoToast('„Zu spät“ entfernt', () => restoreSeatingEntry(groupId, s, 'attendance', existing));
+    const rest = finishSeatingEntry(s, dateStr);
+    showUndoToast('„Zu spät“ entfernt' + rest, () => restoreSeatingEntry(groupId, s, 'attendance', existing));
     return;
   }
 
@@ -682,8 +691,7 @@ function setSeatingLate() {
   else s.attendance.push({ id: uid(), date: dateStr, type: 'zuspät', note: '' });
   saveDB();
   refreshStudentViews(groupId);
-  closeModal('modal-seating-student');
-  showToast('Zu spät eingetragen', 'warning');
+  showToast('Zu spät eingetragen' + finishSeatingEntry(s, dateStr), 'warning');
 }
 
 function setSeatingHomework() {
@@ -705,14 +713,13 @@ function setSeatingHomework() {
     s.homework.push({ id: uid(), date: dateStr, note: '' });
     saveDB();
     refreshStudentViews(groupId);
-    closeModal('modal-seating-student');
-    showToast('Hausaufgabe vergessen eingetragen', 'warning');
+    showToast('Hausaufgabe vergessen eingetragen' + finishSeatingEntry(s, dateStr), 'warning');
   } else {
     const [removed] = s.homework.splice(existingIdx, 1);
     saveDB();
     refreshStudentViews(groupId);
-    closeModal('modal-seating-student');
-    showUndoToast('Hausaufgaben-Eintrag entfernt', () => restoreSeatingEntry(groupId, s, 'homework', removed));
+    const rest = finishSeatingEntry(s, dateStr);
+    showUndoToast('Hausaufgaben-Eintrag entfernt' + rest, () => restoreSeatingEntry(groupId, s, 'homework', removed));
   }
 }
 
@@ -748,15 +755,10 @@ function openSeatingStudentModal(studentId, groupId, dateStr, opts = {}) {
   const fromSeating = document.getElementById('view-seating').classList.contains('active');   // sonst gilt der Sitzplan-Schalter nie (W1)
   if (!same) swShown = fromClassView ? classGradesShown : fromSeating && seatingShowGrades;
 
-  const range = viewPeriod();   // Halbjahr wie in der Klassenansicht (Y7)
-  const partN = partCounts(periodList(s.participation, range));
-  document.getElementById('seating-student-participation-summary').innerHTML = `${range ? `Mitarbeit im ${PERIOD_NAMES[range.key]}` : 'Mitarbeit bisher'}: ` +
-    PART_LEVELS.map((l, i) => `<span>${partSignHTML(l.value)} ${partN[i]}</span>`).join(' · ');
-
   closeSeatingGradePad();
   closeSeatingMenu();
   renderStudentDetailLists(s);
-  resetProfileDates();
+  if (!same) resetProfileDates();   // nach dem Notenformular bleibt ein gewähltes Datum (BB2)
   renderSeatingStudentHint('view');
   if (!same) {
     seatingNotesFresh = [];
@@ -909,7 +911,11 @@ function closeSeatingMenu() {
   document.getElementById('sw-menu-btn').setAttribute('aria-expanded', 'false');
 }
 function seatingMenuAction(action) {
-  if (action === 'edit') { commitSeatingStudentForm(); openEditStudent(); }
+  if (action === 'edit') {
+    // Angefangene Fehlzeit/HA wäre sonst still weg (BB1): dieselbe Frage wie beim Schließen
+    if (seatingStudentDraft() && !confirm('Du hast eine Fehlzeit oder Hausaufgabe angefangen, aber noch nicht eingetragen.\n\nVerwerfen?')) return;
+    commitSeatingStudentForm(); openEditStudent();
+  }
   else if (action === 'export') exportCurrentStudent();
   else if (action === 'delete') deleteCurrentStudent();
 }
@@ -930,9 +936,10 @@ function giveQuickGrade(val) {
   saveDB();
   revealPeriodOf(entry.date);   // sonst verschwände die Note im gezeigten Halbjahr (AR7)
   refreshGradeViews(s, groupId);
-  closeModal('modal-seating-student');
+  if (seatingStudentDraft()) closeSeatingGradePad();
+  const rest = finishSeatingEntry(s, entry.date);
   const typeName = (QUICK_GRADE_TYPES.find(([k]) => k === type) || [])[1] || gradeTypeName(type);
-  showUndoToast(`${studentListName(s)}: ${gradeText(entry.value)} (${entry.note || typeName})`, () => {
+  showUndoToast(`${studentListName(s)}: ${gradeText(entry.value)} (${entry.note || typeName})${rest}`, () => {
     // Inzwischen ersetzte DB (Abgleich): Das Objekt gehört zum alten Stand, ein Löschen dort täte nichts (Regel 32)
     const i = (db.students[groupId] || []).includes(s) ? (s.grades || []).indexOf(entry) : -1;
     if (i === -1) { showToast('Nicht mehr möglich: Die Daten wurden inzwischen ersetzt', 'error'); return; }
@@ -969,8 +976,8 @@ function addParticipationSmiley(type) {
       const [removed] = s.participation.splice(existingIdx, 1);
       saveDB();
       refreshStudentViews(groupId);
-      showUndoToast('Mitarbeit entfernt', () => restoreSeatingEntry(groupId, s, 'participation', removed));
-      closeModal('modal-seating-student');
+      const rest = finishSeatingEntry(s, dateStr);
+      showUndoToast('Mitarbeit entfernt' + rest, () => restoreSeatingEntry(groupId, s, 'participation', removed));
       return;
     } else {
       s.participation[existingIdx].value = type;
@@ -982,16 +989,20 @@ function addParticipationSmiley(type) {
   saveDB();
   refreshStudentViews(groupId);
   // Angefangene Fehlzeit/HA unter „Mehr“: Fenster offen lassen, sonst wäre sie still weg (AS6, Regel 27)
-  if (seatingStudentDraft()) {
-    markSeatingStudentState(s, dateStr);
-    renderStudentDetailLists(s);
-    showToast('Mitarbeit gespeichert. Fehlzeit oder HA ist noch nicht eingetragen');
-    return;
-  }
-  showToast('Mitarbeit gespeichert');
-  closeModal('modal-seating-student');
+  showToast('Mitarbeit gespeichert' + finishSeatingEntry(s, dateStr));
 }
 const seatingStudentDraft = () => ['new-att-note', 'new-hw-student-note'].some(id => document.getElementById(id)?.value.trim());
+// Nach einem Ein-Tipp-Eintrag oben im Fenster (Note, Fehlt, Zu spät, HA, Mitarbeit): schließen – außer unter „Mehr“ ist eine
+// Fehlzeit oder HA angefangen (AS6, BB1, Regel 27). Dann bleibt es offen und zeichnet neu. Liefert den Zusatz für den Hinweis.
+function finishSeatingEntry(s, dateStr) {
+  if (seatingStudentDraft() && getCurrentStudent() === s) {
+    markSeatingStudentState(s, dateStr);
+    renderStudentDetailLists(s);
+    return '. Fehlzeit oder HA ist noch nicht eingetragen';
+  }
+  closeModal('modal-seating-student');
+  return '';
+}
 // Eintrag wiederherstellen, sofern der Schüler noch da ist (Sync kann die DB inzwischen ersetzt haben)
 function restoreSeatingEntry(groupId, s, list, entry, after) {
   if (!(db.students[groupId] || []).includes(s)) { showToast('Nicht mehr möglich: Die Daten wurden inzwischen ersetzt', 'error'); return; }

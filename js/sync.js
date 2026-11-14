@@ -801,7 +801,7 @@ function onAppHidden() {
     hideSeatingGrades();
     if (document.getElementById('view-seating')?.classList.contains('active')) renderSeatingPlan();
   }
-  if (!document.getElementById('modal-lesson').classList.contains('hidden')) storeLessonForm();
+  if (!document.getElementById('modal-lesson').classList.contains('hidden')) { storeLessonForm(); veilLessonPrivate(); }
   if (!document.getElementById('modal-seating-student').classList.contains('hidden')) {
     commitSeatingStudentForm();
     if (swShown) setSeatingStudentShown(false);

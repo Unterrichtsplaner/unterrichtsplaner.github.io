@@ -647,19 +647,25 @@ function cycleInlineHomework(studentId, date, label) {
   showUndoToast(`Hausaufgabe am ${formatWeekdayShort(date)} entfernt`, () => restoreSeatingEntry(gid, s, 'homework', cur));
 }
 
-function updateInlineAttendance(studentId, date, value) {
-  value = value.trim().toUpperCase();
-  const s = db.students[currentOverviewGroupId]?.find(x => x.id === studentId);
-  if (!s) return;
-  if (!s.attendance) s.attendance = [];
-  // Doppelte Tageseinträge aus Altdaten (Q2, W4, Q6) zu einem zusammenfassen, Gründe bleiben (AR14, Regel 50)
+// Doppelte Tageseinträge aus Altdaten (Q2, W4, Q6) zu einem zusammenfassen: der erste bleibt, die Gründe kommen zusammen
+// (AR14, BA3, Regel 50). Alle Wege, die einen Tageseintrag setzen oder entfernen, rufen das zuerst. Liefert den verbliebenen
+// Eintrag (oder null) und ob einer der Einträge unentschuldigt war.
+function mergeDayAttendance(s, date) {
+  if (!Array.isArray(s.attendance)) s.attendance = [];
   const day = s.attendance.filter(a => a && a.date === date && DAY_ATTENDANCE_TYPES.includes(a.type));
-  const wasUnexcusedAny = day.some(a => a.type === 'abwesend');
+  const wasUnexcused = day.some(a => a.type === 'abwesend');
   if (day.length > 1) {
     const notes = [...new Set(day.map(a => String(a.note || '').trim()).filter(Boolean))];
     day[0].note = notes.join(' / ');
     day.slice(1).forEach(a => s.attendance.splice(s.attendance.indexOf(a), 1));
   }
+  return { entry: day[0] || null, wasUnexcused };
+}
+function updateInlineAttendance(studentId, date, value) {
+  value = value.trim().toUpperCase();
+  const s = db.students[currentOverviewGroupId]?.find(x => x.id === studentId);
+  if (!s) return;
+  const wasUnexcusedAny = mergeDayAttendance(s, date).wasUnexcused;
   const idx = s.attendance.findIndex(a => a.date === date && DAY_ATTENDANCE_TYPES.includes(a.type));
   
   const status = Object.keys(ATTENDANCE_SHORT).find(t => ATTENDANCE_SHORT[t] === value) || null;
