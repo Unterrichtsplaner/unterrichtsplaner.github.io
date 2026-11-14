@@ -25,7 +25,7 @@ beforeEach(() => {
 afterEach(() => { app('switchView("dashboard")'); vi.useRealTimers(); });
 
 describe('X3: Stundenplan und Dashboard per Tastatur', () => {
-  const named = el => el.getAttribute('role') === 'button' && el.getAttribute('tabindex') === '0' && (el.getAttribute('aria-label') || '').trim().length > 0;
+  const named = el => (el.tagName === 'BUTTON' || (el.getAttribute('role') === 'button' && el.getAttribute('tabindex') === '0')) && (el.getAttribute('aria-label') || '').trim().length > 0;
   it('Stunden-Kacheln und leere Zellen sind Knöpfe mit Namen', () => {
     app('switchView("timetable"); timetableMode = "week"; renderTimetable()');
     const tile = document.querySelector('.tt-lesson'), empty = document.querySelector('.tt-empty-cell');
@@ -35,7 +35,8 @@ describe('X3: Stundenplan und Dashboard per Tastatur', () => {
   });
   it('Dashboard: Stunden, Aufsicht, „Als Nächstes“ und Warnungen', () => {
     app('switchView("dashboard"); renderDashboard()');
-    ['.dash-lesson', '.dash-supervision', '.dash-next', '.dash-warn-text'].forEach(sel => {
+    // „Als Nächstes“: die Karte ist kein Knopf mehr, ihr Titel ist es (AZ7, wie AH14)
+    ['.dash-lesson', '.dash-supervision', '.dash-next .dash-next-open', '.dash-warn-text'].forEach(sel => {
       const el = document.querySelector(sel);
       expect(el, sel).not.toBeNull();
       expect(named(el), sel).toBe(true);

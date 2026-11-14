@@ -678,10 +678,34 @@ function openModal(id) {
   const dialog = m.querySelector('.modal');
   if (dialog && !dialog.contains(document.activeElement)) dialog.focus({ preventScroll: true });
 }
-// Tab bleibt im obersten offenen Fenster (aria-modal, W14)
+// Tab bleibt im obersten offenen Fenster (aria-modal, W14). Nur Sichtbares: Was ein Vorfahr per CSS ausblendet (verborgene
+// Abschnitte unter „Mehr“, BB7), wäre sonst „letztes“ Element, und Tab spränge aus dem Fenster.
 function focusablesIn(root) {
+  const shown = el => { for (let a = el; a && a !== root; a = a.parentElement) if (getComputedStyle(a).display === 'none') return false; return true; };
   return [...root.querySelectorAll('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])')]
-    .filter(el => !el.disabled && el.type !== 'hidden' && !el.closest('.hidden, [hidden]') && getComputedStyle(el).display !== 'none');
+    .filter(el => !el.disabled && el.type !== 'hidden' && !el.closest('.hidden, [hidden], .is-veiled [data-private]') && shown(el));
+}
+// Ein neu gezeichnetes Gegenstück finden (AZ6, BB5): Stundenplan, Dashboard und Sitzplan ersetzen beim Zeichnen ihre Kacheln.
+// Gesucht wird dasselbe Element (Tag, erste Klasse) mit denselben Kennungen (data-slot, data-date, data-id).
+const FOCUS_KEYS = ['data-slot', 'data-date', 'data-id'];
+function focusTwin(el) {
+  if (!el) return null;
+  if (el.isConnected) return el;
+  const keys = FOCUS_KEYS.filter(a => el.hasAttribute(a));
+  if (!keys.length) return null;
+  const q = v => '"' + String(v).replace(/\\/g, '\\\\').replace(/"/g, '\\"') + '"';
+  const sel = el.tagName.toLowerCase() + (el.classList[0] ? '.' + el.classList[0].replace(/[^\w-]/g, '') : '') + keys.map(a => `[${a}=${q(el.getAttribute(a))}]`).join('');
+  try { return document.querySelector(sel); } catch (e) { return null; }
+}
+// Neu zeichnen, ohne dass Tastatur und VoiceOver den Platz verlieren (AZ6): Lag der Fokus auf einem Element, das dabei ersetzt
+// wird, bekommt ihn sein Gegenstück.
+function keepFocusWhile(fn) {
+  const before = document.activeElement;
+  fn();
+  if (before && before !== document.body && !before.isConnected) {
+    const twin = focusTwin(before);
+    if (twin) try { twin.focus({ preventScroll: true }); } catch (e) { /* nicht fokussierbar */ }
+  }
 }
 function closeModal(id) {
   const m = document.getElementById(id);
@@ -689,7 +713,8 @@ function closeModal(id) {
   const wasOpen = !m.classList.contains('hidden');
   if (wasOpen && id === 'modal-seating-student') commitSeatingStudentForm(); // eingetippten Hinweis/Notiz nie verwerfen (Regel 27)
   m.classList.add('hidden');
-  const back = modalReturnFocus[id];
+  // Auslöser inzwischen neu gezeichnet (Kachel, Karte): dann sein Gegenstück (AZ6, BB5)
+  const back = focusTwin(modalReturnFocus[id]);
   delete modalReturnFocus[id];
   if (wasOpen && back && back.isConnected && (m.contains(document.activeElement) || document.activeElement === document.body)) {
     try { back.focus({ preventScroll: true }); } catch (e) { /* Element nicht fokussierbar */ }

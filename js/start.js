@@ -226,11 +226,18 @@ document.addEventListener('keydown', e => {
   const top = open[open.length - 1];
   const dialog = top && top.querySelector('.modal');
   if (!dialog) return;
-  const list = focusablesIn(dialog);
+  // „Rückgängig“ im Hinweis gehört mit in die Runde, solange er da ist (BD3)
+  const toasts = [...document.querySelectorAll('#toast-container button')].filter(b => !b.disabled);
+  const list = [...focusablesIn(dialog), ...toasts];
   if (!list.length) return;
   const first = list[0], last = list[list.length - 1], cur = document.activeElement;
-  if (e.shiftKey && (cur === first || !dialog.contains(cur))) { e.preventDefault(); last.focus(); }
-  else if (!e.shiftKey && (cur === last || !dialog.contains(cur))) { e.preventDefault(); first.focus(); }
+  const i = list.indexOf(cur), step = e.shiftKey ? -1 : 1;
+  // Nicht in der Runde (z. B. das Fenster selbst direkt nach dem Öffnen, BD3): je nach Richtung erstes oder letztes Element
+  if (i === -1) { e.preventDefault(); (e.shiftKey ? last : first).focus(); }
+  else if (e.shiftKey && cur === first) { e.preventDefault(); last.focus(); }
+  else if (!e.shiftKey && cur === last) { e.preventDefault(); first.focus(); }
+  // Zwischen Fenster und Hinweis selbst weiterreichen: Im Markup liegen sie nicht nebeneinander
+  else if (toasts.includes(cur) || toasts.includes(list[i + step])) { e.preventDefault(); list[i + step].focus(); }
 });
 labelModals();
 

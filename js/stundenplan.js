@@ -802,7 +802,7 @@ function refreshTimetableClock() {
   const minute = formatDate(now) + ' ' + now.getHours() + ':' + now.getMinutes();
   if (minute === timetableClockMinute) return;
   timetableClockMinute = minute;
-  renderScheduleViews();
+  keepFocusWhile(renderScheduleViews);   // Tastatur/VoiceOver behalten ihren Platz (AZ6)
 }
 // Nach Änderungen an Stunden/Stundendaten: Stundenplan und, falls offen, Dashboard neu zeichnen (BUGS M1)
 function renderScheduleViews() {
@@ -867,7 +867,8 @@ function buildTimetableCell(d, dayIdx, block, clock = timetableClock()) {
 
     const ttName = lessonTitle(lesson);   // Name für Tastatur und VoiceOver (X3, Regel 55)
     return `<div class="tt-lesson${isAusfall?' ausfall-lesson':''}${running?' running':''}${isNext?' next':''}" role="button" tabindex="0"
-           aria-label="${escHtml([ttName.main, ttName.sub, formatWeekdayShort(dateStr), block.label, isAusfall ? 'fällt aus' : ''].filter(Boolean).join(', '))}"
+           aria-label="${escHtml([ttName.main, ttName.sub, formatWeekdayShort(dateStr), block.label, isAusfall ? 'fällt aus' : '', kind,
+             running ? `läuft noch ${range.end - clock.nowMins} min` : isNext ? 'als Nächstes' : '', ...status.map(k => TT_STATUS_TITLES[k])].filter(Boolean).join(', '))}"
            style="--lesson-color:${escHtml(safeColor(lesson.color))}"
            data-slot="${escHtml(lesson.id)}" data-date="${escHtml(dateStr)}"
            onclick="${timetableEditMode ? 'openEditLessonFor' : 'openLessonDetail'}(${jsArg(lesson.id)},${jsArg(dateStr)})">
@@ -1638,7 +1639,10 @@ function renderTimetableClass(grid) {
     const hasAdd = topic.includes('data-act="add"');   // Knopf im Knopf: Zeile dann ohne role, Datum ist der Knopf (AQ22, AH14)
     const due = !isPast ? dueItemsFor(l.slot.id, l.dateStr) : { hw: [], tests: [] };
     const badges = (due.hw.length ? `<span class="dash-badge hw">HA</span>` : '') + (due.tests.length ? `<span class="dash-badge test">Test</span>` : '');
-    const label = escHtml(formatWeekdayShort(l.dateStr) + ', ' + l.block.label);
+    // VoiceOver: Datum, Block, Thema und Fälliges im Namen (AZ7), Text des Themas ohne Markup
+    const plain = h => { const d = document.createElement('div'); d.innerHTML = h; return d.textContent.trim(); };
+    const label = escHtml([formatWeekdayShort(l.dateStr), l.block.label, hasAdd ? 'kein Thema' : plain(topic), due.hw.length ? 'HA fällig' : '', due.tests.length ? 'Test' : '']
+      .filter(x => x && x !== '–').join(', '));
     return `<div class="ttc-row${isPast ? ' is-past' : ''}${l.dateStr === todayStr ? ' is-today' : ''}${l.ausfall ? ' is-off' : ''}"${hasAdd ? '' : ` role="button" tabindex="0" aria-label="${label}"`}
         data-slot="${escHtml(l.slot.id)}" data-date="${escHtml(l.dateStr)}">
         ${hasAdd ? `<button type="button" class="ttc-date ttc-open" aria-label="${label}">` : '<span class="ttc-date">'}${escHtml(formatWeekdayShort(l.dateStr))}${kw}${hasAdd ? '</button>' : '</span>'}<span class="ttc-block">${escHtml(l.block.label)}</span>

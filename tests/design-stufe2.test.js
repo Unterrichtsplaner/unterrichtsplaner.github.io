@@ -113,8 +113,9 @@ describe('Bedienbarkeit (Web-Richtlinien, 02.11.2026)', () => {
     expect(HTML).toMatch(/<meta name="theme-color" content="#bfdbfe" \/>/);
     expect(HTML).not.toMatch(/id="seating-cockpit"[^>]*aria-live/);
   });
-  it('Schülerzeilen per Tastatur erreichbar', () => {
-    expect(JS).toMatch(/row\.className = 'student-row';\s*row\.setAttribute\('role', 'button'\);\s*row\.tabIndex = 0;/);
+  it('Schülerzeilen per Tastatur erreichbar: der Name ist ein echter Knopf, die Zeile selbst kein Knopf (BA2)', () => {
+    expect(JS).toMatch(/<button type="button" class="student-name student-open"[^>]*aria-label="Schülerakte öffnen: /);
+    expect(JS).not.toMatch(/row\.className = 'student-row';\s*row\.setAttribute\('role', 'button'\)/);
   });
   it('Rand um die App (große Monitore) passt zum gewählten Design statt fest Schwarz (Generalprobe 02.11.)', () => {
     const rule = CSS.match(/html,body\{[^}]*\}/)[0];

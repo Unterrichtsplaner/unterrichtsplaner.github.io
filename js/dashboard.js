@@ -512,7 +512,10 @@ function renderDashboardToday() {
       if (due.tests.length) badges.push(`<span class="dash-badge test">Test ${due.tests.length}</span>`);
       if (data.notes)       badges.push(`<span class="dash-badge note">Notiz</span>`);
       const cNotes = l.slot.groupId ? activeClassNotes(db.groups.find(g => g.id === l.slot.groupId), dayStr) : [];
-      html += `<div class="dash-lesson ${state}" role="button" tabindex="0" aria-label="${escHtml([t.main, t.sub, l.block.label].filter(Boolean).join(', '))}" data-slot="${escHtml(l.slot.id)}" style="--lesson-color:${escHtml(safeColor(l.slot.color))}"
+      // VoiceOver liest in einem Knopf nur den Namen: Zustand und Plaketten gehören hinein (AZ7)
+      const say = [t.main, t.sub, l.block.label, status, kind, due.hw.length ? `HA ${due.hw.length} fällig` : '', due.tests.length ? `Test ${due.tests.length}` : '',
+        data.notes ? 'Notiz' : '', cNotes.length ? (cNotes.length === 1 ? '1 Klassennotiz' : `${cNotes.length} Klassennotizen`) : ''];
+      html += `<div class="dash-lesson ${state}" role="button" tabindex="0" aria-label="${escHtml(say.filter(Boolean).join(', '))}" data-slot="${escHtml(l.slot.id)}" style="--lesson-color:${escHtml(safeColor(l.slot.color))}"
                     onclick="openLessonDetail(${jsArg(l.slot.id)},${jsArg(dayStr)})">
           <div class="dash-lesson-time">${l.range ? minsToTime(l.range.start) : ''}<small>${escHtml(l.block.label)}</small></div>
           <div class="dash-lesson-main">
@@ -549,8 +552,8 @@ function renderDashboardNext() {
     + itemList('Hausaufgaben fällig', 'hw', due.hw) + itemList('Test', 'test', due.tests);
   return `<section class="dash-section dash-coming">
     <h2 class="dash-heading">Als Nächstes</h2>
-    <div class="dash-next" role="button" tabindex="0" aria-label="${escHtml(['Als Nächstes', t.main, t.sub, when, next.block.label].filter(Boolean).join(', '))}" data-slot="${escHtml(next.slot.id)}" style="--lesson-color:${escHtml(safeColor(next.slot.color))}" onclick="openLessonDetail(${jsArg(next.slot.id)},${jsArg(next.dateStr)})">
-      <div class="dash-next-title">${escHtml(t.main)}${t.sub ? ` <span>${escHtml(t.sub)}</span>` : ''}${next.slot.room ? ` <span>· ${escHtml(next.slot.room)}</span>` : ''}</div>
+    <div class="dash-next" data-slot="${escHtml(next.slot.id)}" style="--lesson-color:${escHtml(safeColor(next.slot.color))}" onclick="openLessonDetail(${jsArg(next.slot.id)},${jsArg(next.dateStr)})">
+      <div class="dash-next-title"><button type="button" class="dash-next-open" data-slot="${escHtml(next.slot.id)}" aria-label="${escHtml(['Als Nächstes', t.main, t.sub, when, next.block.label].filter(Boolean).join(', '))} öffnen">${escHtml(t.main)}</button>${t.sub ? ` <span>${escHtml(t.sub)}</span>` : ''}${next.slot.room ? ` <span>· ${escHtml(next.slot.room)}</span>` : ''}</div>
       <div class="dash-next-label">${escHtml(when)} · ${escHtml(next.block.label)}</div>
       ${body || '<div class="dash-empty">Keine Notizen, nichts fällig.</div>'}
     </div>

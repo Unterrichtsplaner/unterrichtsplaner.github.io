@@ -368,6 +368,9 @@ input[type="date"] { min-height: 1.2em; } /* Fix iOS Safari date input collapse 
 .ct-score{display:flex;align-items:baseline;gap:var(--space-2);font-size:13px;color:var(--text-secondary);white-space:nowrap;}
 .ct-score b{font-size:20px;font-weight:700;font-variant-numeric:tabular-nums;}
 .ct-score b em{font-style:normal;}
+/* „Als Nächstes“: der Titel ist der Knopf (AZ7, wie AH14), damit Notizen und fällige HA für VoiceOver lesbar bleiben */
+button.dash-next-open{background:none;border:none;padding:0;margin:0;font:inherit;color:inherit;text-align:left;cursor:pointer;}
+button.dash-next-open:focus-visible{outline:2px solid var(--accent);outline-offset:3px;border-radius:var(--radius-xs);}
 /* Klassenname ist ein Knopf (VoiceOver, AH14): sieht aus wie Text, Fokusring nur bei Tastatur */
 button.cr-name{background:none;border:none;padding:0;margin:0;font-family:inherit;text-align:left;cursor:pointer;}
 button.cr-name:focus-visible{outline:2px solid var(--accent);outline-offset:3px;border-radius:var(--radius-xs);}
@@ -408,6 +411,9 @@ button.cr-name:focus-visible{outline:2px solid var(--accent);outline-offset:3px;
 @media (hover: hover){.student-row:hover{background:var(--bg-card);}}
 .student-info{flex:1;min-width:0;}
 .student-name{font-size:14px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+/* Name ist der Knopf der Zeile (BA2): sieht aus wie Text, Fokusring nur bei Tastatur */
+button.student-name{display:block;max-width:100%;background:none;border:none;padding:0;margin:0;font-family:inherit;color:inherit;text-align:left;cursor:pointer;}
+button.student-name:focus-visible{outline:2px solid var(--accent);outline-offset:3px;border-radius:var(--radius-xs);}
 .student-quick-notes{font-size:11px;color:var(--text-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:2px;}
 .student-grade-badge{font-size:16px;font-weight:700;font-variant-numeric:tabular-nums;}
 .student-grade-none{color:var(--text-muted);}

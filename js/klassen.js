@@ -701,15 +701,16 @@ function renderStudents() {
     const hintText = kind => `${hints[kind].title}: ` + hints[kind].lines.map(([n, label]) => `${n} ${label}`).join(', ');
 
     const grades = periodList(s.grades, range);
+    // Keine Knöpfe im Knopf (BA2, wie AH14): Die Zeile ist nur per Klick antippbar, der Name ist der echte Knopf; Zähler und
+    // Ankreuzfeld stehen daneben als eigene Elemente. Im Bearbeiten-Modus kreuzt ein Tipp auf die Zeile an.
     const row = document.createElement('div');
     row.className = 'student-row';
-    row.setAttribute('role', 'button');
-    row.tabIndex = 0;
-    row.setAttribute('aria-label', `Schülerakte öffnen: ${studentListName(s)}`);
+    const nameText = escHtml(studentListName(s));
     row.innerHTML = `
-      ${isStudentEditMode ? `<input type="checkbox" class="student-select-cb" data-id="${escHtml(s.id)}" onclick="event.stopPropagation(); updateMassDeleteBar()" style="margin-right: var(--space-3); width: 18px; height: 18px; cursor: pointer;">` : ''}
+      ${isStudentEditMode ? `<input type="checkbox" class="student-select-cb" data-id="${escHtml(s.id)}" aria-label="${nameText} auswählen" onclick="event.stopPropagation(); updateMassDeleteBar()" style="margin-right: var(--space-3); width: 18px; height: 18px; cursor: pointer;">` : ''}
       <div class="student-info">
-        <div class="student-name">${escHtml(studentListName(s))}</div>
+        ${isStudentEditMode ? `<div class="student-name">${nameText}</div>`
+          : `<button type="button" class="student-name student-open" data-id="${escHtml(s.id)}" aria-label="Schülerakte öffnen: ${nameText}">${nameText}</button>`}
         <div class="student-quick-notes">${[grades.length + ' Note' + (grades.length !== 1 ? 'n' : ''),
           (s.importantNote || '').trim() ? '<span class="sq-important">Wichtig</span>' : '', (s.notes || '').trim() ? 'Hinweis' : '', birthdayInfo(s, todayStr) ? 'Geburtstag' : ''].filter(Boolean).join(' · ')}</div>
       </div>
@@ -727,7 +728,14 @@ function renderStudents() {
         ? `<div class="student-grade-badge" style="color:${gradeColor(avg, scale)}">${formatGradeAverage(avg)}</div>`
         : `<div class="student-grade-badge student-grade-none">–</div>`}
     `;
-    row.addEventListener('click', () => openStudentDetail(s.id, showGrades ? 'grades' : 'attendance'));   // verborgen: nicht auf „Noten“ öffnen
+    row.addEventListener('click', () => {
+      if (isStudentEditMode) {   // Bearbeiten: ankreuzen statt öffnen (BA2)
+        const cb = row.querySelector('.student-select-cb');
+        if (cb) { cb.checked = !cb.checked; updateMassDeleteBar(); }
+        return;
+      }
+      openStudentDetail(s.id, showGrades ? 'grades' : 'attendance');   // verborgen: nicht auf „Noten“ öffnen
+    });
     row.querySelectorAll('.student-counter').forEach(el => {
       el.addEventListener('click', e => { e.stopPropagation(); onStudentCounterTap(el, s.id, hints); });
       el.addEventListener('keydown', e => {
