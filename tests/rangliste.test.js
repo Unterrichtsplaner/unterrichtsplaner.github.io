@@ -109,7 +109,55 @@ describe('AX1: Schalter im Reiter „Schülerapp“', () => {
     const local2 = JSON.parse(JSON.stringify(base)); local2.groups[0].studentApp.goal = { target: 5, reward: '', since: '2026-11-01' };
     const cloud2 = JSON.parse(JSON.stringify(base)); cloud2.groups[0].studentApp.ranking = false;
     expect(app('mergeDB')(base, local2, cloud2).merged.groups[0].studentApp.ranking).toBe(false);
-    expect(app('MERGE_SPEC.fields.groups.item.fields.studentApp.fields.ranking.what')).toBe('Rangliste der Klassen');
+    expect(app('MERGE_SPEC.fields.groups.item.fields.studentApp.together[0].what')).toBe('Rangliste der Klassen');
+    // festgehaltene Sieger vom anderen Gerät kommen dazu
+    const c3 = JSON.parse(JSON.stringify(base)); c3.settings.rankingWinners = { '2026-10': [{ id: 'g1', cls: '7a', subject: 'Mathe' }] };
+    expect(app('mergeDB')(base, base, c3).merged.settings.rankingWinners).toEqual(c3.settings.rankingWinners);
+  });
+});
+
+describe('AX1: Sieger des Vormonats bleibt, Klassen zählen ab dem Einschalten (Wunsch 14.11.)', () => {
+  it('eine im November dazugeschaltete Klasse wird nicht „Sieger Oktober“ und zählt erst ab dem Tag', () => {
+    // 5d: 4 Plusse im Oktober (besser als 7a) und 4 im November vor dem Einschalten
+    app('db.students.g4[0].participation.push({ id: "o1", date: "2026-10-05", value: "excellent" }, { id: "o2", date: "2026-10-06", value: "excellent" }, { id: "o3", date: "2026-10-07", value: "excellent" }, { id: "o4", date: "2026-10-08", value: "excellent" })');
+    app('setStudentAppRanking("g4", true)');
+    expect(app('db.groups[3].studentApp.rankingSince')).toBe('2026-11-12');
+    const r = snap('g1').ranking;
+    expect(r.prev.winners).toEqual([{ cls: '7a', subject: 'Mathe' }]);
+    expect(r.list.find(x => x.cls === '5d').value).toBe(0);   // Plusse vom 6. und 7.11. zählen nicht
+    app('db.students.g4[0].participation.push({ id: "n1", date: "2026-11-12", value: "excellent" })');
+    expect(snap('g1').ranking.list.find(x => x.cls === '5d').value).toBe(0.4);
+  });
+  it('Sieger wird festgehalten: Abschalten der Siegerklasse ändert den Vormonat nicht', () => {
+    app('setStudentAppRanking("g1", false)');   // hält Oktober vorher fest
+    expect(app('db.settings.rankingWinners["2026-10"]')).toEqual([{ id: 'g1', cls: '7a', subject: 'Mathe' }]);
+    expect(snap('g2').ranking.prev.winners).toEqual([{ cls: '7a', subject: 'Mathe' }]);
+  });
+  it('Löschen der Siegerklasse ändert den Vormonat nicht', () => {
+    app('removeGroupData("g1")');
+    expect(snap('g2').ranking.prev.winners).toEqual([{ cls: '7a', subject: 'Mathe' }]);
+  });
+  it('Versand hält den Vormonat fest, ohne die Daten als geändert zu markieren', async () => {
+    const SM = app('SyncManager');
+    SM.publishShare = async () => {}; SM.closeShare = async () => {}; SM.deleteShare = async () => true; SM.shareTaken = async () => false;
+    const before = app('db.settings.lastModified');
+    await app('publishStudentApps()');
+    expect(app('db.settings.rankingWinners["2026-10"]')).toEqual([{ id: 'g1', cls: '7a', subject: 'Mathe' }]);
+    expect(app('db.settings.lastModified')).toBe(before);
+  });
+  it('ohne Teilnehmer wird nichts gespeichert', () => {
+    app('db.groups.forEach(g => { if (g.studentApp) g.studentApp.ranking = false; })');
+    app('freezeRankingWinners()');
+    expect(app('db.settings.rankingWinners')).toBeUndefined();
+  });
+  it('versehentlich aus und am selben Tag wieder an behält den Starttag', () => {
+    app('db.groups[0].studentApp.rankingSince = "2026-10-01"');
+    app('setStudentAppRanking("g1", false); setStudentAppRanking("g1", true)');
+    expect(app('db.groups[0].studentApp.rankingSince')).toBe('2026-10-01');
+    app('setStudentAppRanking("g1", false)');
+    vi.setSystemTime(new Date(2026, 10, 13, 10, 0));
+    app('setStudentAppRanking("g1", true)');
+    expect(app('db.groups[0].studentApp.rankingSince')).toBe('2026-11-13');
   });
 });
 

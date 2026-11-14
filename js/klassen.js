@@ -529,6 +529,7 @@ function deleteGroup(id) {
 function removeGroupData(id) {
   const g = db.groups.find(x => x.id === id);
   if (!g) return;
+  freezeRankingWinners();   // Sieger des Vormonats bleibt, auch wenn die Siegerklasse gelöscht wird (AX1)
   const slotIds = new Set(getGroupSlots(id).map(s => s.id));
   const shared = studentAppOf(g).access;   // Schülerseite der Klasse mit weg (AJ1, Regel 10)
   if (shared) queueShareDeletion(shared.id);

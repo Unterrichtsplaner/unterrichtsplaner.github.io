@@ -25,6 +25,7 @@ function studentAppOf(g) {
     access: StudentShare.isAccess(sa.access) ? sa.access : null,
     show: { ...SA_SHOW_DEFAULT, ...(sa.show && typeof sa.show === 'object' ? sa.show : {}) },
     ranking: sa.ranking === true,   // Rangliste der Klassen (AX1), Standard aus
+    rankingSince: isDateStr(sa.rankingSince) ? sa.rankingSince : null,   // ab diesem Tag zählen die Plusse (Einschalten)
     goal: goal ? { target: Math.round(Number(goal.target)), reward: String(goal.reward || ''), since: isDateStr(goal.since) ? goal.since : null } : null,
   };
 }
@@ -76,34 +77,55 @@ function rankingWaitText(g, rows) {
   if (!rows.some(r => r.g === g) || rows.length < 2) return 'Die Klasse sieht die Rangliste, sobald eine zweite deiner Klassen mitmacht (Schalter im Reiter „Schülerapp“ der anderen Klasse).';
   return '';
 }
-function classMonthPlusses(g, month) {
+// Plusse der Klasse im Monat; `from`: erst ab diesem Tag (Rangliste: Tag des Einschaltens)
+function classMonthPlusses(g, month, from = null) {
   let n = 0;
   (db.students[g.id] || []).forEach(s => (s.participation || []).forEach(p => {
-    if (!p || String(p.date || '').slice(0, 7) !== month) return;
+    if (!p || String(p.date || '').slice(0, 7) !== month || (from && String(p.date) < from)) return;
     if (p.value === 'excellent') n += 2;
     else if (p.value === 'positive') n += 1;
   }));
   return n;
 }
+// Eine Klasse zählt ab dem Tag, an dem die Rangliste eingeschaltet wurde: In Monaten davor macht sie nicht mit
 function classRanking(month) {
-  const rows = rankingGroups().map(g => ({ g, value: Math.round(classMonthPlusses(g, month) / (db.students[g.id] || []).length * 10) / 10 }))
+  const since = g => studentAppOf(g).rankingSince;
+  const rows = rankingGroups().filter(g => !since(g) || since(g).slice(0, 7) <= month)
+    .map(g => ({ g, value: Math.round(classMonthPlusses(g, month, since(g)) / (db.students[g.id] || []).length * 10) / 10 }))
     .sort((a, b) => b.value - a.value || String(a.g.className || '').localeCompare(String(b.g.className || ''), 'de', { numeric: true }));
   rows.forEach((r, i) => { r.place = i && rows[i - 1].value === r.value ? rows[i - 1].place : i + 1; });
   return rows;
 }
 const monthOf = d => formatDate(d).slice(0, 7);
+const prevMonthOf = now => monthOf(new Date(now.getFullYear(), now.getMonth() - 1, 15, 12));
+const rankingName = r => ({ cls: String(r.g.className || ''), subject: String(r.g.subject || '') });
+const rankingWinnersNow = month => { const rows = classRanking(month); return rows.length < 2 ? [] : rows.filter(r => r.place === 1 && r.value > 0).map(r => ({ id: r.g.id, ...rankingName(r) })); };
+// Sieger eines Monats: festgehalten (settings.rankingWinners), sonst aus dem heutigen Stand gerechnet
+function rankingWinners(month) {
+  const kept = db.settings.rankingWinners && typeof db.settings.rankingWinners === 'object' ? db.settings.rankingWinners[month] : null;
+  return Array.isArray(kept) ? kept.filter(x => x && x.cls).map(x => ({ cls: String(x.cls), subject: String(x.subject || '') })) : rankingWinnersNow(month);
+}
+// Sieger des Vormonats festhalten, damit spätere Schalter ihn nicht mehr ändern (Wunsch 14.11.). Läuft vor jedem Versand
+// und vor jedem Umschalten, nie beim Zeichnen; abgeleitete Daten → persistDB (Regel 2). Nur, wenn jemand mitmacht.
+function freezeRankingWinners(now = new Date()) {
+  if (!rankingGroups().length) return;
+  const prev = prevMonthOf(now);
+  const kept = db.settings.rankingWinners && typeof db.settings.rankingWinners === 'object' ? db.settings.rankingWinners : {};
+  if (Array.isArray(kept[prev])) return;
+  db.settings.rankingWinners = { ...kept, [prev]: rankingWinnersNow(prev) };
+  persistDB();
+}
 function rankingSnapshot(g, now) {
   if (!studentAppOf(g).ranking) return null;
   const month = monthOf(now);
   const rows = classRanking(month);
   if (rows.length < 2 || !rows.some(r => r.g === g)) return null;
-  const prevMonth = monthOf(new Date(now.getFullYear(), now.getMonth() - 1, 15, 12));
-  const winners = classRanking(prevMonth).filter(r => r.place === 1 && r.value > 0);
-  const name = r => ({ cls: String(r.g.className || ''), subject: String(r.g.subject || '') });
+  const prevMonth = prevMonthOf(now);
+  const winners = rankingWinners(prevMonth);
   return {
     month,
-    list: rows.map(r => ({ ...name(r), value: r.value, place: r.place, ...(r.g === g ? { me: true } : {}) })),
-    prev: winners.length ? { month: prevMonth, winners: winners.map(name) } : null,
+    list: rows.map(r => ({ ...rankingName(r), value: r.value, place: r.place, ...(r.g === g ? { me: true } : {}) })),
+    prev: winners.length ? { month: prevMonth, winners: winners.map(w => ({ cls: w.cls, subject: w.subject })) } : null,
   };
 }
 
@@ -314,6 +336,7 @@ async function publishStudentApps(force = false) {
   saErrors = [];
   try {
     await processShareDeletions();
+    freezeRankingWinners();   // Sieger des Vormonats festhalten (AX1)
     const dbAtStart = db;
     for (const g of db.groups.slice()) {
       if (db !== dbAtStart) break;   // DB ersetzt (Import, Pull): der nächste Durchlauf rechnet neu (Regel 32)
@@ -367,6 +390,7 @@ async function deleteAllStudentShares() {
 function setStudentAppOn(groupId, on) {
   const g = db.groups.find(x => x.id === groupId);
   if (!g) return;
+  freezeRankingWinners();   // eine abgeschaltete Klasse fiele sonst aus dem Vormonat (AX1)
   const sa = ensureStudentApp(g);
   if (on && !StudentShare.isAccess(sa.access)) sa.access = StudentShare.newAccess();
   sa.on = !!on;
@@ -397,7 +421,14 @@ function setStudentAppShow(groupId, key, value) {
 function setStudentAppRanking(groupId, on) {   // AX1
   const g = db.groups.find(x => x.id === groupId);
   if (!g) return;
-  ensureStudentApp(g).ranking = !!on;
+  freezeRankingWinners();   // vor dem Umschalten: Der Vormonat bleibt, wie er war
+  const sa = ensureStudentApp(g), today = formatDate(new Date());
+  if (on && !sa.ranking) {
+    // Ab heute zählen; versehentlich aus und am selben Tag wieder an behält den alten Start (wie beim Laden, BC1)
+    if (!(isDateStr(sa.rankingSince) && sa.rankingOff === today)) sa.rankingSince = today;
+    delete sa.rankingOff;
+  } else if (!on && sa.ranking) sa.rankingOff = today;
+  sa.ranking = !!on;
   saveDB();
   renderStudentAppTab();
 }

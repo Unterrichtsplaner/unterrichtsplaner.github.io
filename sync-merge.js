@@ -81,6 +81,7 @@ const MERGE_SPEC = {
         lastBackupTimestamp: { atomic: 'max' },
         blocks: { atomic: 'ask', what: 'Uhrzeiten der Stunden', title: () => 'Einstellungen', show: mergeBlocksText },
         holidays: { list: h => h.id, item: { other: MERGE_LOCAL }, onDelete: 'keep' },
+        rankingWinners: { map: MERGE_LOCAL, onDelete: 'keep' },   // festgehaltene Sieger der Rangliste je Monat (AX1), aus den Daten abgeleitet
       },
       // Hintergrund, Karte und Hell/Dunkel nur zusammen, sonst entsteht eine unlesbare Mischung (AP16)
       together: [{ fields: ['themeBg', 'themeCard', 'theme', 'themeAuto'], atomic: 'local' }],
@@ -130,9 +131,10 @@ const MERGE_SPEC = {
           classNotes: { list: n => n.id, onDelete: 'ask', title: n => `Klassennotiz „${n.text || ''}“`, item: { fields: { text: MERGE_TEXT } } },
           // Schülerapp (AJ1): Zugang und Klassenziel nur als Ganzes (ein halber Zugang aus zwei Geräten taugt nichts)
           studentApp: {
+            // Rangliste (AX1): Schalter und Starttag gehören zusammen
+            together: [{ fields: ['ranking', 'rankingSince', 'rankingOff'], what: 'Rangliste der Klassen', show: s => (s.ranking === true ? `macht mit${s.rankingSince ? ` ab ${mergeShortDate(s.rankingSince)}` : ''}` : 'macht nicht mit') }],
             fields: {
               access: { atomic: 'ask', what: 'Zugang zur Schülerapp', show: a => (a && a.id ? `Link …${String(a.id).slice(-4)}` : 'kein Link') },
-              ranking: { atomic: 'ask', what: 'Rangliste der Klassen', show: v => (v === true ? 'macht mit' : 'macht nicht mit') },   // AX1
               goal: { atomic: 'ask', what: 'Klassenziel', show: gl => (gl && gl.target ? `${gl.target} Plusse${gl.reward ? `: ${gl.reward}` : ''}` : 'keins') },
               // Persönliche Seiten (AJ2): Tempo samt XP je Level gehört zusammen, Ränge und Joker als Ganzes
               personal: {
