@@ -192,6 +192,18 @@ details > summary::-webkit-details-marker { display: none; }
 .goal .r b { font-weight: 800; }
 .open-hint::after { content: "\00a0 anzeigen"; }
 details[open] .open-hint::after { content: "\00a0 ausblenden"; }
+/* Klasse: Rangliste der Klassen (AX1), große Zahl für den eigenen Platz, darunter die Liste */
+.rk-big { display: flex; align-items: flex-end; gap: var(--s4); margin-top: var(--s3); }
+.rk-big .huge { font-size: 128px; }
+.rk-big .t { display: block; padding-bottom: var(--s3); font-size: 18px; font-weight: 700; line-height: 1.25; }
+.rk { list-style: none; margin-top: var(--s5); border-top: 2px solid var(--c-ink); }
+.rk-row { display: grid; grid-template-columns: 2.5rem minmax(0, 1fr) auto; gap: var(--s3); align-items: baseline; padding: var(--s3) 0; border-bottom: 1px solid var(--c-ink-line); font-size: 17px; }
+.rk-p, .rk-v { font-weight: 800; font-stretch: 125%; font-variant-numeric: tabular-nums; }
+.rk-n { font-weight: 600; overflow-wrap: anywhere; }
+.rk-n small { font-size: 15px; font-weight: 500; color: var(--c-ink-soft); }
+.rk-me .rk-n { font-weight: 800; }
+.rk-me .rk-p { background: var(--c-ink); color: var(--c-mist); border-radius: 4px; text-align: center; }
+.ranking .more-note { opacity: 1; color: var(--c-ink-soft); }
 .stamps { display: grid; grid-template-columns: repeat(auto-fill, minmax(48px, 1fr)); gap: var(--s2); margin-top: var(--s4); }
 .stamp { aspect-ratio: 1; border: 2px solid var(--c-paper); border-radius: 50%; display: flex; flex-direction: column; align-items: center; justify-content: center; transform: rotate(-7deg); }
 .stamp:nth-child(3n) { transform: rotate(5deg); }

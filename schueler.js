@@ -113,6 +113,29 @@
       </div></details>`;
   }
 
+  // Rangliste der Klassen (AX1, „Klasse des Monats“): Plusse pro Kopf im Monat, nur Klassen derselben Lehrkraft,
+  // nie Namen. Kommt der Monat aus einem älteren Stand (Monatswechsel ohne neuen Sync), heißt er „Endstand“.
+  const isMonth = s => typeof s === 'string' && /^\d{4}-\d{2}$/.test(s);
+  const monthName = s => MONTHS_LONG[Number(s.slice(5, 7)) - 1] || '';
+  const perHead = v => String(Math.round((Number(v) || 0) * 10) / 10).replace('.', ',');
+  function rankingOf(d) {
+    const r = d && d.ranking;
+    if (!r || typeof r !== 'object' || !isMonth(r.month)) return null;
+    const rows = list(r.list).filter(x => x && x.cls && Number(x.place) > 0);
+    if (rows.length < 2) return null;
+    return { month: r.month, rows, me: rows.find(x => x.me) || null, prev: r.prev && isMonth(r.prev.month) ? r.prev : null };
+  }
+  const rankingLabel = (r, today) => (r.month < today.slice(0, 7) ? `Endstand ${monthName(r.month)}` : monthName(r.month));
+  function rankingHTML(r, today) {
+    const winners = r.prev ? list(r.prev.winners).filter(x => x && x.cls).map(x => [x.cls, x.subject].filter(Boolean).join(' ')) : [];
+    const big = r.me ? `<p class="rk-big"><span class="huge" aria-hidden="true">${Number(r.me.place)}</span>
+      <span class="t" aria-hidden="true">Platz für<br>eure Klasse</span><span class="vh">Platz ${Number(r.me.place)} von ${r.rows.length}</span></p>` : '';
+    return `<section class="f f-mist ranking"><h2>Klasse des Monats <small>${esc(rankingLabel(r, today))}</small></h2>${big}
+      <ol class="rk">${r.rows.map(x => `<li class="rk-row${x.me ? ' rk-me' : ''}"><span class="rk-p">${Number(x.place)}</span>
+        <span class="rk-n">${esc(x.cls)}${x.subject ? ` <small>${esc(x.subject)}</small>` : ''}</span><span class="rk-v">${esc(perHead(x.value))}</span></li>`).join('')}</ol>
+      <p class="more-note">Plusse pro Kopf in diesem Monat, ++ zählt doppelt.${winners.length ? ` Sieger ${esc(monthName(r.prev.month))}: ${esc(winners.join(' und '))}.` : ''}</p></section>`;
+  }
+
   // Kalender-Datei (AJ6 d): Termine als ganztägige Einträge, entsteht auf dem Handy, geht an keinen Server
   function icsFor(items, d) {
     const stamp = new Date().toISOString().replace(/[-:]/g, '').replace(/\.\d+/, '');
@@ -155,6 +178,8 @@
     let body = '', shown = 0;
 
     if (d.goal && Number(d.goal.target) > 0) { body += `<section class="f f-sea"><h2>Klassenziel</h2>${goalHTML(d.goal, today)}</section>`; shown++; }
+    const ranking = rankingOf(d);
+    if (ranking) { body += rankingHTML(ranking, today); shown++; }
     if (d.hw) {
       body += '<section class="f f-paper"><h2>Aufträge</h2>' + (hw.length ? hw.map((x, i) => {
         const on = ticked(x);
@@ -339,6 +364,8 @@
     if (hw) rows.push(['Aufgabe', esc(hw.text), `bis ${esc(rel(hw.date, today, true))}`]);
     const nx = list(k.next).find(n => n && isDate(n.date) && (n.date > today || (n.date === today && String(n.end) > hhmm)));
     if (nx) rows.push(['Stunde', `${esc(rel(nx.date, today) === 'heute' ? 'heute' : short(nx.date))}, ${esc(nx.start)}`, nx.room ? `in ${esc(nx.room)}` : '']);
+    const rk = rankingOf(k);   // AX1: Platz der eigenen Klasse
+    if (rk && rk.me) rows.push(['Rangliste', `Platz ${Number(rk.me.place)} von ${rk.rows.length}`, `Klasse des Monats, ${esc(rankingLabel(rk, today))}`]);
     const t = list(k.tests).filter(x => x && isDate(x.date) && x.date >= today).sort((a, b) => a.date.localeCompare(b.date))[0];
     if (!rows.length && !t) return '';
     // Die nächste Arbeit als große Zahl (AJ3l): Tage bis dahin, heute/morgen als Wort

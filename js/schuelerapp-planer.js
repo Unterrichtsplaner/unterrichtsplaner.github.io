@@ -24,6 +24,7 @@ function studentAppOf(g) {
     on: sa.on === true,
     access: StudentShare.isAccess(sa.access) ? sa.access : null,
     show: { ...SA_SHOW_DEFAULT, ...(sa.show && typeof sa.show === 'object' ? sa.show : {}) },
+    ranking: sa.ranking === true,   // Rangliste der Klassen (AX1), Standard aus
     goal: goal ? { target: Math.round(Number(goal.target)), reward: String(goal.reward || ''), since: isDateStr(goal.since) ? goal.since : null } : null,
   };
 }
@@ -60,6 +61,41 @@ function classDonated(g, since) {
     if (r && r.kind === 'donate' && isDateStr(r.date) && (!since || r.date >= since)) n += clampInt(r.price, 0, 999, 0);
   }));
   return n;
+}
+
+// Rangliste der Klassen (AX1, „Klasse des Monats“): alle eigenen Klassen mit freigegebener Schülerapp und eingeschaltetem
+// Schalter in einer Liste. Gezählt werden verdiente Plusse im Kalendermonat (+ 1, ++ 2, auch mit Titel, ohne Spenden),
+// geteilt durch die Zahl der Schüler. Gleicher (gerundeter) Wert, gleicher Platz. Nur Summen je Klasse, nie Namen (Regel 95).
+const rankingGroups = () => (studentAppOn() ? db.groups.filter(g => { const sa = studentAppOf(g); return sa.on && sa.access && sa.ranking && (db.students[g.id] || []).length; }) : []);
+function classMonthPlusses(g, month) {
+  let n = 0;
+  (db.students[g.id] || []).forEach(s => (s.participation || []).forEach(p => {
+    if (!p || String(p.date || '').slice(0, 7) !== month) return;
+    if (p.value === 'excellent') n += 2;
+    else if (p.value === 'positive') n += 1;
+  }));
+  return n;
+}
+function classRanking(month) {
+  const rows = rankingGroups().map(g => ({ g, value: Math.round(classMonthPlusses(g, month) / (db.students[g.id] || []).length * 10) / 10 }))
+    .sort((a, b) => b.value - a.value || String(a.g.className || '').localeCompare(String(b.g.className || ''), 'de', { numeric: true }));
+  rows.forEach((r, i) => { r.place = i && rows[i - 1].value === r.value ? rows[i - 1].place : i + 1; });
+  return rows;
+}
+const monthOf = d => formatDate(d).slice(0, 7);
+function rankingSnapshot(g, now) {
+  if (!studentAppOf(g).ranking) return null;
+  const month = monthOf(now);
+  const rows = classRanking(month);
+  if (rows.length < 2 || !rows.some(r => r.g === g)) return null;
+  const prevMonth = monthOf(new Date(now.getFullYear(), now.getMonth() - 1, 15, 12));
+  const winners = classRanking(prevMonth).filter(r => r.place === 1 && r.value > 0);
+  const name = r => ({ cls: String(r.g.className || ''), subject: String(r.g.subject || '') });
+  return {
+    month,
+    list: rows.map(r => ({ ...name(r), value: r.value, place: r.place, ...(r.g === g ? { me: true } : {}) })),
+    prev: winners.length ? { month: prevMonth, winners: winners.map(name) } : null,
+  };
 }
 
 // Stempelkarte des Klassenziels (AJ6 c): je vergangene Stunde seit dem Start die Plusse der ganzen Klasse an diesem Tag
@@ -169,6 +205,9 @@ function studentAppSnapshot(g, now = new Date()) {
     snap.goal = { target: sa.goal.target, reward: sa.goal.reward, count: classGoalCount(g, sa.goal.since), donated: classDonated(g, sa.goal.since), since: sa.goal.since,
       stamps: classGoalStamps(g, sa.goal.since, todayStr, nowMins) };
   }
+  // Nur mit Schalter (AX1): Ohne bleibt der Auszug wie vorher, die Seite wird also nicht neu geschrieben
+  const ranking = rankingSnapshot(g, now);
+  if (ranking) snap.ranking = ranking;
   return snap;
 }
 
@@ -342,6 +381,13 @@ function setStudentAppShow(groupId, key, value) {
   saveDB();
   refreshStudentAppPreview();
 }
+function setStudentAppRanking(groupId, on) {   // AX1
+  const g = db.groups.find(x => x.id === groupId);
+  if (!g) return;
+  ensureStudentApp(g).ranking = !!on;
+  saveDB();
+  renderStudentAppTab();
+}
 // Belohnung vor dem Ziel eingetippt: als Entwurf im Reiter halten, gespeichert wird sie mit dem Ziel (AT14). Nur Ansicht.
 let saGoalDraft = null;   // { groupId, reward }
 function setStudentAppGoal(groupId, changes) {
@@ -513,6 +559,7 @@ function renderStudentAppTab() {
         <div><button type="button" class="btn-secondary" id="sa-goal-restart">Neues Ziel beginnen</button></div>`
         : '<p class="field-hint-muted">Plusse der ganzen Klasse seit Beginn des Halbjahrs, ++ zählt doppelt. Leer lassen: kein Klassenziel.</p>'}
     </section>
+    ${rankingCardHTML(g)}
     <section class="set-card sa-card">
       <h3 class="sa-subtitle">Sichtbar für die Klasse</h3>
       <div class="sa-checks">${checks.map(([k, label, hint]) => `<label class="print-check sa-check"><input type="checkbox" data-show="${k}"${sa.show[k] ? ' checked' : ''}><span>${label}${hint ? `<small>${escHtml(hint)}</small>` : ''}</span></label>`).join('')}</div>
@@ -535,10 +582,28 @@ function renderStudentAppTab() {
   if (since) since.addEventListener('change', e => setStudentAppGoal(g.id, { since: e.target.value }));
   const restart = content.querySelector('#sa-goal-restart');
   if (restart) restart.addEventListener('click', () => restartStudentAppGoal(g.id));
+  content.querySelector('#sa-ranking-on').addEventListener('change', e => setStudentAppRanking(g.id, e.target.checked));   // AX1
   content.querySelectorAll('input[data-show]').forEach(el => el.addEventListener('change', () => setStudentAppShow(g.id, el.dataset.show, el.checked)));
   wirePersonalCard(content, g);   // Stufe 2a (AJ2)
   const frame = content.querySelector('#sa-preview-frame');
   frame.addEventListener('load', () => refreshStudentAppPreview());
+}
+// Rangliste der Klassen (AX1): Schalter und der Stand dieses Monats, so wie ihn die Klassen sehen
+const rankValueText = v => String(v).replace('.', ',');
+function rankingCardHTML(g) {
+  const sa = studentAppOf(g), cls = escHtml(g.className);
+  const rows = sa.ranking ? classRanking(monthOf(new Date())) : [];
+  const list = !sa.ranking ? '' : rows.length >= 2 && rows.some(r => r.g === g)
+    ? `<ol class="sa-rank-list">${rows.map(r => `<li${r.g === g ? ' class="is-me"' : ''}><span class="sa-rank-place">${r.place}.</span>
+        <span class="sa-rank-name">${escHtml([r.g.className, r.g.subject].filter(Boolean).join(' '))}</span><span class="sa-rank-value">${rankValueText(r.value)}</span></li>`).join('')}</ol>
+      <p class="field-hint-muted">Plusse pro Kopf seit dem 1. dieses Monats. Am Monatsende gewinnt die Klasse vorn, im nächsten Monat zählt es neu.</p>`
+    : '<p class="field-hint-muted">Die Klasse sieht die Rangliste, sobald eine zweite deiner Klassen mitmacht (Schalter im Reiter „Schülerapp“ der anderen Klasse).</p>';
+  return `<section class="set-card sa-card" id="sa-ranking">
+      <div class="sa-head"><div><h3 class="sa-subtitle">Rangliste der Klassen</h3>
+        <p class="sa-status">„Klasse des Monats“: Deine Klassen sammeln gegeneinander, gezählt werden Plusse pro Kopf im laufenden Monat (+ zählt 1, ++ zählt 2). Jede teilnehmende Klasse sieht Name, Fach und Wert der anderen, nie Namen von Schülern.</p></div>
+        <label class="toggle-switch" title="An der Rangliste teilnehmen"><input type="checkbox" id="sa-ranking-on" aria-label="Die ${cls} nimmt an der Rangliste teil"${sa.ranking ? ' checked' : ''}><span class="toggle-slider"></span></label></div>
+      ${list}
+    </section>`;
 }
 // Vorschau: dieselbe Schülerseite im Rahmen, mit dem Auszug von hier statt aus der Cloud
 function refreshStudentAppPreview() {

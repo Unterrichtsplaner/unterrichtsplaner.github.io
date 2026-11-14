@@ -132,6 +132,7 @@ const MERGE_SPEC = {
           studentApp: {
             fields: {
               access: { atomic: 'ask', what: 'Zugang zur Schülerapp', show: a => (a && a.id ? `Link …${String(a.id).slice(-4)}` : 'kein Link') },
+              ranking: { atomic: 'ask', what: 'Rangliste der Klassen', show: v => (v === true ? 'macht mit' : 'macht nicht mit') },   // AX1
               goal: { atomic: 'ask', what: 'Klassenziel', show: gl => (gl && gl.target ? `${gl.target} Plusse${gl.reward ? `: ${gl.reward}` : ''}` : 'keins') },
               // Persönliche Seiten (AJ2): Tempo samt XP je Level gehört zusammen, Ränge und Joker als Ganzes
               personal: {

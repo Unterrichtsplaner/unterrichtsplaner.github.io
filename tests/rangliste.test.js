@@ -1,0 +1,152 @@
+// Rangliste zwischen den Klassen (BUGS AX1): „Klasse des Monats“, Plusse pro Kopf im laufenden Monat, nur Klassen mit
+// eingeschaltetem Schalter, eine Liste für alle eigenen Klassen. Nur Summen je Klasse, nie Namen (Regel 95).
+const { loadApp, loadScript, app } = require('./helpers/load-app');
+
+const X = `Peter's "Test" <img data-xss src=x>`;
+const st = (id, part = []) => ({ id, firstName: id, lastName: 'X', grades: [], attendance: [], homework: [], studentNotes: [], participation: part });
+const P = (date, value, extra = {}) => ({ id: date + value + Math.random(), date, value, ...extra });
+const acc = c => ({ id: c.repeat(22), key: c.toLowerCase().repeat(43) });
+const G = (id, cls, subject, c, sa = {}) => ({ id, subject, className: cls, color: '#3b82f6', schularbeitWeight: 50, studentApp: { on: true, access: acc(c), ranking: true, ...sa } });
+function sampleDB() {
+  return {
+    settings: { teacherName: 'T', blocks: null, studentApp: { on: true } },
+    lessonSlots: [], lessonData: {}, supervisions: [],
+    groups: [G('g1', '7a', 'Mathe', 'A'), G('g2', '8b', 'Physik', 'B'), G('g3', '9c', 'Mathe', 'C'), G('g4', '5d', 'Mathe', 'D', { ranking: false })],
+    students: {
+      // 7a: 2 Schüler, November 2 + 1 + 1 = 4 → 2,0 pro Kopf; Oktober 6 → 3,0
+      g1: [st('a1', [P('2026-11-02', 'excellent'), P('2026-11-03', 'positive'), P('2026-11-04', 'negative'), P('2026-10-20', 'excellent'), P('2026-10-21', 'excellent')]),
+           st('a2', [P('2026-11-05', 'positive', { label: 'Referat' }), P('2026-10-22', 'excellent')])],
+      // 8b: 4 Schüler, November 10 → 2,5 pro Kopf, Spende zählt nicht
+      g2: [st('b1', [P('2026-11-02', 'excellent'), P('2026-11-03', 'excellent')]), st('b2', [P('2026-11-02', 'excellent'), P('2026-11-09', 'excellent')]),
+           st('b3', [P('2026-11-10', 'positive'), P('2026-11-11', 'positive')]), { ...st('b4'), redeemed: [{ id: 'r', date: '2026-11-10', name: 'Spende', price: 10, kind: 'donate' }] }],
+      // 9c: 1 Schüler, November 2 → 2,0 (gleich mit 7a)
+      g3: [st('c1', [P('2026-11-06', 'excellent')])],
+      g4: [st('d1', [P('2026-11-06', 'excellent'), P('2026-11-07', 'excellent')])],
+    },
+  };
+}
+const load = d => app('replaceDB(migrateDB(' + JSON.stringify(d) + '))');
+const snap = id => app(`studentAppSnapshot(db.groups.find(g => g.id === ${JSON.stringify(id)}))`);
+
+beforeAll(() => { localStorage.setItem('lehrerapp_v3', JSON.stringify(sampleDB())); loadApp(); document.body.insertAdjacentHTML('beforeend', '<div id="page" hidden></div>'); loadScript('schueler.js'); });
+beforeEach(() => {
+  vi.useFakeTimers({ toFake: ['Date'] });
+  vi.setSystemTime(new Date(2026, 10, 12, 10, 0));   // Do 12.11.2026
+  load(sampleDB());
+  document.querySelectorAll('.modal-overlay').forEach(m => m.classList.add('hidden'));
+  app('SyncManager').currentUser = { uid: 'u1' }; app('SyncManager').isInitialized = true;
+});
+afterEach(() => { app('SyncManager').currentUser = null; app('SyncManager').isInitialized = false; app('switchView("dashboard")'); vi.useRealTimers(); });
+
+describe('AX1: Rangliste rechnen', () => {
+  it('Plusse pro Kopf im laufenden Monat, ohne Spenden, gleiche Werte gleicher Platz', () => {
+    const r = snap('g1').ranking;
+    expect(r.month).toBe('2026-11');
+    expect(r.list).toEqual([
+      { cls: '8b', subject: 'Physik', value: 2.5, place: 1 },
+      { cls: '7a', subject: 'Mathe', value: 2, place: 2, me: true },
+      { cls: '9c', subject: 'Mathe', value: 2, place: 2 },
+    ]);
+    expect(r.prev).toEqual({ month: '2026-10', winners: [{ cls: '7a', subject: 'Mathe' }] });
+  });
+  it('nie Namen oder einzelne Schüler im Auszug', () => {
+    const text = JSON.stringify(snap('g2').ranking);
+    ['a1', 'b1', 'c1', 'Spende', 'Referat'].forEach(w => expect(text).not.toContain(w));
+  });
+  it('ohne Schalter kein Feld im Auszug (gleiche Seite wie vorher), nicht freigegebene Klassen fehlen', () => {
+    expect('ranking' in snap('g4')).toBe(false);
+    app('db.groups[1].studentApp.on = false');
+    expect(snap('g1').ranking.list.map(x => x.cls)).toEqual(['7a', '9c']);
+  });
+  it('erst ab zwei Klassen; leere Klassen zählen nicht mit', () => {
+    app('db.groups[1].studentApp.ranking = false; db.students.g3 = []');
+    expect('ranking' in snap('g1')).toBe(false);
+  });
+  it('Schülerapp aus: keine Rangliste', () => {
+    app('db.settings.studentApp.on = false');
+    expect('ranking' in snap('g1')).toBe(false);
+  });
+  it('Vormonat ohne Plusse: kein Sieger', () => {
+    vi.setSystemTime(new Date(2026, 9, 5, 10, 0));   // Oktober: September ohne Einträge
+    expect(snap('g1').ranking.prev).toBeNull();
+  });
+});
+
+describe('AX1: Schalter im Reiter „Schülerapp“', () => {
+  it('schaltet ein und aus, Standard aus', () => {
+    app('db.groups[3].studentApp = { on: true, access: ' + JSON.stringify(acc('D')) + ' }');
+    expect(app('studentAppOf(db.groups[3]).ranking')).toBe(false);
+    app('switchView("classes"); openGroupStudents("g4", "studentapp")');
+    const box = document.getElementById('sa-ranking-on');
+    expect(box.checked).toBe(false);
+    box.checked = true; box.dispatchEvent(new Event('change'));
+    expect(app('db.groups[3].studentApp.ranking')).toBe(true);
+    expect(document.getElementById('sa-ranking').textContent).toMatch(/8b Physik/);
+    document.getElementById('sa-ranking-on').checked = false;
+    document.getElementById('sa-ranking-on').dispatchEvent(new Event('change'));
+    expect(app('db.groups[3].studentApp.ranking')).toBe(false);
+  });
+  it('Klassennamen in der Liste sind escaped (Regel 3)', () => {
+    app('db.groups[1].className = ' + JSON.stringify(X) + '; db.groups[1].subject = ' + JSON.stringify(X));
+    app('switchView("classes"); openGroupStudents("g1", "studentapp")');
+    const card = document.getElementById('sa-ranking');
+    expect(card.querySelector('[data-xss]')).toBeNull();
+    expect(card.textContent).toContain(X);
+  });
+  it('Abgleich: beide Geräte verschieden → Frage mit Klartext', () => {
+    const base = JSON.parse(JSON.stringify(app('db')));
+    const local = JSON.parse(JSON.stringify(base)); local.groups[0].studentApp.ranking = false;
+    const cloud = JSON.parse(JSON.stringify(base)); cloud.groups[0].studentApp.ranking = false; cloud.groups[0].studentApp.goal = { target: 5, reward: '', since: '2026-11-01' };
+    expect(app('mergeDB')(base, local, cloud).merged.groups[0].studentApp.ranking).toBe(false);
+    const local2 = JSON.parse(JSON.stringify(base)); local2.groups[0].studentApp.goal = { target: 5, reward: '', since: '2026-11-01' };
+    const cloud2 = JSON.parse(JSON.stringify(base)); cloud2.groups[0].studentApp.ranking = false;
+    expect(app('mergeDB')(base, local2, cloud2).merged.groups[0].studentApp.ranking).toBe(false);
+    expect(app('MERGE_SPEC.fields.groups.item.fields.studentApp.fields.ranking.what')).toBe('Rangliste der Klassen');
+  });
+});
+
+describe('AX1: Schülerseite', () => {
+  const page = () => document.getElementById('page') || document.body;
+  const NOW = new Date(2026, 10, 12, 10, 0);
+  const klasse = (ranking) => ({ v: 2, cls: '7a', subject: 'Mathe', teacher: 'T', next: null, hw: null, tests: null, toc: null, goal: null, ranking });
+  const R = { month: '2026-11', list: [{ cls: '8b', subject: 'Physik', value: 2.5, place: 1 }, { cls: '7a', subject: 'Mathe', value: 2, place: 2, me: true }, { cls: X, subject: X, value: 1.25, place: 3 }],
+    prev: { month: '2026-10', winners: [{ cls: '7a', subject: 'Mathe' }] } };
+  it('Klassenseite zeigt Platz, Liste und Vormonat, alles escaped', () => {
+    const el = document.createElement('div');
+    el.innerHTML = window.SchuelerSeite.buildClassPage(klasse(R), NOW);
+    const sec = el.querySelector('.ranking');
+    expect(sec.textContent).toMatch(/Klasse des Monats/);
+    expect(sec.textContent).toMatch(/November/);
+    expect(sec.querySelector('.rk-me').textContent).toMatch(/7a/);
+    expect(sec.textContent).toMatch(/2,5/);
+    expect(sec.textContent).toMatch(/1,3|1,25/);
+    expect(sec.textContent).toMatch(/Oktober: 7a Mathe/);
+    expect(el.querySelector('[data-xss]')).toBeNull();
+    expect(sec.textContent).toMatch(/Platz 2/);
+  });
+  it('alter Monat: „Endstand“', () => {
+    const el = document.createElement('div');
+    el.innerHTML = window.SchuelerSeite.buildClassPage(klasse(R), new Date(2026, 11, 1, 8, 0));
+    expect(el.querySelector('.ranking').textContent).toMatch(/Endstand November/);
+  });
+  it('ohne Rangliste keine Fläche', () => {
+    const el = document.createElement('div');
+    el.innerHTML = window.SchuelerSeite.buildClassPage(klasse(undefined), NOW);
+    expect(el.querySelector('.ranking')).toBeNull();
+  });
+  it('„Ich“ nennt den Platz der eigenen Klasse', () => {
+    const me = { v: 1, kind: 'me', first: 'Anna', cls: '7a', subject: 'Mathe', level: 2, xp: 20, from: 10, next: 40, feedback: [], klasse: klasse(R) };
+    window.SchuelerSeite.setMeTab('ich');
+    const el = document.createElement('div');
+    el.innerHTML = window.SchuelerSeite.buildMePage(me, NOW);
+    expect(el.querySelector('.soon').textContent).toMatch(/Platz 2 von 3/);
+  });
+});
+
+describe('AX1: Texte nennen die Rangliste', () => {
+  it('Datenschutzhinweise und „Was Schüler sehen“', () => {
+    expect(document.getElementById('modal-privacy').textContent).toMatch(/Rangliste/);
+    const t = [...document.querySelectorAll('.field-hint-muted')].map(p => p.textContent).join('\n');
+    expect(t).toMatch(/Klassenseite:[^\n]*Rangliste/);
+  });
+});

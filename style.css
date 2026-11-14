@@ -2098,6 +2098,13 @@ textarea.form-input,.notes-textarea{min-height:calc(var(--control-h) * 2.5);}
 .sa-bar{height:8px;border-radius:var(--radius-xs);background:var(--border);overflow:hidden;}
 .sa-bar i{display:block;height:100%;background:var(--text-secondary);border-radius:var(--radius-xs);}
 .sa-checks{display:flex;flex-direction:column;gap:var(--space-3);}
+.sa-rank-list{list-style:none;margin:0;padding:0;font-size:14px;}   /* Rangliste der Klassen (AX1) */
+.sa-rank-list li{display:grid;grid-template-columns:28px minmax(0,1fr) auto;gap:var(--space-2);padding:var(--space-2) 0;border-top:1px solid var(--border);}
+.sa-rank-list li:first-child{border-top:none;}
+.sa-rank-list li.is-me{font-weight:600;}
+.sa-rank-place,.sa-rank-value{font-variant-numeric:tabular-nums;color:var(--text-secondary);}
+.sa-rank-list li.is-me .sa-rank-place,.sa-rank-list li.is-me .sa-rank-value{color:var(--text-primary);}
+.sa-rank-name{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 .sa-check{align-items:flex-start;color:var(--text-primary);font-size:14px;}
 .sa-check input{margin-top:2px;}
 .sa-check small{display:block;margin-top:2px;font-size:12px;color:var(--text-muted);}
