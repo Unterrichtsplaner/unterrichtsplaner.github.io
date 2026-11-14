@@ -916,7 +916,7 @@ async function setPersonalOn(groupId, on) {
   if (!g) return;
   if (on) {
     const ok = await askChoice('Persönliche Seiten einschalten?',
-      'Jeder Schüler bekommt einen eigenen Link mit Vorname, Level, Rückmeldung zur Mitarbeit (auch − und −−), Rang und Jokern. Keine Noten, keine Fehlzeiten. '
+      `Jeder Schüler bekommt einen eigenen Link mit Vorname, Level, Rückmeldung zur Mitarbeit (auch − und −−), Rang, Stickern mit dem Grund, den du dazuschreibst, Baustellen mit ihrem Text und ${shopActive(g) ? 'Plus-Konto' : 'Jokern'}, dazu dein Anzeigename. Keine Noten, keine Fehlzeiten. `
       + 'Die Seiten liegen verschlüsselt in der Cloud, lesen kann sie nur, wer den Link hat. Es sind trotzdem Daten über einzelne Schüler: '
       + 'Kläre das vorher mit der Schulleitung bzw. der/dem Datenschutzbeauftragten und informiere die Eltern.',
       [{ label: 'Ist geklärt, einschalten', value: 'on', primary: true }]);   // „Abbrechen“ hängt askChoice selbst an (AT13)

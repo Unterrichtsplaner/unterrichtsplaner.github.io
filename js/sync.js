@@ -930,14 +930,16 @@ async function readSyncBase(cloudTimestamp) {
   const rec = uid ? await syncStore.get(`base_${uid}`) : null;
   return rec && rec.cloudTimestamp === cloudTimestamp ? rec.data : null;
 }
+const NEW_YEAR_BACKUP_MS = 8 * 7 * 24 * 3600 * 1000;
 async function keepMergeBackup(localDataString, cloudDataString, kind = '') {
   const list = (await syncStore.get(MERGE_BACKUPS_KEY)) || [];
   // Dieselben Stände nur einmal, sonst schieben wiederholte offene Fragen ältere aus der Liste
   if (list[0] && list[0].local === localDataString && list[0].cloud === cloudDataString) return;
   const uid = SyncManager.currentUser && SyncManager.currentUser.uid;
   list.unshift({ time: Date.now(), uid, local: localDataString, cloud: cloudDataString, ...(kind ? { kind } : {}) });
-  // Der Stand vor dem Schuljahreswechsel (Y6) bleibt, auch wenn danach mehrere Abgleiche kommen
-  const kept = list.slice(0, MERGE_BACKUPS_MAX), year = list.find(x => x.kind === 'newYear');
+  // Der Stand vor dem Schuljahreswechsel (Y6) bleibt 8 Wochen, auch wenn danach mehrere Abgleiche kommen; danach ersetzen ihn
+  // neuere Stände wie die übrigen (BD2: sonst läge das ganze alte Schuljahr unbegrenzt auf dem Gerät)
+  const kept = list.slice(0, MERGE_BACKUPS_MAX), year = list.find(x => x.kind === 'newYear' && Date.now() - x.time < NEW_YEAR_BACKUP_MS);
   if (year && !kept.includes(year)) kept.push(year);
   await syncStore.put(MERGE_BACKUPS_KEY, kept);
 }

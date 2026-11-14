@@ -63,7 +63,14 @@ function createFakeFirebase() {
 
   const docRef = (uid) => ({
     uid,
-    collection: (name) => ({ doc: (id) => versionRef(uid, id) }),
+    collection: (name) => ({
+      doc: (id) => versionRef(uid, id),
+      async get() {   // alle Sicherungen auflisten (AY4)
+        if (cloud.versionsDenied) throw denied();
+        const docs = Object.keys(cloud.versions[uid] || {}).map(id => ({ id, data: () => JSON.parse(JSON.stringify(cloud.versions[uid][id])) }));
+        return { docs, empty: !docs.length, size: docs.length };
+      },
+    }),
     async get() {
       cloud.reads++;
       const snap = snapshot(uid);

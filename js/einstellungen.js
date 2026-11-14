@@ -707,7 +707,7 @@ async function clearAllDataEverywhere() {
     // Kein pendingUpload (T4): Käme die Antwort nicht an, würde der nächste Sync sonst die Daten dieses Geräts
     // als „eigenen Stand“ wieder hochladen. So gibt es schlimmstenfalls den Konflikt-Dialog.
     const emptyText = JSON.stringify(empty);
-    const newTimestamp = cloud ? await SyncManager.saveToCloud(emptyText, cloud.cloudTimestamp) : null;
+    const newTimestamp = cloud ? await SyncManager.saveToCloud(emptyText, cloud.cloudTimestamp, undefined, { noVersion: true }) : null;   // AY4
     const sharesLeft = !(await deleteAllStudentShares());   // Klassenseiten der Schülerapp mit weg (AJ1); Rest bleibt vorgemerkt (AT5)
     let versionsLeft = false;   // Z4: auch die Tages-Sicherungen
     try { await SyncManager.deleteCloudVersions(); } catch (e) { versionsLeft = true; console.warn('Cloud-Sicherungen nicht gelöscht:', e.message); }
@@ -958,7 +958,7 @@ function renderNewYear() {
         <li>Stundenplan und Aufsichten werden geleert, Halbjahres- und Schuljahresende sowie vergangene Ferien zurückgesetzt.</li>
         ${live.some(c => c.action === 'keep' && studentAppOf(newYearGroup(c)).access) ? '<li>Freigegebene Klassen bekommen einen neuen Schülerapp-Link.</li>' : ''}
       </ul>
-      <p class="field-hint-muted">Der alte Stand bleibt in deiner Sicherungsdatei und auf diesem Gerät (Einstellungen → Daten & Cloud → „Früheren Stand zurückholen“).</p>`;
+      <p class="field-hint-muted">Der alte Stand bleibt in deiner Sicherungsdatei und mindestens 8 Wochen auf diesem Gerät (Einstellungen → Daten & Cloud → „Früheren Stand zurückholen“).</p>`;
   }
   foot.innerHTML = (st.step > 1 ? '<button type="button" class="btn-secondary" id="ny-back">Zurück</button>' : '')
     + (st.step < 3 ? `<button type="button" class="btn-primary" id="ny-next"${st.step === 1 && !st.backedUp ? ' disabled' : ''}>Weiter</button>`

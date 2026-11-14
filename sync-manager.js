@@ -378,7 +378,8 @@ const SyncManager = {
    * @param {*} expectedCloudTimestamp - Versionskennung, die in der Cloud stehen muss (null = Cloud muss leer sein)
    * @returns {number} die neue Versionskennung in der Cloud
    */
-  async saveToCloud(rawDataString, expectedCloudTimestamp, password = this.masterPassword) {
+  // `noVersion`: keine Tages-Sicherung des bisherigen Stands (Cloud leeren, AY4: sonst bliebe gerade der volle Stand stehen)
+  async saveToCloud(rawDataString, expectedCloudTimestamp, password = this.masterPassword, { noVersion = false } = {}) {
     if (!this.isInitialized || !this.currentUser) throw new Error("Nicht angemeldet.");
     if (!password) {
       throw new Error("Master-Passwort fehlt. Verschlüsselung nicht möglich.");
@@ -404,7 +405,10 @@ const SyncManager = {
     // Erst nach dem Upload und ohne ihn zu gefährden: der bisherige Stand als Tages-Sicherung (Z4)
     // Höchstens kurz warten: Ohne Netz kehrt ein Firestore-Schreiben erst zurück, wenn das Netz wieder da ist –
     // der Upload ist aber schon fertig (AP13). Fehler fängt _keepDailyVersion selbst ab.
-    await Promise.race([this._keepDailyVersion(previous), new Promise(r => setTimeout(r, this.versionWaitMs))]);
+    if (noVersion) return newTimestamp;
+    // Läuft sie nach der Wartezeit weiter, merkt sich das Löschen der Sicherungen sie und wartet darauf (AY4)
+    const pending = this.versionPending = this._keepDailyVersion(previous);
+    await Promise.race([pending, new Promise(r => setTimeout(r, this.versionWaitMs))]);
     return newTimestamp;
   },
 
@@ -414,6 +418,7 @@ const SyncManager = {
   // ({ day, savedAt }), damit die Auswahl nicht alle großen Dokumente laden muss. Scheitert es (z. B. Regel fehlt),
   // bleibt der Sync unberührt; `versionsProblem` sagt es den Einstellungen.
   versionsProblem: null,
+  versionPending: null,   // laufende Tages-Sicherung (AY4)
   _versionsRef() {
     return this._docRef().collection('versions');
   },
@@ -465,9 +470,14 @@ const SyncManager = {
   /** Alle Sicherungen löschen (Cloud leeren, Konto löschen). Fehlt die Regel, gab es nie welche. */
   async deleteCloudVersions() {
     if (!this.isInitialized || !this.currentUser) return;
+    // Eine noch laufende Tages-Sicherung erst fertig werden lassen, sonst landet sie nach dem Löschen in der Cloud (AY4)
+    if (this.versionPending) { try { await this.versionPending; } catch (e) { /* fängt _keepDailyVersion selbst ab */ } }
     let days;
     try { days = await this._readVersionIndex(); } catch (e) { if (e && e.code === 'permission-denied') return; throw e; }
-    for (const x of days) await this._versionsRef().doc(x.day).delete();
+    // Auch Sicherungen, die nicht (mehr) im Verzeichnis stehen (die Regeln erlauben das Lesen der eigenen)
+    let ids = days.map(x => x.day);
+    try { const snap = await this._versionsRef().get(); ids = [...new Set([...ids, ...snap.docs.map(d => d.id).filter(id => id !== 'index')])]; } catch (e) { /* dann nur das Verzeichnis */ }
+    for (const id of ids) await this._versionsRef().doc(id).delete();
     await this._versionsRef().doc('index').delete();
     try { localStorage.removeItem('cloud_version_day_' + this.currentUser.uid); } catch (e) { /* egal */ }
   },
