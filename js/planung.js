@@ -336,14 +336,17 @@ function applyPlanTopicForm(ctx, plan) {
   const pinned = document.getElementById('plan-topic-pinned').value;
   const note = document.getElementById('plan-topic-note').value.trim();
   const t = ctx.topic;
+  const lengthBefore = topicLength(t);
   t.title = title;
   if (lessons > 1) t.lessons = lessons; else delete t.lessons;
   if (t.pinned !== pinned) delete t.pinnedSlot;   // anderer Termin: gilt nicht mehr für die eingetippte Stunde
   if (isDateStr(pinned)) t.pinned = pinned; else delete t.pinned;
   if (note) t.note = note; else delete t.note;
-  if (t.done && topicDoneCount(t) < topicLength(t) && topicDoneCount(t) > 0) delete t.done; // länger geworden
+  // Erledigt-Stand nur anfassen, wenn sich die Dauer wirklich geändert hat (AZ1): Ein von Hand erledigtes Thema hat oft
+  // weniger Haken als Stunden, und nur die Notiz zu ändern öffnete es sonst still wieder.
+  if (topicLength(t) > lengthBefore && t.done && topicDoneCount(t) < topicLength(t) && topicDoneCount(t) > 0) delete t.done; // länger geworden
   // auf die erledigten Stunden verkürzt: fertig, am Tag der letzten erledigten Stunde (AQ26)
-  if (!t.done && topicDoneCount(t) > 0 && topicDoneCount(t) >= topicLength(t)) {
+  if (topicLength(t) < lengthBefore && !t.done && topicDoneCount(t) > 0 && topicDoneCount(t) >= topicLength(t)) {
     t.done = t.doneLessons.map(k => String(k).slice(-10)).filter(isDateStr).sort().pop() || formatDate(new Date());
   }
   return true;
@@ -402,9 +405,11 @@ function togglePlanTopicDoneFromForm() {
   const ctx = planTopicCtx;
   const g = ctx && db.groups.find(x => x.id === ctx.groupId);
   if (!g || !ctx.topic || !ensurePlan(g).includes(ctx.topic)) { closeModal('modal-plan-topic'); return; }
+  // Der Knopf tut, was auf ihm steht: Stand vor dem Übernehmen (AZ1), denn applyPlanTopicForm kann ihn selbst ändern
+  const wasDone = !!ctx.topic.done;
   if (!applyPlanTopicForm(ctx, ensurePlan(g))) return;   // Eingetipptes zuerst übernehmen (AQ18)
-  if (ctx.topic.done) { delete ctx.topic.done; ctx.topic.doneLessons = (ctx.topic.doneLessons || []).slice(0, Math.max(0, topicLength(ctx.topic) - 1)); }
-  else ctx.topic.done = formatDate(new Date());
+  if (wasDone) { delete ctx.topic.done; ctx.topic.doneLessons = (ctx.topic.doneLessons || []).slice(0, Math.max(0, topicLength(ctx.topic) - 1)); }
+  else if (!ctx.topic.done) ctx.topic.done = formatDate(new Date());   // schon verkürzt-erledigt (AQ26): dessen Tag bleibt
   saveDB();
   planTopicSnapshot = null;
   closeModal('modal-plan-topic');

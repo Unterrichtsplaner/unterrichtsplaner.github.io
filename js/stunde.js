@@ -400,6 +400,9 @@ function toggleAusfall() {
   // Verlegt („nur diese Woche“): Verlegung aufheben statt Ausfall umschalten
   const moved = (db.lessonData[key] || {}).movedTo;
   if (moved) {
+    const copy = db.lessonSlots.find(x => x.id === moved.slotId);
+    const blocker = copy && revertBlockedBy(copy);
+    if (blocker) { showToast(revertBlockedText(blocker, movedOrigin(copy).date), 'error'); return; }   // AZ4
     const back = revertMovedLesson(moved.slotId);
     saveDB();   // auch ohne Zurücknehmen: der Verweis ist dann gelöst (detachMovedCopy)
     renderScheduleViews();

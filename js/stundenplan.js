@@ -365,12 +365,21 @@ function moveOccurrenceOnce(slot, fromDate, target, overrides = {}) {
     day: target.day, block: target.block, recurring: false, startDate: null, startWeek: null, specificDate: target.dateStr,
     movedFrom: { slotId: slot.id, date: fromDate } };
   if (!target.part && overrides.part) once.part = overrides.part;
+  const samePlace = target.dateStr === fromDate && target.block === slot.block && partsOverlap(once.part, slot.part);
+  // Andere Klasse (bei freien Stunden anderes Fach) nur an diesem Tag ist eine Vertretung, keine Verlegung (AZ2):
+  // Die Stunde der alten Klasse fällt aus, Notizen, HA, Tests und Planung bleiben bei ihr. Am selben Platz ersetzt die
+  // einmalige Stunde sie über lessonsAt. Fällige HA/Tests der alten Klasse bietet der Aufrufer an (offerMoveDueItems).
+  if (lessonOwner(once) !== lessonOwner(slot)) {
+    delete once.movedFrom;
+    db.lessonSlots.push(once);
+    if (!samePlace) db.lessonData[fromKey] = { ...(db.lessonData[fromKey] || {}), ausfall: true };
+    return once;
+  }
   db.lessonSlots.push(once);
   const moved = db.lessonData[fromKey];
   delete db.lessonData[fromKey];
   if (moved) { delete moved.ausfall; delete moved.movedTo; db.lessonData[`${once.id}_${target.dateStr}`] = moved; }
   movePlanRefs(fromKey, `${once.id}_${target.dateStr}`);
-  const samePlace = target.dateStr === fromDate && target.block === slot.block && partsOverlap(once.part, slot.part);
   if (!samePlace) db.lessonData[fromKey] = { ausfall: true, movedTo: { slotId: once.id, date: target.dateStr } };
   retargetMovedItems(slot, fromDate, target.dateStr);
   return once;
@@ -383,7 +392,7 @@ function rehomeMovedCopy(once, target, overrides = {}) {
   const keep = { subject: once.subject, groupId: once.groupId || null, room: once.room || '', color: once.color, part: target.part || once.part || 'full', ...overrides };
   revertMovedLesson(once.id);
   const home = target.dateStr === origin.date && target.block === origin.slot.block && partsOverlap(keep.part, origin.slot.part);
-  if (home) return 'home';
+  if (home && lessonOwner(keep) === lessonOwner(origin.slot)) return 'home';   // mit anderer Klasse: Vertretung am alten Platz (AZ2)
   return moveOccurrenceOnce(origin.slot, origin.date, target, keep);
 }
 // HA/Tests der Klasse, die am alten Termin fällig waren: neuer Termin, wenn dort sonst keine Stunde der Klasse liegt
@@ -399,6 +408,15 @@ function retargetMovedItems(slot, fromDate, toDate) {
     });
   });
 }
+// Liegt am alten Platz einer verlegten Stunde inzwischen eine andere einmalige Stunde (AQ2 erlaubt das, z. B. Vertretung),
+// wäre die zurückgeholte Stunde dort unsichtbar (lessonsAt) und ihre HA nirgends fällig (AZ4). Dann nicht aufheben.
+function revertBlockedBy(once) {
+  const origin = movedOrigin(once);
+  if (!origin) return null;
+  return db.lessonSlots.find(s => s !== once && isOneOffSlot(s) && s.block === origin.slot.block && slotOccursOn(s, origin.date)
+    && partsOverlap(s.part, origin.slot.part)) || null;
+}
+const revertBlockedText = (blocker, date) => `Am ${formatDateLong(date)} liegt dort inzwischen ${lessonTitle(blocker).main}. Bitte zuerst diese Stunde verschieben oder löschen.`;
 // Verlegung zurücknehmen (Stunden-Fenster am alten Platz, oder die verlegte Stunde löschen): Einträge zurück.
 // Am Ursprung wird nichts überschrieben, beide Stände werden zusammengelegt. Gibt es den Ursprung an dem Tag nicht
 // mehr, bleibt die Kopie als normale einmalige Stunde (false).
@@ -428,7 +446,7 @@ function revertMovedLesson(onceId) {
   return true;
 }
 // Formular: „nur am …“
-function saveLessonOnce(slot, dateStr, input) {
+async function saveLessonOnce(slot, dateStr, input) {
   const target = { day: input.day, block: input.block, part: input.part, dateStr: lessonTargetDate(input.day) };
   const clash = lessonsAt(target.dateStr, target.block).filter(s => s !== slot && partsOverlap(input.part, s.part) && !(isOneOffSlot(s) === false && s === slot));
   if (clash.some(s => isOneOffSlot(s) || !(target.dateStr === dateStr && target.block === slot.block))) {
@@ -436,19 +454,31 @@ function saveLessonOnce(slot, dateStr, input) {
   }
   let subject = input.subject;
   if (input.groupId) { const g = db.groups.find(x => x.id === input.groupId); if (g) subject = g.subject; }
-  moveOccurrenceOnce(slot, dateStr, target, { subject, groupId: input.groupId, room: input.room, color: input.color, part: input.part });
+  const once = moveOccurrenceOnce(slot, dateStr, target, { subject, groupId: input.groupId, room: input.room, color: input.color, part: input.part });
   saveDB();
   editingSlotId = null;
   closeModal('modal-add-lesson');
   renderScheduleViews();
   showToast(`Nur am ${formatDateLong(dateStr)} geändert ✓`);
+  if (once && !once.movedFrom) await offerMoveDueItems(slot.id, dateStr, `${lessonTitle(slot).main} fällt aus`);   // andere Klasse (AZ2)
   return true;
 }
 
 // Rückgängig in der Bearbeiten-Leiste: Verlauf der Verschiebungen in diesem Stift-Modus. Ein Schritt gilt nur,
 // solange die Stundendaten seitdem unverändert sind (sonst überschriebe er neuere Eingaben).
 let ttUndoStack = [];
-const scheduleState = () => JSON.stringify({ s: db.lessonSlots, d: db.lessonData });
+// Mit der Planung aller Klassen: Verschieben zieht Erledigt-Haken und eingetippte Themen mit (AQ17), „Rückgängig“ muss sie
+// zurückholen (AZ3)
+const scheduleState = () => JSON.stringify({ s: db.lessonSlots, d: db.lessonData, p: db.groups.map(g => [g.id, g.plan || null]) });
+function restoreScheduleState(state) {
+  const b = JSON.parse(state);
+  db.lessonSlots = b.s;
+  db.lessonData = b.d;
+  (b.p || []).forEach(([id, plan]) => {
+    const g = db.groups.find(x => x.id === id);
+    if (g && plan) g.plan = plan; else if (g) delete g.plan;
+  });
+}
 function updateTimetableUndoButton() {
   const btn = document.getElementById('btn-tt-undo');
   if (btn) btn.disabled = !ttUndoStack.length;
@@ -462,9 +492,7 @@ function undoTimetableChange(entry = ttUndoStack[ttUndoStack.length - 1]) {
     return;
   }
   ttUndoStack.pop();
-  const before = JSON.parse(entry.before);
-  db.lessonSlots = before.s;
-  db.lessonData = before.d;
+  restoreScheduleState(entry.before);
   saveDB();
   renderScheduleViews();
   updateTimetableUndoButton();
@@ -502,7 +530,7 @@ async function moveLessonByDrag(slotId, sourceDate, target) {
   const dbAtStart = db;
   const before = scheduleState();
   const back = { day: slot.day, block: slot.block, part: slot.part || 'full', dateStr: sourceDate };
-  const restore = () => { const b = JSON.parse(before); db.lessonSlots = b.s; db.lessonData = b.d; saveDB(); renderScheduleViews(); };
+  const restore = () => { restoreScheduleState(before); saveDB(); renderScheduleViews(); };
   // Einmalige Stunde direkt umsetzen (Datum wandert mit dem Tag, Einträge mit dem Datum)
   // Verlegte Kopie: vom Ursprung aus neu verlegen, am alten Platz = Verlegung aufheben (AQ2, AQ5). Sonst: Einträge,
   // Planung und am alten Tag fällige HA/Tests wandern mit (AQ8, AQ17).
@@ -1233,8 +1261,10 @@ async function commitLessonSlot(input, slot, { ignoreConflictWith = null, scope 
     return false;
   }
   // Verlegte Kopie mit neuem Platz oder Datum: vom Ursprung aus neu verlegen, nie eine zweite Kopie (Regel 65, AQ5)
+  // Andere Klasse für die verlegte Kopie: ebenso, dann wird daraus eine Vertretung (AZ2)
   if (slot && slot.movedFrom && isOneOffSlot(slot) && !recurring
-      && (specificDate !== slot.specificDate || block !== slot.block || part !== (slot.part || 'full'))) {
+      && (specificDate !== slot.specificDate || block !== slot.block || part !== (slot.part || 'full') || lessonOwner(slot) !== lessonOwner({ groupId, subject }))) {
+    const origin = movedOrigin(slot);
     const moved = rehomeMovedCopy(slot, { day, block, part, dateStr: specificDate }, { subject, groupId, room, color: input.color, part });
     if (moved) {
       saveDB();
@@ -1242,6 +1272,7 @@ async function commitLessonSlot(input, slot, { ignoreConflictWith = null, scope 
       renderScheduleViews();
       editingSlotId = null;
       showToast(moved === 'home' ? 'Verlegung aufgehoben' : 'Stunde gespeichert ✓');
+      if (origin && moved !== 'home' && !moved.movedFrom) await offerMoveDueItems(origin.slot.id, origin.date, `${lessonTitle(origin.slot).main} fällt aus`);
       return true;
     }
   }
@@ -1345,21 +1376,24 @@ async function offerRetargetHanging(candidates, slot) {
 }
 
 // Hat sich an Tag, Block, Hälfte oder Rhythmus etwas geändert? (Raum, Farbe usw. zählen nicht)
+// Wem eine Stunde gehört: der Klasse, bei freien Stunden dem Fachnamen (AQ9, AZ2)
+const lessonOwner = s => (s.groupId ? 'g:' + s.groupId : 's:' + String(s.subject || '').trim().toLowerCase());
 function scheduleChanged(slot, f) {
   // Altdaten: „jede Woche“ als true oder ohne Feld – wie 'weekly' (AQ19)
   const rec = s => isOneOffSlot(s) ? 'none' : s.recurring === 'biweekly' ? 'biweekly' : 'weekly';
   // Andere Klasse (bei freien Stunden: anderes Fach) ist ein Stundenplanwechsel wie ein anderer Tag (AQ9):
   // frühere Stunden, ihr Inhalt und ihre HA gehören weiter der alten Klasse
-  const owner = s => s.groupId ? 'g:' + s.groupId : 's:' + String(s.subject || '').trim().toLowerCase();
-  return slot.day !== f.day || slot.block !== f.block || (slot.part || 'full') !== f.part || rec(slot) !== rec(f) || owner(slot) !== owner(f)
+  return slot.day !== f.day || slot.block !== f.block || (slot.part || 'full') !== f.part || rec(slot) !== rec(f) || lessonOwner(slot) !== lessonOwner(f)
     || (f.recurring === 'biweekly' && !!slot.startDate && !sameWeekParity(slot.startDate, f.startDate));
 }
 
 // Daten der Stunden mit Einträgen (Notizen, Inhalt, HA, Tests, Ausfall) dieser Stunde
+// Ein reiner Vermerk „verlegt“ ({ ausfall, movedTo }) ist kein Eintrag (AZ4): Die Einträge liegen bei der Kopie.
 function lessonEntryDates(slotId) {
   const prefix = slotId + '_';
+  const marker = d => d.movedTo && Object.keys(d).every(k => k === 'ausfall' || k === 'movedTo');
   return Object.keys(db.lessonData).filter(k => k.startsWith(prefix))
-    .filter(k => { const d = db.lessonData[k]; return d && Object.values(d).some(v => Array.isArray(v) ? v.length : !!v); })
+    .filter(k => { const d = db.lessonData[k]; return d && !marker(d) && Object.values(d).some(v => Array.isArray(v) ? v.length : !!v); })
     .map(k => k.slice(prefix.length));
 }
 
@@ -1442,9 +1476,18 @@ function splitSlotFrom(slot, fromDateStr, fields) {
   const shift = fields.day !== undefined && fields.day !== slot.day ? splitShift(slot, fields.day, fromDateStr) : 0;
   const prefix = slot.id + '_';
   // Nie überschreiben: Fällt doch einmal etwas zusammen, wird zusammengelegt (moveLessonEntry, AQ1)
-  Object.keys(db.lessonData).filter(k => k.startsWith(prefix) && k.slice(prefix.length) >= fromDateStr).forEach(k => {
-    moveLessonEntry(k, newSlot.id + '_' + shiftedEntryDate(k.slice(prefix.length), shift, null));
-  });
+  const target = k => newSlot.id + '_' + shiftedEntryDate(k.slice(prefix.length), shift, null);
+  Object.keys(db.lessonData).filter(k => k.startsWith(prefix) && k.slice(prefix.length) >= fromDateStr).forEach(k => moveLessonEntry(k, target(k)));
+  // Planung auch ohne Stundendaten (AZ5): Ein vorausgeplantes, eingetipptes Thema hat meist noch keinen Eintrag
+  const later = k => k.startsWith(prefix) && k.slice(prefix.length) >= fromDateStr;
+  db.groups.forEach(g => groupPlan(g).forEach(t => {
+    if (Array.isArray(t.doneLessons)) t.doneLessons = t.doneLessons.map(k => (later(String(k)) ? target(String(k)) : k));
+    if (t.pinnedSlot === slot.id && t.pinned && later(prefix + t.pinned)) {
+      const nk = target(prefix + t.pinned);
+      t.pinnedSlot = newSlot.id;
+      t.pinned = nk.slice(nk.lastIndexOf('_') + 1);
+    }
+  }));
   db.lessonSlots.push(newSlot);
   return newSlot;
 }
@@ -1486,6 +1529,8 @@ async function deleteLessonSlotFromEdit() {
   // Ohne Ursprung (beendet, gelöscht) oder regelmäßig gewordene Kopie: normale Stunde, normales Löschen (AQ6, AQ13)
   if (slot.movedFrom && !movedOrigin(slot)) detachMovedCopy(slot);
   if (slot.movedFrom) {
+    const blocker = revertBlockedBy(slot);
+    if (blocker) { showToast(revertBlockedText(blocker, movedOrigin(slot).date), 'error'); return; }   // AZ4
     // „nur diese Woche“ verlegt: löschen = Verlegung aufheben, Notizen wandern zurück (nicht gelöscht)
     if (!confirm(`Verlegung aufheben?\n\nDie Stunde findet dann wieder am ${formatDateLong(movedOrigin(slot).date)} statt; Notizen und Hausaufgaben wandern zurück.`)) return;
     if (!db.lessonSlots.includes(slot)) return;
