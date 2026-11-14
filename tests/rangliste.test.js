@@ -5,6 +5,7 @@ const { loadApp, loadScript, app } = require('./helpers/load-app');
 const X = `Peter's "Test" <img data-xss src=x>`;
 const st = (id, part = []) => ({ id, firstName: id, lastName: 'X', grades: [], attendance: [], homework: [], studentNotes: [], participation: part });
 const P = (date, value, extra = {}) => ({ id: date + value + Math.random(), date, value, ...extra });
+const fill = (pre, n) => Array.from({ length: n }, (_, i) => st(pre + 'z' + i));   // Schüler ohne Plusse (Mindestgröße 5)
 const acc = c => ({ id: c.repeat(22), key: c.toLowerCase().repeat(43) });
 const G = (id, cls, subject, c, sa = {}) => ({ id, subject, className: cls, color: '#3b82f6', schularbeitWeight: 50, studentApp: { on: true, access: acc(c), ranking: true, ...sa } });
 function sampleDB() {
@@ -13,15 +14,15 @@ function sampleDB() {
     lessonSlots: [], lessonData: {}, supervisions: [],
     groups: [G('g1', '7a', 'Mathe', 'A'), G('g2', '8b', 'Physik', 'B'), G('g3', '9c', 'Mathe', 'C'), G('g4', '5d', 'Mathe', 'D', { ranking: false })],
     students: {
-      // 7a: 2 Schüler, November 2 + 1 + 1 = 4 → 2,0 pro Kopf; Oktober 6 → 3,0
+      // 7a: 5 Schüler, November 2 + 1 + 1 = 4 → 0,8 pro Kopf; Oktober 6 → 1,2
       g1: [st('a1', [P('2026-11-02', 'excellent'), P('2026-11-03', 'positive'), P('2026-11-04', 'negative'), P('2026-10-20', 'excellent'), P('2026-10-21', 'excellent')]),
-           st('a2', [P('2026-11-05', 'positive', { label: 'Referat' }), P('2026-10-22', 'excellent')])],
-      // 8b: 4 Schüler, November 10 → 2,5 pro Kopf, Spende zählt nicht
+           st('a2', [P('2026-11-05', 'positive', { label: 'Referat' }), P('2026-10-22', 'excellent')]), ...fill('a', 3)],
+      // 8b: 5 Schüler, November 10 → 2,0 pro Kopf, Spende zählt nicht
       g2: [st('b1', [P('2026-11-02', 'excellent'), P('2026-11-03', 'excellent')]), st('b2', [P('2026-11-02', 'excellent'), P('2026-11-09', 'excellent')]),
-           st('b3', [P('2026-11-10', 'positive'), P('2026-11-11', 'positive')]), { ...st('b4'), redeemed: [{ id: 'r', date: '2026-11-10', name: 'Spende', price: 10, kind: 'donate' }] }],
-      // 9c: 1 Schüler, November 2 → 2,0 (gleich mit 7a)
-      g3: [st('c1', [P('2026-11-06', 'excellent')])],
-      g4: [st('d1', [P('2026-11-06', 'excellent'), P('2026-11-07', 'excellent')])],
+           st('b3', [P('2026-11-10', 'positive'), P('2026-11-11', 'positive')]), { ...st('b4'), redeemed: [{ id: 'r', date: '2026-11-10', name: 'Spende', price: 10, kind: 'donate' }] }, ...fill('b', 1)],
+      // 9c: 5 Schüler, November 4 → 0,8 (gleich mit 7a)
+      g3: [st('c1', [P('2026-11-06', 'excellent'), P('2026-11-09', 'excellent')]), ...fill('c', 4)],
+      g4: [st('d1', [P('2026-11-06', 'excellent'), P('2026-11-07', 'excellent')]), ...fill('d', 4)],
     },
   };
 }
@@ -43,9 +44,9 @@ describe('AX1: Rangliste rechnen', () => {
     const r = snap('g1').ranking;
     expect(r.month).toBe('2026-11');
     expect(r.list).toEqual([
-      { cls: '8b', subject: 'Physik', value: 2.5, place: 1 },
-      { cls: '7a', subject: 'Mathe', value: 2, place: 2, me: true },
-      { cls: '9c', subject: 'Mathe', value: 2, place: 2 },
+      { cls: '8b', subject: 'Physik', value: 2, place: 1 },
+      { cls: '7a', subject: 'Mathe', value: 0.8, place: 2, me: true },
+      { cls: '9c', subject: 'Mathe', value: 0.8, place: 2 },
     ]);
     expect(r.prev).toEqual({ month: '2026-10', winners: [{ cls: '7a', subject: 'Mathe' }] });
   });
@@ -66,6 +67,12 @@ describe('AX1: Rangliste rechnen', () => {
     app('db.settings.studentApp.on = false');
     expect('ranking' in snap('g1')).toBe(false);
   });
+  it('Gruppen unter 5 Schülern machen nicht mit (Wert pro Kopf verriete Einzelne), mit Hinweis', () => {
+    app('db.students.g3 = db.students.g3.slice(0, 4)');
+    expect(snap('g1').ranking.list.map(x => x.cls)).toEqual(['8b', '7a']);
+    expect('ranking' in snap('g3')).toBe(false);
+    expect(app('rankingWaitText(db.groups[2], classRanking("2026-11"))')).toMatch(/Erst ab 5 Schülern \(jetzt 4\)/);
+  });
   it('Vormonat ohne Plusse: kein Sieger', () => {
     vi.setSystemTime(new Date(2026, 9, 5, 10, 0));   // Oktober: September ohne Einträge
     expect(snap('g1').ranking.prev).toBeNull();
@@ -82,6 +89,7 @@ describe('AX1: Schalter im Reiter „Schülerapp“', () => {
     box.checked = true; box.dispatchEvent(new Event('change'));
     expect(app('db.groups[3].studentApp.ranking')).toBe(true);
     expect(document.getElementById('sa-ranking').textContent).toMatch(/8b Physik/);
+    expect(document.getElementById('sa-ranking').textContent).toMatch(/Gruppen unter 5 Schülern/);
     document.getElementById('sa-ranking-on').checked = false;
     document.getElementById('sa-ranking-on').dispatchEvent(new Event('change'));
     expect(app('db.groups[3].studentApp.ranking')).toBe(false);
@@ -102,6 +110,26 @@ describe('AX1: Schalter im Reiter „Schülerapp“', () => {
     const cloud2 = JSON.parse(JSON.stringify(base)); cloud2.groups[0].studentApp.ranking = false;
     expect(app('mergeDB')(base, local2, cloud2).merged.groups[0].studentApp.ranking).toBe(false);
     expect(app('MERGE_SPEC.fields.groups.item.fields.studentApp.fields.ranking.what')).toBe('Rangliste der Klassen');
+  });
+});
+
+describe('AX1: nur die Rangliste anders → höchstens stündlich schreiben (AK3)', () => {
+  it('Plus in einer anderen Klasse schreibt die Seite erst nach 60 Minuten, eigene Änderungen nach 10', async () => {
+    const writes = [];
+    const SM = app('SyncManager');
+    SM.publishShare = async id => { writes.push(id); }; SM.closeShare = async () => {}; SM.deleteShare = async () => true; SM.shareTaken = async () => false;
+    Object.keys(localStorage).filter(k => k.startsWith('sa_')).forEach(k => localStorage.removeItem(k));
+    const A = acc('A').id;
+    const run = async () => { writes.length = 0; await app('publishStudentApps()'); return writes.filter(x => x === A).length; };
+    expect(await run()).toBe(1);                                    // erste Seite sofort
+    vi.setSystemTime(new Date(2026, 10, 12, 10, 20));
+    app('db.students.g2[0].participation.push({ id: "n1", date: "2026-11-12", value: "excellent" })');   // nur 8b ändert sich
+    expect(await run()).toBe(0);                                    // 7a: nur Rangliste anders, 20 Minuten → wartet
+    vi.setSystemTime(new Date(2026, 10, 12, 11, 1));
+    expect(await run()).toBe(1);                                    // nach 60 Minuten
+    vi.setSystemTime(new Date(2026, 10, 12, 11, 12));
+    app('db.groups[0].studentApp.goal = { target: 50, reward: "Spiel", since: "2026-11-01" }');   // eigene Änderung
+    expect(await run()).toBe(1);                                    // nach 10 Minuten wie bisher
   });
 });
 

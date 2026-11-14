@@ -5,6 +5,7 @@ const { loadApp, app } = require('./helpers/load-app');
 const X = `Peter's "Test" <img data-xss src=x>`;
 const acc = c => ({ id: c.repeat(22), key: c.toLowerCase().repeat(43) });
 const st = (id, first, part = [], extra = {}) => ({ id, firstName: first, lastName: 'Muster', grades: [], attendance: [], homework: [], studentNotes: [], participation: part, ...extra });
+const fill = (pre, n) => Array.from({ length: n }, (_, i) => st(pre + i, 'Zoe' + i));   // Rangliste erst ab 5 Schülern
 function sampleDB() {
   return {
     settings: { teacherName: 'T', blocks: null, studentApp: { on: true } },
@@ -19,8 +20,8 @@ function sampleDB() {
       g1: [st('a', 'Anna', [{ id: 'p1', date: '2026-11-02', value: 'excellent' }, { id: 'p2', date: '2026-11-03', value: 'positive' }, { id: 'p0', date: '2026-10-03', value: 'positive' }],
              { redeemed: [{ id: 'r1', date: '2026-11-04', name: 'Platz', price: 2, kind: 'perk' }, { id: 'r2', date: '2026-11-05', name: 'Spende', price: 1, kind: 'donate' }, { id: 'r3', date: '2026-10-05', name: 'alt', price: 5, kind: 'perk' }],
                studentApp: { access: acc('S') } }),
-           st('b', 'Ben', [], { studentApp: { access: acc('T') } })],
-      g2: [st('c', 'Cem', [{ id: 'p3', date: '2026-11-02', value: 'positive' }])],
+           st('b', 'Ben', [], { studentApp: { access: acc('T') } }), ...fill('fa', 3)],
+      g2: [st('c', 'Cem', [{ id: 'p3', date: '2026-11-02', value: 'positive' }]), ...fill('fb', 4)],
       g3: [],
     },
   };
@@ -97,7 +98,8 @@ describe('BE1: Schalter direkt in der Übersicht', () => {
     expect(card('g3').querySelector('[data-hub-switch="ranking"]')).not.toBeNull();
     change(card('g2').querySelector('[data-hub-switch="ranking"]'), false);
     expect(app('db.groups[1].studentApp.ranking')).toBe(false);
-    expect(card('g1').textContent).toMatch(/wartet auf eine zweite Klasse/);
+    expect(document.activeElement).toBe(card('g2').querySelector('[data-hub-switch="ranking"]'));   // Fokus bleibt auf dem Schalter
+    expect(card('g1').textContent).toMatch(/sobald eine zweite deiner Klassen mitmacht/);
   });
   it('persönliche Seiten mit derselben Rückfrage; Abbrechen lässt den Schalter aus', async () => {
     app('openStudentAppHub()');
@@ -128,6 +130,30 @@ describe('BE1: Vorschau', () => {
     expect(card('g2').nextElementSibling.id).toBe('hub-preview');
     app('hubPick("g2")');   // zweites Antippen klappt zu
     expect(hub().querySelector('#hub-preview')).toBeNull();
+  });
+  it('zuklappen und Wechsel schmal → breit verbergen die persönliche Seite wieder (Prüfung 14.11.)', () => {
+    window.innerWidth = 400;
+    app('openStudentAppHub(); hubPick("g1")');
+    hub().querySelector('[data-hub-mode="me"]').click();
+    hub().querySelector('#hub-show').click();
+    expect(hub().querySelector('#hub-frame')).not.toBeNull();
+    app('hubPick("g1")');   // zugeklappt
+    expect(app('hubShown')).toBe(false);
+    app('hubPick("g1")');
+    expect(hub().querySelector('#hub-frame')).toBeNull();
+    hub().querySelector('#hub-show').click();
+    window.innerWidth = 1280;
+    app('hubOnResize()');
+    expect(hub().querySelector('.hub-aside')).not.toBeNull();
+    expect(hub().querySelector('#hub-frame')).toBeNull();
+  });
+  it('„Als Vornamen übernehmen“ zeichnet die Übersicht neu', () => {
+    const d = sampleDB(); d.students.g2.push({ ...st('x', ''), lastName: 'Lena' });
+    load(d);
+    app('openStudentAppHub()');
+    expect(hub().querySelector('#sa-fix-names')).not.toBeNull();
+    app('moveSingleNamesToFirst()');
+    expect(hub().querySelector('#sa-fix-names')).toBeNull();
   });
   it('persönliche Seite erst nach „Anzeigen“, weg beim Schülerwechsel, Verlassen der Seite und der App', () => {
     app('openStudentAppHub()');

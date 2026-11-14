@@ -11,8 +11,8 @@ let hubMode = 'class';      // 'class' | 'me'
 let hubStudentId = null;    // persönliche Seite: welcher Schüler
 let hubShown = false;       // persönliche Seite aufgedeckt (nie gespeichert)
 let hubWide = null;         // zuletzt gezeichnet breit (Vorschau rechts) oder schmal (unter der Karte)
-const HUB_WIDE_MIN = 860;
-const HUB_MONTHS = ['Januar', 'Februar', 'März', 'April', 'Mai', 'Juni', 'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember'];   // gleiche Grenze wie @container hub in style.css
+const HUB_WIDE_MIN = 860;   // ab dieser Breite von #hub-content steht die Vorschau rechts (.hub-grid.is-wide)
+const HUB_MONTHS = ['Januar', 'Februar', 'März', 'April', 'Mai', 'Juni', 'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember'];
 
 const hubActive = () => !!document.getElementById('view-studentapp')?.classList.contains('active');
 function hubIsWide() {
@@ -38,7 +38,9 @@ function hubOnAppHidden() {
   if (hubActive()) renderStudentAppHub();
 }
 function hubOnResize() {
-  if (hubActive() && hubWide !== null && hubWide !== hubIsWide()) renderStudentAppHub();
+  if (!(hubActive() && hubWide !== null && hubWide !== hubIsWide())) return;
+  hubVeil();   // schmal zugeklappt → breit sofort sichtbar: wieder verborgen (Regel 16/67)
+  renderStudentAppHub();
 }
 
 // ── Zahlen je Klasse ──
@@ -106,7 +108,7 @@ function hubCardHTML(g, month, rows, wide) {
       <div><dt>Sieht</dt><dd>${seen.length ? escHtml(seen.join(' · ')) : 'nur den Kopf der Seite'}</dd></div>
       <div><dt>Klassenziel</dt><dd>${goal ? `${count} von ${goal.target}${goal.reward ? `, dann: ${escHtml(goal.reward)}` : ''}
         <span class="sa-bar" role="img" aria-label="${count} von ${goal.target} Plussen"><i style="width:${pct}%"></i></span>` : 'keins'}</dd></div>
-      ${sa.ranking ? `<div><dt>Rangliste</dt><dd>${row ? `Platz ${row.place} von ${rows.length}, ${rankValueText(row.value)} pro Kopf` : 'wartet auf eine zweite Klasse'}</dd></div>` : ''}
+      ${sa.ranking ? `<div><dt>Rangliste</dt><dd>${row ? `Platz ${row.place} von ${rows.length}, ${rankValueText(row.value)} pro Kopf` : escHtml(rankingWaitText(g, rows))}</dd></div>` : ''}
       <div><dt>Plusse ${escHtml(HUB_MONTHS[Number(month.slice(5)) - 1])}</dt><dd>${plus.join(' · ')}</dd></div>
     </dl>`;
   }
@@ -171,7 +173,7 @@ function hubRankingHTML(month, rows) {
     ${rows.length >= 2 ? `<ol class="sa-rank-list">${rows.map(r => `<li><span class="sa-rank-place">${r.place}.</span>
       <span class="sa-rank-name">${escHtml([r.g.className, r.g.subject].filter(Boolean).join(' '))}</span><span class="sa-rank-value">${rankValueText(r.value)}</span></li>`).join('')}</ol>
       <p class="field-hint-muted">Plusse pro Kopf seit dem 1. dieses Monats.</p>`
-    : `<p class="field-hint-muted">${parts ? 'Erst ab zwei teilnehmenden Klassen. Schalte „Rangliste der Klassen“ bei einer weiteren Klasse ein.' : 'Keine Klasse macht mit. Schalte „Rangliste der Klassen“ bei mindestens zwei Klassen ein.'}</p>`}</section>`;
+    : `<p class="field-hint-muted">${parts ? 'Erst ab zwei teilnehmenden Klassen. Schalte „Rangliste der Klassen“ bei einer weiteren Klasse ein.' : `Keine Klasse macht mit. Schalte „Rangliste der Klassen“ bei mindestens zwei Klassen ein (je mindestens ${RANKING_MIN_STUDENTS} Schüler).`}</p>`}</section>`;
 }
 
 // ── Zeichnen ──
@@ -213,6 +215,13 @@ function renderStudentAppHub() {
     </div>${wide ? `<aside class="hub-aside">${hubPreviewHTML(g)}</aside>` : ''}</div>`;
   wireStudentAppHub(content);
 }
+// Nach dem Neuzeichnen den Fokus auf dasselbe Bedienelement zurück (Regel 55, sonst landet die Tastatur oben auf der Seite)
+function hubRefocus(find) {
+  const content = document.getElementById('hub-content');
+  const el = content && find(content);
+  if (el && typeof el.focus === 'function') el.focus({ preventScroll: true });
+}
+const hubCardEl = (content, gid) => [...content.querySelectorAll('.hub-card')].find(c => c.dataset.id === gid) || null;
 function wireStudentAppHub(content) {
   wireSendNow(content);
   wireFixNames(content);
@@ -232,10 +241,11 @@ function wireStudentAppHub(content) {
     hubMode = b.dataset.hubMode;
     hubShown = false;
     renderStudentAppHub();
+    hubRefocus(c => c.querySelector(`[data-hub-mode="${hubMode}"]`));
   }));
-  content.querySelector('#hub-student')?.addEventListener('change', e => { hubStudentId = e.target.value; hubShown = false; renderStudentAppHub(); });
-  content.querySelector('#hub-show')?.addEventListener('click', () => { hubShown = true; renderStudentAppHub(); });
-  content.querySelector('#hub-hide')?.addEventListener('click', () => { hubShown = false; renderStudentAppHub(); });
+  content.querySelector('#hub-student')?.addEventListener('change', e => { hubStudentId = e.target.value; hubShown = false; renderStudentAppHub(); hubRefocus(c => c.querySelector('#hub-student')); });
+  content.querySelector('#hub-show')?.addEventListener('click', () => { hubShown = true; renderStudentAppHub(); hubRefocus(c => c.querySelector('#hub-hide')); });
+  content.querySelector('#hub-hide')?.addEventListener('click', () => { hubShown = false; renderStudentAppHub(); hubRefocus(c => c.querySelector('#hub-show')); });
   const frame = content.querySelector('#hub-frame');
   if (frame) frame.addEventListener('load', () => refreshHubPreview(true));
 }
@@ -244,7 +254,9 @@ function hubPick(gid) {
   if (hubGroupId !== gid) { hubMode = 'class'; hubShown = false; hubStudentId = null; }
   hubGroupId = gid;
   hubPicked = !(again && !hubWide);   // schmal: zweites Antippen klappt die Vorschau wieder zu
+  if (!hubPicked) hubVeil();          // zugeklappt heißt auch verborgen
   renderStudentAppHub();
+  hubRefocus(c => hubCardEl(c, gid)?.querySelector('.hub-card-name'));
   const target = hubWide ? null : document.getElementById('hub-preview');
   if (target && typeof target.scrollIntoView === 'function') target.scrollIntoView({ block: 'nearest' });
 }
@@ -253,7 +265,9 @@ async function hubSwitch(gid, key, on) {
   else if (key === 'ranking') setStudentAppRanking(gid, on);
   else if (key === 'personal') await setPersonalOn(gid, on);
   else if (key === 'shop') await setShopOn(gid, on);
-  if (hubActive()) renderStudentAppHub();   // auch bei „Abbrechen“: Schalter zurück auf den gespeicherten Stand
+  if (!hubActive()) return;
+  renderStudentAppHub();   // auch bei „Abbrechen“: Schalter zurück auf den gespeicherten Stand
+  hubRefocus(c => hubCardEl(c, gid)?.querySelector(`[data-hub-switch="${key}"]`));
 }
 // Nach Sync und Versand: nur Status und Vorschau, sonst nähme das Neuzeichnen den Fokus und lüde die Vorschau neu
 function refreshStudentAppHub() {

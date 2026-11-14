@@ -66,7 +66,16 @@ function classDonated(g, since) {
 // Rangliste der Klassen (AX1, „Klasse des Monats“): alle eigenen Klassen mit freigegebener Schülerapp und eingeschaltetem
 // Schalter in einer Liste. Gezählt werden verdiente Plusse im Kalendermonat (+ 1, ++ 2, auch mit Titel, ohne Spenden),
 // geteilt durch die Zahl der Schüler. Gleicher (gerundeter) Wert, gleicher Platz. Nur Summen je Klasse, nie Namen (Regel 95).
-const rankingGroups = () => (studentAppOn() ? db.groups.filter(g => { const sa = studentAppOf(g); return sa.on && sa.access && sa.ranking && (db.students[g.id] || []).length; }) : []);
+// Kleine Gruppen (Förderkurs, Wahlfach) machen nicht mit: Ihr Wert pro Kopf verriete fast einzelne Schüler (Prüfung 14.11.)
+const RANKING_MIN_STUDENTS = 5;
+const rankingGroups = () => (studentAppOn() ? db.groups.filter(g => { const sa = studentAppOf(g); return sa.on && sa.access && sa.ranking && (db.students[g.id] || []).length >= RANKING_MIN_STUDENTS; }) : []);
+// Warum eine Klasse mit Schalter (noch) nicht in der Rangliste steht – für Reiter und Übersicht
+function rankingWaitText(g, rows) {
+  const n = (db.students[g.id] || []).length;
+  if (n < RANKING_MIN_STUDENTS) return `Erst ab ${RANKING_MIN_STUDENTS} Schülern (jetzt ${n}): Bei kleineren Gruppen verriete der Wert pro Kopf fast einzelne Schüler.`;
+  if (!rows.some(r => r.g === g) || rows.length < 2) return 'Die Klasse sieht die Rangliste, sobald eine zweite deiner Klassen mitmacht (Schalter im Reiter „Schülerapp“ der anderen Klasse).';
+  return '';
+}
 function classMonthPlusses(g, month) {
   let n = 0;
   (db.students[g.id] || []).forEach(s => (s.participation || []).forEach(p => {
@@ -288,11 +297,12 @@ async function saTryPublish(id, write) {
 // Seltener schreiben (AK3): eine geänderte Seite höchstens alle 10 Minuten neu; neue Seiten, Abschalten, „Jetzt senden“
 // und Verlassen der App sofort. Was wartet, merkt sich `saPendingAt` (früheste Uhrzeit), ein Zeitgeber holt es nach.
 const SA_REPUBLISH_MS = 10 * 60 * 1000;
+const SA_RANKING_MS = 60 * 60 * 1000;   // nur die Rangliste anders (AX1): Ein Plus in einer Klasse ändert alle teilnehmenden Seiten
 let saPendingAt = null, saPublishTimer = null, saForceAgain = false;
-function saPublishDue(mark, hash, force) {
+function saPublishDue(mark, hash, force, wait = SA_REPUBLISH_MS) {
   if (mark.hash === hash) return false;
-  if (force || !mark.at || Date.now() - mark.at >= SA_REPUBLISH_MS) return true;
-  const due = mark.at + SA_REPUBLISH_MS;
+  if (force || !mark.at || Date.now() - mark.at >= wait) return true;
+  const due = mark.at + wait;
   if (!saPendingAt || due < saPendingAt) saPendingAt = due;
   return false;
 }
@@ -313,10 +323,13 @@ async function publishStudentApps(force = false) {
       if (studentAppOn() && sa.on) {
         const snap = studentAppSnapshot(g);
         const hash = await contentHash(JSON.stringify(snap));
+        // Hat sich nur die Rangliste geändert (gleicher Rest `core`), höchstens stündlich schreiben (AX1, AK3)
+        const core = snap.ranking ? await contentHash(JSON.stringify({ ...snap, ranking: null })) : hash;
+        const mark = saRead(markKey, {}) || {};
         // Unveränderte Klassenseite nur überspringen, nicht die ganze Klasse: sonst kamen die persönlichen Seiten nie an (09.11.)
-        if (saPublishDue(saRead(markKey, {}) || {}, hash, force)) {
+        if (saPublishDue(mark, hash, force, mark.core === core ? SA_RANKING_MS : SA_REPUBLISH_MS)) {
           const enc = await StudentShare.encrypt({ ...snap, at: Date.now() }, sa.access.key);
-          if (await saTryPublish(sa.access.id, () => SyncManager.publishShare(sa.access.id, enc))) saWrite(markKey, { hash, at: Date.now() });
+          if (await saTryPublish(sa.access.id, () => SyncManager.publishShare(sa.access.id, enc))) saWrite(markKey, { hash, core, at: Date.now() });
         }
       } else if (saRead(markKey, null)) {
         if (await saTryPublish(sa.access.id, () => SyncManager.closeShare(sa.access.id))) saWrite(markKey, null);
@@ -490,7 +503,7 @@ function moveSingleNamesToFirst() {
     renameAbsenceNotes(gid, old, s);
     return { gid, s, old, name: s.firstName };
   });
-  const refresh = () => { [...new Set(moved.map(x => x.gid))].forEach(refreshStudentViews); renderStudentAppTab(); };
+  const refresh = () => { [...new Set(moved.map(x => x.gid))].forEach(refreshStudentViews); renderStudentAppTab(); if (hubActive()) renderStudentAppHub(); };
   saveDB();
   refresh();
   showUndoToast(`${moved.length} Namen als Vornamen übernommen`, () => {
@@ -598,10 +611,10 @@ function rankingCardHTML(g) {
     ? `<ol class="sa-rank-list">${rows.map(r => `<li${r.g === g ? ' class="is-me"' : ''}><span class="sa-rank-place">${r.place}.</span>
         <span class="sa-rank-name">${escHtml([r.g.className, r.g.subject].filter(Boolean).join(' '))}</span><span class="sa-rank-value">${rankValueText(r.value)}</span></li>`).join('')}</ol>
       <p class="field-hint-muted">Plusse pro Kopf seit dem 1. dieses Monats. Am Monatsende gewinnt die Klasse vorn, im nächsten Monat zählt es neu.</p>`
-    : '<p class="field-hint-muted">Die Klasse sieht die Rangliste, sobald eine zweite deiner Klassen mitmacht (Schalter im Reiter „Schülerapp“ der anderen Klasse).</p>';
+    : `<p class="field-hint-muted">${escHtml(rankingWaitText(g, rows))}</p>`;
   return `<section class="set-card sa-card" id="sa-ranking">
       <div class="sa-head"><div><h3 class="sa-subtitle">Rangliste der Klassen</h3>
-        <p class="sa-status">„Klasse des Monats“: Deine Klassen sammeln gegeneinander, gezählt werden Plusse pro Kopf im laufenden Monat (+ zählt 1, ++ zählt 2). Jede teilnehmende Klasse sieht Name, Fach und Wert der anderen, nie Namen von Schülern.</p></div>
+        <p class="sa-status">„Klasse des Monats“: Deine Klassen sammeln gegeneinander, gezählt werden Plusse pro Kopf im laufenden Monat (+ zählt 1, ++ zählt 2). Jede teilnehmende Klasse sieht Name, Fach und Wert der anderen, nie Namen von Schülern. Gruppen unter ${RANKING_MIN_STUDENTS} Schülern machen nicht mit.</p></div>
         <label class="toggle-switch" title="An der Rangliste teilnehmen"><input type="checkbox" id="sa-ranking-on" aria-label="Die ${cls} nimmt an der Rangliste teil"${sa.ranking ? ' checked' : ''}><span class="toggle-slider"></span></label></div>
       ${list}
     </section>`;
