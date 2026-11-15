@@ -153,6 +153,8 @@ function freezeRankingWinners(now = new Date()) {
   db.settings.rankingWinners = { ...kept, [prev]: rankingWinnersNow(prev) };
   persistDB();
 }
+// Wer in der Rangliste steht (ohne Werte und Plätze): Ändert sich das, gehen die Seiten sofort raus (BE5)
+const rankingMembers = r => (r ? { month: r.month, list: (r.list || []).map(x => [x.cls, x.subject]).sort((a, b) => String(a).localeCompare(String(b))), prev: r.prev || null } : null);
 function rankingSnapshot(g, now) {
   if (!studentAppOf(g).ranking) return null;
   const month = monthOf(now);
@@ -384,13 +386,17 @@ async function publishStudentApps(force = false) {
       if (studentAppOn() && sa.on) {
         const snap = studentAppSnapshot(g);
         const hash = await contentHash(JSON.stringify(snap));
-        // Hat sich nur die Rangliste geändert (gleicher Rest `core`), höchstens stündlich schreiben (AX1, AK3)
-        const core = snap.ranking ? await contentHash(JSON.stringify({ ...snap, ranking: null })) : hash;
+        // Haben sich nur Werte und Plätze der Rangliste geändert (gleicher Rest `core`, gleiche Teilnehmer `who`), höchstens
+        // stündlich schreiben (AX1, AK3). Kommt eine Klasse dazu oder fällt eine weg (auch die ganze Rangliste), sofort:
+        // Eine abgewählte Klasse blieb sonst bis zu einer Stunde auf den anderen Seiten stehen (BE5)
+        const core = await contentHash(JSON.stringify({ ...snap, ranking: null }));
+        const who = await contentHash(JSON.stringify(rankingMembers(snap.ranking)));
         const mark = saRead(markKey, {}) || {};
+        const whoChanged = typeof mark.who === 'string' && mark.who !== who;
         // Unveränderte Klassenseite nur überspringen, nicht die ganze Klasse: sonst kamen die persönlichen Seiten nie an (09.11.)
-        if (saPublishDue(mark, hash, force, mark.core === core ? SA_RANKING_MS : SA_REPUBLISH_MS)) {
+        if (saPublishDue(mark, hash, force || whoChanged, mark.core === core && mark.who === who ? SA_RANKING_MS : SA_REPUBLISH_MS)) {
           const enc = await StudentShare.encrypt({ ...snap, at: Date.now() }, sa.access.key);
-          if (await saTryPublish(sa.access.id, () => SyncManager.publishShare(sa.access.id, enc))) saWrite(markKey, { hash, core, at: Date.now() });
+          if (await saTryPublish(sa.access.id, () => SyncManager.publishShare(sa.access.id, enc))) saWrite(markKey, { hash, core, who, at: Date.now() });
         }
       } else if (saRead(markKey, null)) {
         if (await saTryPublish(sa.access.id, () => SyncManager.closeShare(sa.access.id))) saWrite(markKey, null);

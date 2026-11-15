@@ -183,6 +183,42 @@ describe('AX1: nur die Rangliste anders → höchstens stündlich schreiben (AK3
   });
 });
 
+describe('BE5: Klasse aus der Rangliste nehmen → die anderen Seiten sofort neu (Fehler 15.11.)', () => {
+  it('abgewählte Klasse verschwindet sofort von den anderen Seiten, nicht erst nach 60 Minuten', async () => {
+    const writes = [];
+    const SM = app('SyncManager');
+    SM.publishShare = async (id, enc) => { writes.push({ id, enc }); }; SM.closeShare = async () => {}; SM.deleteShare = async () => true; SM.shareTaken = async () => false;
+    Object.keys(localStorage).filter(k => k.startsWith('sa_')).forEach(k => localStorage.removeItem(k));
+    const A = acc('A'), B = acc('B');
+    await app('publishStudentApps()');
+    vi.setSystemTime(new Date(2026, 10, 12, 10, 3));
+    app('setStudentAppRanking("g2", false)');
+    writes.length = 0;
+    await app('publishStudentApps()');
+    const page = async c => { const w = writes.find(x => x.id === c.id); return w ? app('StudentShare').decrypt(w.enc, c.key) : null; };
+    const a = await page(A);
+    expect(a).not.toBeNull();                                    // 7a sofort neu geschrieben
+    expect(a.ranking.list.map(x => x.cls)).toEqual(['9c', '7a']);   // ohne 8b
+    const b = await page(B);
+    expect(b && 'ranking' in b).toBe(false);                    // 8b selbst ohne Rangliste
+  });
+  it('fällt die vorletzte Klasse weg, verschwindet die Rangliste auch bei der letzten sofort', async () => {
+    const writes = [];
+    const SM = app('SyncManager');
+    SM.publishShare = async (id, enc) => { writes.push({ id, enc }); }; SM.closeShare = async () => {}; SM.deleteShare = async () => true; SM.shareTaken = async () => false;
+    Object.keys(localStorage).filter(k => k.startsWith('sa_')).forEach(k => localStorage.removeItem(k));
+    app('db.groups[2].studentApp.ranking = false');
+    await app('publishStudentApps()');
+    vi.setSystemTime(new Date(2026, 10, 12, 10, 3));
+    app('setStudentAppRanking("g2", false)');
+    writes.length = 0;
+    await app('publishStudentApps()');
+    const w = writes.find(x => x.id === acc('A').id);
+    expect(w).toBeTruthy();
+    expect('ranking' in await app('StudentShare').decrypt(w.enc, acc('A').key)).toBe(false);
+  });
+});
+
 describe('AX1: Schülerseite', () => {
   const page = () => document.getElementById('page') || document.body;
   const NOW = new Date(2026, 10, 12, 10, 0);
