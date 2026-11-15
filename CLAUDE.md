@@ -277,6 +277,8 @@ Datumswerte sind Strings `YYYY-MM-DD` in **lokaler** Zeit (`formatDate()`). Nie 
 
 102. **Schülerapp-Übersicht nur über `renderStudentAppHub`** (BE1, Seite `view-studentapp`, gehört im Menü zu „Klassen“). Geschaltet wird nur über die `set…`-Funktionen des Reiters „Schülerapp“ (gleiche Rückfragen), danach neu zeichnen; Hintergrund-Ereignisse (Versand, Sync) frischen nur Status und Vorschau auf (`refreshStudentAppHub`). Die persönliche Seite in der Vorschau erst nach „Anzeigen“ (`hubShown`, nie gespeichert; weg bei Klassen- oder Schülerwechsel, Verlassen der Seite über `switchView` und der App über `hubOnAppHidden`). Sonst zeigt die Seite nur Summen je Klasse. Breit (`HUB_WIDE_MIN`, gemessen an `#hub-content`) steht die Vorschau rechts, schmal unter der angetippten Karte; Zuklappen und Wechsel der Breite verbergen die persönliche Seite wieder. Nach jedem Neuzeichnen durch eine Bedienung geht der Fokus über `hubRefocus` auf dasselbe Element. Wer im Reiter „Schülerapp“ einen neuen Schalter oder eine neue Angabe einbaut, prüft, ob sie auch in die Übersicht gehört.
 
+103. **Unterrichtsinhalte kopieren nur über `lessonContentText`** (BE6, Einstellungen → Daten, Fenster `modal-copy-content`): nur Text in die Zwischenablage, nie gesendet. Inhalt je gehaltene Stunde das abgehakte Thema (`topicDoneIn`) und „Was wurde behandelt“ (`done`), **nie** Stundennotizen (`notes`), Noten oder Schülerdaten (der Text geht oft in einen KI-Dienst). Gewählter Zeitraum nur auf dem Gerät (`copy_content_range`), nie in `db`.
+
 ## Arbeitsablauf
 
 1. Aufgabe aus `BUGS.md` wählen (ein Block pro Sitzung).

@@ -599,6 +599,88 @@ function downloadBackupFile(data, suffix = '') {
   a.download = `Unterrichtsplaner_Backup${suffix}_${dateStr}_${timeStr}.json`;
   a.click();
 }
+// ── Unterrichtsinhalte aller Klassen kopieren (BE6) ──
+// Text für die Zwischenablage, z. B. zum Einfügen in einen KI-Dienst: Klassen sortiert (5a, 5b, 10c; bei gleicher
+// Klasse nach Fach), je gehaltene Stunde das abgehakte Thema der Planung und der Text aus „Was wurde behandelt“.
+// Nie Stundennotizen (darin stehen oft Schülernamen). Stunden wie im Stundenplan über lessonsOnDate: ohne Ausfall,
+// heute nur begonnene, einmalige auch in den Ferien. Zeitraum: 'last' | 'week' | 'since' | 'year'.
+const COPY_CONTENT_RANGES = ['last', 'week', 'since', 'year'];
+const copyDateDE = ds => `${ds.slice(8, 10)}.${ds.slice(5, 7)}.${ds.slice(0, 4)}`;
+function lessonContentEntries(fromStr, now) {
+  const todayStr = formatDate(now), nowMins = now.getHours() * 60 + now.getMinutes();
+  const byGroup = new Map(db.groups.map(g => [g.id, []]));
+  for (let d = parseDate(fromStr), i = 0; formatDate(d) <= todayStr && i < 400; d = addDays(d, 1), i++) {
+    const ds = formatDate(d);
+    lessonsOnDate(ds).forEach(l => {
+      const g = db.groups.find(x => x.id === l.slot.groupId);
+      if (!g || l.ausfall || (ds === todayStr && !(l.range && l.range.start <= nowMins))) return;
+      const key = lessonKeyOf(l);
+      const topic = topicDoneIn(g, key);
+      const title = topic ? String(topic.title || '').replace(/\s+/g, ' ').trim() : '';
+      const done = String((db.lessonData[key] || {}).done || '').split('\n').map(x => x.trim()).filter(Boolean).join(' / ');
+      const textOut = title && done && done.toLowerCase() !== title.toLowerCase() ? `${title}: ${done}` : (title || done);
+      if (textOut) byGroup.get(g.id).push({ date: ds, text: textOut });
+    });
+  }
+  return byGroup;
+}
+function lessonContentText(mode, sinceStr = null, now = new Date()) {
+  const todayStr = formatDate(now);
+  const yearStart = schoolYearStart(todayStr);
+  const from = mode === 'week' ? formatDate(mondayOf(parseDate(todayStr)))
+    : mode === 'since' ? (isDateStr(sinceStr) && sinceStr <= todayStr ? sinceStr : todayStr) : yearStart;
+  const head = mode === 'last' ? `Unterrichtsinhalte, letzte Stunde je Klasse (Stand ${copyDateDE(todayStr)})`
+    : mode === 'week' ? `Unterrichtsinhalte diese Woche (${copyDateDE(from).slice(0, 6)}–${copyDateDE(todayStr)})`
+    : mode === 'since' ? `Unterrichtsinhalte seit ${copyDateDE(from)}`
+    : `Unterrichtsinhalte Schuljahr ${schoolYearLabel(parseDate(todayStr))}`;
+  const entries = lessonContentEntries(from, now);
+  const groups = db.groups.slice().sort((a, b) => String(a.className || '').localeCompare(String(b.className || ''), 'de', { numeric: true })
+    || String(a.subject || '').localeCompare(String(b.subject || ''), 'de'));
+  const name = g => [g.className, g.subject].map(x => String(x || '').trim()).filter(Boolean).join(' ');
+  const line = e => `${formatWeekdayShort(e.date)}: ${e.text}`;
+  if (mode === 'last') {
+    return [head, '', ...groups.map(g => { const list = entries.get(g.id), e = list[list.length - 1];
+      return e ? `${name(g)} (${formatWeekdayShort(e.date)}): ${e.text}` : `${name(g)}: nichts eingetragen`; })].join('\n');
+  }
+  return [head, ...groups.map(g => { const list = entries.get(g.id);
+    return ['', name(g), ...(list.length ? list.map(e => '- ' + line(e)) : ['- nichts eingetragen'])].join('\n'); })].join('\n');
+}
+// Gewählter Zeitraum nur auf dem Gerät (nie in db); das Datum „seit“ gilt nur, solange das Fenster offen ist
+function copyContentRange() {
+  let v = null;
+  try { v = localStorage.getItem('copy_content_range'); } catch (e) { /* privat: Standard */ }
+  return COPY_CONTENT_RANGES.includes(v) ? v : 'week';
+}
+function openCopyLessonContent() {
+  if (!db.groups.length) { showToast('Noch keine Klassen', 'error'); return; }
+  const today = formatDate(new Date());
+  const sel = document.getElementById('copy-content-range');
+  sel.onchange = renderCopyContent; document.getElementById('copy-content-since').onchange = renderCopyContent;   // Regel 19
+  sel.value = copyContentRange();
+  document.getElementById('copy-content-since').value = today.slice(0, 8) + '01';
+  renderCopyContent();
+  openModal('modal-copy-content');
+}
+function renderCopyContent() {
+  const mode = document.getElementById('copy-content-range').value;
+  try { localStorage.setItem('copy_content_range', mode); } catch (e) { /* egal */ }
+  document.getElementById('copy-content-since-row').classList.toggle('hidden', mode !== 'since');
+  document.getElementById('copy-content-text').value = lessonContentText(mode, document.getElementById('copy-content-since').value);
+}
+async function copyLessonContent() {
+  renderCopyContent();   // frisch rechnen: Fenster kann seit gestern offen sein (Regel 24)
+  const area = document.getElementById('copy-content-text');
+  try {
+    await navigator.clipboard.writeText(area.value);
+    showToast('Inhalte kopiert ✓');
+  } catch (e) {
+    area.focus(); area.select();
+    let ok = false;
+    try { ok = document.execCommand('copy'); } catch (e2) { ok = false; }
+    showToast(ok ? 'Inhalte kopiert ✓' : 'Kopieren ging nicht. Text ist markiert, bitte selbst kopieren.', ok ? undefined : 'error');
+  }
+}
+
 function exportData() {
   downloadBackupFile(db);
   

@@ -61,7 +61,7 @@
       }
     })();
   </script>
-  <link rel="stylesheet" href="style.css?v=576" />
+  <link rel="stylesheet" href="style.css?v=578" />
   <script>
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
@@ -1152,6 +1152,13 @@
 </section>
 <section class="set-card">
       <div class="settings-section">
+        <h3>Unterrichtsinhalte kopieren</h3>
+        <p class="field-hint-muted">Alle Klassen auf einmal, sortiert und mit Klassennamen: was du in „Was wurde behandelt“ eingetragen und in der Planung abgehakt hast. Zum Einfügen in ein Dokument oder einen KI-Dienst.</p>
+        <div><button type="button" class="btn-secondary" onclick="openCopyLessonContent()"><i data-icon="copy"></i>Inhalte kopieren …</button></div>
+      </div>
+</section>
+<section class="set-card">
+      <div class="settings-section">
         <h3>Neues Schuljahr</h3>
         <p class="field-hint-muted">Klassen ins neue Jahr übernehmen (Schüler bleiben), das alte Jahr sichern und aufräumen: Noten, Fehlzeiten, Notizen und Stundenplan werden gelöscht. Die App führt Schritt für Schritt durch.</p>
         <div><button type="button" class="btn-secondary" onclick="openNewYear()"><i data-icon="calendar"></i>Neues Schuljahr beginnen</button></div>
@@ -1809,6 +1816,38 @@
     </div>
   </div>
 
+  <!-- Unterrichtsinhalte kopieren (BE6): nur Zwischenablage, nie Stundennotizen -->
+  <div id="modal-copy-content" class="modal-overlay hidden" onclick="closeModalOnOverlay(event,'modal-copy-content')">
+    <div class="modal modal-small" onclick="event.stopPropagation()">
+      <div class="modal-header">
+        <h2>Unterrichtsinhalte kopieren</h2>
+        <button class="modal-close" aria-label="Schließen" onclick="closeModal('modal-copy-content')">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="copy-content-opts">
+          <div class="form-group">
+            <label for="copy-content-range">Zeitraum</label>
+            <select id="copy-content-range" class="form-input">
+              <option value="last">Letzte Stunde je Klasse</option>
+              <option value="week">Diese Woche</option>
+              <option value="since">Seit einem Datum</option>
+              <option value="year">Ganzes Schuljahr</option>
+            </select>
+          </div>
+          <div class="form-group hidden" id="copy-content-since-row">
+            <label for="copy-content-since">Seit</label>
+            <input type="date" id="copy-content-since" class="form-input" />
+          </div>
+        </div>
+        <textarea id="copy-content-text" class="form-input copy-content-text" readonly rows="12" aria-label="Vorschau des kopierten Texts"></textarea>
+        <p class="field-hint-muted">Nur in die Zwischenablage, gesendet wird nichts. Stundennotizen bleiben weg. Fügst du den Text in einen KI-Dienst ein, landet er dort: In „Was wurde behandelt“ deshalb keine Schülernamen.</p>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-primary" onclick="copyLessonContent()"><i data-icon="copy"></i>Kopieren</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Sync Conflict Modal -->
   <!-- Schnellsuche (AH19): nie Noten, Hinweise oder Schülernotizen -->
   <div id="modal-search" class="modal-overlay hidden" onclick="closeModalOnOverlay(event,'modal-search')">
@@ -1940,31 +1979,31 @@
   </div>
 
   <script src="lib/crypto-js.min.js"></script>
-  <script src="crypto-helper.js?v=576"></script>
+  <script src="crypto-helper.js?v=578"></script>
   <script src="lib/firebase-app-compat.js"></script>
   <script src="lib/firebase-auth-compat.js"></script>
   <script src="lib/firebase-firestore-compat.js"></script>
-  <script src="firebase-config.js?v=576"></script>
-  <script src="sync-manager.js?v=576"></script>
-  <script src="sync-merge.js?v=576"></script>
+  <script src="firebase-config.js?v=578"></script>
+  <script src="sync-manager.js?v=578"></script>
+  <script src="sync-merge.js?v=578"></script>
   <script src="lib/qrcode.js"></script>
-  <script src="student-share.js?v=576"></script>
-  <script src="js/grundlagen.js?v=576"></script>
-  <script src="js/termine.js?v=576"></script>
-  <script src="js/stundenplan.js?v=576"></script>
-  <script src="js/stunde.js?v=576"></script>
-  <script src="js/planung.js?v=576"></script>
-  <script src="js/klassen.js?v=576"></script>
-  <script src="js/noten.js?v=576"></script>
-  <script src="js/schueler-fenster.js?v=576"></script>
-  <script src="js/sitzplan.js?v=576"></script>
-  <script src="js/dashboard.js?v=576"></script>
-  <script src="js/einstellungen.js?v=576"></script>
-  <script src="js/bericht.js?v=576"></script>
-  <script src="js/sync.js?v=576"></script>
-  <script src="js/schuelerapp-planer.js?v=576"></script>
-  <script src="js/scanner.js?v=576"></script>
-  <script src="js/schuelerapp-hub.js?v=576"></script>
-  <script src="js/start.js?v=576"></script>
+  <script src="student-share.js?v=578"></script>
+  <script src="js/grundlagen.js?v=578"></script>
+  <script src="js/termine.js?v=578"></script>
+  <script src="js/stundenplan.js?v=578"></script>
+  <script src="js/stunde.js?v=578"></script>
+  <script src="js/planung.js?v=578"></script>
+  <script src="js/klassen.js?v=578"></script>
+  <script src="js/noten.js?v=578"></script>
+  <script src="js/schueler-fenster.js?v=578"></script>
+  <script src="js/sitzplan.js?v=578"></script>
+  <script src="js/dashboard.js?v=578"></script>
+  <script src="js/einstellungen.js?v=578"></script>
+  <script src="js/bericht.js?v=578"></script>
+  <script src="js/sync.js?v=578"></script>
+  <script src="js/schuelerapp-planer.js?v=578"></script>
+  <script src="js/scanner.js?v=578"></script>
+  <script src="js/schuelerapp-hub.js?v=578"></script>
+  <script src="js/start.js?v=578"></script>
 </body>
 </html>

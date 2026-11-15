@@ -2507,3 +2507,9 @@ input, textarea, [contenteditable="true"]{-webkit-user-select:text;user-select:t
   #nav-dashboard.sync-alert::after{content:'';position:absolute;top:6px;left:calc(50% + 4px);width:9px;height:9px;border-radius:50%;background:var(--warning);}
 }
 /* Ende Sync-Stand (AN1) */
+
+/* Unterrichtsinhalte kopieren (BE6): Zeitraum und Datum nebeneinander, Vorschau als Textfeld (markierbar, scrollt) */
+.copy-content-opts{display:flex;flex-wrap:wrap;gap:var(--space-2) var(--space-3);}
+.copy-content-opts .form-group{flex:1 1 180px;min-width:0;}
+.copy-content-text{display:block;width:100%;box-sizing:border-box;min-height:220px;resize:vertical;font-size:13px;line-height:1.5;white-space:pre-wrap;}
+.copy-content-text + .field-hint-muted{margin-top:var(--space-2);}
