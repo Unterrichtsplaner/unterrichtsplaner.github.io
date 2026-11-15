@@ -664,6 +664,49 @@ function goBackToSubjects() {
   renderSubjectGroups();
 }
 
+// ── Schülerliste sortieren und durchnummerieren (BE9) ──
+// Wahl nur auf dem Gerät (student_list_sort, nie in db), eine für alle Klassen. Notenschnitt und Mitarbeit nur, solange
+// die Noten aufgedeckt sind (Beamer-Schutz, Regel 16): Sonst verriete die Reihenfolge die Leistung, dann alphabetisch.
+const STUDENT_LIST_SORTS = [['first', 'Vorname'], ['last', 'Nachname'], ['avg', 'Notenschnitt'], ['part', 'Mitarbeit'], ['absent', 'Fehltage']];
+const STUDENT_SORT_PRIVATE = ['avg', 'part'];
+function studentListSortChoice() {
+  let v = null;
+  try { v = localStorage.getItem('student_list_sort'); } catch (e) { /* privat: Standard */ }
+  if (STUDENT_LIST_SORTS.some(([k]) => k === v)) return v;
+  return (db.settings && db.settings.studentSortOrder) === 'lastName' ? 'last' : 'first';
+}
+function setStudentListSort(v) {
+  if (!STUDENT_LIST_SORTS.some(([k]) => k === v)) return;
+  try { localStorage.setItem('student_list_sort', v); } catch (e) { /* egal: gilt dann nur bis zum Neuladen nicht */ }
+  renderStudents();
+}
+function sortStudentList(students, mode, groupId, range) {
+  const byName = (key) => (a, b) => {
+    const [x, y] = key === 'last' ? ['lastName', 'firstName'] : ['firstName', 'lastName'];
+    return (a[x] || '').localeCompare(b[x] || '', 'de') || (a[y] || '').localeCompare(b[y] || '', 'de');
+  };
+  const base = byName((db.settings && db.settings.studentSortOrder) === 'lastName' ? 'last' : 'first');
+  if (mode === 'first' || mode === 'last') return [...students].sort(byName(mode));
+  const score = new Map(students.map(s => {
+    if (mode === 'avg') {
+      const avg = calculateStudentAverage(s, groupId, range);
+      if (avg === null) return [s, [1, 0]];   // ohne Noten zuletzt
+      return [s, [0, gradeScale(groupId).higherIsBetter ? -avg : avg]];   // beste zuerst, je Skala (Regel 1)
+    }
+    if (mode === 'part') {
+      const n = partCounts(periodList(s.participation, range));
+      return [s, [-(2 * n[0] + n[1]), n[3] * 2 + n[2]]];   // meiste Plusse, bei Gleichstand weniger Minus
+    }
+    const att = periodList(s.attendance, range);
+    const un = att.filter(a => a.type === 'abwesend').length, ex = att.filter(a => a.type === 'entschuldigt').length;
+    return [s, [-(un + ex), -un]];   // meiste Fehltage, bei Gleichstand mehr unentschuldigte
+  }));
+  return [...students].sort((a, b) => {
+    const x = score.get(a), y = score.get(b);
+    return x[0] - y[0] || x[1] - y[1] || base(a, b);
+  });
+}
+
 function renderStudents() {
   hideCounterHint();  // ihr Zähler wird gleich neu gezeichnet
   const container = document.getElementById('students-container');
@@ -682,15 +725,29 @@ function renderStudents() {
   }
   // Schlichte Liste mit Kopfzeile statt einer Karte je Schüler (BUGS AE8)
   const showGrades = classGradesShown;   // Beamer-Schutz (AH24 c): Schnitt und Mitarbeit nur auf Knopfdruck
-  container.innerHTML = (showGrades ? '' : gradesVeilHTML('Schnitte und Mitarbeit sind verborgen, damit am Beamer niemand mitliest.'))
+  // BE9: Anzahl und Sortierung über der Liste; private Sortierungen nur mit aufgedeckten Noten
+  const sortChoice = studentListSortChoice();
+  const sortVeiled = !showGrades && STUDENT_SORT_PRIVATE.includes(sortChoice);
+  const sortMode = sortVeiled ? ((db.settings && db.settings.studentSortOrder) === 'lastName' ? 'last' : 'first') : sortChoice;
+  const sortOptions = STUDENT_LIST_SORTS.filter(([k]) => showGrades || !STUDENT_SORT_PRIVATE.includes(k));
+  const barHTML = `<div class="students-bar"><span class="students-count">${students.length} Schüler</span>
+    ${sortVeiled ? `<span class="students-sort-note">nach ${escHtml(STUDENT_LIST_SORTS.find(([k]) => k === sortChoice)[1])} erst nach „Anzeigen“</span>` : ''}
+    <label class="classes-sort students-sort" title="Schülerliste sortieren">${icon('list')}
+      <select id="students-sort" aria-label="Schülerliste sortieren">${sortOptions.map(([k, label]) => `<option value="${k}"${k === sortMode ? ' selected' : ''}>${label}</option>`).join('')}</select></label></div>`;
+  container.innerHTML = barHTML + (showGrades ? '' : gradesVeilHTML('Schnitte und Mitarbeit sind verborgen, damit am Beamer niemand mitliest.'))
     + `<div class="students-head${showGrades ? '' : ' is-veiled'}" aria-hidden="true">${isStudentEditMode ? '<span class="students-head-cb"></span>' : ''}
     <span class="students-head-main">Name</span>${showGrades ? `<span class="students-head-part">Mitarbeit ${PART_LEVELS.map(l => l.sign).join(' / ')}</span>` : ''}
     <span class="students-head-att">Fehlt F / E</span>${showGrades ? '<span class="students-head-avg">Ø</span>' : ''}</div>`;
   wireGradesVeil(container);
+  const sortSel = container.querySelector('#students-sort');
+  sortSel.value = sortMode;
+  sortSel.addEventListener('change', () => setStudentListSort(sortSel.value));   // Regel 19
   const scale = gradeScale(currentGroupId);
   const todayStr = formatDate(new Date());
   const range = viewPeriod(todayStr);   // Halbjahr (Y7)
-  sortStudents(students).forEach(s => {
+  const listName = s => (sortMode === 'first' || sortMode === 'last') && s.firstName && s.lastName
+    ? (sortMode === 'last' ? `${s.lastName}, ${s.firstName}` : `${s.firstName} ${s.lastName}`) : studentListName(s);
+  sortStudentList(students, sortMode, currentGroupId, range).forEach((s, idx) => {
     const avg = calculateStudentAverage(s, currentGroupId, range);
     const att = periodList(s.attendance, range), part = periodList(s.participation, range);
     const attUnexcused = att.filter(a => a.type==='abwesend').length;
@@ -707,9 +764,10 @@ function renderStudents() {
     // Ankreuzfeld stehen daneben als eigene Elemente. Im Bearbeiten-Modus kreuzt ein Tipp auf die Zeile an.
     const row = document.createElement('div');
     row.className = 'student-row';
-    const nameText = escHtml(studentListName(s));
+    const nameText = escHtml(listName(s));
     row.innerHTML = `
       ${isStudentEditMode ? `<input type="checkbox" class="student-select-cb" data-id="${escHtml(s.id)}" aria-label="${nameText} auswählen" onclick="event.stopPropagation(); updateMassDeleteBar()" style="margin-right: var(--space-3); width: 18px; height: 18px; cursor: pointer;">` : ''}
+      <span class="student-num" aria-hidden="true">${idx + 1}</span>
       <div class="student-info">
         ${isStudentEditMode ? `<div class="student-name">${nameText}</div>`
           : `<button type="button" class="student-name student-open" data-id="${escHtml(s.id)}" aria-label="Schülerakte öffnen: ${nameText}">${nameText}</button>`}

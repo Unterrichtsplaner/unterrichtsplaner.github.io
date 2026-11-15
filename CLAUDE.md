@@ -279,6 +279,8 @@ Datumswerte sind Strings `YYYY-MM-DD` in **lokaler** Zeit (`formatDate()`). Nie 
 
 103. **Unterrichtsinhalte kopieren nur über `lessonContentText`** (BE6, Einstellungen → Daten, Fenster `modal-copy-content`): nur Text in die Zwischenablage, nie gesendet. Inhalt je gehaltene Stunde das abgehakte Thema (`topicDoneIn`) und „Was wurde behandelt“ (`done`), **nie** Stundennotizen (`notes`), Noten oder Schülerdaten (der Text geht oft in einen KI-Dienst). Gewählter Zeitraum nur auf dem Gerät (`copy_content_range`), nie in `db`.
 
+104. **Schülerliste der Klasse sortieren nur über `sortStudentList`/`studentListSortChoice`** (BE9): Wahl nur auf dem Gerät (`student_list_sort`, nie in `db`), eine für alle Klassen. Sortierungen nach Leistung (`STUDENT_SORT_PRIVATE`: Notenschnitt, Mitarbeit) nur bei aufgedeckten Noten (Regel 16), sonst alphabetisch – die Reihenfolge allein verriete am Beamer die Leistung. Wer eine neue Sortierung nach Leistungs- oder Gesundheitsangaben einbaut, nimmt sie dort auf. Bester Schnitt je Skala über `gradeScale(…).higherIsBetter`.
+
 ## Arbeitsablauf
 
 1. Aufgabe aus `BUGS.md` wählen (ein Block pro Sitzung).

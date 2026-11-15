@@ -2524,3 +2524,13 @@ input, textarea, [contenteditable="true"]{-webkit-user-select:text;user-select:t
 
 /* BE7: Hinweis unter dem Unterrichtsinhalt, was die Klasse sieht */
 .done-hint{margin:var(--space-1) 0 0;}
+
+/* Schülerliste: Anzahl, Sortierung und Nummern (BE9) */
+.students-bar{display:flex;align-items:center;flex-wrap:wrap;gap:var(--space-2) var(--space-3);margin-bottom:var(--space-2);}
+.students-count{font-size:13px;font-weight:600;color:var(--text-secondary);}
+.students-sort-note{font-size:12px;color:var(--text-muted);}
+.students-bar .students-sort{margin-left:auto;}
+.student-num{flex-shrink:0;min-width:2ch;margin-right:var(--space-3);font-size:13px;font-weight:600;font-variant-numeric:tabular-nums;text-align:right;color:var(--text-muted);}
+.students-head{padding-left:calc(var(--space-3) + 2ch + var(--space-3));}
+.students-head-part{white-space:nowrap;}   /* „Mitarbeit ++ / + / − / −−“ brach im 118-px-Feld um */
+
