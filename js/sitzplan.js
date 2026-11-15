@@ -120,15 +120,24 @@ function fitSeatingHeader() {
   const tools = document.querySelector('.seating-tools'), name = document.getElementById('seating-group-current-label');
   const bar = name && name.closest('.seating-toolbar');
   if (!tools || !name || !bar) return;
+  const nav = bar.querySelector('.seating-date-nav');
   const cut = () => name.scrollWidth > name.clientWidth + 1;
+  const over = () => bar.scrollWidth > bar.clientWidth + 1;
+  const tight = () => cut() || over();
+  const dayCompact = on => { if (nav) nav.classList.toggle('day-compact', on); };   // ↑/↓ nur als Pfeile (BE10)
   tools.classList.remove('compact');
   bar.classList.remove('wrap');
+  dayCompact(false);
+  if (!tight()) return;
+  tools.classList.add('compact');   // 1. Werkzeuge nur als Symbol
+  if (!tight()) return;
+  dayCompact(true);                 // 2. an ↑/↓ keine Klassennamen
   if (!cut()) return;
-  tools.classList.add('compact');
-  if (!cut()) return;
-  bar.classList.add('wrap');
+  bar.classList.add('wrap');        // 3. Name in eigene Zeile, dann wieder so viel Text wie passt
   tools.classList.remove('compact');
-  if (bar.scrollWidth > bar.clientWidth + 1) tools.classList.add('compact');
+  dayCompact(false);
+  if (over()) tools.classList.add('compact');
+  if (over()) dayCompact(true);
 }
 
 function renderSeatingGroupSelect() {
@@ -233,6 +242,65 @@ function seatingStepLesson(dir) {
   setSeatingDate(target || formatDate(addSchoolDays(start, dir)));
   renderSeatingDateStrip();
   renderSeatingPlan();
+}
+
+// ── Pfeile ↑/↓ im Kopf: vorige/nächste Stunde mit einer anderen Klasse (BE10) ──
+// Dieselbe Klasse zeigt denselben Sitzplan, darum zählt nur eine andere; Ausfall zählt nicht; über das Tagesende hinaus
+// zum vorigen/nächsten Tag mit Unterricht (bis 70 Tage, Regel 17). Hat eine Klasse zwei Stunden am Tag, merkt sich
+// seatingDayAnchor, welche gemeint ist (Ansichtszustand, nie in db; gilt nur für genau diese Klasse an genau diesem Tag).
+let seatingDayAnchor = null;   // { groupId, slotId, dateStr }
+const seatingDayList = ds => lessonsOnDate(ds).filter(l => !l.ausfall && l.slot.groupId && db.groups.some(g => g.id === l.slot.groupId));
+function seatingCurrentDayIndex(list, groupId, ds, now = new Date()) {
+  const own = list.map((l, i) => (l.slot.groupId === groupId ? i : -1)).filter(i => i >= 0);
+  if (!own.length) return -1;
+  const a = seatingDayAnchor;
+  if (a && a.groupId === groupId && a.dateStr === ds) { const i = list.findIndex(l => l.slot.id === a.slotId); if (i >= 0) return i; }
+  if (ds === formatDate(now)) {   // heute: die laufende oder nächste Stunde der Klasse, wie die Leiste
+    const m = now.getHours() * 60 + now.getMinutes();
+    const i = own.find(k => list[k].range && list[k].range.end > m);
+    return i !== undefined ? i : own[own.length - 1];
+  }
+  return own[0];
+}
+function seatingDayNeighbor(dir, now = new Date()) {
+  const gid = currentSeatingGroupId, ds = currentSeatingDateStr;
+  if (!gid || !ds) return null;
+  const other = l => l.slot.groupId !== gid;
+  const inOrder = l => (dir > 0 ? l : [...l].reverse());
+  const list = seatingDayList(ds);
+  const i = seatingCurrentDayIndex(list, gid, ds, now);
+  if (i >= 0) { for (let j = i + dir; j >= 0 && j < list.length; j += dir) if (other(list[j])) return list[j]; }
+  else { const hit = inOrder(list).find(other); if (hit) return hit; }   // Klasse hat an dem Tag keine Stunde
+  let d = addDays(parseDate(ds), dir);
+  for (let k = 0; k < 70; k++, d = addDays(d, dir)) {
+    const hit = inOrder(seatingDayList(formatDate(d))).find(other);
+    if (hit) return hit;
+  }
+  return null;
+}
+function seatingStepDay(dir) {
+  const l = seatingDayNeighbor(dir);
+  if (!l) return;
+  seatingDayAnchor = { groupId: l.slot.groupId, slotId: l.slot.id, dateStr: l.dateStr };
+  setSeatingDate(l.dateStr);
+  if (l.slot.groupId !== currentSeatingGroupId) switchSeatingClassTo(l.slot.groupId);   // gilt als Wahl von Hand (Regel 66)
+  else { renderSeatingDateStrip(); renderSeatingPlan(); }
+}
+function updateSeatingDayButtons() {
+  [['btn-seating-up', -1, 'Vorige', 'vorige'], ['btn-seating-down', 1, 'Nächste', 'nächste']].forEach(([id, dir, word, low]) => {
+    const btn = document.getElementById(id);
+    if (!btn) return;
+    const l = seatingDayNeighbor(dir);
+    const g = l && db.groups.find(x => x.id === l.slot.groupId);
+    const otherDay = !!l && l.dateStr !== currentSeatingDateStr;
+    const lbl = btn.querySelector('.seating-day-cls');
+    if (lbl) lbl.textContent = g ? `${otherDay ? formatWeekdayShort(l.dateStr).split(',')[0] + ' ' : ''}${g.className || ''}` : '';
+    btn.disabled = !l;
+    const text = l ? `${word} Stunde: ${[g.className, g.subject].filter(Boolean).join(' ')} · ${formatWeekdayShort(l.dateStr)}${l.range ? ' ' + minsToTime(l.range.start) : ''}`
+      : `Keine ${low} Stunde mit einer anderen Klasse`;
+    btn.title = text;
+    btn.setAttribute('aria-label', text);
+  });
 }
 
 function onHiddenDateChange(val) {
@@ -341,7 +409,8 @@ function seatingPlannedLesson(groupId, dateStr, now = new Date()) {
   const nowMins = now.getHours() * 60 + now.getMinutes();
   const mine = ds => lessonsOnDate(ds).filter(l => l.slot.groupId === groupId && !l.ausfall && l.range);
   if (dateStr !== todayStr) {
-    const own = mine(dateStr)[0];
+    const list = mine(dateStr), a = seatingDayAnchor;   // mit ↑/↓ gewählte Stunde (BE10), sonst die erste
+    const own = (a && a.groupId === groupId && a.dateStr === dateStr && list.find(l => l.slot.id === a.slotId)) || list[0];
     if (own) return { lesson: own, kicker: 'Stunde' };
   }
   let d = parseDate(dateStr);
@@ -802,6 +871,7 @@ function renderSeatingPlan() {
   if (gradeRound && gradeRound.groupId !== groupId) { gradeRound = null; closeGradeRoundPad(); renderGradeRoundBar(); }
   renderSeatingCockpit(); // vor dem Messen: die Leiste nimmt dem Raster Höhe weg
   updateSeatingRedeemButton();   // „Einlösen“ nur mit persönlichen Seiten (AV1)
+  updateSeatingDayButtons();     // ↑/↓ mit Klasse (BE10), vor dem Einpassen: die Namen kosten Breite
   fitSeatingHeader();            // langer Klassenname (AW1)
   const canvas = document.getElementById('seating-canvas');
   const emptyState = document.getElementById('seating-empty');

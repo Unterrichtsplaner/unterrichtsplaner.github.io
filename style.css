@@ -2534,3 +2534,11 @@ input, textarea, [contenteditable="true"]{-webkit-user-select:text;user-select:t
 .students-head{padding-left:calc(var(--space-3) + 2ch + var(--space-3));}
 .students-head-part{white-space:nowrap;}   /* „Mitarbeit ++ / + / − / −−“ brach im 118-px-Feld um */
 
+/* Sitzplan-Kopf: ↑/↓ zur vorigen/nächsten Stunde mit einer anderen Klasse (BE10) */
+.seating-day-sep{width:1px;align-self:stretch;margin:var(--space-1) 0;background:var(--border);flex-shrink:0;}
+.seating-day-btn{display:inline-flex;align-items:center;justify-content:center;gap:var(--space-1);min-width:var(--control-h);padding:0 var(--space-2);font-size:14px;font-weight:600;white-space:nowrap;flex-shrink:0;}
+.seating-day-btn svg{flex-shrink:0;}
+.seating-day-cls{max-width:9em;overflow:hidden;text-overflow:ellipsis;}
+.seating-day-cls:empty,.seating-date-nav.day-compact .seating-day-cls{display:none;}
+.seating-day-btn:disabled{cursor:default;color:var(--text-muted);border-color:var(--border);background:transparent;}
+
