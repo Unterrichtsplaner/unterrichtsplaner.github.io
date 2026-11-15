@@ -2386,6 +2386,12 @@ input, textarea, [contenteditable="true"]{-webkit-user-select:text;user-select:t
   .cockpit-time .cockpit-progress{width:100%;}
   .cockpit-mins b{font-size:26px;}
   .cockpit-main{align-self:center;}
+  /* 80 px hoch: Überschrift + Thema + Zähler passten nur auf 2 px genau, in Safari ragte der Zähler über den Rand (BE8).
+     Zähler etwas flacher und näher am Thema; die Tippfläche bleibt über ::after groß genug */
+  .cockpit-main{gap:var(--space-1);}
+  .cockpit-topic-label{line-height:12px;}
+  .cockpit-count{min-height:28px;position:relative;}
+  .cockpit-count::after{content:'';position:absolute;inset:-4px 0;}   /* nicht bis ins Thema darüber */
 }
 @container seating (min-width: 521px) and (max-width: 820px){.cockpit-time{width:170px;}.cockpit-switch-btn .switch-long{display:none;}}
 
@@ -2460,7 +2466,9 @@ input, textarea, [contenteditable="true"]{-webkit-user-select:text;user-select:t
 .part-sign{--part:var(--text-secondary);color:var(--part);font-weight:700;letter-spacing:1px;white-space:nowrap;}
 .p4{--part:var(--grade-1);}.p3{--part:var(--grade-2);}.p2{--part:var(--grade-3);}.p1{--part:var(--grade-5);}
 .sw-faces .part-sign{font-size:16px;}
-.sw-faces small{font-size:11px;font-weight:500;color:var(--text-secondary);}
+.sw-faces small{font-size:11px;font-weight:500;color:var(--text-secondary);line-height:1.2;}
+/* Zeichen + Wort brauchen Luft oben und unten: mit 36/44 px Höhe saß das Wort beim gewählten Knopf (2 px Rahmen innen) auf der Linie (BE8) */
+.sw-faces button{padding:var(--space-2) 0;}
 .sc-part{position:absolute;top:-6px;right:-6px;z-index:10;padding:0 var(--space-2);font-size:16px;line-height:1.2;background:var(--bg-elevated);border:2px solid var(--border);border-radius:var(--radius-sm);box-shadow:var(--shadow-sm);}
 /* Tabelle: Zeichen auf kleinem Feld, sonst laufen „++“ und „+“ ohne Spaltenlinien ineinander */
 .ov-part-btn .part-sign{display:grid;place-items:center;min-width:30px;height:24px;padding:0 var(--space-1);font-size:14px;border-radius:var(--radius-xs);background:color-mix(in srgb, var(--part) 15%, transparent);}
