@@ -8,7 +8,8 @@
 // Nie Namen, Noten, Fehlzeiten, Hinweise oder Notizen zu Schülern; das Klassenziel ist nur eine Summe.
 // In `db` stehen nur Einstellungen und Zugang (settings.studentApp, group.studentApp). Was dieses Gerät veröffentlicht hat
 // und was noch zu löschen ist, merkt sich das Gerät (localStorage, nie db): Veröffentlicht wird nach jedem Sync, nur bei Änderung.
-const SA_SHOW_DEFAULT = { expedition: true, upcoming: false, hw: true, tests: true, next: true };
+// fullText (BE7): ganzer Text aus „Unterrichtsinhalt“ für Schüler; Standard aus = nur Themen mit der ersten Zeile
+const SA_SHOW_DEFAULT = { expedition: true, upcoming: false, fullText: false, hw: true, tests: true, next: true };
 const SA_PUB_PREFIX = 'sa_pub_';            // + Kennung → { hash, at }: diesen Stand hat dieses Gerät veröffentlicht
 const SA_DELETE_QUEUE = 'sa_delete_queue';  // Kennungen, deren Dokument noch gelöscht werden muss (auch ohne Netz vorgemerkt)
 const SA_BASE_URL = 'https://unterrichtsplaner.github.io/schueler.html';
@@ -189,12 +190,28 @@ function classGoalStamps(g, since, todayStr, nowMins) {
 // aus „Was wurde behandelt“ (eigene Notizen stehen in den Stundennotizen und gehen nie mit), das laufende Thema,
 // kommende nur wenn freigegeben. Erledigt heißt wie in der Planung: abgehakt (Regel 69). Stunden mit Text, aber ohne
 // abgehaktes Thema stehen als eigene Einträge dazwischen (AJ3). Ohne Planung: jede Stunde mit Text.
+// Sieht die Klasse gerade nur die erste Zeile des Unterrichtsinhalts? Dann bekommt das Feld einen Hinweis, und
+// „Erledigt“ am Thema setzt den Titel als erste Zeile über schon Getipptes (BE7)
+function studentAppFirstLineOnly(groupId) {
+  const g = db.groups.find(x => x.id === groupId);
+  if (!g || !studentAppOn()) return false;
+  const sa = studentAppOf(g);
+  return !!(sa.on && sa.access && sa.show.expedition && !sa.show.fullText);
+}
+function updateDoneHint(hintId, groupId) {
+  const el = document.getElementById(hintId);
+  if (el) el.classList.toggle('hidden', !studentAppFirstLineOnly(groupId));
+}
 function studentAppToc(g, sa, todayStr, nowMins) {
-  const text = l => String((db.lessonData[lessonKeyOf(l)] || {}).done || '').trim().slice(0, 600);
+  // Ohne Haken „Ganzer Text“ (BE7) nur die erste Zeile und nur bei Stunden mit Thema: Darunter stehen oft eigene Notizen
+  const full = !!sa.show.fullText;
+  const raw = l => String((db.lessonData[lessonKeyOf(l)] || {}).done || '').trim();
+  const text = l => (full ? raw(l).slice(0, 600) : firstLine(raw(l)).slice(0, 300));
   const past = groupLessons(g.id, schoolYearStart(todayStr), todayStr)
     .filter(l => !l.ausfall && (l.dateStr < todayStr || (l.range && l.range.start <= nowMins)));
   const plan = groupPlan(g);
   if (!plan.length) {
+    if (!full) return { items: [], fromLessons: true };
     return { items: past.map(l => ({ date: l.dateStr, text: text(l) })).filter(x => x.text)
       .map(x => ({ title: firstLine(x.text), state: 'done', lessons: [x] })), fromLessons: true };
   }
@@ -207,7 +224,7 @@ function studentAppToc(g, sa, todayStr, nowMins) {
   past.forEach(l => {
     const t = topicDoneIn(g, lessonKeyOf(l)), tx = text(l);
     if (t) { if (!byTopic.has(t)) byTopic.set(t, []); if (tx) byTopic.get(t).push({ date: l.dateStr, text: tx }); }
-    else if (tx) loose.push({ date: l.dateStr, title: firstLine(tx), lessons: [{ date: l.dateStr, text: tx }] });
+    else if (tx && full) loose.push({ date: l.dateStr, title: firstLine(tx), lessons: [{ date: l.dateStr, text: tx }] });
   });
   const lessonsOf = t => byTopic.get(t) || [];
   const done = plan.filter(t => t.done).map(t => {
@@ -615,7 +632,8 @@ function renderStudentAppTab() {
   const count = goal ? classGoalCount(g, goal.since) : 0;
   const pct = goal ? Math.min(100, Math.round(count / goal.target * 100)) : 0;
   const checks = [
-    ['expedition', 'Inhaltsverzeichnis', 'Themen mit ihren Stunden und dem Text aus „Was wurde behandelt“ (Stundennotizen nie)'],
+    ['expedition', 'Inhaltsverzeichnis', 'Themen mit ihren Stunden und der ersten Zeile aus „Unterrichtsinhalt“ (Stundennotizen nie)'],
+    ['fullText', 'Ganzer Text aus „Unterrichtsinhalt“', 'sonst nur die erste Zeile, Stunden ohne Thema gar nicht: Darunter kannst du dir Notizen machen'],
     ['upcoming', 'Kommende Themen zeigen', 'sonst nur bis zum aktuellen Thema'],
     ['hw', 'Hausaufgaben als Aufträge', ''],
     ['tests', 'Tests und Klassenarbeiten', 'mit Countdown und „Das kommt dran“ (beim Test im Stunden-Fenster wählen)'],

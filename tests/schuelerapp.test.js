@@ -160,6 +160,7 @@ describe('Auszug der Klasse (studentAppSnapshot)', () => {
   });
 
   it('Thema antippen: jede Stunde mit dem ganzen Text aus „Was wurde behandelt“, nie die Stundennotizen (AJ6 a)', () => {
+    app('setStudentAppShow("g1", "fullText", true)');   // ganzer Text nur mit Haken (BE7)
     app('db.lessonData["s1_2026-11-02"].notes = "Max hat gestört"');
     const now = toc().items.find(x => x.state === 'now');
     expect(now.lessons).toEqual([{ date: '2026-11-02', text: 'Terme vereinfachen\nzweite Zeile' }]);
@@ -172,6 +173,7 @@ describe('Auszug der Klasse (studentAppSnapshot)', () => {
   });
 
   it('mit Planung: „Was wurde behandelt“ ohne abgehaktes Thema steht als eigener Eintrag dazwischen (AJ3)', () => {
+    app('setStudentAppShow("g1", "fullText", true)');   // ganzer Text nur mit Haken (BE7)
     // Nutzer (09.11.): Planung vorhanden, in den letzten Stunden nur „Was wurde behandelt“ ausgefüllt; heute ist um 10 Uhr vorbei
     app('db.lessonData["s2_2026-11-05"] = { done: "Wiederholung" }');
     app('db.lessonData["s1_2026-11-09"].done = "Übung Terme\\nNotiz"');
@@ -181,11 +183,13 @@ describe('Auszug der Klasse (studentAppSnapshot)', () => {
   });
 
   it('eingetipptes, nicht abgehaktes Thema einer vergangenen Stunde rutscht weiter wie in der Planung, nie doppelt', () => {
+    app('setStudentAppShow("g1", "fullText", true)');   // ganzer Text nur mit Haken (BE7)
     app('db.groups[0].plan = [{ id: "x0", title: "Liedanalyse", pinned: "2026-11-05", pinnedSlot: "s2" }, { id: "x1", title: "Rhythmus", lessons: 2 }]');
     expect(titles(toc().items)).toEqual(['done:Terme vereinfachen', 'now:Liedanalyse']);   // „Was wurde behandelt“ vom 02.11.
   });
 
   it('gleiche lose Einträge hintereinander werden einer, ausgefallene Stunden zählen nicht', () => {
+    app('setStudentAppShow("g1", "fullText", true)');   // ganzer Text nur mit Haken (BE7)
     app('db.lessonData["s2_2026-10-29"] = { done: "Test" }');
     app('db.lessonData["s1_2026-11-02"].done = "anderes"');   // hat abgehaktes Thema „Terme“ → gehört zu Terme
     app('db.lessonData["s2_2026-11-05"] = { done: "test" }');
@@ -198,6 +202,7 @@ describe('Auszug der Klasse (studentAppSnapshot)', () => {
   });
 
   it('ohne Planung: jede Stunde mit Text, Titel aus der ersten Zeile', () => {
+    app('setStudentAppShow("g1", "fullText", true)');   // ganzer Text nur mit Haken (BE7)
     app('db.groups[0].plan = []');
     const t = toc();
     expect(t.fromLessons).toBe(true);
@@ -218,6 +223,56 @@ describe('Auszug der Klasse (studentAppSnapshot)', () => {
     expect(goal).toMatchObject({ target: 50, reward: 'Spielestunde', count: 3, since: '2026-11-01' });
     // Stunden: Mo 02.11. (++), Do 05.11. (+ und −), Mo 09.11. (vorbei, nichts) – nur Summen, keine Namen
     expect(goal.stamps).toEqual([{ date: '2026-11-02', n: 2 }, { date: '2026-11-05', n: 1 }, { date: '2026-11-09', n: 0 }]);
+  });
+
+  // BE7 (Wunsch 15.11.): eigene Notizen im Unterrichtsinhalt bleiben privat. Ohne Haken „Ganzer Text“ sehen Schüler
+  // nur Themen und die erste Zeile; Stunden ohne Thema gar nicht.
+  it('BE7: Standard: je Stunde nur die erste Zeile, nie der Rest', () => {
+    app('db.lessonData["s1_2026-11-02"].done = "Terme vereinfachen\\nnoch Folie 8 machen"');
+    const now = toc().items.find(x => x.state === 'now');
+    expect(now.lessons).toEqual([{ date: '2026-11-02', text: 'Terme vereinfachen' }]);
+    expect(JSON.stringify(snap())).not.toContain('Folie 8');
+  });
+  it('BE7: Standard: Stunden ohne Thema stehen nicht im Inhaltsverzeichnis', () => {
+    app('db.lessonData["s2_2026-11-05"] = { done: "Songaufbau waagerecht, noch Folie 8 machen" }');
+    expect(titles(toc().items)).toEqual(['done:Brüche', 'now:Terme']);
+    expect(JSON.stringify(snap())).not.toContain('Songaufbau');
+  });
+  it('BE7: Standard ohne Planung: kein Inhaltsverzeichnis, kein Text', () => {
+    app('db.groups[0].plan = []');
+    expect(toc().items).toEqual([]);
+    expect(JSON.stringify(snap())).not.toContain('Terme vereinfachen');
+  });
+  it('BE7: Haken „Ganzer Text“ im Reiter, gespeichert je Klasse', () => {
+    expect(app('studentAppOf(db.groups[0]).show.fullText')).toBe(false);
+    app('setStudentAppShow("g1", "fullText", true)');
+    expect(app('db.groups[0].studentApp.show.fullText')).toBe(true);
+    expect(toc().items.find(x => x.state === 'now').lessons[0].text).toBe('Terme vereinfachen\nzweite Zeile');
+  });
+  it('BE7: „Erledigt“ am Thema schreibt den Titel als erste Zeile über schon Getipptes, Zurücknehmen entfernt nur ihn', () => {
+    app('db.settings.studentApp = { on: true }; Object.assign(ensureStudentApp(db.groups[0]), { on: true, access: StudentShare.newAccess() })');
+    document.body.insertAdjacentHTML('beforeend', '<textarea id="be7-done"></textarea>');
+    const ta = document.getElementById('be7-done');
+    ta.value = 'Songaufbau waagerecht, noch Folie 8 machen';
+    const tick = () => app('toggleLessonTopicDone(db.lessonSlots[0], "2026-11-09", db.groups[0].plan[1], "be7-done", () => {})');
+    tick();
+    expect(ta.value).toBe('Terme\nSongaufbau waagerecht, noch Folie 8 machen');
+    tick();
+    expect(ta.value).toBe('Songaufbau waagerecht, noch Folie 8 machen');
+    ta.value = '';
+    tick();
+    expect(ta.value).toBe('Terme');   // leer: wie bisher nur der Titel
+    tick();
+    expect(ta.value).toBe('');
+    ta.remove();
+  });
+  it('BE7: ohne Schülerapp bleibt „Erledigt“ wie bisher (nichts davor)', () => {
+    document.body.insertAdjacentHTML('beforeend', '<textarea id="be7-done"></textarea>');
+    const ta = document.getElementById('be7-done');
+    ta.value = 'eigener Text';
+    app('toggleLessonTopicDone(db.lessonSlots[0], "2026-11-09", db.groups[0].plan[1], "be7-done", () => {})');
+    expect(ta.value).toBe('eigener Text');
+    ta.remove();
   });
 
   it('abgewählte Inhalte fehlen ganz', () => {

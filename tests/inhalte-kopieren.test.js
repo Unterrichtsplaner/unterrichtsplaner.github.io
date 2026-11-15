@@ -12,7 +12,7 @@ function sampleDB() {
     lessonData: {
       'd_2026-11-02': { done: 'Märchen lesen', notes: 'Max hat gestört' },
       'd_2026-11-09': { done: 'Märchen schreiben\nTafelbild abschreiben' },
-      'm1_2026-11-03': { done: 'Brüche kürzen' },
+      'm1_2026-11-03': { done: 'Bruchrechnung\nBrüche kürzen' },   // erste Zeile = Thema (BE7): nicht doppelt
       'm2_2026-11-05': { done: '' },                          // nur das abgehakte Thema
       'm1_2026-11-10': { done: 'Übung', ausfall: true },       // fiel aus: zählt nicht
       'm2_2026-11-12': { done: 'Brüche erweitern' },           // heute 07:45, schon begonnen

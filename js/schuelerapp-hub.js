@@ -53,7 +53,7 @@ function hubMonthNumbers(g, month) {
   }));
   return { earned: classMonthPlusses(g, month), redeemed, donated };
 }
-const HUB_SHOW_WORDS = { expedition: 'Inhaltsverzeichnis', hw: 'Hausaufgaben', tests: 'Tests', next: 'Nächste Stunde' };
+const HUB_SHOW_WORDS = { expedition: 'Inhaltsverzeichnis', fullText: 'ganzer Unterrichtsinhalt', hw: 'Hausaufgaben', tests: 'Tests', next: 'Nächste Stunde' };
 const hubTime = at => { const d = new Date(at); return `${formatDate(d) === formatDate(new Date()) ? 'heute' : formatWeekdayShort(formatDate(d))} um ${minsToTime(d.getHours() * 60 + d.getMinutes())}`; };
 
 // ── Versand: ein Satz für alle Seiten ──

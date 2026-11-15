@@ -126,6 +126,7 @@ function openLessonDetail(slotId, dateStr, { fromSeating = false } = {}) {
 
   // ── Fill in data ──
   document.getElementById('lesson-done-text').value  = data.done  || '';
+  updateDoneHint('lesson-done-hint', slot.groupId);   // BE7
   document.getElementById('lesson-notes-text').value = data.notes || '';
 
   // HW

@@ -2513,3 +2513,6 @@ input, textarea, [contenteditable="true"]{-webkit-user-select:text;user-select:t
 .copy-content-opts .form-group{flex:1 1 180px;min-width:0;}
 .copy-content-text{display:block;width:100%;box-sizing:border-box;min-height:220px;resize:vertical;font-size:13px;line-height:1.5;white-space:pre-wrap;}
 .copy-content-text + .field-hint-muted{margin-top:var(--space-2);}
+
+/* BE7: Hinweis unter dem Unterrichtsinhalt, was die Klasse sieht */
+.done-hint{margin:var(--space-1) 0 0;}

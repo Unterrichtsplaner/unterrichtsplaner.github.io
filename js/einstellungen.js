@@ -617,8 +617,10 @@ function lessonContentEntries(fromStr, now) {
       const key = lessonKeyOf(l);
       const topic = topicDoneIn(g, key);
       const title = topic ? String(topic.title || '').replace(/\s+/g, ' ').trim() : '';
-      const done = String((db.lessonData[key] || {}).done || '').split('\n').map(x => x.trim()).filter(Boolean).join(' / ');
-      const textOut = title && done && done.toLowerCase() !== title.toLowerCase() ? `${title}: ${done}` : (title || done);
+      // Zeilen, die nur das Thema wiederholen, fallen weg („Erledigt“ setzt es als erste Zeile, BE7)
+      const same = x => normTopicTitle(x).toLowerCase() === normTopicTitle(title).toLowerCase();
+      const done = String((db.lessonData[key] || {}).done || '').split('\n').map(x => x.trim()).filter(x => x && !(title && same(x))).join(' / ');
+      const textOut = title && done ? `${title}: ${done}` : (title || done);
       if (textOut) byGroup.get(g.id).push({ date: ds, text: textOut });
     });
   }

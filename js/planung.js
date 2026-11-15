@@ -47,6 +47,7 @@ function openLessonTopic() {
   document.getElementById('lt-prev-done').value = lessonTopicCtx.shownPrev;
   document.getElementById('lt-this-label').textContent = `${today ? 'Diese Stunde' : formatWeekdayShort(dateStr)}${own ? ' · ' + own.block.label : ''}`;
   document.getElementById('lt-done').value = lessonTopicCtx.shownDone;
+  updateDoneHint('lt-done-hint', g.id);   // BE7
   renderLessonTopicRow();
   openModal('modal-lesson-topic');
 }
@@ -550,10 +551,16 @@ function toggleLessonTopicDone(slot, dateStr, t, doneFieldId = 'lesson-done-text
     if (!t.doneLessons.length) delete t.doneLessons;
     delete t.done;
     if (ta && ta.value.trim() === t.title) ta.value = '';
+    else if (ta && studentAppFirstLineOnly(g.id)) {   // BE7: den davor gesetzten Titel wieder wegnehmen, sonst nichts
+      const lines = ta.value.split('\n'), i = lines.findIndex(x => x.trim());
+      if (i >= 0 && normTopicTitle(lines[i]) === normTopicTitle(t.title)) { lines.splice(i, 1); ta.value = lines.join('\n'); }
+    }
   } else {
     t.doneLessons.push(key);
     if (t.doneLessons.length >= topicLength(t)) t.done = dateStr;
     if (ta && !ta.value.trim()) ta.value = t.title;
+    // BE7: Sieht die Klasse nur die erste Zeile, steht das Thema dort, eigener Text rutscht darunter und bleibt privat
+    else if (ta && studentAppFirstLineOnly(g.id) && normTopicTitle(firstLine(ta.value)) !== normTopicTitle(t.title)) ta.value = t.title + '\n' + ta.value;
   }
   saveDB();
   rerender();
