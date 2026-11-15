@@ -87,31 +87,36 @@ function classMonthPlusses(g, month) {
   }));
   return n;
 }
-// Gehaltene Stunden je Klasse im Monat bis jetzt (Wunsch 15.11., BE4): Stunden laut Stundenplan ohne Ausfall und Ferien,
-// von heute nur begonnene; ein Tag mit Plussen ohne Stunde zählt als eine (Plusse fallen nie weg, nie durch 0 teilen)
+// Gehaltene Stunden je Klasse im Monat bis jetzt (Wunsch 15.11., BE4), gemessen in Schulstunden zu 45 Minuten: ein
+// 90-Minuten-Block zählt 2, eine halbe Stunde darin 1. Grundlage ist lessonsOnDate wie im Stundenplan: Verlegte Stunden
+// zählen am neuen Tag (alter Platz = Ausfall), Vertretungen für die Klasse, die da war, Stundenplanwechsel über
+// validFrom/validUntil, regelmäßige Stunden nie in den Ferien, einmalige (Nachholstunde) auch dort. Ohne Ausfall, von heute
+// nur begonnene; ein Tag mit Plussen ohne gehaltene Stunde zählt als eine (Plusse fallen nie weg, nie durch 0 teilen).
+const RANKING_LESSON_MINS = 45;
 function rankingLessonCounts(groups, month, now) {
   const todayStr = formatDate(now), nowMins = now.getHours() * 60 + now.getMinutes();
   const last = formatDate(new Date(Number(month.slice(0, 4)), Number(month.slice(5, 7)), 0, 12));
   const until = last < todayStr ? last : todayStr;
-  const held = new Map(groups.map(g => [g.id, new Set()])), count = new Map(groups.map(g => [g.id, 0]));
+  const held = new Map(groups.map(g => [g.id, new Set()])), mins = new Map(groups.map(g => [g.id, 0]));
   for (let d = parseDate(month + '-01'); formatDate(d) <= until; d = addDays(d, 1)) {
-    if (!isSchoolDay(d)) continue;
-    const ds = formatDate(d);
+    const ds = formatDate(d);   // kein isSchoolDay: slotOccursOn kennt Ferien und lässt einmalige Stunden dort zu
     lessonsOnDate(ds).forEach(l => {
       const id = l.slot.groupId;
       if (!held.has(id) || l.ausfall || (ds === todayStr && !(l.range && l.range.start <= nowMins))) return;
-      count.set(id, count.get(id) + 1); held.get(id).add(ds);
+      const len = l.range && l.range.end > l.range.start ? l.range.end - l.range.start : RANKING_LESSON_MINS;
+      mins.set(id, mins.get(id) + len); held.get(id).add(ds);
     });
   }
+  const out = new Map();
   groups.forEach(g => {
     const extra = new Set();
     (db.students[g.id] || []).forEach(s => (s.participation || []).forEach(p => {
       const ds = p && String(p.date || '');
       if (ds.slice(0, 7) === month && (p.value === 'excellent' || p.value === 'positive') && !held.get(g.id).has(ds)) extra.add(ds);
     }));
-    count.set(g.id, count.get(g.id) + extra.size);
+    out.set(g.id, Math.round(mins.get(g.id) / RANKING_LESSON_MINS * 100) / 100 + extra.size);
   });
-  return count;
+  return out;
 }
 // Wert = Plusse ÷ Schüler ÷ gehaltene Stunden, auf 10 Stunden gerechnet (RANKING_PER): Klassen, die man öfter hat,
 // liegen so nicht automatisch vorn (BE4). Eine Klasse macht ab dem Monat mit, in dem ihre Rangliste eingeschaltet wurde,

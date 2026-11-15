@@ -230,15 +230,15 @@ describe('AX1: Texte nennen die Rangliste', () => {
 });
 
 describe('BE4: pro Kopf und Stunde – wer eine Klasse öfter hat, liegt nicht automatisch vorn (Wunsch 15.11.)', () => {
-  // Do 12.11.2026, 10:00. 7a jeden Tag im 1. Block (bis heute 9 Stunden), 8b Mo + Di im 2. Block (4 Stunden)
+  // Do 12.11.2026, 10:00. 7a jeden Tag im 1. Block (bis heute 9 Blöcke = 18 Stunden), 8b Mo + Di im 2. Block (4 Blöcke = 8 Stunden)
   const slot = (id, gid, day, block) => ({ id, day, block, part: 'full', subject: 'X', color: '#3b82f6', groupId: gid, recurring: 'weekly' });
   const lessonDays = ['2026-11-02', '2026-11-03', '2026-11-04', '2026-11-05', '2026-11-06', '2026-11-09', '2026-11-10', '2026-11-11', '2026-11-12'];
   function fairDB() {
     const d = sampleDB();
     d.lessonSlots = [0, 1, 2, 3, 4].map(day => slot('s7' + day, 'g1', day, 1)).concat([slot('s8a', 'g2', 0, 2), slot('s8b', 'g2', 1, 2)]);
-    // 7a: 18 Plusse an Stundentagen → 18 / 5 Schüler / 9 Stunden · 10 = 4,0
+    // 7a: 18 Plusse an Stundentagen → 18 / 5 Schüler / 18 Stunden · 10 = 2,0
     d.students.g1 = [st('a1', lessonDays.flatMap(x => [P(x, 'positive'), P(x, 'positive')])), ...fill('a', 4)];
-    // 8b: 10 Plusse an Stundentagen → 10 / 5 / 4 · 10 = 5,0 (weniger Plusse, aber pro Stunde mehr)
+    // 8b: 10 Plusse an Stundentagen → 10 / 5 / 8 · 10 = 2,5 (weniger Plusse, aber pro Stunde mehr)
     d.students.g2 = [st('b1', ['2026-11-02', '2026-11-03', '2026-11-09', '2026-11-10'].flatMap(x => [P(x, 'excellent')]).concat([P('2026-11-10', 'positive'), P('2026-11-10', 'positive')])), ...fill('b', 4)];
     d.groups[2].studentApp.ranking = false;
     return d;
@@ -247,20 +247,64 @@ describe('BE4: pro Kopf und Stunde – wer eine Klasse öfter hat, liegt nicht a
     load(fairDB());
     const r = snap('g1').ranking;
     expect(r.per).toBe(10);
-    expect(r.list.map(x => [x.cls, x.value, x.place])).toEqual([['8b', 5, 1], ['7a', 4, 2]]);
+    expect(r.list.map(x => [x.cls, x.value, x.place])).toEqual([['8b', 2.5, 1], ['7a', 2, 2]]);
   });
   it('Ausfall zählt nicht, heutige Stunden erst ab Beginn, Tag mit Plussen ohne Stunde zählt als eine', () => {
     const d = fairDB();
-    d.lessonData['s8a_2026-11-09'] = { ausfall: true };            // 8b: nur noch 3 Stunden → 10 / 5 / 3 · 10 = 6,7
+    d.lessonData['s8a_2026-11-09'] = { ausfall: true };            // 8b: nur noch 3 Blöcke = 6 Stunden → 10 / 5 / 6 · 10 = 3,3
     d.students.g2[0].participation.forEach(p => { if (p.date === '2026-11-09') p.date = '2026-11-10'; });   // sonst zählte der Tag über seine Plusse
     d.lessonSlots.push({ ...slot('s7late', 'g1', 3, 3), recurring: 'none', specificDate: '2026-11-12' });   // 7a: heute 11:45, noch nicht begonnen → zählt nicht
-    d.students.g1[1].participation.push(P('2026-11-07', 'positive'), P('2026-11-07', 'positive'));   // Samstag: 20 / 5 / 10 · 10 = 4,0
+    d.students.g1[1].participation.push(P('2026-11-07', 'positive'), P('2026-11-07', 'positive'));   // Samstag zählt als 1 Stunde: 20 / 5 / 19 · 10 = 2,1
     load(d);
-    expect(snap('g1').ranking.list.map(x => [x.cls, x.value])).toEqual([['8b', 6.7], ['7a', 4]]);
+    expect(snap('g1').ranking.list.map(x => [x.cls, x.value])).toEqual([['8b', 3.3], ['7a', 2.1]]);
   });
   it('Schülerseite schreibt „pro Kopf in 10 Stunden“', () => {
     load(fairDB());
     window.renderStudentPage(app('studentAppSnapshot(db.groups[0])'));
     expect(document.getElementById('page').textContent).toMatch(/pro Kopf in 10 Stunden/);
+  });
+});
+
+describe('BE4: Stunden richtig zählen – verlegt, Vertretung, Stundenplanwechsel, Ferien, Doppel- und Einzelstunden', () => {
+  // Do 12.11.2026, 10:00; Standard-Blöcke sind 90 Minuten = 2 Stunden
+  const slot = (id, gid, day, block, extra = {}) => ({ id, day, block, part: 'full', subject: 'X', color: '#3b82f6', groupId: gid, recurring: 'weekly', ...extra });
+  const hours = () => Object.fromEntries([...app('rankingLessonCounts(db.groups.slice(0, 2), "2026-11", new Date())')].map(([k, v]) => [k, v]));
+  function base(slots, lessonData = {}, settings = {}) {
+    const d = sampleDB();
+    d.students.g1 = fill('a', 5); d.students.g2 = fill('b', 5);   // keine Plusse: es zählen nur Stunden
+    d.lessonSlots = slots; d.lessonData = lessonData; Object.assign(d.settings, settings);
+    load(d);
+  }
+  it('Mo-Stunde im 1. Block: 2., 9. → 2 Blöcke = 4 Stunden', () => {
+    base([slot('s1', 'g1', 0, 1)]);
+    expect(hours()).toEqual({ g1: 4, g2: 0 });
+  });
+  it('nur an einem Tag verlegt (wie moveOccurrenceOnce): zählt einmal, am neuen Tag', () => {
+    base([slot('s1', 'g1', 0, 1), slot('once', 'g1', 2, 3, { recurring: 'none', specificDate: '2026-11-04', movedFrom: { slotId: 's1', date: '2026-11-02' } })],
+      { 's1_2026-11-02': { ausfall: true, movedTo: { slotId: 'once', date: '2026-11-04' } } });
+    expect(hours()).toEqual({ g1: 4, g2: 0 });
+  });
+  it('Vertretung mit anderer Klasse am alten Platz: zählt für die Klasse, die da war', () => {
+    base([slot('s1', 'g1', 0, 1), slot('v', 'g2', 0, 1, { recurring: 'none', specificDate: '2026-11-09' })],
+      { 's1_2026-11-09': { ausfall: true, movedTo: { slotId: 'v', date: '2026-11-09' } } });
+    expect(hours()).toEqual({ g1: 2, g2: 2 });
+  });
+  it('Stundenplanwechsel ab 9.11.: alte Stunde bis 6.11., neue ab 9.11.', () => {
+    base([slot('alt', 'g1', 0, 1, { validUntil: '2026-11-06' }), slot('neu', 'g1', 1, 1, { validFrom: '2026-11-09', splitFrom: 'alt' })]);
+    expect(hours()).toEqual({ g1: 4, g2: 0 });   // Mo 2.11. und Di 10.11.
+  });
+  it('Ferien: regelmäßige Stunde fällt aus, einmalige Nachholstunde in den Ferien zählt', () => {
+    base([slot('s1', 'g1', 0, 1), slot('nach', 'g1', 2, 1, { recurring: 'none', specificDate: '2026-11-11' })], {},
+      { holidays: [{ id: 'h', label: 'Buß- und Bettag', from: '2026-11-09', until: '2026-11-11' }] });
+    expect(hours()).toEqual({ g1: 4, g2: 0 });   // Mo 2.11. (9.11. Ferien) + Nachholstunde 11.11.
+  });
+  it('halbe Stunde im 90-Minuten-Block zählt halb so viel wie ein ganzer Block', () => {
+    base([slot('s1', 'g1', 0, 1), slot('h2', 'g2', 0, 2, { part: 'second' })]);
+    expect(hours()).toEqual({ g1: 4, g2: 2 });
+  });
+  it('Einzelstunden-Plan (45 Minuten): jede Stunde zählt eins', () => {
+    base([slot('s1', 'g1', 0, 1), slot('s2', 'g1', 0, 2)], {}, { blocks: [
+      { num: 1, label: '1.', start: '08:00', end: '08:45' }, { num: 2, label: '2.', start: '08:45', end: '09:30' }] });
+    expect(hours()).toEqual({ g1: 4, g2: 0 });
   });
 });
