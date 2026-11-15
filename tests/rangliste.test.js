@@ -116,17 +116,18 @@ describe('AX1: Schalter im Reiter „Schülerapp“', () => {
   });
 });
 
-describe('AX1: Sieger des Vormonats bleibt, Klassen zählen ab dem Einschalten (Wunsch 14.11.)', () => {
-  it('eine im November dazugeschaltete Klasse wird nicht „Sieger Oktober“ und zählt erst ab dem Tag', () => {
+describe('AX1: Sieger des Vormonats bleibt, Klassen zählen ab dem Monat des Einschaltens (Wunsch 14.11., Fehler 15.11.)', () => {
+  it('eine im November dazugeschaltete Klasse wird nicht „Sieger Oktober“, zählt aber den ganzen November', () => {
     // 5d: 4 Plusse im Oktober (besser als 7a) und 4 im November vor dem Einschalten
     app('db.students.g4[0].participation.push({ id: "o1", date: "2026-10-05", value: "excellent" }, { id: "o2", date: "2026-10-06", value: "excellent" }, { id: "o3", date: "2026-10-07", value: "excellent" }, { id: "o4", date: "2026-10-08", value: "excellent" })');
     app('setStudentAppRanking("g4", true)');
     expect(app('db.groups[3].studentApp.rankingSince')).toBe('2026-11-12');
     const r = snap('g1').ranking;
     expect(r.prev.winners).toEqual([{ cls: '7a', subject: 'Mathe' }]);
-    expect(r.list.find(x => x.cls === '5d').value).toBe(0);   // Plusse vom 6. und 7.11. zählen nicht
+    const vorher = r.list.find(x => x.cls === '5d').value;
+    expect(vorher).toBeGreaterThan(0);   // Plusse vom 6. und 7.11. zählen mit (15.11.: sonst stand überall 0)
     app('db.students.g4[0].participation.push({ id: "n1", date: "2026-11-12", value: "excellent" })');
-    expect(snap('g1').ranking.list.find(x => x.cls === '5d').value).toBe(0.4);
+    expect(snap('g1').ranking.list.find(x => x.cls === '5d').value).toBeCloseTo(vorher + 0.4, 5);
   });
   it('Sieger wird festgehalten: Abschalten der Siegerklasse ändert den Vormonat nicht', () => {
     app('setStudentAppRanking("g1", false)');   // hält Oktober vorher fest

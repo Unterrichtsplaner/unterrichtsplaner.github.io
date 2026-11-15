@@ -25,7 +25,7 @@ function studentAppOf(g) {
     access: StudentShare.isAccess(sa.access) ? sa.access : null,
     show: { ...SA_SHOW_DEFAULT, ...(sa.show && typeof sa.show === 'object' ? sa.show : {}) },
     ranking: sa.ranking === true,   // Rangliste der Klassen (AX1), Standard aus
-    rankingSince: isDateStr(sa.rankingSince) ? sa.rankingSince : null,   // ab diesem Tag zählen die Plusse (Einschalten)
+    rankingSince: isDateStr(sa.rankingSince) ? sa.rankingSince : null,   // Einschalten: ab diesem Monat macht die Klasse mit
     goal: goal ? { target: Math.round(Number(goal.target)), reward: String(goal.reward || ''), since: isDateStr(goal.since) ? goal.since : null } : null,
   };
 }
@@ -77,21 +77,23 @@ function rankingWaitText(g, rows) {
   if (!rows.some(r => r.g === g) || rows.length < 2) return 'Die Klasse sieht die Rangliste, sobald eine zweite deiner Klassen mitmacht (Schalter im Reiter „Schülerapp“ der anderen Klasse).';
   return '';
 }
-// Plusse der Klasse im Monat; `from`: erst ab diesem Tag (Rangliste: Tag des Einschaltens)
-function classMonthPlusses(g, month, from = null) {
+// Plusse der Klasse im ganzen Monat (+ 1, ++ 2, ohne Spenden)
+function classMonthPlusses(g, month) {
   let n = 0;
   (db.students[g.id] || []).forEach(s => (s.participation || []).forEach(p => {
-    if (!p || String(p.date || '').slice(0, 7) !== month || (from && String(p.date) < from)) return;
+    if (!p || String(p.date || '').slice(0, 7) !== month) return;
     if (p.value === 'excellent') n += 2;
     else if (p.value === 'positive') n += 1;
   }));
   return n;
 }
-// Eine Klasse zählt ab dem Tag, an dem die Rangliste eingeschaltet wurde: In Monaten davor macht sie nicht mit
+// Eine Klasse macht ab dem Monat mit, in dem ihre Rangliste eingeschaltet wurde, und zählt dann den ganzen Monat
+// (alle Klassen über denselben Zeitraum; ab dem Tag gezählt stand nach dem Einschalten überall 0, Fehler 15.11.).
+// In Monaten davor macht sie nicht mit, ein Sieger von früher bleibt also.
 function classRanking(month) {
   const since = g => studentAppOf(g).rankingSince;
   const rows = rankingGroups().filter(g => !since(g) || since(g).slice(0, 7) <= month)
-    .map(g => ({ g, value: Math.round(classMonthPlusses(g, month, since(g)) / (db.students[g.id] || []).length * 10) / 10 }))
+    .map(g => ({ g, value: Math.round(classMonthPlusses(g, month) / (db.students[g.id] || []).length * 10) / 10 }))
     .sort((a, b) => b.value - a.value || String(a.g.className || '').localeCompare(String(b.g.className || ''), 'de', { numeric: true }));
   rows.forEach((r, i) => { r.place = i && rows[i - 1].value === r.value ? rows[i - 1].place : i + 1; });
   return rows;
