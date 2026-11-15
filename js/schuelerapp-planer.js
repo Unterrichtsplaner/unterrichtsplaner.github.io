@@ -87,14 +87,45 @@ function classMonthPlusses(g, month) {
   }));
   return n;
 }
-// Eine Klasse macht ab dem Monat mit, in dem ihre Rangliste eingeschaltet wurde, und zählt dann den ganzen Monat
-// (alle Klassen über denselben Zeitraum; ab dem Tag gezählt stand nach dem Einschalten überall 0, Fehler 15.11.).
-// In Monaten davor macht sie nicht mit, ein Sieger von früher bleibt also.
-function classRanking(month) {
+// Gehaltene Stunden je Klasse im Monat bis jetzt (Wunsch 15.11., BE4): Stunden laut Stundenplan ohne Ausfall und Ferien,
+// von heute nur begonnene; ein Tag mit Plussen ohne Stunde zählt als eine (Plusse fallen nie weg, nie durch 0 teilen)
+function rankingLessonCounts(groups, month, now) {
+  const todayStr = formatDate(now), nowMins = now.getHours() * 60 + now.getMinutes();
+  const last = formatDate(new Date(Number(month.slice(0, 4)), Number(month.slice(5, 7)), 0, 12));
+  const until = last < todayStr ? last : todayStr;
+  const held = new Map(groups.map(g => [g.id, new Set()])), count = new Map(groups.map(g => [g.id, 0]));
+  for (let d = parseDate(month + '-01'); formatDate(d) <= until; d = addDays(d, 1)) {
+    if (!isSchoolDay(d)) continue;
+    const ds = formatDate(d);
+    lessonsOnDate(ds).forEach(l => {
+      const id = l.slot.groupId;
+      if (!held.has(id) || l.ausfall || (ds === todayStr && !(l.range && l.range.start <= nowMins))) return;
+      count.set(id, count.get(id) + 1); held.get(id).add(ds);
+    });
+  }
+  groups.forEach(g => {
+    const extra = new Set();
+    (db.students[g.id] || []).forEach(s => (s.participation || []).forEach(p => {
+      const ds = p && String(p.date || '');
+      if (ds.slice(0, 7) === month && (p.value === 'excellent' || p.value === 'positive') && !held.get(g.id).has(ds)) extra.add(ds);
+    }));
+    count.set(g.id, count.get(g.id) + extra.size);
+  });
+  return count;
+}
+// Wert = Plusse ÷ Schüler ÷ gehaltene Stunden, auf 10 Stunden gerechnet (RANKING_PER): Klassen, die man öfter hat,
+// liegen so nicht automatisch vorn (BE4). Eine Klasse macht ab dem Monat mit, in dem ihre Rangliste eingeschaltet wurde,
+// und zählt dann den ganzen Monat (ab dem Tag gezählt stand nach dem Einschalten überall 0, BE3). In Monaten davor macht
+// sie nicht mit, ein Sieger von früher bleibt also.
+const RANKING_PER = 10;
+function classRanking(month, now = new Date()) {
   const since = g => studentAppOf(g).rankingSince;
-  const rows = rankingGroups().filter(g => !since(g) || since(g).slice(0, 7) <= month)
-    .map(g => ({ g, value: Math.round(classMonthPlusses(g, month) / (db.students[g.id] || []).length * 10) / 10 }))
-    .sort((a, b) => b.value - a.value || String(a.g.className || '').localeCompare(String(b.g.className || ''), 'de', { numeric: true }));
+  const groups = rankingGroups().filter(g => !since(g) || since(g).slice(0, 7) <= month);
+  const lessons = rankingLessonCounts(groups, month, now);
+  const rows = groups.map(g => {
+    const n = lessons.get(g.id), sum = classMonthPlusses(g, month);
+    return { g, value: n ? Math.round(sum / (db.students[g.id] || []).length / n * RANKING_PER * 10) / 10 : 0 };
+  }).sort((a, b) => b.value - a.value || String(a.g.className || '').localeCompare(String(b.g.className || ''), 'de', { numeric: true }));
   rows.forEach((r, i) => { r.place = i && rows[i - 1].value === r.value ? rows[i - 1].place : i + 1; });
   return rows;
 }
@@ -120,12 +151,12 @@ function freezeRankingWinners(now = new Date()) {
 function rankingSnapshot(g, now) {
   if (!studentAppOf(g).ranking) return null;
   const month = monthOf(now);
-  const rows = classRanking(month);
+  const rows = classRanking(month, now);
   if (rows.length < 2 || !rows.some(r => r.g === g)) return null;
   const prevMonth = prevMonthOf(now);
   const winners = rankingWinners(prevMonth);
   return {
-    month,
+    month, per: RANKING_PER,   // Wert gilt pro Kopf in 10 Stunden (BE4); ohne Feld liest die Schülerseite „pro Kopf im Monat“
     list: rows.map(r => ({ ...rankingName(r), value: r.value, place: r.place, ...(r.g === g ? { me: true } : {}) })),
     prev: winners.length ? { month: prevMonth, winners: winners.map(w => ({ cls: w.cls, subject: w.subject })) } : null,
   };
@@ -643,11 +674,11 @@ function rankingCardHTML(g) {
   const list = !sa.ranking ? '' : rows.length >= 2 && rows.some(r => r.g === g)
     ? `<ol class="sa-rank-list">${rows.map(r => `<li${r.g === g ? ' class="is-me"' : ''}><span class="sa-rank-place">${r.place}.</span>
         <span class="sa-rank-name">${escHtml([r.g.className, r.g.subject].filter(Boolean).join(' '))}</span><span class="sa-rank-value">${rankValueText(r.value)}</span></li>`).join('')}</ol>
-      <p class="field-hint-muted">Plusse pro Kopf seit dem 1. dieses Monats. Am Monatsende gewinnt die Klasse vorn, im nächsten Monat zählt es neu.</p>`
+      <p class="field-hint-muted">Plusse pro Kopf in ${RANKING_PER} Stunden, seit dem 1. dieses Monats. Am Monatsende gewinnt die Klasse vorn, im nächsten Monat zählt es neu.</p>`
     : `<p class="field-hint-muted">${escHtml(rankingWaitText(g, rows))}</p>`;
   return `<section class="set-card sa-card" id="sa-ranking">
       <div class="sa-head"><div><h3 class="sa-subtitle">Rangliste der Klassen</h3>
-        <p class="sa-status">„Klasse des Monats“: Deine Klassen sammeln gegeneinander, gezählt werden Plusse pro Kopf im laufenden Monat (+ zählt 1, ++ zählt 2). Jede teilnehmende Klasse sieht Name, Fach und Wert der anderen, nie Namen von Schülern. Gruppen unter ${RANKING_MIN_STUDENTS} Schülern machen nicht mit.</p></div>
+        <p class="sa-status">„Klasse des Monats“: Deine Klassen sammeln gegeneinander, gezählt werden Plusse pro Kopf im laufenden Monat, umgerechnet auf ${RANKING_PER} gehaltene Stunden (+ zählt 1, ++ zählt 2). So liegt eine Klasse, die du öfter hast, nicht automatisch vorn. Jede teilnehmende Klasse sieht Name, Fach und Wert der anderen, nie Namen von Schülern. Gruppen unter ${RANKING_MIN_STUDENTS} Schülern machen nicht mit.</p></div>
         <label class="toggle-switch" title="An der Rangliste teilnehmen"><input type="checkbox" id="sa-ranking-on" aria-label="Die ${cls} nimmt an der Rangliste teil"${sa.ranking ? ' checked' : ''}><span class="toggle-slider"></span></label></div>
       ${list}
     </section>`;

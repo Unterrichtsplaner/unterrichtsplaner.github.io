@@ -14,13 +14,14 @@ function sampleDB() {
     lessonSlots: [], lessonData: {}, supervisions: [],
     groups: [G('g1', '7a', 'Mathe', 'A'), G('g2', '8b', 'Physik', 'B'), G('g3', '9c', 'Mathe', 'C'), G('g4', '5d', 'Mathe', 'D', { ranking: false })],
     students: {
-      // 7a: 5 Schüler, November 2 + 1 + 1 = 4 → 0,8 pro Kopf; Oktober 6 → 1,2
+      // 7a: 5 Schüler, November 2 + 1 + 1 = 4 an 3 Tagen (ohne Stundenplan zählt jeder Tag mit Plussen als Stunde, BE4)
+      //     → 4 / 5 / 3 · 10 = 2,7 in 10 Stunden; Oktober 6 an 3 Tagen → 4,0
       g1: [st('a1', [P('2026-11-02', 'excellent'), P('2026-11-03', 'positive'), P('2026-11-04', 'negative'), P('2026-10-20', 'excellent'), P('2026-10-21', 'excellent')]),
            st('a2', [P('2026-11-05', 'positive', { label: 'Referat' }), P('2026-10-22', 'excellent')]), ...fill('a', 3)],
-      // 8b: 5 Schüler, November 10 → 2,0 pro Kopf, Spende zählt nicht
+      // 8b: 5 Schüler, November 10 an 5 Tagen → 4,0, Spende zählt nicht
       g2: [st('b1', [P('2026-11-02', 'excellent'), P('2026-11-03', 'excellent')]), st('b2', [P('2026-11-02', 'excellent'), P('2026-11-09', 'excellent')]),
            st('b3', [P('2026-11-10', 'positive'), P('2026-11-11', 'positive')]), { ...st('b4'), redeemed: [{ id: 'r', date: '2026-11-10', name: 'Spende', price: 10, kind: 'donate' }] }, ...fill('b', 1)],
-      // 9c: 5 Schüler, November 4 → 0,8 (gleich mit 7a)
+      // 9c: 5 Schüler, November 4 an 2 Tagen → 4,0 (gleich mit 8b)
       g3: [st('c1', [P('2026-11-06', 'excellent'), P('2026-11-09', 'excellent')]), ...fill('c', 4)],
       g4: [st('d1', [P('2026-11-06', 'excellent'), P('2026-11-07', 'excellent')]), ...fill('d', 4)],
     },
@@ -40,13 +41,13 @@ beforeEach(() => {
 afterEach(() => { app('SyncManager').currentUser = null; app('SyncManager').isInitialized = false; app('switchView("dashboard")'); vi.useRealTimers(); });
 
 describe('AX1: Rangliste rechnen', () => {
-  it('Plusse pro Kopf im laufenden Monat, ohne Spenden, gleiche Werte gleicher Platz', () => {
+  it('Plusse pro Kopf in 10 Stunden im laufenden Monat, ohne Spenden, gleiche Werte gleicher Platz', () => {
     const r = snap('g1').ranking;
     expect(r.month).toBe('2026-11');
     expect(r.list).toEqual([
-      { cls: '8b', subject: 'Physik', value: 2, place: 1 },
-      { cls: '7a', subject: 'Mathe', value: 0.8, place: 2, me: true },
-      { cls: '9c', subject: 'Mathe', value: 0.8, place: 2 },
+      { cls: '8b', subject: 'Physik', value: 4, place: 1 },
+      { cls: '9c', subject: 'Mathe', value: 4, place: 1 },
+      { cls: '7a', subject: 'Mathe', value: 2.7, place: 3, me: true },
     ]);
     expect(r.prev).toEqual({ month: '2026-10', winners: [{ cls: '7a', subject: 'Mathe' }] });
   });
@@ -57,7 +58,7 @@ describe('AX1: Rangliste rechnen', () => {
   it('ohne Schalter kein Feld im Auszug (gleiche Seite wie vorher), nicht freigegebene Klassen fehlen', () => {
     expect('ranking' in snap('g4')).toBe(false);
     app('db.groups[1].studentApp.on = false');
-    expect(snap('g1').ranking.list.map(x => x.cls)).toEqual(['7a', '9c']);
+    expect(snap('g1').ranking.list.map(x => x.cls)).toEqual(['9c', '7a']);
   });
   it('erst ab zwei Klassen; leere Klassen zählen nicht mit', () => {
     app('db.groups[1].studentApp.ranking = false; db.students.g3 = []');
@@ -126,8 +127,8 @@ describe('AX1: Sieger des Vormonats bleibt, Klassen zählen ab dem Monat des Ein
     expect(r.prev.winners).toEqual([{ cls: '7a', subject: 'Mathe' }]);
     const vorher = r.list.find(x => x.cls === '5d').value;
     expect(vorher).toBeGreaterThan(0);   // Plusse vom 6. und 7.11. zählen mit (15.11.: sonst stand überall 0)
-    app('db.students.g4[0].participation.push({ id: "n1", date: "2026-11-12", value: "excellent" })');
-    expect(snap('g1').ranking.list.find(x => x.cls === '5d').value).toBeCloseTo(vorher + 0.4, 5);
+    app('db.students.g4[0].participation.push({ id: "n1", date: "2026-11-06", value: "excellent" })');
+    expect(snap('g1').ranking.list.find(x => x.cls === '5d').value).toBeGreaterThan(vorher);
   });
   it('Sieger wird festgehalten: Abschalten der Siegerklasse ändert den Vormonat nicht', () => {
     app('setStudentAppRanking("g1", false)');   // hält Oktober vorher fest
@@ -172,7 +173,7 @@ describe('AX1: nur die Rangliste anders → höchstens stündlich schreiben (AK3
     const run = async () => { writes.length = 0; await app('publishStudentApps()'); return writes.filter(x => x === A).length; };
     expect(await run()).toBe(1);                                    // erste Seite sofort
     vi.setSystemTime(new Date(2026, 10, 12, 10, 20));
-    app('db.students.g2[0].participation.push({ id: "n1", date: "2026-11-12", value: "excellent" })');   // nur 8b ändert sich
+    app('db.students.g2[0].participation.push({ id: "n1", date: "2026-11-11", value: "excellent" })');   // nur 8b ändert sich (Tag mit Plussen, also nur mehr Plusse)
     expect(await run()).toBe(0);                                    // 7a: nur Rangliste anders, 20 Minuten → wartet
     vi.setSystemTime(new Date(2026, 10, 12, 11, 1));
     expect(await run()).toBe(1);                                    // nach 60 Minuten
@@ -225,5 +226,41 @@ describe('AX1: Texte nennen die Rangliste', () => {
     expect(document.getElementById('modal-privacy').textContent).toMatch(/Rangliste/);
     const t = [...document.querySelectorAll('.field-hint-muted')].map(p => p.textContent).join('\n');
     expect(t).toMatch(/Klassenseite:[^\n]*Rangliste/);
+  });
+});
+
+describe('BE4: pro Kopf und Stunde – wer eine Klasse öfter hat, liegt nicht automatisch vorn (Wunsch 15.11.)', () => {
+  // Do 12.11.2026, 10:00. 7a jeden Tag im 1. Block (bis heute 9 Stunden), 8b Mo + Di im 2. Block (4 Stunden)
+  const slot = (id, gid, day, block) => ({ id, day, block, part: 'full', subject: 'X', color: '#3b82f6', groupId: gid, recurring: 'weekly' });
+  const lessonDays = ['2026-11-02', '2026-11-03', '2026-11-04', '2026-11-05', '2026-11-06', '2026-11-09', '2026-11-10', '2026-11-11', '2026-11-12'];
+  function fairDB() {
+    const d = sampleDB();
+    d.lessonSlots = [0, 1, 2, 3, 4].map(day => slot('s7' + day, 'g1', day, 1)).concat([slot('s8a', 'g2', 0, 2), slot('s8b', 'g2', 1, 2)]);
+    // 7a: 18 Plusse an Stundentagen → 18 / 5 Schüler / 9 Stunden · 10 = 4,0
+    d.students.g1 = [st('a1', lessonDays.flatMap(x => [P(x, 'positive'), P(x, 'positive')])), ...fill('a', 4)];
+    // 8b: 10 Plusse an Stundentagen → 10 / 5 / 4 · 10 = 5,0 (weniger Plusse, aber pro Stunde mehr)
+    d.students.g2 = [st('b1', ['2026-11-02', '2026-11-03', '2026-11-09', '2026-11-10'].flatMap(x => [P(x, 'excellent')]).concat([P('2026-11-10', 'positive'), P('2026-11-10', 'positive')])), ...fill('b', 4)];
+    d.groups[2].studentApp.ranking = false;
+    return d;
+  }
+  it('rechnet Plusse ÷ Schüler ÷ gehaltene Stunden, auf 10 Stunden', () => {
+    load(fairDB());
+    const r = snap('g1').ranking;
+    expect(r.per).toBe(10);
+    expect(r.list.map(x => [x.cls, x.value, x.place])).toEqual([['8b', 5, 1], ['7a', 4, 2]]);
+  });
+  it('Ausfall zählt nicht, heutige Stunden erst ab Beginn, Tag mit Plussen ohne Stunde zählt als eine', () => {
+    const d = fairDB();
+    d.lessonData['s8a_2026-11-09'] = { ausfall: true };            // 8b: nur noch 3 Stunden → 10 / 5 / 3 · 10 = 6,7
+    d.students.g2[0].participation.forEach(p => { if (p.date === '2026-11-09') p.date = '2026-11-10'; });   // sonst zählte der Tag über seine Plusse
+    d.lessonSlots.push({ ...slot('s7late', 'g1', 3, 3), recurring: 'none', specificDate: '2026-11-12' });   // 7a: heute 11:45, noch nicht begonnen → zählt nicht
+    d.students.g1[1].participation.push(P('2026-11-07', 'positive'), P('2026-11-07', 'positive'));   // Samstag: 20 / 5 / 10 · 10 = 4,0
+    load(d);
+    expect(snap('g1').ranking.list.map(x => [x.cls, x.value])).toEqual([['8b', 6.7], ['7a', 4]]);
+  });
+  it('Schülerseite schreibt „pro Kopf in 10 Stunden“', () => {
+    load(fairDB());
+    window.renderStudentPage(app('studentAppSnapshot(db.groups[0])'));
+    expect(document.getElementById('page').textContent).toMatch(/pro Kopf in 10 Stunden/);
   });
 });

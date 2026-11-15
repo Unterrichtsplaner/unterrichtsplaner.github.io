@@ -113,7 +113,8 @@
       </div></details>`;
   }
 
-  // Rangliste der Klassen (AX1, „Klasse des Monats“): Plusse pro Kopf im Monat, nur Klassen derselben Lehrkraft,
+  // Rangliste der Klassen (AX1, „Klasse des Monats“): Plusse pro Kopf in 10 Stunden (`per`, BE4; ältere Auszüge ohne `per`:
+  // pro Kopf im Monat), nur Klassen derselben Lehrkraft,
   // nie Namen. Kommt der Monat aus einem älteren Stand (Monatswechsel ohne neuen Sync), heißt er „Endstand“.
   const isMonth = s => typeof s === 'string' && /^\d{4}-\d{2}$/.test(s);
   const monthName = s => MONTHS_LONG[Number(s.slice(5, 7)) - 1] || '';
@@ -123,7 +124,7 @@
     if (!r || typeof r !== 'object' || !isMonth(r.month)) return null;
     const rows = list(r.list).filter(x => x && x.cls && Number(x.place) > 0);
     if (rows.length < 2) return null;
-    return { month: r.month, rows, me: rows.find(x => x.me) || null, prev: r.prev && isMonth(r.prev.month) ? r.prev : null };
+    return { month: r.month, per: Number(r.per) > 0 ? Number(r.per) : 0, rows, me: rows.find(x => x.me) || null, prev: r.prev && isMonth(r.prev.month) ? r.prev : null };
   }
   const rankingLabel = (r, today) => (r.month < today.slice(0, 7) ? `Endstand ${monthName(r.month)}` : monthName(r.month));
   function rankingHTML(r, today) {
@@ -133,7 +134,7 @@
     return `<section class="f f-mist ranking"><h2>Klasse des Monats <small>${esc(rankingLabel(r, today))}</small></h2>${big}
       <ol class="rk">${r.rows.map(x => `<li class="rk-row${x.me ? ' rk-me' : ''}"><span class="rk-p">${Number(x.place)}</span>
         <span class="rk-n">${esc(x.cls)}${x.subject ? ` <small>${esc(x.subject)}</small>` : ''}</span><span class="rk-v">${esc(perHead(x.value))}</span></li>`).join('')}</ol>
-      <p class="more-note">Plusse pro Kopf in diesem Monat, ++ zählt doppelt.${winners.length ? ` Sieger ${esc(monthName(r.prev.month))}: ${esc(winners.join(' und '))}.` : ''}</p></section>`;
+      <p class="more-note">${r.per ? `Plusse pro Kopf in ${r.per} Stunden, damit jede Klasse eine faire Chance hat` : 'Plusse pro Kopf in diesem Monat'}, ++ zählt doppelt.${winners.length ? ` Sieger ${esc(monthName(r.prev.month))}: ${esc(winners.join(' und '))}.` : ''}</p></section>`;
   }
 
   // Kalender-Datei (AJ6 d): Termine als ganztägige Einträge, entsteht auf dem Handy, geht an keinen Server

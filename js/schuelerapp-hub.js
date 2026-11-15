@@ -108,7 +108,7 @@ function hubCardHTML(g, month, rows, wide) {
       <div><dt>Sieht</dt><dd>${seen.length ? escHtml(seen.join(' · ')) : 'nur den Kopf der Seite'}</dd></div>
       <div><dt>Klassenziel</dt><dd>${goal ? `${count} von ${goal.target}${goal.reward ? `, dann: ${escHtml(goal.reward)}` : ''}
         <span class="sa-bar" role="img" aria-label="${count} von ${goal.target} Plussen"><i style="width:${pct}%"></i></span>` : 'keins'}</dd></div>
-      ${sa.ranking ? `<div><dt>Rangliste</dt><dd>${row ? `Platz ${row.place} von ${rows.length}, ${rankValueText(row.value)} pro Kopf` : escHtml(rankingWaitText(g, rows))}</dd></div>` : ''}
+      ${sa.ranking ? `<div><dt>Rangliste</dt><dd>${row ? `Platz ${row.place} von ${rows.length}, ${rankValueText(row.value)} pro Kopf in ${RANKING_PER} Stunden` : escHtml(rankingWaitText(g, rows))}</dd></div>` : ''}
       <div><dt>Plusse ${escHtml(HUB_MONTHS[Number(month.slice(5)) - 1])}</dt><dd>${plus.join(' · ')}</dd></div>
     </dl>`;
   }
@@ -172,7 +172,7 @@ function hubRankingHTML(month, rows) {
   return `<section class="set-card sa-card"><h3 class="sa-subtitle">Rangliste ${escHtml(HUB_MONTHS[Number(month.slice(5)) - 1])}</h3>
     ${rows.length >= 2 ? `<ol class="sa-rank-list">${rows.map(r => `<li><span class="sa-rank-place">${r.place}.</span>
       <span class="sa-rank-name">${escHtml([r.g.className, r.g.subject].filter(Boolean).join(' '))}</span><span class="sa-rank-value">${rankValueText(r.value)}</span></li>`).join('')}</ol>
-      <p class="field-hint-muted">Plusse pro Kopf seit dem 1. dieses Monats.</p>`
+      <p class="field-hint-muted">Plusse pro Kopf in ${RANKING_PER} Stunden, seit dem 1. dieses Monats.</p>`
     : `<p class="field-hint-muted">${parts ? 'Erst ab zwei teilnehmenden Klassen. Schalte „Rangliste der Klassen“ bei einer weiteren Klasse ein.' : `Keine Klasse macht mit. Schalte „Rangliste der Klassen“ bei mindestens zwei Klassen ein (je mindestens ${RANKING_MIN_STUDENTS} Schüler).`}</p>`}</section>`;
 }
 

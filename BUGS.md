@@ -973,6 +973,8 @@ Geprüft: Cockpit, Fenster „Heute“, Schüler-Hinweis, Schülerliste/Klassen�
 
 - [x] **BE3** 🔴 **Rangliste zeigte bei allen Klassen 0** (15.11.: „bei allen Klassen 0, obwohl manche schon 30 + haben“). Ursache: Seit „Sieger festhalten“ (v571) zählte eine Klasse erst ab dem **Tag** des Einschaltens; eingeschaltet am 14.11. (Samstag) gab es seitdem keine Plusse. **Behoben (v573):** Eine Klasse macht ab dem **Monat** des Einschaltens mit und zählt diesen ganz, wie alle anderen (gleicher Zeitraum für alle, also fair). Der Vormonat bleibt unberührt: Dort macht eine neu eingeschaltete Klasse nicht mit, und der Sieger ist festgehalten. Test in `tests/rangliste.test.js` angepasst (war rot mit dem alten Code).
 
+- [x] **BE4** 🟡 **Rangliste fair zwischen Haupt- und Nebenfach** (15.11.: „eine Klasse kriegt jede Woche 20 Plusse, eine andere in 2 Wochen 30 … hä?“). Bisher: Plusse im Monat ÷ Schüler; wer eine Klasse öfter hat, lag fast automatisch vorn. **Entschieden (15.11.):** pro Kopf **und Stunde**. **Gebaut (v574):** Wert = Plusse im Monat ÷ Schüler ÷ gehaltene Stunden × 10, angezeigt als „pro Kopf in 10 Stunden“ (`RANKING_PER`, `rankingLessonCounts`). Gehalten = Stunden der Klasse laut Stundenplan bis jetzt, ohne Ausfall und Ferien, von heute nur begonnene; ein Tag mit Plussen ohne gehaltene Stunde zählt als eine (Plusse fallen nie weg, nie durch 0 teilen). Auszug bekommt `per: 10`, ältere Auszüge ohne `per` zeigt die Schülerseite wie bisher. Texte in Übersicht, Reiter „Schülerapp“, Schülerseite und Datenschutzhinweisen angepasst. Tests in `tests/rangliste.test.js` (rot mit dem alten Code); im Browser mit dem Test-Stundenplan nachgerechnet.
+
 
 ## Erledigt
 
