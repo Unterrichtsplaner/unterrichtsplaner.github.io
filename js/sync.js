@@ -566,13 +566,13 @@ function syncWhenText(ts, now = new Date()) {
   return formatWeekdayShort(ds);
 }
 // Zustand für die Anzeige: { kind: ok|busy|offline|wait|problem, icon, head, detail, short, long } oder null (ohne Cloud).
-// Leiste zweizeilig (head / detail, sonst abgeschnitten), Handy kurz (short), Titel und VoiceOver ganz (long).
+// Leiste eine Zeile (line, z. B. „Sync heute 11:02“), Handy kurz (short), Titel und VoiceOver ganz (long).
 function syncStateInfo(now = new Date()) {
   if (typeof SyncManager === 'undefined' || !SyncManager.currentUser) return null;
   const when = syncWhenText(lastSyncOkTime(), now);
   const changed = isLocalDBChanged();
   const offline = typeof navigator !== 'undefined' && navigator.onLine === false;
-  const st = (kind, icon, head, detail, short) => ({ kind, icon, head, detail, short, long: detail ? `${head} · ${detail}` : head });
+  const st = (kind, icon, head, detail, short, line = short) => ({ kind, icon, head, detail, short, line, long: detail ? `${head} · ${detail}` : head });
   // Erst „wiederholen“, dann „fehlt“: Das offene Wiederholungsfeld zählt sonst als „Passwort fehlt“ (AP14)
   const confirmGroup = document.getElementById('sync-master-password-confirm-group');
   if (SyncManager.masterPassword && confirmGroup && !confirmGroup.classList.contains('hidden')) return st('problem', 'alert', 'Sync wartet', 'Passwort wiederholen', 'Sync wartet');
@@ -586,7 +586,7 @@ function syncStateInfo(now = new Date()) {
     : st('offline', 'cloud', 'Offline', when ? `Stand ${when}` : '', 'Offline');
   if (syncStatusNow === 'checking' || changed) return st('busy', 'refresh', 'Abgleich …', '', 'Abgleich …');
   // „Abgeglichen“ statt „Synchronisiert“: In der 160 px schmalen Leiste wurde das lange Wort auf dem iPad abgeschnitten
-  return st('ok', 'check', 'Abgeglichen', when, when ? when.replace(/^heute /, '') : 'Abgeglichen');
+  return st('ok', 'check', 'Abgeglichen', when, when ? when.replace(/^heute /, '') : 'Abgeglichen', when ? `Sync ${when}` : 'Abgeglichen');
 }
 function updateSyncIndicator() {
   const info = syncStateInfo();
@@ -601,7 +601,8 @@ function updateSyncIndicator() {
     if (info) el.title = info.long; else el.removeAttribute('title');
   };
   if (info) {
-    fill('nav-sync-state', `${icon(info.icon)}<span class="ss-head">${escHtml(info.head)}</span>${info.detail ? `<span class="ss-detail">${escHtml(info.detail)}</span>` : ''}`);
+    // Leiste: eine Zeile, „Sync heute 11:02“ ohne Symbol; nur Zustände, die etwas wollen, mit Symbol (Wunsch 15.11.: zweizeilig brach mitten im Wort um)
+    fill('nav-sync-state', `${info.kind === 'ok' ? '' : icon(info.icon)}<span class="ss-line">${escHtml(info.line)}</span>`);
     fill('dash-sync-state', `${icon(info.icon)}<span>${escHtml(info.short)}</span>`);
   } else { fill('nav-sync-state', ''); fill('dash-sync-state', ''); }
   const nav = document.getElementById('nav-settings');

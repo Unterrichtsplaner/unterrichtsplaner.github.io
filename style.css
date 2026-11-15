@@ -2483,11 +2483,16 @@ input, textarea, [contenteditable="true"]{-webkit-user-select:text;user-select:t
 .sync-state[hidden]{display:none;}
 .sync-state .ico{width:12px;height:12px;margin:0;flex-shrink:0;}
 .sync-state span{overflow:hidden;text-overflow:ellipsis;}
-#nav-sync-state{display:grid;grid-template-columns:12px minmax(0,1fr);column-gap:var(--space-1);align-items:center;}   /* zwei Zeilen: Zustand, darunter Uhrzeit/Grund */
-#nav-sync-state[hidden]{display:none;}
-#nav-settings.has-sync{min-height:64px;}   /* drei Zeilen passen immer, die Höhe bleibt bei jedem Zustand gleich (Fuß 80 px, Regel 92) */
-#nav-sync-state .ss-detail{grid-column:2;}
-#nav-sync-state span{white-space:normal;overflow:visible;overflow-wrap:break-word;}   /* Leiste 160 px, iPad-Schrift breiter: nie „…“, lieber umbrechen */
+#nav-sync-state{align-items:flex-start;}   /* eine Zeile „Sync heute 11:02“ (Wunsch 15.11.) */
+#nav-sync-state .ico{margin-top:1px;}
+/* Sync-Zeile unter Zahnrad und Namen über die ganze Knopfbreite: neben dem Zahnrad fehlten für „Sync heute 11:02“ ein paar Pixel */
+@media (min-width: 601px){
+  #sidebar:not(.collapsed) #nav-settings.has-sync{display:grid;grid-template-columns:20px minmax(0,1fr);column-gap:var(--space-2);row-gap:var(--space-1);align-content:center;align-items:center;}
+  #sidebar:not(.collapsed) #nav-settings.has-sync .nav-settings-text{display:contents;}
+  #sidebar:not(.collapsed) #nav-settings.has-sync #nav-sync-state{grid-column:1 / -1;}
+}
+#nav-settings.has-sync{min-height:56px;}   /* Name + Sync-Zeile, auch mit Umbruch der Sync-Zeile; Höhe bleibt bei jedem Zustand gleich (Fuß 80 px, Regel 92) */
+#nav-sync-state span{white-space:normal;overflow:visible;overflow-wrap:normal;word-break:normal;}   /* nie „…“ und nie mitten im Wort: reicht der Platz nicht, bricht nur zwischen Wörtern um */
 .sync-state.is-ok .ico{color:var(--success);}
 .sync-state.is-wait{color:var(--text-secondary);}
 .sync-state.is-wait .ico{color:var(--warning);}

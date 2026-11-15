@@ -42,6 +42,16 @@ describe('Zustände', () => {
     expect(dash().textContent).toBe('09:30');
     expect(document.getElementById('nav-settings').getAttribute('aria-label')).toBe('Einstellungen, Abgeglichen · heute 09:30');
   });
+  it('Leiste zeigt eine Zeile „Sync heute 09:30“ ohne Symbol, andere Zustände mit Symbol (Wunsch 15.11.)', () => {
+    app('updateSyncIndicator()');
+    expect(nav().textContent).toBe('Sync heute 09:30');
+    expect(nav().querySelectorAll('span')).toHaveLength(1);
+    expect(nav().querySelector('svg, .ico')).toBeNull();
+    app('noteSyncStatus("conflict")');
+    expect(nav().textContent).toBe('Abgleich offen');
+    expect(nav().querySelector('svg, .ico')).not.toBeNull();
+    app('noteSyncStatus("idle")');
+  });
   it('erfolgreicher Abgleich ohne Änderungen erneuert die Uhrzeit (nur auf dem Gerät gemerkt)', () => {
     app('noteSyncStatus("synced")');
     expect(nav().title).toBe('Abgeglichen · heute 10:00');
@@ -116,7 +126,7 @@ describe('Aufbau', () => {
   });
   it('Text wird escaped (Regel 3): Anzeige baut nur aus festen Texten und Uhrzeit', () => {
     app('updateSyncIndicator()');
-    expect(nav().querySelector('svg.ico')).not.toBeNull();
-    expect([...nav().querySelectorAll('span')].map(x => x.textContent)).toEqual(['Abgeglichen', 'heute 09:30']);   // zwei Zeilen in der Leiste
+    expect([...nav().querySelectorAll('span')].map(x => x.textContent)).toEqual(['Sync heute 09:30']);   // eine Zeile in der Leiste
+    expect(document.getElementById('dash-sync-state').querySelector('svg.ico')).not.toBeNull();
   });
 });
