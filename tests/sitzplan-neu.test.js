@@ -164,19 +164,55 @@ describe('Leiste oben: immer da', () => {
     expect(sub()).toBe('heute · 1. Block');
     expect(wakeRequests).toBe(0);
   });
-  it('in der Pause: nächste Stunde heute später, mit Thema der letzten Stunde', () => {
+  it('in der Pause (BE11): die eben gehaltene Stunde bleibt, bis die spätere der Klasse beginnt', () => {
     at(9, 20);
     open('g1');
-    expect(when()).toBe('11:45');
-    expect(sub()).toBe('heute · 3. Block');
+    expect(kicker()).toBe('Vorbei');
+    expect(when()).toBe('07:45');
+    expect(sub()).toBe('heute · 1. Block');
     expect(cockpit().querySelector('.cockpit-lesson-btn')).toBeTruthy();
+    at(11, 35);   // 10 Minuten vor dem 3. Block: Leiste läuft schon für die spätere Stunde
+    app('renderSeatingCockpit()');
+    expect(cockpit().classList.contains('live')).toBe(true);
+    expect(txt(cockpit().querySelector('.cockpit-mins'))).toBe('in 10 Min');
   });
-  it('nach der letzten Stunde: nächster Tag mit Stunde', () => {
+  it('nach der letzten Stunde (BE11): bis zum Abend die eben gehaltene, am nächsten Morgen die nächste', () => {
     at(14, 0);
     open('g1');
+    expect(kicker()).toBe('Vorbei');
+    expect(when()).toBe('11:45');
+    expect(sub()).toBe('heute · 3. Block');
+    at(22, 30);
+    app('renderSeatingCockpit()');
+    expect(kicker()).toBe('Vorbei');
+    vi.setSystemTime(new Date(2026, 10, 3, 7, 0));   // Di früh: Sitzplan auf Dienstag
+    open('g1', '2026-11-03');
     expect(kicker()).toBe('Nächste Stunde');
     expect(when()).toMatch(/^Fr\.?,? 06\.11\.?$/);
     expect(sub()).toBe('07:45 · 1. Block');
+  });
+  it('BE11: Thema antippen nach der Stunde öffnet genau diese Stunde mit ihrem Inhalt', () => {
+    at(14, 0);
+    app('db.lessonData["m3_2026-11-02"] = { done: "Brüche erweitern\\nTafelbild nachholen" }; db.lessonData["m1_2026-11-02"] = { done: "Brüche kürzen" }');
+    open('g1');
+    expect(txt(cockpit().querySelector('.cockpit-topic-text'))).toBe('Brüche erweitern');
+    app('openLessonTopic()');
+    expect($('lt-this-label').textContent).toBe('Diese Stunde · 3. Block');
+    expect($('lt-done').value).toBe('Brüche erweitern\nTafelbild nachholen');
+    expect($('lt-prev-label').textContent).toMatch(/^Letzte Stunde · Mo\.?,? 02\.11\.?$/);
+    expect($('lt-prev-done').value).toBe('Brüche kürzen');
+    app('closeModal("modal-lesson-topic")');
+  });
+  it('BE11: Stunde ohne Eintrag zeigt den Rückfall „Letzte Stunde“, Antippen öffnet trotzdem die eben gehaltene', () => {
+    at(14, 0);
+    app('db.lessonData["m1_2026-11-02"] = { done: "Brüche kürzen" }');
+    open('g1');
+    expect(txt(cockpit().querySelector('.cockpit-topic-label'))).toMatch(/^Letzte Stunde/);
+    app('openLessonTopic()');
+    expect($('lt-this-label').textContent).toBe('Diese Stunde · 3. Block');
+    expect($('lt-done').value).toBe('');
+    expect($('lt-prev-done').value).toBe('Brüche kürzen');
+    app('closeModal("modal-lesson-topic")');
   });
   it('anderer Tag gewählt: die Stunde an diesem Tag', () => {
     at(8, 0);
@@ -202,9 +238,16 @@ describe('Leiste oben: immer da', () => {
     expect(txt(cockpit())).toContain('Kein Unterricht eingetragen');
     expect(cockpit().querySelector('.cockpit-lesson-btn')).toBeNull();
   });
-  it('„Stunde“ öffnet die geplante Stunde', () => {
+  it('„Stunde“ öffnet die angezeigte Stunde (nach dem Unterricht: die eben gehaltene, BE11)', () => {
     at(14, 0);
     open('g1');
+    app('openCockpitLesson()');
+    expect(app('activeLessonId')).toBe('m3');
+    expect(app('activeLessonDate')).toBe('2026-11-02');
+  });
+  it('„Stunde“ vor dem Unterricht öffnet die nächste Stunde', () => {
+    vi.setSystemTime(new Date(2026, 10, 3, 7, 0));
+    open('g1', '2026-11-03');
     app('openCockpitLesson()');
     expect(app('activeLessonId')).toBe('m4');
     expect(app('activeLessonDate')).toBe('2026-11-06');

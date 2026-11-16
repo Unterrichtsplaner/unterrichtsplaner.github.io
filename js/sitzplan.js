@@ -401,17 +401,25 @@ function cockpitCount(cls, iconName, count, label, title) {
   return `<button type="button" class="cockpit-count ${cls}" onclick="openSeatingToday()" title="${escHtml(title)}" aria-label="${escHtml(title)}">`
     + `${icon(iconName)}${count !== null ? `<b>${count}</b>` : ''}<span class="cockpit-count-label">${label}</span></button>`;
 }
-// Außerhalb der Stunde (AH50): welche Stunde die Leiste zeigt. Heute die nächste, die noch kommt; an einem anderen
-// Tag die erste an diesem Tag, sonst die nächste danach. Ohne Ausfall, bis 70 Tage weit (Regel 17).
+// Außerhalb der Stunde (AH50): welche Stunde die Leiste zeigt. Heute nach dem Unterricht bis zum Abend die eben
+// gehaltene (BE11: dort trägt man ein, was dran war; die nächste kam sonst mit leeren Feldern), bis die nächste der
+// Klasse heute beginnt (dann läuft die Leiste live); vor der ersten Stunde die nächste, die noch kommt. An einem
+// anderen Tag die erste an diesem Tag, sonst die nächste danach. Ohne Ausfall, bis 70 Tage weit (Regel 17).
 function seatingPlannedLesson(groupId, dateStr, now = new Date()) {
   if (!groupId || !dateStr) return null;
   const todayStr = formatDate(now);
   const nowMins = now.getHours() * 60 + now.getMinutes();
   const mine = ds => lessonsOnDate(ds).filter(l => l.slot.groupId === groupId && !l.ausfall && l.range);
+  const list = mine(dateStr), a = seatingDayAnchor;   // mit ↑/↓ gewählte Stunde (BE10)
+  const anchored = a && a.groupId === groupId && a.dateStr === dateStr && list.find(l => l.slot.id === a.slotId);
   if (dateStr !== todayStr) {
-    const list = mine(dateStr), a = seatingDayAnchor;   // mit ↑/↓ gewählte Stunde (BE10), sonst die erste
-    const own = (a && a.groupId === groupId && a.dateStr === dateStr && list.find(l => l.slot.id === a.slotId)) || list[0];
+    const own = anchored || list[0];
     if (own) return { lesson: own, kicker: 'Stunde' };
+  } else {
+    const held = list.filter(l => l.range.end <= nowMins);
+    const pick = anchored || held[held.length - 1];
+    if (pick && pick.range.end <= nowMins) return { lesson: pick, kicker: 'Vorbei' };
+    if (pick) return { lesson: pick, kicker: 'Nächste Stunde' };
   }
   let d = parseDate(dateStr);
   for (let i = 0; i < 70; i++, d = addDays(d, 1)) {

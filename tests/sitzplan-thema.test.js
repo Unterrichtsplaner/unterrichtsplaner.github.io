@@ -43,9 +43,12 @@ describe('AI1: Leiste zeigt das geplante Thema', () => {
     openSeating();
     expect(topic()).toBe('Geplant · Stunde 1 von 2 | Brüche erweitern');
   });
-  it('später am Tag: zweite Stunde des Themas', () => {
+  it('später am Tag: nach der Stunde bleibt sie (BE11), kurz vor der zweiten deren Thema', () => {
     at(10, 0);
     openSeating();
+    expect(topic()).toBe('Geplant · Stunde 1 von 2 | Brüche erweitern');
+    at(11, 35);
+    app('renderSeatingCockpit()');
     expect(topic()).toMatch(/Brüche erweitern$/);
     expect(topic()).toContain('Stunde 2 von 2');
   });
