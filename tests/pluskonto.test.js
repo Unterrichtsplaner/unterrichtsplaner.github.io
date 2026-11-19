@@ -252,7 +252,7 @@ describe('Laden je Klasse einschalten (Standard aus, Wunsch 12.11. vor dem Live-
     expect(sec().querySelector('#sw-sa-redeem')).toBeNull();
     expect(sec().textContent).toMatch(/Joker: .*frei/);
   });
-  it('Einschalten im Reiter „Schülerapp“: Rückfrage nennt die Note; das Konto zählt ab heute', async () => {
+  it('Einschalten im Reiter „Schülerapp“: Rückfrage nennt die Note; alle Plusse des Schuljahrs zählen, auch die von vorher (BE13)', async () => {
     off();
     app('openGroupStudents("g1", "studentapp")');
     expect(content().querySelector('#sa-shop-on').checked).toBe(false);
@@ -262,15 +262,16 @@ describe('Laden je Klasse einschalten (Standard aus, Wunsch 12.11. vor dem Live-
     await vi.waitFor(() => expect(choiceOpen()).toBe(true));
     expect(document.getElementById('modal-choice-text').textContent).toMatch(/Note/);
     expect(document.getElementById('modal-choice-text').textContent).toMatch(/ersetzt die Joker/);
+    expect(document.getElementById('modal-choice-text').textContent).toMatch(/alle Plusse seit Schuljahresbeginn/);
     app('answerChoice("on")');
     await vi.waitFor(() => expect(app('personalOf(db.groups[0]).shopOn')).toBe(true));
-    expect(app('personalOf(db.groups[0]).shopSince')).toBe(TODAY);
-    expect(account()).toMatchObject({ earned: 0, balance: 0 });   // Plusse von vorher zählen nicht
+    expect(account()).toMatchObject({ earned: 9, balance: 9 });   // Plusse von vor dem Einschalten zählen mit
     expect(content().querySelector('#sa-shop-list')).not.toBeNull();
     expect(content().querySelector('#sa-jokers')).toBeNull();
+    expect(content().querySelector('.sa-shop-switch').textContent).toMatch(/seit Schuljahresbeginn/);
     app(`db.students.g1[0].participation.push({ id: "n1", date: "${TODAY}", value: "excellent" })`);
-    expect(account().earned).toBe(2);
-    expect(app('studentPersonalSnapshot(db.groups[0], db.students.g1[0], new Date())').account.since).toBe(TODAY);
+    expect(account().earned).toBe(11);
+    expect(app('studentPersonalSnapshot(db.groups[0], db.students.g1[0], new Date())').account.since).toBeUndefined();
   });
   it('Abbrechen lässt den Laden aus', async () => {
     off();
@@ -281,24 +282,33 @@ describe('Laden je Klasse einschalten (Standard aus, Wunsch 12.11. vor dem Live-
     await vi.waitFor(() => expect(content().querySelector('#sa-shop-on').checked).toBe(false));
     expect(app('personalOf(db.groups[0]).shopOn')).toBe(false);
   });
-  it('Aus und wieder an: das Startdatum bleibt (kein versehentliches Zurücksetzen der Konten)', async () => {
-    app('db.groups[0].studentApp.personal.shopSince = "2026-10-01"');
+  it('ein schon gespeichertes Startdatum (Laden vor BE13 eingeschaltet) bremst nichts mehr: Plusse und Einlösungen des ganzen Schuljahrs', () => {
+    app('db.groups[0].studentApp.personal.shopSince = "2026-11-09"');
+    app('db.students.g1[0].redeemed = [{ id: "r1", date: "2026-10-01", name: "Song", price: 3, kind: "perk" }]');
+    expect(account()).toMatchObject({ earned: 9, spent: 3, balance: 6 });
+    expect(app('studentPersonalSnapshot(db.groups[0], db.students.g1[0], new Date())').account.since).toBeUndefined();
+  });
+  it('Aus und wieder an: Konten bleiben, wie sie sind', async () => {
     window.confirm = () => true;
     app('openGroupStudents("g1", "studentapp")');
     toggle(false);
-    expect(app('personalOf(db.groups[0])')).toMatchObject({ shopOn: false, shopSince: '2026-10-01' });
+    expect(app('personalOf(db.groups[0]).shopOn')).toBe(false);
     toggle(true);
     await vi.waitFor(() => expect(choiceOpen()).toBe(true));
     app('answerChoice("on")');
     await vi.waitFor(() => expect(app('personalOf(db.groups[0]).shopOn')).toBe(true));
-    expect(app('personalOf(db.groups[0]).shopSince')).toBe('2026-10-01');
+    expect(account()).toMatchObject({ earned: 9, balance: 9 });
   });
-  it('Abgleich: An/Aus und Startdatum als Ganzes', () => {
+  it('Abgleich: An/Aus ist eine Frage, das alte Startdatum nicht (BE13)', () => {
     const base = sampleDB();
     const l = JSON.parse(JSON.stringify(base)), c = JSON.parse(JSON.stringify(base));
     delete base.groups[0].studentApp.personal.shopOn; delete base.groups[0].studentApp.personal.shopSince;
     l.groups[0].studentApp.personal.shopSince = '2026-11-02';
     c.groups[0].studentApp.personal.shopSince = '2026-11-05';
+    expect(app('mergeDB')(base, l, c).conflicts).toEqual([]);
+    c.groups[0].studentApp.personal.shopOn = false;
+    l.groups[0].studentApp.personal.shopOn = true;
+    base.groups[0].studentApp.personal.shopOn = null;
     const r = app('mergeDB')(base, l, c);
     expect(r.conflicts.map(q => q.what)).toEqual(['Plus-Konto und Laden']);
   });

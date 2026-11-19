@@ -830,7 +830,7 @@ function personalOf(g) {
     jokers: Array.isArray(p.jokers) ? p.jokers.map(x => String(x || '').trim()).filter(Boolean).slice(0, 12) : SA_JOKERS_DEFAULT.slice(),
     shop: Array.isArray(p.shop) ? p.shop.map(cleanShopItem).filter(Boolean).slice(0, 16) : shopFromJokers(p.jokers, gradeScale(g)),   // AV1; Startwerte je Skala (BC5)
     shopOn: p.shopOn === true,   // Laden eingeschaltet (AV1, Standard aus: dann Joker wie bisher)
-    shopSince: isDateStr(p.shopSince) ? p.shopSince : null,   // erstes Einschalten: ab da zählt das Konto (bleibt beim Aus- und Einschalten)
+    shopSince: isDateStr(p.shopSince) ? p.shopSince : null,   // nur noch für ältere App-Versionen (bis BE13 zählte das Konto erst ab hier)
     stickers: (Array.isArray(p.stickers) ? p.stickers : SA_STICKERS_DEFAULT).map(cleanSticker).filter(Boolean).slice(0, 20),
     autoStickers: (Array.isArray(p.autoStickers) ? p.autoStickers : SA_AUTO_DEFAULT).map(cleanAuto).filter(Boolean).slice(0, 20),
     bauXP: clampInt(p.bauXP, 0, 200, SA_BAU_DEFAULT_XP),
@@ -1387,12 +1387,12 @@ function shopFromJokers(jokers, scale = null) {
   return [...items.filter((x, i) => items.indexOf(x) === i), ...SA_SHOP_DEFAULT.filter(x => x.kind === 'grade')].map(x => shopDefaultItem(x, scale));
 }
 // Konto eines Schülers im Schuljahr: verdient (+ 1, ++ 2), eingelöst (Preise beim Einlösen), Stand
+// Plusse und Einlösungen zählen das ganze Schuljahr, auch was vor dem Einschalten des Ladens kam (BE13, 19.11.):
+// Wer den Laden später einschaltet, nimmt den Schülern sonst ihre schon verdienten Plusse weg. `shopSince` zählt nicht mehr.
 function studentAccount(g, s, todayStr = formatDate(new Date())) {
-  const since = personalOf(g).shopSince;   // Plusse zählen ab dem Einschalten des Ladens (Wunsch 12.11.), längstens das Schuljahr
-  const earned = yearParticipation(s, todayStr).filter(p => !since || p.date >= since).reduce((n, p) => n + (SA_PLUS_VALUE[p.value] || 0), 0);
+  const earned = yearParticipation(s, todayStr).reduce((n, p) => n + (SA_PLUS_VALUE[p.value] || 0), 0);
   const seen = new Set();   // ein Code (Einmal-Nummer) zählt nur einmal, auch wenn zwei Geräte ihn gescannt haben (Stufe 2)
-  // Einlösungen wie die Plusse erst ab dem Startdatum (BC1): sonst „verdient ab heute, abgezogen ab August“
-  const redeemed = yearList(s.redeemed, todayStr).filter(r => (!since || r.date >= since) && (!r.nonce || (!seen.has(r.nonce) && seen.add(r.nonce))));
+  const redeemed = yearList(s.redeemed, todayStr).filter(r => !r.nonce || (!seen.has(r.nonce) && seen.add(r.nonce)));
   const spent = redeemed.reduce((n, r) => n + clampInt(r.price, 0, 999, 0), 0);
   return { earned, spent, balance: Math.max(0, earned - spent), redeemed };
 }
@@ -1406,8 +1406,7 @@ function studentAccountSnapshot(g, s, todayStr) {
       ...(r.nonce ? { nonce: String(r.nonce) } : {}) })),   // Einmal-Nummer: die Schülerseite hakt damit „wartet auf Bestätigung“ ab
     ...yearList(s.jokersUsed, todayStr).map(j => ({ date: j.date, name: j.text ? `Joker: ${String(j.text)}` : 'Joker', price: 0, kind: 'joker', icon: 'star' })),
   ].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 40);
-  const since = personalOf(g).shopSince;
-  return { balance: acc.balance, earned: acc.earned, spent: acc.spent, ...(since && since >= schoolYearStart(todayStr) ? { since } : {}),
+  return { balance: acc.balance, earned: acc.earned, spent: acc.spent,   // ohne `since`: das Konto gilt das ganze Schuljahr (BE13)
     shop: personalOf(g).shop.map(x => ({ id: x.id, name: x.name, price: x.price, kind: x.kind, icon: x.icon })), redeemed };
 }
 function afterRedeemChange(g, s, grade, created = false) {
@@ -1543,17 +1542,16 @@ function removeRedemption(groupId, studentId, entry) {
   });
 }
 // Laden ein- und ausschalten (Wunsch 12.11., vor dem Live-Gang): Standard aus, dann gelten die Joker wie bisher – andere
-// Lehrkräfte bekommen so nichts, was sie nicht selbst gewählt haben (eine eintauschbare Note!). Beim ersten Einschalten
-// beginnt das Konto (shopSince); Aus und wieder an behält das Datum, damit ein Verklicken keine Konten zurücksetzt.
+// Lehrkräfte bekommen so nichts, was sie nicht selbst gewählt haben (eine eintauschbare Note!). Das Konto zählt immer das
+// ganze Schuljahr, auch die Plusse von vor dem Einschalten (BE13); Aus und An ändert an den Konten nichts.
 async function setShopOn(groupId, on) {
   const g = db.groups.find(x => x.id === groupId);
   if (!g) return;
-  const since = personalOf(g).shopSince, keep = !!since && since >= schoolYearStart();
   if (on) {
     const ok = await askChoice('Plus-Konto und Laden einschalten?',
       'Jeder Schüler sammelt Plusse auf einem Konto (+ ist 1 Plus wert, ++ sind 2) und löst sie im Shop seiner App ein: für Vorteile, als Spende fürs Klassenziel '
       + 'und, solange das Angebot im Laden steht, für eine mündliche Note. Ob Schüler eine Note eintauschen dürfen, entscheidest du; sonst lösch das Angebot einfach. '
-      + `Der Laden ersetzt die Joker. ${keep ? `Das Konto zählt weiter ab ${formatDateShort(since)}.` : 'Gezählt wird ab heute.'}`,
+      + 'Der Laden ersetzt die Joker. Auf dem Konto stehen alle Plusse seit Schuljahresbeginn, auch die von vor dem Einschalten.',
       [{ label: 'Einschalten', value: 'on', primary: true }]);
     if (ok !== 'on' || !db.groups.includes(g)) { renderStudentAppTab(); return; }   // Regel 43; Schalter zurück
   } else if (!confirm('Plus-Konto und Laden ausschalten?\n\nDie Schüler sehen dann wieder die Joker. Konten und Einlösungen bleiben gespeichert.')) {
@@ -1561,11 +1559,7 @@ async function setShopOn(groupId, on) {
     return;
   }
   const p = ensurePersonal(g);
-  // Ausschalten im zweiten Schuljahr: Startdatum aus dem Vorjahr auf den 1. August, damit Wiedereinschalten es behält
-  // und das Konto nicht auf null fällt (BC1). Ein schon im Vorjahr ausgeschalteter Laden zählt beim Einschalten ab heute.
-  if (!on && p.shopOn && since && !keep) p.shopSince = schoolYearStart();
   p.shopOn = !!on;
-  if (on && !keep) p.shopSince = formatDate(new Date());
   saveDB();
   renderStudentAppTab();
   refreshStudentAppViews();
@@ -1575,9 +1569,8 @@ const jokerEditorHTML = p => `<div class="form-group"><label for="sa-jokers">Jok
         <textarea id="sa-jokers" class="form-input sa-jokers" rows="5">${escHtml(p.jokers.join('\n'))}</textarea>
         <p class="field-hint-muted">Alle ${SA_JOKER_EVERY} Level gibt es einen Joker, höchstens ${SA_JOKER_MAX} im Schuljahr. Der Schüler sucht beim Einlösen aus, du hakst ihn im Schüler-Fenster ab.</p></div>`;
 function shopSwitchHTML(g, p) {
-  const since = p.shopSince && p.shopSince >= schoolYearStart() ? formatDateShort(p.shopSince) : 'Schuljahresbeginn';
   return `<div class="form-group sa-shop-switch"><div class="sa-head"><div><span class="group-label">Plus-Konto und Laden</span>
-        <p class="field-hint-muted">${p.shopOn ? `An, Plusse zählen ab ${escHtml(since)}. Die Schüler lösen sie im Shop ihrer App ein, die Joker entfallen.`
+        <p class="field-hint-muted">${p.shopOn ? `An, es zählen alle Plusse seit Schuljahresbeginn. Die Schüler lösen sie im Shop ihrer App ein, die Joker entfallen.`
           : 'Aus: Es gelten die Joker. Eingeschaltet sammeln die Schüler Plusse auf einem Konto und lösen sie im Shop ihrer App ein (+ ist 1 Plus wert, ++ sind 2).'}</p></div>
       <label class="toggle-switch" title="Plus-Konto und Laden"><input type="checkbox" id="sa-shop-on" aria-label="Plus-Konto und Laden für die ${escHtml(g.className)}"${p.shopOn ? ' checked' : ''}><span class="toggle-slider"></span></label></div></div>`;
 }

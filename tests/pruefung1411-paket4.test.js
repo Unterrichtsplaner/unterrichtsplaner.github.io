@@ -36,7 +36,7 @@ beforeEach(() => {
 });
 afterEach(() => { if (app('plusScan')) app('closePlusScanner()'); vi.useRealTimers(); });
 
-describe('BC1: Laden aus- und wieder einschalten im zweiten Schuljahr', () => {
+describe('BC1/BE13: Laden aus- und wieder einschalten im zweiten Schuljahr', () => {
   const secondYear = () => {
     vi.setSystemTime(new Date(2027, 9, 12, 10, 0));   // Di 12.10.2027
     load({ personal: { shopSince: '2026-11-12' },
@@ -49,26 +49,25 @@ describe('BC1: Laden aus- und wieder einschalten im zweiten Schuljahr', () => {
     await app('setShopOn("g1", false)');
     const on = app('setShopOn("g1", true)');
     await flush();
-    expect(app('document.getElementById("modal-choice-text").textContent')).toMatch(/zählt weiter ab 01\.08\./);
+    expect(app('document.getElementById("modal-choice-text").textContent')).toMatch(/alle Plusse seit Schuljahresbeginn/);
     app('answerChoice("on")');
     await on;
-    expect(app('db.groups[0].studentApp.personal.shopSince')).toBe('2027-08-01');
     expect(app('studentAccount(db.groups[0], db.students.g1[0]).balance')).toBe(2);
   });
-  it('Einlösungen zählen erst ab dem Startdatum, wie die Plusse', () => {
+  it('Plusse und Einlösungen zählen beide ab Schuljahresbeginn, egal wann der Laden an ging (BE13)', () => {
     load({ personal: { shopSince: '2026-10-10' },
       redeemed: [{ id: 'r0', date: '2026-10-01', name: 'alt', price: 4, kind: 'perk' }, { id: 'r1', date: '2026-10-20', name: 'neu', price: 2, kind: 'perk' }] });
-    // Plusse ab 10.10.: 12.10. und 19.10. (je ++) = 4, minus nur die Einlösung vom 20.10.
-    expect(app('studentAccount(db.groups[0], db.students.g1[0])')).toMatchObject({ earned: 4, spent: 2, balance: 2 });
+    // vier ++ ab 21.09. = 8, minus beide Einlösungen
+    expect(app('studentAccount(db.groups[0], db.students.g1[0])')).toMatchObject({ earned: 8, spent: 6, balance: 2 });
   });
-  it('schon im Vorjahr ausgeschaltet: Einschalten zählt ab heute', async () => {
+  it('schon im Vorjahr ausgeschaltet: Einschalten zählt alle Plusse des neuen Schuljahrs', async () => {
     vi.setSystemTime(new Date(2027, 9, 12, 10, 0));
-    load({ personal: { shopOn: false, shopSince: '2026-11-12' } });
+    load({ personal: { shopOn: false, shopSince: '2026-11-12' }, participation: [P('q1', '2027-09-01', 'excellent'), P('q0', '2027-06-01', 'excellent')] });
     const on = app('setShopOn("g1", true)');
     await flush();
     app('answerChoice("on")');
     await on;
-    expect(app('db.groups[0].studentApp.personal.shopSince')).toBe('2027-10-12');
+    expect(app('studentAccount(db.groups[0], db.students.g1[0])')).toMatchObject({ earned: 2, balance: 2 });   // Juni gehört zum Vorjahr
   });
 });
 
