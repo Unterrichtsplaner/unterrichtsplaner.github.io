@@ -1,6 +1,6 @@
 // AH28 Schritt 3: Notenrunde im Sitzplan – Werkzeug „Noten geben“: Karte antippen → Zahl antippen → nächste Karte.
 // Leiste über dem Raster mit Art, Anzahl und „Fertig“. Zustand nie gespeichert.
-const { loadApp, app } = require('./helpers/load-app');
+const { loadApp, app, startSeatingEdit } = require('./helpers/load-app');
 
 const MON = '2026-11-02';
 const st = (id, f, extra = {}) => ({ id, firstName: f, lastName: 'X', grades: [], attendance: [], participation: [], homework: [], studentNotes: [], ...extra });
@@ -101,7 +101,7 @@ describe('Notenrunde', () => {
     expect(stu('q1', 'c').grades[0].value).toBe('12');
   });
   it('beendet den Bearbeiten-Modus, damit Antippen nicht verschiebt', () => {
-    app('toggleSeatingEditMode()');
+    startSeatingEdit();
     expect(app('seatingEditMode')).toBe(true);
     app('toggleGradeRound()');
     expect(app('seatingEditMode')).toBe(false);

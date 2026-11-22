@@ -1,7 +1,7 @@
 // Block S (Review 25.09.2026, zweite Runde): Sitzplan, Fenster, Einstellungen, Design.
 const fs = require('fs');
 const path = require('path');
-const { loadApp, app, showGradesOnOpen } = require('./helpers/load-app');
+const { loadApp, app, showGradesOnOpen, startSeatingEdit } = require('./helpers/load-app');
 
 const CSS = fs.readFileSync(path.join(__dirname, '..', 'style.css'), 'utf8');
 const HTML = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
@@ -230,7 +230,7 @@ describe('S12: Bedienung per Tastatur/VoiceOver', () => {
   });
   it('Bearbeiten-Knopf im Sitzplan zeigt seinen Zustand, Zurücksetzen-Knöpfe sind unterscheidbar', () => {
     app('switchView("seating")');
-    app('toggleSeatingEditMode()');
+    startSeatingEdit();
     expect(document.getElementById('btn-seating-edit').getAttribute('aria-pressed')).toBe('true');
     app('toggleSeatingEditMode()');
     expect(document.getElementById('btn-seating-edit').getAttribute('aria-pressed')).toBe('false');

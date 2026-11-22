@@ -42,4 +42,10 @@ function showGradesOnOpen() {
   app('classGradesShown = true; hideClassGrades = function () { classGradesShown = true; updateClassGradesButton(); }');
 }
 
-module.exports = { loadApp, loadScript, app, showGradesOnOpen, appFiles, appSource };
+// Sitzplan-Bearbeiten ohne die Frage „Nur für heute / gewohnten Sitzplan ändern“ (BE14) – für Tests,
+// die anderes prüfen (Knöpfe, Leiste). scope: 'base' (gewohnter Sitzplan) oder 'day' (Tagesplan)
+function startSeatingEdit(scope = 'base') {
+  app(`seatingEditScope = { scope: ${JSON.stringify(scope)}, groupId: currentSeatingGroupId, dateStr: seatingPlanDate() }; setSeatingEditUI(true); renderSeatingPlan()`);
+}
+
+module.exports = { loadApp, loadScript, app, showGradesOnOpen, appFiles, appSource, startSeatingEdit };

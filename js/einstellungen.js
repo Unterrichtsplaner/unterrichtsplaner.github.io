@@ -951,6 +951,7 @@ function applyNewSchoolYear(choices, todayStr = formatDate(new Date())) {
     if (name) g.className = name;
     if (g.year) g.year = nextYearLabel(g.year);
     ['gradeEvents', 'attendanceEvents', 'participationEvents', 'homeworkEvents', 'plan', 'classNotes'].forEach(f => { if (Array.isArray(g[f])) g[f] = []; });
+    delete g.seatingDays;   // Sitzpläne nur für einen Tag (BE14); der gewohnte bleibt
     const sa = g.studentApp;
     if (sa && typeof sa === 'object') {   // neuer Link: Ehemalige sehen die Klasse nicht mehr (Regel 95)
       if (sa.access && sa.access.id) { queueShareDeletion(sa.access.id); sa.access = StudentShare.newAccess(); }

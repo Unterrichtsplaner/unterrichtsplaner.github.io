@@ -774,8 +774,32 @@ function giveRoundGrade(studentId, val) {
   }, 'round');
 }
 
-function toggleSeatingEditMode() {
-  seatingEditMode = !seatingEditMode;
+// „Bearbeiten“: Gibt es für den Tag schon einen Tagesplan, wird er bearbeitet. Sonst fragt die App, ob die Änderung
+// nur für diesen Tag gilt (Raumwechsel) oder für den gewohnten Sitzplan (BE14). Beenden geht immer sofort.
+async function toggleSeatingEditMode() {
+  if (seatingEditMode) { setSeatingEditUI(false); renderSeatingPlan(); return; }
+  if (refreshSeatingDate()) { renderSeatingDateStrip(); renderSeatingPlan(); }   // über Nacht offen (Regel 24)
+  const groupId = currentSeatingGroupId, dateStr = seatingPlanDate();
+  const g = db.groups.find(x => x.id === groupId);
+  let scope = 'base';
+  if (g && seatingDayPlan(g, dateStr)) scope = 'day';
+  else if (g && (db.students[groupId] || []).length) {
+    scope = await askChoice('Sitzplan bearbeiten',
+      'Gilt die Änderung nur für diesen Tag, zum Beispiel wegen eines anderen Raums? Danach erscheint wieder der gewohnte Sitzplan.',
+      [{ label: `Nur für ${seatingDayLabel(dateStr)}`, value: 'day', primary: true },
+       { label: 'Gewohnten Sitzplan ändern', value: 'base' }]);
+    if (!scope) return;
+    // Beim Warten kann sich die Ansicht geändert haben (Regel 43)
+    if (seatingEditMode || currentSeatingGroupId !== groupId || seatingPlanDate() !== dateStr
+      || !document.getElementById('view-seating')?.classList.contains('active')) return;
+  }
+  seatingEditScope = { scope, groupId, dateStr };
+  setSeatingEditUI(true);
+  renderSeatingPlan();
+}
+function setSeatingEditUI(on) {
+  seatingEditMode = on;
+  if (!on) seatingEditScope = null;
   const btn = document.getElementById('btn-seating-edit');
   btn.classList.toggle('is-editing', seatingEditMode);
   btn.setAttribute('aria-pressed', seatingEditMode ? 'true' : 'false');
@@ -784,7 +808,6 @@ function toggleSeatingEditMode() {
   document.getElementById('seating-grid-tool')?.classList.toggle('hidden', !seatingEditMode);
   document.querySelector('.seating-tools')?.classList.toggle('editing', seatingEditMode);   // „Noten geben“ passt nicht zum Umsetzen
   if (!seatingEditMode) document.getElementById('seating-settings-popup')?.classList.add('hidden');
-  renderSeatingPlan();
 }
 
 function toggleSeatingSettings(e) {
@@ -807,17 +830,118 @@ function seatingDesk(g, cols, rows) {
   const y = Number.isInteger(g.teacherDeskY) ? g.teacherDeskY : rows - 1;
   return { x: clamp(x, 0, cols - 2), y: clamp(y, 0, rows - 1) };
 }
+// ─── Sitzplan nur für einen Tag (BUGS BE14) ──────────────────────────────
+// Neben dem gewohnten Sitzplan (Grundplan: Raster/Pult an der Klasse, Plätze als gridX/gridY am Schüler)
+// kann eine Klasse Tagespläne haben: group.seatingDays['YYYY-MM-DD'] = { seatingCols, seatingRows,
+// teacherDeskX, teacherDeskY, seatingStagger?, seats: { <schülerId>: { x, y } } } – dieselben Feldnamen wie an
+// der Klasse, damit seatingGridSize/seatingDesk für beide gelten. Ein Tagesplan enthält nur Raster, Pult und
+// Plätze; alle Einträge (Plusse, Fehlzeiten, Noten) hängen weiter am Schüler. Nach SEATING_DAY_KEEP Tagen fällt er
+// weg (pruneSeatingDays in migrateDB).
+const SEATING_DAY_KEEP = 7;
+function seatingPlanDate() { return isDateStr(currentSeatingDateStr) ? currentSeatingDateStr : formatDate(new Date()); }
+function seatingDayPlan(g, dateStr) {
+  const days = g && g.seatingDays;
+  const d = days && typeof days === 'object' && !Array.isArray(days) ? days[dateStr] : null;
+  return d && typeof d === 'object' && !Array.isArray(d) ? d : null;
+}
+// Woher Raster, Pult und Plätze kommen: Tagesplan des Datums, sonst der gewohnte Sitzplan.
+// Lesen und Schreiben der Plätze nur hierüber (Anzeige, Ziehen, Pult).
+function seatingSource(g, dateStr) {
+  const day = seatingDayPlan(g, dateStr);
+  if (!day) return {
+    day: null, conf: g,
+    seat: s => ({ x: s.gridX, y: s.gridY }),
+    setSeat: (s, x, y) => { s.gridX = x; s.gridY = y; },
+    clearSeat: s => { delete s.gridX; delete s.gridY; },
+  };
+  const seats = () => (day.seats && typeof day.seats === 'object' && !Array.isArray(day.seats) ? day.seats : (day.seats = {}));
+  return {
+    day, conf: day,
+    seat: s => { const p = day.seats && day.seats[s.id]; return p && typeof p === 'object' ? { x: p.x, y: p.y } : {}; },
+    setSeat: (s, x, y) => { seats()[s.id] = { x, y }; },
+    clearSeat: s => { delete seats()[s.id]; },
+  };
+}
+// Tagesplan als Kopie dessen anlegen, was der gewohnte Sitzplan gerade zeigt (Ausweichplätze inklusive)
+function createSeatingDayPlan(g, dateStr) {
+  const base = seatingSource(g, null);
+  const { cols, rows } = seatingGridSize(g);
+  const desk = seatingDesk(g, cols, rows);
+  const layout = seatingLayout(db.students[g.id] || [], cols, rows, desk, base.seat);
+  const day = { seatingCols: cols, seatingRows: rows, teacherDeskX: desk.x, teacherDeskY: desk.y, seats: {} };
+  if (g.seatingStagger) day.seatingStagger = true;
+  layout.seats.forEach((p, id) => { day.seats[id] = { x: p.x, y: p.y }; });
+  if (!g.seatingDays || typeof g.seatingDays !== 'object' || Array.isArray(g.seatingDays)) g.seatingDays = {};
+  g.seatingDays[dateStr] = day;
+  return day;
+}
+// Wofür „Bearbeiten“ gerade schreibt: { scope: 'day'|'base', groupId, dateStr } – nur Ansichtszustand, nie in db
+let seatingEditScope = null;
+// Ziel einer Änderung im Bearbeiten-Modus. „Nur für heute“ legt den Tagesplan erst bei der ersten Änderung an.
+function seatingWriteSource(g) {
+  const dateStr = seatingPlanDate();
+  if (seatingEditScope && seatingEditScope.scope === 'day' && !seatingDayPlan(g, dateStr)) createSeatingDayPlan(g, dateStr);
+  return seatingSource(g, dateStr);
+}
+const seatingDayLabel = dateStr => (dateStr === formatDate(new Date()) ? 'heute' : formatWeekdayShort(dateStr));
+// Hinweis über dem Raster: Tagesplan gilt (mit „Zurück“), bzw. im Bearbeiten-Modus, wofür die Änderung gilt
+function renderSeatingDayHint(g, dateStr) {
+  const el = document.getElementById('seating-day-hint');
+  if (!el) return;
+  const day = g && seatingDayPlan(g, dateStr);
+  const editingDay = g && seatingEditMode && seatingEditScope && seatingEditScope.scope === 'day';
+  if (!day && !editingDay) { el.classList.add('hidden'); el.innerHTML = ''; return; }
+  const when = escHtml(seatingDayLabel(dateStr));
+  el.innerHTML = day
+    ? `${icon('calendar')}<span>Sitzplan nur für ${when}</span><button type="button" class="link-btn">Zurück zum gewohnten Sitzplan</button>`
+    : `${icon('calendar')}<span>Änderungen gelten nur für ${when}</span>`;
+  const btn = el.querySelector('button');
+  if (btn) btn.onclick = () => resetSeatingDay(g.id, dateStr);
+  el.classList.remove('hidden');
+}
+// „Zurück zum gewohnten Sitzplan“: Tagesplan löschen, mit „Rückgängig“ (Regel 45)
+function resetSeatingDay(groupId, dateStr) {
+  const g = db.groups.find(x => x.id === groupId);
+  const day = g && seatingDayPlan(g, dateStr);
+  if (!day) return;
+  delete g.seatingDays[dateStr];
+  if (!Object.keys(g.seatingDays).length) delete g.seatingDays;
+  saveDB();
+  renderSeatingPlan();
+  showUndoToast('Gewohnter Sitzplan gilt wieder', () => {
+    const now = db.groups.find(x => x.id === groupId);
+    if (!now || seatingDayPlan(now, dateStr)) return;   // Klasse weg oder inzwischen ein neuer Tagesplan
+    if (!now.seatingDays || typeof now.seatingDays !== 'object' || Array.isArray(now.seatingDays)) now.seatingDays = {};
+    now.seatingDays[dateStr] = day;
+    saveDB();
+    renderSeatingPlan();
+  }, 'seating-day');
+}
+// Tagespläne älter als SEATING_DAY_KEEP Tage entfernen (in migrateDB: beim Laden, Import, Abgleich; ohne lastModified).
+// Nur Raster, Pult und Plätze – Einträge der Schüler bleiben unberührt.
+function pruneSeatingDays(data, now = new Date()) {
+  const cutoff = formatDate(addDays(now, -SEATING_DAY_KEEP));
+  (data.groups || []).forEach(g => {
+    const days = g && g.seatingDays;
+    if (!days || typeof days !== 'object' || Array.isArray(days)) return;
+    Object.keys(days).forEach(k => { if (isDateStr(k) && k < cutoff) delete days[k]; });
+    if (!Object.keys(days).length) delete g.seatingDays;
+  });
+}
+
 // Plätze für die Anzeige (BUGS N1): Ein gespeicherter Platz im Raster und nicht auf dem Pult bleibt;
 // wer keinen gültigen hat, bekommt für die Anzeige den nächsten freien. In die Daten wird nichts
 // geschrieben – so kommt nach Verkleinern und Vergrößern jeder wieder auf seinen Platz.
-function seatingLayout(students, cols, rows, desk) {
+// seatGet: gespeicherter Platz eines Schülers (gewohnter Sitzplan oder Tagesplan, seatingSource)
+function seatingLayout(students, cols, rows, desk, seatGet = s => ({ x: s.gridX, y: s.gridY })) {
   const key = (x, y) => x + ',' + y;
   const taken = new Set([key(desk.x, desk.y), key(desk.x + 1, desk.y)]);
   const seats = new Map(), unplaced = [], overflow = [];
   students.forEach(s => {
-    const ok = Number.isInteger(s.gridX) && Number.isInteger(s.gridY) && s.gridX >= 0 && s.gridY >= 0
-      && s.gridX < cols && s.gridY < rows && !taken.has(key(s.gridX, s.gridY));
-    if (ok) { taken.add(key(s.gridX, s.gridY)); seats.set(s.id, { x: s.gridX, y: s.gridY }); }
+    const { x, y } = seatGet(s);
+    const ok = Number.isInteger(x) && Number.isInteger(y) && x >= 0 && y >= 0
+      && x < cols && y < rows && !taken.has(key(x, y));
+    if (ok) { taken.add(key(x, y)); seats.set(s.id, { x, y }); }
     else unplaced.push(s);
   });
   unplaced.forEach(s => {
@@ -833,11 +957,11 @@ function seatOf(s) {
   const seat = lastSeatingLayout && lastSeatingLayout.seats.get(s.id);
   return seat || { x: s.gridX || 0, y: s.gridY || 0 };
 }
-// Der Nutzer ordnet gerade um: den angezeigten Plan so übernehmen, wie er ihn sieht
-function materializeSeatingLayout(groupId, layout) {
+// Der Nutzer ordnet gerade um: den angezeigten Plan so übernehmen, wie er ihn sieht (in die Quelle: Grund- oder Tagesplan)
+function materializeSeatingLayout(groupId, layout, src) {
   (db.students[groupId] || []).forEach(s => {
     const seat = layout.seats.get(s.id);
-    if (seat) { s.gridX = seat.x; s.gridY = seat.y; }
+    if (seat) src.setSeat(s, seat.x, seat.y);
   });
 }
 
@@ -857,8 +981,9 @@ function saveSeatingGrid() {
     renderSeatingPlan(); // Felder auf die gespeicherten Werte zurücksetzen
     return;
   }
-  g.seatingCols = cols;
-  g.seatingRows = rows;
+  const conf = seatingWriteSource(g).conf;   // im Bearbeiten-Modus „Nur für heute“: der Tagesplan (BE14)
+  conf.seatingCols = cols;
+  conf.seatingRows = rows;
   saveDB();
   renderSeatingPlan();
 }
@@ -867,7 +992,8 @@ function saveSeatingGrid() {
 function onToggleSeatingStagger(on) {
   const g = db.groups.find(x => x.id === currentSeatingGroupId);
   if (!g) return;
-  if (on) g.seatingStagger = true; else delete g.seatingStagger;
+  const conf = seatingWriteSource(g).conf;   // BE14
+  if (on) conf.seatingStagger = true; else delete conf.seatingStagger;
   saveDB();
   renderSeatingPlan();
 }
@@ -877,6 +1003,9 @@ function renderSeatingPlan() {
   const dateStr = currentSeatingDateStr;
   // Notenrunde gehört zu einer Klasse: Klassenwechsel beendet sie (AH28)
   if (gradeRound && gradeRound.groupId !== groupId) { gradeRound = null; closeGradeRoundPad(); renderGradeRoundBar(); }
+  // „Nur für heute“ gilt für Klasse und Tag, an dem Bearbeiten begann: anderer Tag/Klasse beendet es (BE14)
+  if (seatingEditMode && seatingEditScope && seatingEditScope.scope === 'day'
+      && (seatingEditScope.groupId !== groupId || seatingEditScope.dateStr !== seatingPlanDate())) setSeatingEditUI(false);
   renderSeatingCockpit(); // vor dem Messen: die Leiste nimmt dem Raster Höhe weg
   updateSeatingRedeemButton();   // „Einlösen“ nur mit persönlichen Seiten (AV1)
   updateSeatingDayButtons();     // ↑/↓ mit Klasse (BE10), vor dem Einpassen: die Namen kosten Breite
@@ -903,6 +1032,7 @@ function renderSeatingPlan() {
   }
 
   document.getElementById('seating-overflow-hint').classList.add('hidden');   // auch ohne Klasse (W16)
+  if (!groupId) renderSeatingDayHint(null, '');
   // clear old elements
   canvas.querySelectorAll('.seating-card').forEach(c => c.remove());
   canvas.querySelectorAll('.seating-grid-cell').forEach(c => c.remove());
@@ -914,9 +1044,11 @@ function renderSeatingPlan() {
   }
 
   const g = db.groups.find(x => x.id === groupId);
+  renderSeatingDayHint(g, seatingPlanDate());   // vor dem Messen: der Hinweis nimmt dem Raster Höhe weg (BE14)
   if (!g) return;
 
-  const { cols, rows } = seatingGridSize(g);
+  const src = seatingSource(g, seatingPlanDate());   // Tagesplan oder gewohnter Sitzplan (BE14)
+  const { cols, rows } = seatingGridSize(src.conf);
   document.getElementById('seating-cols').value = cols;
   document.getElementById('seating-rows').value = rows;
 
@@ -928,8 +1060,8 @@ function renderSeatingPlan() {
     return;
   }
   emptyState.classList.add('hidden');
-  const desk = seatingDesk(g, cols, rows);
-  const layout = seatingLayout(students, cols, rows, desk);
+  const desk = seatingDesk(src.conf, cols, rows);
+  const layout = seatingLayout(students, cols, rows, desk, src.seat);
   lastSeatingLayout = layout;
   if (layout.overflow.length) {
     const n = layout.overflow.length;
@@ -949,9 +1081,9 @@ function renderSeatingPlan() {
   const containerHeight = box.clientHeight - (parseFloat(pad.paddingTop) || 0) - (parseFloat(pad.paddingBottom) || 0);
   
   // Versetzte Reihen (BUGS AA5): jede zweite Reihe einen halben Platz nach rechts, das Raster wird ein halbes Feld breiter
-  const stagger = !!g.seatingStagger && rows > 1;
+  const stagger = !!src.conf.seatingStagger && rows > 1;
   const staggerChk = document.getElementById('seating-stagger');
-  if (staggerChk) staggerChk.checked = !!g.seatingStagger;
+  if (staggerChk) staggerChk.checked = !!src.conf.seatingStagger;
   // Square cells: use the smaller of the two to keep cells perfectly square
   const maxCellW = containerWidth / (cols + (stagger ? 0.5 : 0));
   const maxCellH = containerHeight / rows;
@@ -1412,35 +1544,34 @@ function makeDraggable(el, studentId, groupId, cellWidth, cellHeight, maxCols, m
     const g = db.groups.find(x => x.id === groupId);
     const students = db.students[groupId] || [];
     if (!g || !layout) { renderSeatingPlan(); return; }
+    const s = studentId === 'teacherDesk' ? null : students.find(x => x.id === studentId);
+    if (studentId !== 'teacherDesk' && !s) { renderSeatingPlan(); return; }
+    if (s && gridY === layout.desk.y && (gridX === layout.desk.x || gridX === layout.desk.x + 1)) {
+      showToast('Dort steht das Lehrerpult', 'error'); // sonst läge die Karte unter dem Pult (BUGS N4)
+      renderSeatingPlan();
+      return;
+    }
+    // Ziel: gewohnter Sitzplan oder Tagesplan (BE14; „Nur für heute“ legt ihn hier bei der ersten Änderung an)
+    const src = seatingWriteSource(g);
     // Wer umordnet, übernimmt den Plan so, wie er ihn sieht (Ausweichplätze inklusive, BUGS N1)
-    materializeSeatingLayout(groupId, layout);
+    materializeSeatingLayout(groupId, layout, src);
 
-    if (studentId === 'teacherDesk') {
-      g.teacherDeskX = gridX;
-      g.teacherDeskY = gridY;
+    if (!s) {
+      src.conf.teacherDeskX = gridX;
+      src.conf.teacherDeskY = gridY;
       // Schüler auf den neuen Pult-Zellen bekommen freie Plätze (BUGS N4)
-      const onDesk = st => st.gridY === gridY && (st.gridX === gridX || st.gridX === gridX + 1);
+      const onDesk = st => { const p = src.seat(st); return p.y === gridY && (p.x === gridX || p.x === gridX + 1); };
       const displaced = students.filter(onDesk);
       if (displaced.length) {
-        displaced.forEach(st => { delete st.gridX; delete st.gridY; });
-        const { cols, rows } = seatingGridSize(g);
-        materializeSeatingLayout(groupId, seatingLayout(students, cols, rows, seatingDesk(g, cols, rows)));
+        displaced.forEach(st => src.clearSeat(st));
+        const { cols, rows } = seatingGridSize(src.conf);
+        materializeSeatingLayout(groupId, seatingLayout(students, cols, rows, seatingDesk(src.conf, cols, rows), src.seat), src);
       }
     } else {
-      const s = students.find(x => x.id === studentId);
-      if (!s) { renderSeatingPlan(); return; }
-      if (gridY === layout.desk.y && (gridX === layout.desk.x || gridX === layout.desk.x + 1)) {
-        showToast('Dort steht das Lehrerpult', 'error'); // sonst läge die Karte unter dem Pult (BUGS N4)
-        renderSeatingPlan();
-        return;
-      }
-      const otherStudent = students.find(x => x.id !== studentId && x.gridX === gridX && x.gridY === gridY);
-      if (otherStudent) {
-        otherStudent.gridX = s.gridX;
-        otherStudent.gridY = s.gridY;
-      }
-      s.gridX = gridX;
-      s.gridY = gridY;
+      const own = src.seat(s);
+      const otherStudent = students.find(x => { if (x.id === studentId) return false; const p = src.seat(x); return p.x === gridX && p.y === gridY; });
+      if (otherStudent) src.setSeat(otherStudent, own.x, own.y);
+      src.setSeat(s, gridX, gridY);
     }
     saveDB();
     renderSeatingPlan();

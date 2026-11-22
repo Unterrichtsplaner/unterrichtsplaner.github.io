@@ -2,7 +2,7 @@
 // Leiste oben immer da (außerhalb der Stunde: nächste Stunde), unten vier gleiche Knöpfe mit Timer/Stoppuhr zum Aufklappen.
 const fs = require('fs');
 const path = require('path');
-const { loadApp, app } = require('./helpers/load-app');
+const { loadApp, app, startSeatingEdit } = require('./helpers/load-app');
 const CSS = fs.readFileSync(path.join(__dirname, '..', 'style.css'), 'utf8');
 const HTML = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
 
@@ -125,7 +125,7 @@ describe('Kopf: Werkzeuge mit Namen', () => {
     app('toggleSeatingGrades()');
     expect(label('btn-seating-grades')).toBe('Noten verbergen');
     expect($('btn-seating-grades').getAttribute('aria-label')).toBe('Noten verbergen');
-    app('toggleSeatingEditMode()');
+    startSeatingEdit();
     expect(label('btn-seating-edit')).toBe('Fertig');
     expect($('btn-seating-edit').classList.contains('is-editing')).toBe(true);
     expect($('btn-seating-edit').getAttribute('aria-pressed')).toBe('true');
@@ -137,7 +137,7 @@ describe('Kopf: Werkzeuge mit Namen', () => {
   it('Raster-Einstellung nur im Bearbeiten-Modus', () => {
     open('g1');
     expect($('seating-grid-tool').classList.contains('hidden')).toBe(true);
-    app('toggleSeatingEditMode()');
+    startSeatingEdit();
     expect($('seating-grid-tool').classList.contains('hidden')).toBe(false);
     expect(document.querySelector('.seating-tools').classList.contains('editing')).toBe(true);   // Notenrunde weg, Raster an ihrer Stelle
     expect(CSS).toMatch(/\.seating-tools\.editing #btn-seating-round\{display:none;\}/);

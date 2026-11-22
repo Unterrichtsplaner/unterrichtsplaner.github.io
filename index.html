@@ -61,7 +61,7 @@
       }
     })();
   </script>
-  <link rel="stylesheet" href="style.css?v=584" />
+  <link rel="stylesheet" href="style.css?v=585" />
   <script>
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
@@ -383,6 +383,8 @@
       <div id="seating-cockpit" class="seating-cockpit hidden" role="region" aria-label="Stunde"></div>
       <div id="grade-round-bar" class="grade-round-bar hidden" role="region" aria-label="Notenrunde"></div>
       <div id="seating-overflow-hint" class="seating-overflow-hint hidden" role="status"></div>
+      <!-- Sitzplan nur für einen Tag (BE14): Hinweis mit „Zurück zum gewohnten Sitzplan“ (renderSeatingDayHint) -->
+      <div id="seating-day-hint" class="seating-day-hint hidden" role="status"></div>
       <div id="seating-canvas-wrapper">
         <div class="seating-canvas" id="seating-canvas">
           <div id="seating-empty" class="empty-state">
@@ -1989,31 +1991,31 @@
   </div>
 
   <script src="lib/crypto-js.min.js"></script>
-  <script src="crypto-helper.js?v=584"></script>
+  <script src="crypto-helper.js?v=585"></script>
   <script src="lib/firebase-app-compat.js"></script>
   <script src="lib/firebase-auth-compat.js"></script>
   <script src="lib/firebase-firestore-compat.js"></script>
-  <script src="firebase-config.js?v=584"></script>
-  <script src="sync-manager.js?v=584"></script>
-  <script src="sync-merge.js?v=584"></script>
+  <script src="firebase-config.js?v=585"></script>
+  <script src="sync-manager.js?v=585"></script>
+  <script src="sync-merge.js?v=585"></script>
   <script src="lib/qrcode.js"></script>
-  <script src="student-share.js?v=584"></script>
-  <script src="js/grundlagen.js?v=584"></script>
-  <script src="js/termine.js?v=584"></script>
-  <script src="js/stundenplan.js?v=584"></script>
-  <script src="js/stunde.js?v=584"></script>
-  <script src="js/planung.js?v=584"></script>
-  <script src="js/klassen.js?v=584"></script>
-  <script src="js/noten.js?v=584"></script>
-  <script src="js/schueler-fenster.js?v=584"></script>
-  <script src="js/sitzplan.js?v=584"></script>
-  <script src="js/dashboard.js?v=584"></script>
-  <script src="js/einstellungen.js?v=584"></script>
-  <script src="js/bericht.js?v=584"></script>
-  <script src="js/sync.js?v=584"></script>
-  <script src="js/schuelerapp-planer.js?v=584"></script>
-  <script src="js/scanner.js?v=584"></script>
-  <script src="js/schuelerapp-hub.js?v=584"></script>
-  <script src="js/start.js?v=584"></script>
+  <script src="student-share.js?v=585"></script>
+  <script src="js/grundlagen.js?v=585"></script>
+  <script src="js/termine.js?v=585"></script>
+  <script src="js/stundenplan.js?v=585"></script>
+  <script src="js/stunde.js?v=585"></script>
+  <script src="js/planung.js?v=585"></script>
+  <script src="js/klassen.js?v=585"></script>
+  <script src="js/noten.js?v=585"></script>
+  <script src="js/schueler-fenster.js?v=585"></script>
+  <script src="js/sitzplan.js?v=585"></script>
+  <script src="js/dashboard.js?v=585"></script>
+  <script src="js/einstellungen.js?v=585"></script>
+  <script src="js/bericht.js?v=585"></script>
+  <script src="js/sync.js?v=585"></script>
+  <script src="js/schuelerapp-planer.js?v=585"></script>
+  <script src="js/scanner.js?v=585"></script>
+  <script src="js/schuelerapp-hub.js?v=585"></script>
+  <script src="js/start.js?v=585"></script>
 </body>
 </html>

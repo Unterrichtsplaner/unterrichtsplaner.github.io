@@ -1,7 +1,7 @@
 // Unterrichts-Cockpit im Sitzplan (AD2) und Geburtstage (AD6)
 const fs = require('fs');
 const path = require('path');
-const { loadApp, app } = require('./helpers/load-app');
+const { loadApp, app, startSeatingEdit } = require('./helpers/load-app');
 const CSS = fs.readFileSync(path.join(__dirname, '..', 'style.css'), 'utf8');
 
 // Mo 02.11.2026: 7a hat 1. Block (07:45–09:15) und 3. Block, 9c den 2. Block
@@ -199,7 +199,7 @@ describe('Cockpit-Leiste', () => {
   it('im Bearbeiten-Modus bleibt die Leiste stehen (Raster springt nicht), der Takt zeichnet nicht neu', () => {
     at(8, 0);
     openSeating();
-    app('toggleSeatingEditMode()');
+    startSeatingEdit();
     expect(shown()).toBe(true);
     const html = cockpit().innerHTML;
     at(8, 10); app('refreshSeatingCockpit()');

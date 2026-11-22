@@ -226,6 +226,8 @@ function migrateDB(data) {
   // Hier stand früher eine Migration „alte Standard-Blöcke (5 ab 08:00) → heutige“. Sie traf auch selbst
   // eingestellte Zeiten und lief bei jedem Laden (BUGS P3); Geräte mit den uralten Blöcken hat schon die
   // App-Version vom Juni 2026 umgestellt. Blöcke werden deshalb nie mehr automatisch verändert.
+  // Sitzpläne nur für einen Tag (BE14) fallen nach 7 Tagen weg. Nur Raster/Pult/Plätze – Einträge bleiben am Schüler.
+  pruneSeatingDays(data);
   // Sync-Stand alter App-Versionen (ohne `syncedLocalModified`): gilt als synchron, wenn der Stand direkt
   // aus der Cloud kam (gleiche Kennung) oder das alte `saveDB(true)` ihn kurz nach dem Upload neu gestempelt hat.
   // Sonst bleibt er „lokal geändert“ – das ist der sichere Fall.

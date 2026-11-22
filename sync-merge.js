@@ -118,6 +118,8 @@ const MERGE_SPEC = {
       item: {
         fields: {
           color: MERGE_LOCAL, seatingRows: MERGE_LOCAL, seatingCols: MERGE_LOCAL, teacherDeskX: MERGE_LOCAL, teacherDeskY: MERGE_LOCAL, seatingStagger: MERGE_LOCAL,
+          // Sitzplan nur für einen Tag (BE14): je Tag als Ganzes, beide geändert → dieses Gerät; nach 7 Tagen gelöscht gegen unverändert → weg
+          seatingDays: { map: MERGE_LOCAL, onDelete: 'keep' },
           seatingPlan: { list: p => p.studentId, item: { other: MERGE_LOCAL }, onDelete: 'keep' },
           gradeEvents: mergeEventList, attendanceEvents: mergeEventList, participationEvents: mergeEventList, homeworkEvents: mergeEventList,
           plan: {

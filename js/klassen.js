@@ -1172,6 +1172,9 @@ function cleanUpDeletedStudents(groupId, removed) {
   removed.forEach(s => { const a = studentAccessOf(s); if (a) queueShareDeletion(a.id); });   // persönliche Seite mit weg (AJ2)
   const group = db.groups.find(g => g.id === groupId);
   if (group && group.seatingPlan) group.seatingPlan = group.seatingPlan.filter(item => !ids.has(item.studentId));
+  if (group) Object.values(group.seatingDays || {}).forEach(d => {   // Plätze in Tagesplänen (BE14)
+    if (d && d.seats && typeof d.seats === 'object') ids.forEach(id => { delete d.seats[id]; });
+  });
   const ack = db.acknowledgedWarnings;
   if (ack) Object.keys(ack).forEach(k => { if (ids.has(k.split('_')[0])) delete ack[k]; });
 }
