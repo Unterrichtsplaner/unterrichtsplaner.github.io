@@ -54,6 +54,13 @@ describe('BE16: Verlauf auf der Sitzplan-Karte', () => {
     app('setSeatingDate("2026-11-18"); toggleSeatingTrend()');   // anderer Tag verbirgt den Verlauf wieder (Regel 16)
     expect([...card('Ben').querySelectorAll('.sc-trend .part-sign')].map(s => s.textContent)).toEqual(['+']);   // 16.11.
   });
+  it('Einträge ohne Datum (Altdaten, Import) bringen den Sitzplan nicht zum Absturz', () => {
+    app('db.students.g1[0].participation.push({ id: "x", value: "negative" }); db.students.g1[2] = ' + JSON.stringify(student('d', 'Dora', [{ id: 'y', value: 'positive' }])));
+    app('openSeatingForGroup("g1", "2026-11-24")');
+    app('toggleSeatingTrend()');
+    expect([...card('Anna').querySelectorAll('.sc-trend .part-sign')].map(s => s.textContent)).toEqual(['++']);
+    expect(card('Dora').querySelector('.sc-trend-empty')).not.toBeNull();   // ohne Datum keine „letzte Stunde“
+  });
   it('mit eingeblendetem Verlauf kein zweites Zeichen in der Ecke', () => {
     app('openSeatingForGroup("g1", "2026-11-23")');
     expect(card('Anna').querySelector('.sc-part')).not.toBeNull();
@@ -82,6 +89,11 @@ describe('BE17: Einstellung „Plusse für eine 1“', () => {
     document.getElementById('settings-plus-grade').value = '0';
     app('saveSettings()');
     expect(app('db.settings.plusGradePrice')).toBeUndefined();   // aus = nichts gespeichert
+ 
+    for (const [input, saved] of [['6.4', 6], ['abc', undefined], ['500', 99], ['-3', undefined]]) {
+      app('openSettings()'); document.getElementById('settings-plus-grade').value = input; app('saveSettings()');
+      expect(app('db.settings.plusGradePrice')).toBe(saved);
+    }
   });
   it('die Zahl gilt auch für die 1 im Laden (solange der Laden nicht selbst eingerichtet ist)', () => {
     app('db.settings.plusGradePrice = 10');

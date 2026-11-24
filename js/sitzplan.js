@@ -663,7 +663,8 @@ function setSeatingWakeLock(on) {
 // Mitarbeit-Verlauf: die letzten Smileys (ohne Titel, wie die Schnellbewertung, Regel 49) als Punkte, alt → neu
 // Mitarbeit zuletzt (ohne Titel, Regel 49), älteste zuerst
 function lastParticipation(s, n, until = null) {
-  return (s.participation || []).filter(p => p && !p.label && partLevel(p.value) && (!until || (p.date || '') <= until))
+  // mit `until` nur Einträge mit gültigem Datum (Altdaten ohne Datum sind keine „letzte Stunde“, und das Datum steht im Titel)
+  return (s.participation || []).filter(p => p && !p.label && partLevel(p.value) && (!until || (isDateStr(p.date) && p.date <= until)))
     .sort((a, b) => (a.date || '').localeCompare(b.date || '')).slice(-n);
 }
 // Auf der Sitzplan-Karte: nur die letzte Stunde mit Mitarbeit bis zum Tag im Sitzplan, ein Zeichen in seiner Farbe
