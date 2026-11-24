@@ -61,6 +61,8 @@ function fillSettingsForm() {
   document.getElementById('settings-warn-homework').value = db.settings.warnHomework !== undefined ? db.settings.warnHomework : 3;
   document.getElementById('settings-warn-grade').value = db.settings.warnGrade !== undefined ? db.settings.warnGrade : 4.5;
   document.getElementById('settings-warn-points').value = db.settings.warnPoints !== undefined ? db.settings.warnPoints : 5;
+  document.getElementById('settings-warn-participation').value = db.settings.warnParticipation !== undefined ? db.settings.warnParticipation : 6;
+  document.getElementById('settings-warn-participation-net').checked = db.settings.warnParticipationNet === true;
   document.getElementById('settings-studentapp-on').checked = studentAppOn();   // AJ1
   document.getElementById('settings-studentapp-name').value = (db.settings.studentApp && db.settings.studentApp.name) || '';
   document.getElementById('settings-studentapp-name').placeholder = db.settings.teacherName || 'z. B. Frau Müller';
@@ -515,6 +517,9 @@ function saveSettings() {
   db.settings.warnHomework = parseWarnThreshold('settings-warn-homework', 3);
   db.settings.warnGrade    = parseWarnThreshold('settings-warn-grade', 4.5);
   db.settings.warnPoints   = parseWarnThreshold('settings-warn-points', 5);
+  db.settings.warnParticipation = parseWarnThreshold('settings-warn-participation', 6);   // Minusse (BE15)
+  if (document.getElementById('settings-warn-participation-net').checked) db.settings.warnParticipationNet = true;
+  else delete db.settings.warnParticipationNet;   // Standard (aus) nie speichern
   db.settings.theme       = currentThemeMode;
   // Nur eine wirklich gewählte Farbe speichern; Standard = nichts gespeichert (BUGS S6)
   if (currentThemeBg && currentThemeBg !== 'auto') { db.settings.themeBg = currentThemeBg; db.settings.themeCard = currentThemeCard; }

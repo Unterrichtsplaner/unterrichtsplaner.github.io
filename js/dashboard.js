@@ -597,8 +597,8 @@ function renderDashboardWarnings() {
   if (!warnings.length) {
     return html + `<div class="dash-empty">Niemand auffällig.</div></section>`;
   }
-  const icons = { absences: icon('absences'), grade: icon('trend-down'), homework: icon('homework') };
-  const colors = { absences: 'var(--danger)', grade: 'var(--danger)', homework: 'var(--warning)' };
+  const icons = { absences: icon('absences'), grade: icon('trend-down'), homework: icon('homework'), participation: icon('participation') };
+  const colors = { absences: 'var(--danger)', grade: 'var(--danger)', homework: 'var(--warning)', participation: 'var(--warning)' };
   const seen = warnSeenSet(warnings);   // „neu“ wie in der Klassenübersicht (AH24 f)
   html += '<div class="dash-warn-box">';
   db.groups.forEach(group => {
@@ -650,6 +650,8 @@ window.openStudentDetailFromDashboard = function(studentId, groupId, type) {
     switchStudentTab('grades');
   } else if (type === 'homework') {
     switchStudentTab('homework');
+  } else if (type === 'participation') {
+    switchStudentTab('participation');   // BE15
   }
 };
 

@@ -1452,6 +1452,7 @@ button.date-chip{font-family:inherit;padding:0;}
 .tt-header-tools{margin-left:auto;flex:0 0 auto;}
 .field-hint-muted{font-size:12px;color:var(--text-muted);line-height:1.4;margin-top:var(--space-1);}
 .print-check{display:flex;align-items:center;gap:var(--space-2);font-size:13px;color:var(--text-secondary);cursor:pointer;}
+.warn-net-check{margin-top:var(--space-3);}   /* BE15: Haken unter dem Feld „Minusse“ */
 #print-area{display:none;}
 @page{size:A4 landscape;margin:10mm;}
 @media print{

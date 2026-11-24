@@ -61,7 +61,7 @@
       }
     })();
   </script>
-  <link rel="stylesheet" href="style.css?v=585" />
+  <link rel="stylesheet" href="style.css?v=587" />
   <script>
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
@@ -949,7 +949,8 @@
 </section>
 <section class="set-card">
 <div class="settings-section">
-        <h3>Warnungs-Schwellenwerte (Dashboard)</h3>
+        <h3>Wann ist ein Schüler auffällig?</h3>
+        <p class="field-hint-muted">Gezählt wird das laufende Halbjahr. 0 schaltet eine Warnung aus. Auffällige stehen im Dashboard und bei den Klassen.</p>
         <div class="form-row">
           <div class="form-group">
             <label for="settings-warn-absences">Unentsch. Fehlzeiten (0 = aus)</label>
@@ -970,6 +971,15 @@
             <input type="number" id="settings-warn-points" class="form-input" step="0.5" min="0" max="15" placeholder="z.B. 5" />
           </div>
         </div>
+        <!-- Mitarbeit (BE15): „−“ zählt 1, „−−“ 2; wahlweise Plusse gegenrechnen -->
+        <div class="form-row">
+          <div class="form-group">
+            <label for="settings-warn-participation">Minusse in der Mitarbeit (0 = aus)</label>
+            <input type="number" id="settings-warn-participation" class="form-input" min="0" max="99" placeholder="z.B. 6" />
+          </div>
+        </div>
+        <label class="print-check warn-net-check" for="settings-warn-participation-net"><input type="checkbox" id="settings-warn-participation-net" /> Plusse gegenrechnen</label>
+        <p class="field-hint-muted">„−−“ zählt als zwei Minusse. Mit Haken ziehen Plusse ab („++“ als zwei).</p>
       </div>
 </section>
       </div>
@@ -1991,31 +2001,31 @@
   </div>
 
   <script src="lib/crypto-js.min.js"></script>
-  <script src="crypto-helper.js?v=585"></script>
+  <script src="crypto-helper.js?v=587"></script>
   <script src="lib/firebase-app-compat.js"></script>
   <script src="lib/firebase-auth-compat.js"></script>
   <script src="lib/firebase-firestore-compat.js"></script>
-  <script src="firebase-config.js?v=585"></script>
-  <script src="sync-manager.js?v=585"></script>
-  <script src="sync-merge.js?v=585"></script>
+  <script src="firebase-config.js?v=587"></script>
+  <script src="sync-manager.js?v=587"></script>
+  <script src="sync-merge.js?v=587"></script>
   <script src="lib/qrcode.js"></script>
-  <script src="student-share.js?v=585"></script>
-  <script src="js/grundlagen.js?v=585"></script>
-  <script src="js/termine.js?v=585"></script>
-  <script src="js/stundenplan.js?v=585"></script>
-  <script src="js/stunde.js?v=585"></script>
-  <script src="js/planung.js?v=585"></script>
-  <script src="js/klassen.js?v=585"></script>
-  <script src="js/noten.js?v=585"></script>
-  <script src="js/schueler-fenster.js?v=585"></script>
-  <script src="js/sitzplan.js?v=585"></script>
-  <script src="js/dashboard.js?v=585"></script>
-  <script src="js/einstellungen.js?v=585"></script>
-  <script src="js/bericht.js?v=585"></script>
-  <script src="js/sync.js?v=585"></script>
-  <script src="js/schuelerapp-planer.js?v=585"></script>
-  <script src="js/scanner.js?v=585"></script>
-  <script src="js/schuelerapp-hub.js?v=585"></script>
-  <script src="js/start.js?v=585"></script>
+  <script src="student-share.js?v=587"></script>
+  <script src="js/grundlagen.js?v=587"></script>
+  <script src="js/termine.js?v=587"></script>
+  <script src="js/stundenplan.js?v=587"></script>
+  <script src="js/stunde.js?v=587"></script>
+  <script src="js/planung.js?v=587"></script>
+  <script src="js/klassen.js?v=587"></script>
+  <script src="js/noten.js?v=587"></script>
+  <script src="js/schueler-fenster.js?v=587"></script>
+  <script src="js/sitzplan.js?v=587"></script>
+  <script src="js/dashboard.js?v=587"></script>
+  <script src="js/einstellungen.js?v=587"></script>
+  <script src="js/bericht.js?v=587"></script>
+  <script src="js/sync.js?v=587"></script>
+  <script src="js/schuelerapp-planer.js?v=587"></script>
+  <script src="js/scanner.js?v=587"></script>
+  <script src="js/schuelerapp-hub.js?v=587"></script>
+  <script src="js/start.js?v=587"></script>
 </body>
 </html>

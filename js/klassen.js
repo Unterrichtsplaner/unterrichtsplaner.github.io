@@ -105,8 +105,9 @@ function markWarningsSeen(list) {
   writeWarnSeen(seen, all);
 }
 const warningIsNew = (w, seen) => !seen.has(warningKey(w));
-// Grund in einfachen Worten; bei Noten ohne Zahl (die Liste kann am Beamer aufgehen)
+// Grund in einfachen Worten; bei Noten und Mitarbeit ohne Zahl (die Liste kann am Beamer aufgehen)
 const warningReason = w => w.type === 'grade' ? 'Notenstand kritisch'
+  : w.type === 'participation' ? 'Mitarbeit oft schwach'   // ohne Zahl wie bei Noten (BE15)
   : w.type === 'absences' ? `${w.count}× unentschuldigt gefehlt` : `${w.count}× Hausaufgaben vergessen`;
 function watchChipHTML(g, list, seen) {
   if (!list || !list.length) return '';
@@ -1426,6 +1427,7 @@ function warningAckBase(studentId, type, range = runningHalf()) {
 function warningSignature(s, type, range = runningHalf()) {
   const parts = type === 'absences' ? periodList(s.attendance, range).filter(a => a.type === 'abwesend').map(a => a.date)
     : type === 'homework' ? periodList(s.homework, range).map(h => h.date + '|' + (h.note || ''))
+    : type === 'participation' ? periodList(s.participation, range).map(p => (p.date || '') + '|' + p.value + '|' + (p.label || ''))
     : periodList(s.grades, range).map(g => (g.date || '') + '|' + g.value);
   const str = parts.sort().join(';');
   let h = 5381;
@@ -1454,12 +1456,25 @@ function warningAcknowledged(ack, s, type, count) {
   return !sig || sig === warningSignature(s, type);
 }
 
+// Minusse der Mitarbeit für die Warnung (BE15): „−“ zählt 1, „−−“ 2; mit `net` ziehen Plusse ab („+“ 1, „++“ 2).
+// Gewichte aus den Stufen (PART_LEVELS, Regel 94): tone 1–2 sind Minusse, 3–4 Plusse.
+function participationMinus(s, range, net) {
+  return periodList(s.participation, range).reduce((sum, p) => {
+    const lvl = partLevel(p.value);
+    if (!lvl) return sum;
+    if (lvl.tone <= 2) return sum + (3 - lvl.tone);
+    return net ? sum - (lvl.tone - 2) : sum;
+  }, 0);
+}
+
 function collectWarnings() {
   const ack = db.acknowledgedWarnings || {};
   const warnAbsences = db.settings.warnAbsences !== undefined ? db.settings.warnAbsences : 3;
   const warnHomework = db.settings.warnHomework !== undefined ? db.settings.warnHomework : 3;
   const warnGrade    = db.settings.warnGrade !== undefined ? db.settings.warnGrade : 4.5;
   const warnPoints   = db.settings.warnPoints !== undefined ? db.settings.warnPoints : 5; // Oberstufe: unter x Punkten
+  const warnPart     = db.settings.warnParticipation !== undefined ? db.settings.warnParticipation : 6;   // Minusse (BE15)
+  const partNet      = db.settings.warnParticipationNet === true;   // Plusse gegenrechnen (BE15)
   const warnings = [];
 
   const range = runningHalf();   // laufendes Halbjahr (Y7)
@@ -1475,6 +1490,11 @@ function collectWarnings() {
       if (warnHomework > 0 && hwCount >= warnHomework && !warningAcknowledged(ack, s, 'homework', hwCount)) {
         warnings.push({ student: s, group, type: 'homework', count: hwCount,
           title: 'Oft Hausaufgaben vergessen', desc: `${name} hat ${hwCount === 1 ? 'einmal' : hwCount + '-mal'} die Hausaufgaben vergessen.` });
+      }
+      const minus = participationMinus(s, range, partNet);
+      if (warnPart > 0 && minus >= warnPart && !warningAcknowledged(ack, s, 'participation', minus)) {
+        warnings.push({ student: s, group, type: 'participation', count: minus,
+          title: 'Mitarbeit oft schwach', desc: `${name}: Mitarbeit oft schwach.` });   // nie die Zahl: Leistungsangabe, Beamer (Regel 67/78)
       }
       const grades = periodList(s.grades, range);
       if (grades.length > 0) {
