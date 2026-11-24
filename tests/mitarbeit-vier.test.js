@@ -99,10 +99,10 @@ describe('Klassenansicht', () => {
 });
 
 describe('Sitzplan-Karte', () => {
-  it('Verlauf als Zeichen je Stufe (AM2, vorher Balken)', () => {
+  it('Verlauf als Zeichen je Stufe (AM2, vorher Balken); nur die letzte Stunde (BE16)', () => {
     const html = app('participationTrendHTML(db.students.g1[0])');
-    expect([...html.matchAll(/class="part-sign p(\d)">([^<]+)</g)].map(m => m[1] + m[2])).toEqual(['4++', '3+', '1−−']);
-    expect(html).toMatch(/title="Mitarbeit zuletzt: sehr gut, gut, schwach"/);
+    expect([...html.matchAll(/class="part-sign p(\d)">([^<]+)</g)].map(m => m[1] + m[2])).toEqual(['1−−']);
+    expect(html).toMatch(/title="Mitarbeit zuletzt \(.+\): schwach"/);
   });
 });
 

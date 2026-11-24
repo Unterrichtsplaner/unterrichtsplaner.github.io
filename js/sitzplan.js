@@ -662,16 +662,16 @@ function setSeatingWakeLock(on) {
 
 // Mitarbeit-Verlauf: die letzten Smileys (ohne Titel, wie die Schnellbewertung, Regel 49) als Punkte, alt → neu
 // Mitarbeit zuletzt (ohne Titel, Regel 49), älteste zuerst
-function lastParticipation(s, n) {
-  return (s.participation || []).filter(p => p && !p.label && partLevel(p.value))
+function lastParticipation(s, n, until = null) {
+  return (s.participation || []).filter(p => p && !p.label && partLevel(p.value) && (!until || (p.date || '') <= until))
     .sort((a, b) => (a.date || '').localeCompare(b.date || '')).slice(-n);
 }
-// Auf der Sitzplan-Karte: die letzten 3 als Zeichen in ihrer Farbe, neueste rechts (AM2; vorher Balken, schlecht lesbar)
-const TREND_COUNT = 3;
-function participationTrendHTML(s) {
-  const list = lastParticipation(s, TREND_COUNT);
-  if (!list.length) return '<div class="sc-trend sc-trend-empty">–</div>';
-  return `<div class="sc-trend" title="Mitarbeit zuletzt: ${list.map(p => partLevel(p.value).word).join(', ')}">${list.map(p => partSignHTML(p.value)).join('')}</div>`;
+// Auf der Sitzplan-Karte: nur die letzte Stunde mit Mitarbeit bis zum Tag im Sitzplan, ein Zeichen in seiner Farbe
+// (BE16; vorher die letzten 3, drei „++“ liefen über den Rand kleiner Karten). Pro Tag gibt es einen Eintrag ohne Titel.
+function participationTrendHTML(s, dateStr) {
+  const [p] = lastParticipation(s, 1, dateStr);
+  if (!p) return '<div class="sc-trend sc-trend-empty">–</div>';
+  return `<div class="sc-trend" title="Mitarbeit zuletzt (${escHtml(formatWeekdayShort(p.date))}): ${partLevel(p.value).word}">${partSignHTML(p.value)}</div>`;
 }
 
 let seatingEditMode = false;
@@ -1181,7 +1181,7 @@ function renderSeatingPlan() {
     if (isTiny) card.classList.add('tiny');
 
     let partHtml = '';
-    if (participation) {
+    if (participation && !seatingShowTrend) {   // mit Verlauf steht das Zeichen schon in der Mitte (BE16)
       // partSignHTML ist fertiges HTML; nur ein unbekannter Wert (Import/Sync) wird escaped (F2)
       partHtml = `<div class="sc-part">${partSignHTML(participation.value)}</div>`;
     }
@@ -1207,7 +1207,7 @@ function renderSeatingPlan() {
       ${marks ? `<div class="sc-marks">${marks}</div>` : ''}
       <div class="sc-name" title="${escHtml(fullName)}">${escHtml(shortName)}</div>
       ${seatingShowGrades ? `<div class="sc-gpa" style="color:${gradeColor(rawAvg, scale)}">${avg}</div>` : ''}
-      ${seatingShowTrend ? participationTrendHTML(s) : ''}
+      ${seatingShowTrend ? participationTrendHTML(s, dateStr) : ''}
       ${late ? '<div class="sc-late-note">Zu spät</div>' : ''}
       ${forgotHw ? '<div class="sc-hw-note">Keine HA</div>' : ''}
       ${partHtml}

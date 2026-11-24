@@ -63,6 +63,7 @@ function fillSettingsForm() {
   document.getElementById('settings-warn-points').value = db.settings.warnPoints !== undefined ? db.settings.warnPoints : 5;
   document.getElementById('settings-warn-participation').value = db.settings.warnParticipation !== undefined ? db.settings.warnParticipation : 6;
   document.getElementById('settings-warn-participation-net').checked = db.settings.warnParticipationNet === true;
+  document.getElementById('settings-plus-grade').value = plusGradePrice();   // BE17, 0 = aus
   document.getElementById('settings-studentapp-on').checked = studentAppOn();   // AJ1
   document.getElementById('settings-studentapp-name').value = (db.settings.studentApp && db.settings.studentApp.name) || '';
   document.getElementById('settings-studentapp-name').placeholder = db.settings.teacherName || 'z. B. Frau Müller';
@@ -520,6 +521,8 @@ function saveSettings() {
   db.settings.warnParticipation = parseWarnThreshold('settings-warn-participation', 6);   // Minusse (BE15)
   if (document.getElementById('settings-warn-participation-net').checked) db.settings.warnParticipationNet = true;
   else delete db.settings.warnParticipationNet;   // Standard (aus) nie speichern
+  const plusGrade = Math.round(parseWarnThreshold('settings-plus-grade', 0));   // BE17: Plusse für eine 1, aus = nichts gespeichert
+  if (plusGrade > 0) db.settings.plusGradePrice = Math.min(99, plusGrade); else delete db.settings.plusGradePrice;
   db.settings.theme       = currentThemeMode;
   // Nur eine wirklich gewählte Farbe speichern; Standard = nichts gespeichert (BUGS S6)
   if (currentThemeBg && currentThemeBg !== 'auto') { db.settings.themeBg = currentThemeBg; db.settings.themeCard = currentThemeCard; }

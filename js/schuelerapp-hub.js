@@ -47,7 +47,7 @@ function hubOnResize() {
 function hubMonthNumbers(g, month) {
   let redeemed = 0, donated = 0;
   (db.students[g.id] || []).forEach(s => (Array.isArray(s.redeemed) ? s.redeemed : []).forEach(r => {
-    if (!r || !isDateStr(r.date) || r.date.slice(0, 7) !== month) return;
+    if (!r || !isDateStr(r.date) || r.date.slice(0, 7) !== month || !redemptionActive(s, r)) return;   // Note gelöscht: Plusse zurück (BE17)
     const n = clampInt(r.price, 0, 999, 0);
     if (r.kind === 'donate') donated += n; else redeemed += n;
   }));

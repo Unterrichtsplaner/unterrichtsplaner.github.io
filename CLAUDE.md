@@ -72,7 +72,7 @@ Eine einzige globale Variable `db`, gespeichert als JSON in `localStorage['lehre
 
 ```js
 db = {
-  settings: { teacherName, school, blocks, lastModified, halfYearEnd?, schoolYearEnd? /*YYYY-MM-DD, AD4*/, classesView? /*'list'|'large', fehlt = Kacheln*/, classesSort? /*'next'|'class'|'warnings', fehlt = Fach (AH13)*/, classGradesProtect? /*false = Beamer-Schutz der Klassenansicht aus, fehlt = an (AH25)*/, navOrder? /*['seating','dashboard',…] Reihenfolge der Menüpunkte, fehlt = Standard (AH48)*/, quickLinks? /*[{ id, groupId, target: 'seating'|'students' }] Schnellzugriff, höchstens 8*/, theme*, themeAuto? /*true = „Automatisch (wie Gerät)“: Eisblau, bei dunklem Gerät Tiefsee, nur ohne themeBg (X6)*/, warnAbsences, warnGrade, warnPoints, warnHomework, warnParticipation? /*Minusse, fehlt = 6 (BE15)*/, warnParticipationNet? /*true = Plusse gegenrechnen*/,
+  settings: { teacherName, school, blocks, lastModified, halfYearEnd?, schoolYearEnd? /*YYYY-MM-DD, AD4*/, classesView? /*'list'|'large', fehlt = Kacheln*/, classesSort? /*'next'|'class'|'warnings', fehlt = Fach (AH13)*/, classGradesProtect? /*false = Beamer-Schutz der Klassenansicht aus, fehlt = an (AH25)*/, navOrder? /*['seating','dashboard',…] Reihenfolge der Menüpunkte, fehlt = Standard (AH48)*/, quickLinks? /*[{ id, groupId, target: 'seating'|'students' }] Schnellzugriff, höchstens 8*/, theme*, themeAuto? /*true = „Automatisch (wie Gerät)“: Eisblau, bei dunklem Gerät Tiefsee, nur ohne themeBg (X6)*/, warnAbsences, warnGrade, warnPoints, warnHomework, warnParticipation? /*Minusse, fehlt = 6 (BE15)*/, warnParticipationNet? /*true = Plusse gegenrechnen*/, plusGradePrice? /*Plusse für eine 1, fehlt = aus (BE17)*/,
               studentSortOrder, seatingBufferMins, lastBackupTimestamp,
               holidays: [{ id, label, from, until /*YYYY-MM-DD inkl.*/, source? /*'DE-BY': geladen, fehlt = selbst eingetragen*/ }] /*Ferien, Y8*/, rankingWinners?: { 'YYYY-MM': [{ id, cls, subject }] } /*festgehaltene Sieger der Rangliste, AX1*/, federalState /*'DE-BY' … für „Ferien laden“*/, … },
   lessonSlots: [{ id, day /*0=Mo…4=Fr*/, block /*=blocks[].num, feste Kennung*/, part /*'first'|'second'|'full'*/,
@@ -104,7 +104,7 @@ db = {
   //     shopOn?: true /*Plus-Konto und Laden an, fehlt = aus: Joker wie bisher*/, shopSince?: 'YYYY-MM-DD' /*erstes Einschalten: ab da zählt das Konto*/,
   //     stickers?: [{ id, name, icon, color, xp }], autoStickers?: [{ id, name, icon, color, kind: 'any'|'excellent', n, mode: 'streak'|'total'|'half' }], bauXP? } (AJ2, AJ2b) };
   //   students[gid][i].studentApp? = { access: { id, key } } (persönlicher Link), students[gid][i].jokersUsed? = [{ id, date, text? }] (AJ2, nur ohne Laden neue)
-  //   students[gid][i].redeemed? = [{ id, date, itemId?, name, price, kind: 'perk'|'grade'|'donate', icon? }] (Plus-Konto, AV1: Werte beim Einlösen)
+  //   students[gid][i].redeemed? = [{ id, date, itemId?, name, price, kind: 'perk'|'grade'|'donate', icon?, linked? /*1 zählt nur, solange ihre Note da ist (BE17)*/ }] (Plus-Konto, AV1: Werte beim Einlösen)
   //   students[gid][i].stickersGiven? = [{ id, date, name, icon, color, xp, reason? }] (Werte beim Vergeben), students[gid][i].baustellen? = [{ id, date, text, done?, xp? }] (AJ2b)
   syncSettings: { lastSyncedCloudTimestamp, syncedLocalModified },
   acknowledgedWarnings: { '<studentId>_absences': n, … },
@@ -281,6 +281,8 @@ Datumswerte sind Strings `YYYY-MM-DD` in **lokaler** Zeit (`formatDate()`). Nie 
 103. **Unterrichtsinhalte kopieren nur über `lessonContentText`** (BE6, Einstellungen → Daten, Fenster `modal-copy-content`): nur Text in die Zwischenablage, nie gesendet. Inhalt je gehaltene Stunde das abgehakte Thema (`topicDoneIn`) und „Was wurde behandelt“ (`done`), **nie** Stundennotizen (`notes`), Noten oder Schülerdaten (der Text geht oft in einen KI-Dienst). Gewählter Zeitraum nur auf dem Gerät (`copy_content_range`), nie in `db`.
 
 104. **Schülerliste der Klasse sortieren nur über `sortStudentList`/`studentListSortChoice`** (BE9): Wahl nur auf dem Gerät (`student_list_sort`, nie in `db`), eine für alle Klassen. Sortierungen nach Leistung (`STUDENT_SORT_PRIVATE`: Notenschnitt, Mitarbeit) nur bei aufgedeckten Noten (Regel 16), sonst alphabetisch – die Reihenfolge allein verriete am Beamer die Leistung. Wer eine neue Sortierung nach Leistungs- oder Gesundheitsangaben einbaut, nimmt sie dort auf. Bester Schnitt je Skala über `gradeScale(…).higherIsBetter`.
+
+105. **Plusse in eine 1 umwandeln nur über `convertPlusGrade`** (BE17): Angebot aus `plusGradeOffer(g)` (die 1 aus dem Laden der Klasse; Preis der Startwerte = `plusGradePrice()`, Einstellung `settings.plusGradePrice`, fehlt = aus), eingetragen über `applyRedemption` wie im Laden – auch in Klassen ohne Schülerapp, damit das Konto beim späteren Einschalten stimmt. Eine eingelöste 1 mit `linked` zählt nur, solange ihre Note (`redeemRef`) existiert: Wer Einlösungen zählt oder anzeigt, filtert mit `redemptionActive(s, r)` (wie `studentAccount`). Der Hinweis „Genug Plusse“ im Dashboard (`plusGradeDue`) nennt nie den Kontostand (Regel 78) und lässt Klassen mit eingeschaltetem Laden aus; der Knopf im Schüler-Fenster steht bei der Mitarbeit und ist damit erst nach „Anzeigen“ zu sehen.
 
 ## Arbeitsablauf
 

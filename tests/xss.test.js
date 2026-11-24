@@ -97,6 +97,14 @@ describe('Ansichten mit präparierten Daten', () => {
       expect(document.getElementById('seating-cockpit').classList.contains('hidden')).toBe(false); // Cockpit wirklich gezeichnet
       app('seatingShowTrend = false');
     },
+    'genug plusse (dashboard, schüler-fenster)': () => {   // BE17
+      app(`db.settings.plusGradePrice = 2; db.students[${G}][0].participation.push({ id: "pp", date: formatDate(new Date()), value: "excellent" })`);
+      app('switchView("dashboard")');
+      expect(document.querySelector('.dash-plusgrade .dash-plus-row')).not.toBeNull();   // wirklich gezeichnet
+      expect(injected()).toBe(0); expect(brokenHandlers()).toEqual([]);
+      app(`openSeatingStudentModal(${S}, ${G}, formatDate(new Date())); revealSeatingStudent()`);
+      expect(document.querySelector('#sw-hub .sw-plus-grade')).not.toBeNull();
+    },
     'planung (klassenansicht)': () => app(`openGroupStudents(${G}); switchClassDashboardTab("plan")`),
     'schülerapp (klassenansicht, einstellungen, beamer)': () => {   // AJ1
       app('SyncManager.isInitialized = true; SyncManager.currentUser = { uid: "u1" }');

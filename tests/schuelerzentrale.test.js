@@ -132,10 +132,10 @@ describe('Sitzplan-Karte', () => {
     expect(card('Ben').querySelector('.sc-note')).toBeNull();   // nur alte Notiz
     expect(card('Cem').querySelector('.sc-note')).toBeNull();
   });
-  it('Mitarbeit eingeblendet: letzte 3 Einträge ohne Titel als Zeichen, alt → neu (AM2)', () => {
+  it('Mitarbeit eingeblendet: nur die letzte Stunde ohne Titel als Zeichen (AM2, BE16)', () => {
     app('openSeatingForGroup("g1", "2026-11-11")');
     app('toggleSeatingTrend()');
-    expect([...card('Anna').querySelectorAll('.sc-trend .part-sign')].map(s => s.textContent)).toEqual(['++', '−', '−−']);
+    expect([...card('Anna').querySelectorAll('.sc-trend .part-sign')].map(s => s.textContent)).toEqual(['−−']);
     expect(card('Anna').querySelector('.sc-trend i')).toBeNull();   // keine Balken mehr
   });
 });

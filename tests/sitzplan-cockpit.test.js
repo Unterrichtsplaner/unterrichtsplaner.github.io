@@ -245,7 +245,7 @@ describe('Karten: Verlauf, Hinweis, Geburtstag', () => {
     app('toggleSeatingTrend()');
     expect(app('seatingShowGrades')).toBe(false);
     const signs = [...card('a').querySelectorAll('.sc-trend .part-sign')].map(i => i.className + ' ' + i.textContent);
-    expect(signs).toEqual(['part-sign p3 +', 'part-sign p1 −−', 'part-sign p3 +']);   // AM2: letzte 3 als Zeichen, alt → neu
+    expect(signs).toEqual(['part-sign p3 +']);   // BE16: nur die letzte Stunde (vorher die letzten 3, lief über den Rand)
     expect(card('b').querySelector('.sc-trend-empty')).toBeTruthy();
     expect(document.getElementById('btn-seating-trend').getAttribute('aria-pressed')).toBe('true');
     openSeating();

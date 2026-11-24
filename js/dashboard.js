@@ -442,9 +442,10 @@ function renderDashboard() {
   // Zwei Spalten (AH41): links der Tag und „Auffällig“, rechts „Als Nächstes“ und Merkzettel
   const coming = renderDashboardNext();
   container.innerHTML = safetyNoteHTML()
-    + `<div class="dash-grid"><div class="dash-col dash-col-left">${renderDashboardToday()}${renderDashboardWarnings()}</div>`
+    + `<div class="dash-grid"><div class="dash-col dash-col-left">${renderDashboardToday()}${renderDashboardWarnings()}${renderDashboardPlusGrades()}</div>`
     + `<div class="dash-col dash-col-right">${coming}<div id="dash-todos-slot"></div></div></div>`;
   wireSafetyNote(container);
+  wireDashboardPlusGrades(container);   // BE17
   const todosSlot = document.getElementById('dash-todos-slot');
   fillDashboardTodos(todosSlot);   // Merkzettel (AH18)
   container.querySelector('.dash-grid').classList.toggle('dash-grid-single', !coming && !todosSlot.children.length);   // keine leere Hälfte
@@ -620,6 +621,26 @@ function renderDashboardWarnings() {
     html += `</div></details>`;
   });
   return html + `</div></section>`;
+}
+
+// Genug Plusse für eine 1 (BE17): nur Name und Klasse, nie der Kontostand (Beamer, Regel 78). Nur wenn eingeschaltet
+// und jemand dran ist; ein Tipp auf „1 eintragen“ wandelt um (mit „Rückgängig“), danach verschwindet die Zeile.
+function renderDashboardPlusGrades() {
+  const due = plusGradeDue();
+  if (!due.length) return '';
+  return `<section class="dash-section dash-plusgrade"><h2 class="dash-heading">Genug Plusse <span class="dash-heading-sub">${due.length}</span></h2>
+    <div class="dash-plus-list">${due.map(({ g, s }) => `<div class="dash-plus-row" data-group="${escHtml(g.id)}" data-id="${escHtml(s.id)}">
+      <button type="button" class="dash-plus-name" title="Zum Schülerprofil">
+        <b>${escHtml(studentListName(s))}</b> <span>${escHtml(g.className)} · ${escHtml(g.subject || '')}</span></button>
+      <button type="button" class="btn-secondary dash-plus-convert">${escHtml(plusGradeWord(g).replace(/^eine /, ''))} eintragen</button>
+    </div>`).join('')}</div></section>`;
+}
+function wireDashboardPlusGrades(container) {
+  container.querySelectorAll('.dash-plus-row').forEach(row => {
+    const { group, id } = row.dataset;
+    row.querySelector('.dash-plus-name').addEventListener('click', () => openStudentDetailFromDashboard(id, group, 'participation'));
+    row.querySelector('.dash-plus-convert').addEventListener('click', () => convertPlusGrade(group, id));
+  });
 }
 
 window.acknowledgeWarning = function(studentId, type, count) {

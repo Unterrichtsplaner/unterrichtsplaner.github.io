@@ -472,7 +472,11 @@ function renderSwHub(s) {
   const range = viewPeriod();   // Halbjahr wie in der Klassenansicht (Y7)
   const partN = partCounts(periodList(s.participation, range).filter(p => p && !p.label));
   const last = lastParticipation(s, 5);
-  const hasPart = partN.some(n => n) || last.length;
+  // BE17: genug Plusse für eine 1 – der Knopf steht bei der Mitarbeit, also erst nach „Anzeigen“ (Beamer, Regel 67)
+  const g = db.groups.find(x => x.id === ctx.groupId);
+  const offer = plusGradeOffer(g);
+  const canConvert = !!offer && studentAccount(g, s).balance >= offer.price;
+  const hasPart = partN.some(n => n) || last.length || canConvert;
   box.hidden = !hint && !important && !notes.length && !hasPart;
   box.innerHTML = '';
   if (box.hidden) return;
@@ -497,11 +501,13 @@ function renderSwHub(s) {
     + `</ul></div>`;
   if (hasPart) html += `<div class="sw-hub-part">${label(`${icon('participation')}Mitarbeit ${range ? `im ${PERIOD_NAMES[range.key]}` : 'bisher'}`)}`
     + `<div class="sw-hub-counts">${PART_LEVELS.map((l, i) => `<span class="sw-hub-count${i === PART_LEVELS.length - 1 && partN[i] ? ' n-bad' : ''}">${partSignHTML(l.value)}<b>${partN[i]}</b></span>`).join('')}</div>`
-    + (last.length ? `<div class="sw-hub-last"><small>Zuletzt</small>${last.map(p => partSignHTML(p.value)).join('')}</div>` : '') + `</div>`;
+    + (last.length ? `<div class="sw-hub-last"><small>Zuletzt</small>${last.map(p => partSignHTML(p.value)).join('')}</div>` : '')
+    + (canConvert ? `<button type="button" class="btn-secondary sw-plus-grade">${icon('grades')}${offer.price} Plusse in ${escHtml(plusGradeWord(g))} umwandeln</button>` : '') + `</div>`;
   if (protectedView) html += `<button type="button" class="link-btn sw-hub-hide">Verbergen</button>`;
   box.innerHTML = html;
   const hide = box.querySelector('.sw-hub-hide');
   if (hide) hide.addEventListener('click', () => hideSeatingStudent());
+  box.querySelector('.sw-plus-grade')?.addEventListener('click', () => convertPlusGrade(ctx.groupId, s.id));   // BE17
 }
 function renderSeatingStudentHint(show) {
   const box = document.getElementById('seating-student-hint');

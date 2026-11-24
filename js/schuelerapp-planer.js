@@ -1378,7 +1378,9 @@ const cleanShopItem = x => x && x.id && String(x.name || '').trim()
 // Angebote (bekannte mit ihrem Preis, sonst 3 Plusse), dazu die 1 (Konzept Abschnitt 7). Nur gelesen, nie gespeichert.
 // In Punkte-Klassen heißt das Notenangebot nach der Skala (BC5): „15 Punkte (mündlich)“, die Schülerseite zeigt dann „15“.
 // Ein selbst gespeicherter Laden bleibt, wie er ist (Regel 48).
-const shopDefaultItem = (x, scale) => (x.kind === 'grade' && scale && scale.higherIsBetter ? { ...x, name: `${scale.max} ${scale.unit || 'Punkte'} (mündlich)` } : { ...x });
+// Der Preis der 1 folgt der Einstellung „Plusse für eine 1“ (BE17), sonst 6.
+const shopDefaultItem = (x, scale) => (x.kind !== 'grade' ? { ...x } : { ...x, price: plusGradePrice() || x.price,
+  ...(scale && scale.higherIsBetter ? { name: `${scale.max} ${scale.unit || 'Punkte'} (mündlich)` } : {}) });
 function shopFromJokers(jokers, scale = null) {
   const list = Array.isArray(jokers) ? jokers.map(x => String(x || '').trim()).filter(Boolean) : null;
   if (!list || list.join('\n') === SA_JOKERS_DEFAULT.join('\n')) return SA_SHOP_DEFAULT.map(x => shopDefaultItem(x, scale));
@@ -1392,9 +1394,51 @@ function shopFromJokers(jokers, scale = null) {
 function studentAccount(g, s, todayStr = formatDate(new Date())) {
   const earned = yearParticipation(s, todayStr).reduce((n, p) => n + (SA_PLUS_VALUE[p.value] || 0), 0);
   const seen = new Set();   // ein Code (Einmal-Nummer) zählt nur einmal, auch wenn zwei Geräte ihn gescannt haben (Stufe 2)
-  const redeemed = yearList(s.redeemed, todayStr).filter(r => !r.nonce || (!seen.has(r.nonce) && seen.add(r.nonce)));
+  const redeemed = yearList(s.redeemed, todayStr).filter(r => redemptionActive(s, r) && (!r.nonce || (!seen.has(r.nonce) && seen.add(r.nonce))));
   const spent = redeemed.reduce((n, r) => n + clampInt(r.price, 0, 999, 0), 0);
   return { earned, spent, balance: Math.max(0, earned - spent), redeemed };
+}
+// Eine eingelöste 1 mit `linked` gilt nur, solange ihre Note da ist (BE17): Wer die Note „Plus-Konto“ löscht – Tabelle,
+// Formular, anderes Gerät –, bekommt die Plusse zurück; „Rückgängig“ der Note bringt die Einlösung von selbst wieder.
+// Ältere Einlösungen ohne `linked` zählen immer (vor BC8 gab es keinen Verweis auf die Note).
+function redemptionActive(s, r) {
+  return !(r && r.linked && r.kind === 'grade' && !(Array.isArray(s.grades) ? s.grades : []).some(x => x && x.redeemRef === r.id));
+}
+// ─── Plusse in eine 1 umwandeln (BE17), auch ohne Schülerapp ─────────────────────────────────────────────
+// settings.plusGradePrice: Plusse für eine 1 (fehlt/0 = aus; andere Lehrkräfte bekommen nichts ungefragt, Regel 100).
+// Angebot = die 1 aus dem Laden der Klasse (Startwerte: Preis aus der Einstellung; ein selbst eingerichteter Laden behält
+// seinen Preis). Eingetragen wird genau wie beim Einlösen im Laden (`applyRedemption`), so zählt nichts doppelt, wenn die
+// Klasse später die Schülerapp bekommt.
+function plusGradePrice() {
+  const n = Number(db.settings && db.settings.plusGradePrice);
+  return Number.isInteger(n) && n > 0 && n <= 99 ? n : 0;
+}
+function plusGradeOffer(g) {
+  if (!g || !plusGradePrice()) return null;
+  const x = personalOf(g).shop.find(i => i.kind === 'grade');
+  return x ? { itemId: x.id, name: x.name, price: x.price, kind: 'grade', icon: x.icon } : null;
+}
+// „eine 1“ bzw. „15 Punkte“
+function plusGradeWord(g) {
+  const scale = gradeScale(g);
+  return scale.higherIsBetter ? `${scale.max} ${scale.unit || 'Punkte'}` : `eine ${scale.min}`;
+}
+// Wer genug Plusse für eine 1 hat (Dashboard). Klassen mit eingeschaltetem Laden nicht: Dort sparen die Schüler selbst.
+function plusGradeDue() {
+  const list = [];
+  if (!plusGradePrice()) return list;
+  db.groups.forEach(g => {
+    const offer = !shopActive(g) && plusGradeOffer(g);
+    if (offer) (db.students[g.id] || []).forEach(s => { if (s && studentAccount(g, s).balance >= offer.price) list.push({ g, s, offer }); });
+  });
+  return list;
+}
+function convertPlusGrade(groupId, studentId) {
+  const g = db.groups.find(x => x.id === groupId), s = findStudentIn(groupId, studentId);
+  const offer = plusGradeOffer(g);
+  if (!g || !s || !offer) return;
+  if (studentAccount(g, s).balance < offer.price) { showToast(`Das Konto von ${s.firstName} reicht nicht für ${plusGradeWord(g)}`, 'error'); return; }
+  applyRedemption(g, s, offer);
 }
 const redeemIcon = r => (r.kind === 'donate' ? 'heart' : SA_SHOP_ICON_NAMES[r.icon] ? r.icon : 'star');
 // Für die persönliche Seite: nur das eigene Konto, der Laden und die eigenen Einlösungen (neueste zuerst)
@@ -1448,7 +1492,7 @@ async function redeemShop(groupId, studentId) {
 function applyRedemption(g, s, item) {
   const groupId = g.id;
   const today = formatDate(new Date());
-  const entry = { id: uid(), date: today, ...item };
+  const entry = { id: uid(), date: today, ...item, ...(item.kind === 'grade' ? { linked: true } : {}) };   // BE17
   let grade = null;
   if (item.kind === 'grade') {   // die beste Note der Skala: 1 bzw. 15 Punkte (Regel 1)
     const scale = gradeScale(g);
