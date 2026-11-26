@@ -267,6 +267,7 @@ function overviewColHead(dateStr, label, tagHTML = '') {
 const overviewTodayClass = dateStr => dateStr === formatDate(new Date()) ? ' class="ov-today"' : '';
 // Welche Tabelle zuletzt gezeichnet wurde: gleiche Tabelle = Scroll-Stelle behalten (AH23), neue = neueste Spalte zeigen
 let overviewRenderedKey = null;
+let overviewRowOrder = null;   // { key, mode, ids } Reihenfolge der zuletzt gezeichneten Tabelle (BG1)
 function renderOverviewTable() {
   closeParticipationPicker();   // hängt an einer Zelle, die gleich ersetzt wird
   if (!currentOverviewGroupId) return;
@@ -304,10 +305,24 @@ function renderOverviewTable() {
     return;
   }
 
-  const sortedStudents = sortStudents(students);
   const range = viewPeriod();   // Halbjahr (Y7): nur Spalten und Einträge aus dem gewählten Zeitraum
   const inRange = ev => inPeriod(ev.date, range);
-  let html = '<div class="overview-table-wrapper"><table class="overview-table"><thead><tr><th class="ov-name-col">Schüler</th>';
+  // Sortieren wie die Schülerliste, eine Wahl für beide (BG1); Leistung nur bei aufgedeckten Noten (Regel 104)
+  const sort = studentListSortState(classGradesShown);
+  let sortedStudents = sortStudentList(students, sort.mode, currentOverviewGroupId, range);
+  // Nach Leistung sortiert springt sonst die Zeile, in die man gerade einträgt (und der Fokus, Regel 51, landet bei einem
+  // anderen Kind): Dieselbe Tabelle behält ihre Reihenfolge, neu sortiert wird beim Öffnen, Reiterwechsel und neuer Wahl.
+  const keepOrder = overviewRowOrder && overviewRenderedKey === renderKey && overviewRowOrder.key === renderKey
+    && overviewRowOrder.mode === sort.mode && sort.mode !== 'first' && sort.mode !== 'last';
+  if (keepOrder) {
+    const pos = new Map(overviewRowOrder.ids.map((id, i) => [id, i]));
+    const at = (s, i) => pos.has(s.id) ? pos.get(s.id) : pos.size + i;   // neue Schüler hinten
+    sortedStudents = sortedStudents.map((s, i) => [s, at(s, i)]).sort((a, b) => a[1] - b[1]).map(x => x[0]);
+  }
+  overviewRowOrder = { key: renderKey, mode: sort.mode, ids: sortedStudents.map(s => s.id) };
+  const rowName = s => sortedListName(s, sort.mode);   // Name passend zur Sortierung, in allen Reitern
+  let html = '<div class="overview-table-wrapper"><table class="overview-table"><thead><tr>'
+    + `<th class="ov-name-col"><label class="ov-sort" title="Tabelle sortieren">${icon('list')}<select id="overview-sort" aria-label="Tabelle sortieren">${studentSortOptionsHTML(sort.options.map(([k, l]) => [k, k === 'avg' ? 'Schnitt' : l]), sort.mode)}</select></label></th>`;
 
   if (currentOverviewTab === 'grades') {
     const gradeEvents = gradeColumns(group, sortedStudents).filter(inRange);
@@ -328,7 +343,7 @@ function renderOverviewTable() {
       const rawAvg = calculateStudentAverage(s, currentOverviewGroupId);
       const avg = formatGradeAverage(rawAvg);
       
-      const nameDisplay = escHtml(studentListName(s));
+      const nameDisplay = escHtml(rowName(s));
       html += `<tr><td class="ov-name-col ov-name" role="button" tabindex="0" onclick="openQuickRatingFromTable(${jsArg(s.id)})"><span class="ov-name-text" title="${nameDisplay}">${nameDisplay}</span></td>`;
       html += `<td class="ov-sum-col" style="font-weight:700;color:${gradeInk(rawAvg, scale)};text-align:center;">${avg}</td>`;
       
@@ -379,7 +394,7 @@ function renderOverviewTable() {
     html += '</tr></thead><tbody>';
 
     sortedStudents.forEach(s => {
-      html += `<tr><td class="ov-name-col ov-name" role="button" tabindex="0" onclick="openQuickRatingFromTable(${jsArg(s.id)})"><span class="ov-name-text" title="${escHtml(studentListName(s))}">${escHtml(studentListName(s))}</span></td>`;
+      html += `<tr><td class="ov-name-col ov-name" role="button" tabindex="0" onclick="openQuickRatingFromTable(${jsArg(s.id)})"><span class="ov-name-text" title="${escHtml(rowName(s))}">${escHtml(rowName(s))}</span></td>`;
       
       const shown = partDates.map(ev => (s.participation||[]).find(x => x.date === ev.date && (x.label||'') === (ev.label||''))).filter(Boolean);
       // Wie im Reiter Schüler: Schrägstriche, nur „schwach“ rot (AH24, AH52)
@@ -390,7 +405,7 @@ function renderOverviewTable() {
         const val = pIdx !== -1 ? s.participation[pIdx].value : '';
         // Antippen öffnet die Auswahl; leer ist ein leiser Strich (AH24), Stufen als Zeichen (AH52)
         const lvl = partLevel(val);
-        const label = `Mitarbeit ${studentListName(s)}, ${formatWeekdayShort(ev.date)}: ${lvl ? lvl.word : (val || 'keine')}`;
+        const label = `Mitarbeit ${rowName(s)}, ${formatWeekdayShort(ev.date)}: ${lvl ? lvl.word : (val || 'keine')}`;
         html += `<td class="ov-part-cell">
           <button type="button" class="ov-part-btn" aria-label="${escHtml(label)}" onclick="openParticipationPicker(this, ${jsArg(s.id)}, ${jsArg(ev.date)}, ${jsArg(ev.label||'')})">${val ? partSignHTML(val) : '<span class="ov-empty" aria-hidden="true">–</span>'}</button>
         </td>`;
@@ -418,7 +433,7 @@ function renderOverviewTable() {
     html += '</tr></thead><tbody>';
 
     sortedStudents.forEach(s => {
-      html += `<tr><td class="ov-name-col ov-name" role="button" tabindex="0" onclick="openQuickRatingFromTable(${jsArg(s.id)})"><span class="ov-name-text" title="${escHtml(studentListName(s))}">${escHtml(studentListName(s))}</span></td>`;
+      html += `<tr><td class="ov-name-col ov-name" role="button" tabindex="0" onclick="openQuickRatingFromTable(${jsArg(s.id)})"><span class="ov-name-text" title="${escHtml(rowName(s))}">${escHtml(rowName(s))}</span></td>`;
       // Wie im Reiter Schüler: F / E, nur unentschuldigte rot (AH24)
       const missF = periodList(s.attendance, range).filter(a => a.type === 'abwesend').length;
       const missE = periodList(s.attendance, range).filter(a => a.type === 'entschuldigt').length;
@@ -429,7 +444,7 @@ function renderOverviewTable() {
         const status = aIdx !== -1 ? s.attendance[aIdx].type : ''; // 'abwesend', 'entschuldigt', 'zuspät'
         const displayVal = ATTENDANCE_SHORT[status] || '';
         // Antippen schaltet weiter – → F → E → Z → – (AH24 e); am Laptop F/E/Z/Entf tippbar
-        const label = `Fehlzeit ${studentListName(s)}, ${formatWeekdayShort(ev.date)}: ${{ abwesend: 'fehlt', entschuldigt: 'entschuldigt', 'zuspät': 'zu spät' }[status] || 'da'}`;
+        const label = `Fehlzeit ${rowName(s)}, ${formatWeekdayShort(ev.date)}: ${{ abwesend: 'fehlt', entschuldigt: 'entschuldigt', 'zuspät': 'zu spät' }[status] || 'da'}`;
         html += `<td class="ov-cycle-cell"><button type="button" class="ov-cycle-btn${status === 'abwesend' ? ' is-bad' : ''}" data-kind="att" data-sid="${escHtml(s.id)}" data-date="${escHtml(ev.date)}" aria-label="${escHtml(label)}" onclick="cycleInlineAttendance(${jsArg(s.id)}, ${jsArg(ev.date)})">${displayVal}</button></td>`;
       });
       html += `</tr>`;
@@ -449,14 +464,14 @@ function renderOverviewTable() {
     html += '</tr></thead><tbody>';
 
     sortedStudents.forEach(s => {
-      html += `<tr><td class="ov-name-col ov-name" role="button" tabindex="0" onclick="openQuickRatingFromTable(${jsArg(s.id)})"><span class="ov-name-text" title="${escHtml(studentListName(s))}">${escHtml(studentListName(s))}</span></td>`;
+      html += `<tr><td class="ov-name-col ov-name" role="button" tabindex="0" onclick="openQuickRatingFromTable(${jsArg(s.id)})"><span class="ov-name-text" title="${escHtml(rowName(s))}">${escHtml(rowName(s))}</span></td>`;
       const totalMissed = periodList(s.homework, range).length;
       html += `<td class="ov-sum-col" style="text-align:center;font-weight:600;color:${totalMissed ? 'var(--danger)' : 'var(--text-muted)'};">${totalMissed}</td>`;
 
       hwDates.forEach(ev => {
         const hIdx = (s.homework||[]).findIndex(x => x.date === ev.date && (x.note||'') === (ev.label||''));
         const hasMissed = hIdx !== -1;
-        const label = `Hausaufgabe ${studentListName(s)}, ${formatWeekdayShort(ev.date)}: ${hasMissed ? 'vergessen' : 'da'}`;
+        const label = `Hausaufgabe ${rowName(s)}, ${formatWeekdayShort(ev.date)}: ${hasMissed ? 'vergessen' : 'da'}`;
         html += `<td class="ov-cycle-cell"><button type="button" class="ov-cycle-btn is-bad" data-kind="hw" data-sid="${escHtml(s.id)}" data-date="${escHtml(ev.date)}" data-label="${escHtml(ev.label || '')}" aria-label="${escHtml(label)}" onclick="cycleInlineHomework(${jsArg(s.id)}, ${jsArg(ev.date)}, ${jsArg(ev.label||'')})">${hasMissed ? 'X' : ''}</button></td>`;
       });
       html += `</tr>`;
@@ -472,6 +487,13 @@ function renderOverviewTable() {
     homework: '<span>Antippen: <b>X</b> = Hausaufgabe vergessen</span>',
   }[currentOverviewTab];
   content.innerHTML = `<div class="ov-legend">${legend}</div>` + html;
+  const sortSel = content.querySelector('#overview-sort');
+  if (sortSel) sortSel.addEventListener('change', () => {   // Regel 19; neue Auswahl behält den Fokus
+    if (!storeStudentListSort(sortSel.value)) return;
+    renderOverviewTable();
+    const again = document.getElementById('overview-sort');
+    if (again) again.focus();
+  });
   const wrapEl = content.querySelector('.overview-table-wrapper');
   if (wrapEl) {
     wrapEl.addEventListener('scroll', () => {   // Wischen schließt die Auswahl; das späte Scroll-Ereignis vom Springen zur neuesten Spalte nicht

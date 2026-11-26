@@ -530,6 +530,13 @@ button.student-name:focus-visible{outline:2px solid var(--accent);outline-offset
 .ov-part-btn{display:flex;align-items:center;justify-content:center;width:100%;min-height:var(--control-h);padding:0;background:none;border:none;border-radius:var(--radius-sm);font-family:inherit;font-size:20px;color:inherit;cursor:pointer;}
 .ov-part-btn .ov-empty{font-size:16px;color:var(--text-muted);}   /* leere Mitarbeit: leiser Strich */
 .ov-name-text{display:block;overflow:hidden;text-overflow:ellipsis;}
+/* Kopf der Namensspalte = Sortier-Auswahl wie über der Schülerliste (BG1) */
+.ov-sort{display:flex;align-items:center;gap:var(--space-1);min-width:0;max-width:100%;min-height:var(--control-h);color:var(--text-secondary);cursor:pointer;}
+.ov-sort .ico{width:16px;height:16px;flex-shrink:0;}
+.ov-sort::after{content:'';flex-shrink:0;width:6px;height:6px;margin-left:var(--space-1);border-right:2px solid currentColor;border-bottom:2px solid currentColor;transform:translateY(-2px) rotate(45deg);pointer-events:none;}   /* Pfeil: Auswahllisten haben keinen eigenen */
+.ov-sort select{min-width:0;max-width:100%;border:none;background:transparent;color:var(--text-primary);font:inherit;font-size:13px;font-weight:600;cursor:pointer;padding:0;}
+.ov-sort select:focus-visible{outline:2px solid var(--accent);outline-offset:2px;}
+@media (pointer: coarse){.ov-sort select{font-size:16px;}}   /* iOS vergrößert sonst beim Antippen */
 #overview-content{flex:1;overflow-y:auto;padding:var(--space-4) var(--page-x);container-type:inline-size;}
 /* Schmale Tabelle (Handy, Split View): Namen kürzen, damit Notenspalten Platz haben (BUGS I7) */
 @container (max-width: 520px) {
@@ -540,6 +547,7 @@ button.student-name:focus-visible{outline:2px solid var(--accent);outline-offset
   .overview-table .col-type:not(.weighted){display:none;}
   .ov-wide-only{display:none;}
   .ov-hint-wide{display:none;}
+  .ov-sort .ico{display:none;}   /* schmal: Platz für „Notenschnitt“ */
 }
 
 .modal-body{flex:1;overflow-y:auto;padding:var(--space-4);min-height:0;}

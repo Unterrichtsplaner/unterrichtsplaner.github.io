@@ -676,11 +676,30 @@ function studentListSortChoice() {
   if (STUDENT_LIST_SORTS.some(([k]) => k === v)) return v;
   return (db.settings && db.settings.studentSortOrder) === 'lastName' ? 'last' : 'first';
 }
-function setStudentListSort(v) {
-  if (!STUDENT_LIST_SORTS.some(([k]) => k === v)) return;
+// Eine Wahl für Schülerliste und die Tabellen der Klassenansicht (BG1). false = unbekannter Wert, nichts gemerkt.
+function storeStudentListSort(v) {
+  if (!STUDENT_LIST_SORTS.some(([k]) => k === v)) return false;
   try { localStorage.setItem('student_list_sort', v); } catch (e) { /* egal: gilt dann nur bis zum Neuladen nicht */ }
-  renderStudents();
+  return true;
 }
+function setStudentListSort(v) {
+  if (storeStudentListSort(v)) renderStudents();
+}
+// Was gerade gilt (BE9, BG1): die Wahl, außer Leistung bei verborgenen Noten (dann alphabetisch, `veiled`).
+// `options` = was die Auswahl anbieten darf.
+function studentListSortState(showGrades) {
+  const choice = studentListSortChoice();
+  const veiled = !showGrades && STUDENT_SORT_PRIVATE.includes(choice);
+  const mode = veiled ? ((db.settings && db.settings.studentSortOrder) === 'lastName' ? 'last' : 'first') : choice;
+  const options = STUDENT_LIST_SORTS.filter(([k]) => showGrades || !STUDENT_SORT_PRIVATE.includes(k));
+  return { choice, veiled, mode, options };
+}
+// Name passend zur Sortierung: nach Nachname „Nachname, Vorname“, sonst wie in den Einstellungen. Unescaped.
+function sortedListName(s, mode) {
+  return (mode === 'first' || mode === 'last') && s.firstName && s.lastName
+    ? (mode === 'last' ? `${s.lastName}, ${s.firstName}` : `${s.firstName} ${s.lastName}`) : studentListName(s);
+}
+const studentSortOptionsHTML = (options, mode) => options.map(([k, label]) => `<option value="${k}"${k === mode ? ' selected' : ''}>${label}</option>`).join('');
 function sortStudentList(students, mode, groupId, range) {
   const byName = (key) => (a, b) => {
     const [x, y] = key === 'last' ? ['lastName', 'firstName'] : ['firstName', 'lastName'];
@@ -727,14 +746,11 @@ function renderStudents() {
   // Schlichte Liste mit Kopfzeile statt einer Karte je Schüler (BUGS AE8)
   const showGrades = classGradesShown;   // Beamer-Schutz (AH24 c): Schnitt und Mitarbeit nur auf Knopfdruck
   // BE9: Anzahl und Sortierung über der Liste; private Sortierungen nur mit aufgedeckten Noten
-  const sortChoice = studentListSortChoice();
-  const sortVeiled = !showGrades && STUDENT_SORT_PRIVATE.includes(sortChoice);
-  const sortMode = sortVeiled ? ((db.settings && db.settings.studentSortOrder) === 'lastName' ? 'last' : 'first') : sortChoice;
-  const sortOptions = STUDENT_LIST_SORTS.filter(([k]) => showGrades || !STUDENT_SORT_PRIVATE.includes(k));
+  const { choice: sortChoice, veiled: sortVeiled, mode: sortMode, options: sortOptions } = studentListSortState(showGrades);
   const barHTML = `<div class="students-bar"><span class="students-count">${students.length} Schüler</span>
     ${sortVeiled ? `<span class="students-sort-note">nach ${escHtml(STUDENT_LIST_SORTS.find(([k]) => k === sortChoice)[1])} erst nach „Anzeigen“</span>` : ''}
     <label class="classes-sort students-sort" title="Schülerliste sortieren">${icon('list')}
-      <select id="students-sort" aria-label="Schülerliste sortieren">${sortOptions.map(([k, label]) => `<option value="${k}"${k === sortMode ? ' selected' : ''}>${label}</option>`).join('')}</select></label></div>`;
+      <select id="students-sort" aria-label="Schülerliste sortieren">${studentSortOptionsHTML(sortOptions, sortMode)}</select></label></div>`;
   container.innerHTML = barHTML + (showGrades ? '' : gradesVeilHTML('Schnitte und Mitarbeit sind verborgen, damit am Beamer niemand mitliest.'))
     + `<div class="students-head${showGrades ? '' : ' is-veiled'}" aria-hidden="true">${isStudentEditMode ? '<span class="students-head-cb"></span>' : ''}
     <span class="students-head-main">Name</span>${showGrades ? `<span class="students-head-part">Mitarbeit ${PART_LEVELS.map(l => l.sign).join(' / ')}</span>` : ''}
@@ -746,8 +762,7 @@ function renderStudents() {
   const scale = gradeScale(currentGroupId);
   const todayStr = formatDate(new Date());
   const range = viewPeriod(todayStr);   // Halbjahr (Y7)
-  const listName = s => (sortMode === 'first' || sortMode === 'last') && s.firstName && s.lastName
-    ? (sortMode === 'last' ? `${s.lastName}, ${s.firstName}` : `${s.firstName} ${s.lastName}`) : studentListName(s);
+  const listName = s => sortedListName(s, sortMode);
   sortStudentList(students, sortMode, currentGroupId, range).forEach((s, idx) => {
     const avg = calculateStudentAverage(s, currentGroupId, range);
     const att = periodList(s.attendance, range), part = periodList(s.participation, range);
