@@ -1936,9 +1936,11 @@ textarea.form-input,.notes-textarea{min-height:calc(var(--control-h) * 2.5);}
 .tt-cell > .tt-lesson .tt-lesson-kind,.tt-cell.tt-short > .tt-lesson .tt-lesson-kind{grid-column:3;grid-row:1;justify-self:end;margin:0;padding:0;border:none;background:none;color:var(--text-secondary);opacity:1;font-weight:600;}
 .tt-cell > .tt-lesson .tt-lesson-foot,.tt-cell.tt-short > .tt-lesson .tt-lesson-foot{position:absolute;right:var(--space-2);bottom:var(--space-1);margin:0;padding:0 0 0 var(--space-1);height:16px;flex-wrap:nowrap;align-items:center;background:inherit;}   /* deckt einen langen Raumnamen ab, statt darauf zu liegen */
 .tt-cell.tt-short > .tt-lesson .tt-lesson-foot{top:calc(50% + 1px);bottom:auto;}   /* Höhe der Raum-Zeile */
+.tt-cell.tt-short > .tt-lesson:has(> .tt-lesson-foot) .tt-lesson-head{grid-template-rows:18px 16px;}   /* Raumzeile auch ohne Raum frei, sonst liegen die Symbole auf „Vertretung“ (BH1) */
 .tt-status-row{margin:0;}
 @media (min-width: 700px){
   .timetable-grid.day-view .tt-cell.tt-short > .tt-lesson .tt-lesson-foot{position:static;height:auto;background:none;}
+  .timetable-grid.day-view .tt-cell.tt-short > .tt-lesson .tt-lesson-head{grid-template-rows:none;}   /* eine Zeile, Symbole stehen daneben */
 }
 @container (max-width: 900px){
   .timetable-grid:not(.day-view) .tt-noch{display:none;}
