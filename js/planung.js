@@ -80,6 +80,20 @@ function countLessons(groupId, fromStr, untilStr) {
 
 // ── Tab „Planung“ in der Klassenansicht ──
 let planShowDone = false; // Ansichtszustand (Regel 19)
+// Oben „Stunden · Themen“ (BF4): Stunden der Klasse wie Stundenplan → „Klasse“ oder die Themenliste. Ansichtszustand, nie in db;
+// gilt für alle Klassen, bis man umschaltet.
+let planView = 'lessons';
+let planShowPastLessons = false;
+function setPlanView(view) {
+  planView = view === 'topics' ? 'topics' : 'lessons';
+  renderPlanTab();
+  const btn = document.querySelector(`#overview-content .plan-switch [data-view="${planView}"]`);
+  if (btn) btn.focus({ preventScroll: true });   // Fokus bleibt am Umschalter (Tastatur, VoiceOver)
+}
+function planSwitchHTML() {
+  const b = (v, label) => `<button type="button" data-view="${v}" class="${planView === v ? 'active' : ''}" aria-pressed="${planView === v}">${label}</button>`;
+  return `<div class="tt-mode plan-switch" role="group" aria-label="Planung zeigen">${b('lessons', 'Stunden')}${b('topics', 'Themen')}</div>`;
+}
 function renderPlanTab() {
   const content = document.getElementById('overview-content');
   const g = db.groups.find(x => x.id === currentOverviewGroupId);
@@ -95,12 +109,22 @@ function renderPlanTab() {
   if (yearEnd) left.push(`<b>${countLessons(g.id, todayStr, yearEnd)}</b> bis Schuljahresende <small>(${escHtml(formatDateDE(parseDate(yearEnd)))})</small>`);
   const summary = (left.length ? `Noch ${left.join(' · ')}` : 'Halbjahr und Schuljahresende in den Einstellungen eintragen, dann zählt die App die Stunden.')
     + ` · Geplant: <b>${planned}</b> ${planned === 1 ? 'Stunde' : 'Stunden'}`;
+  if (planView === 'lessons') {
+    // Noch gar keine Themen: sagen, wo man sie einträgt oder übernimmt (sonst stünde nur „+ Thema“ in jeder Zeile)
+    const none = !open.length ? `<p class="plan-empty">Noch keine Themen geplant. Unter „Themen“ trägst du die Reihenfolge ein
+      oder übernimmst sie von einer anderen Klasse. <button type="button" class="link-btn" data-view="topics">Zu den Themen</button></p>` : '';
+    content.innerHTML = `<div class="plan-view">${planSwitchHTML()}<p class="plan-summary">${summary}</p>${none}`
+      + `<div class="ttc-list">${classLessonsHTML(g, todayStr, planShowPastLessons)}</div></div>`;
+    wirePlanSwitch(content);
+    wireClassLessons(content, g, () => { planShowPastLessons = !planShowPastLessons; renderPlanTab(); });
+    return;
+  }
   const when = t => {
     const l = firstDate.get(t);
     if (!l) return '<span class="plan-when plan-over">passt nicht mehr bis Schuljahresende</span>';
     return `<span class="plan-when">${escHtml(formatWeekdayShort(l.dateStr))} · ${escHtml(l.block.label)}${isDateStr(t.pinned) ? ' · fest' : ''}</span>`;
   };
-  let html = `<div class="plan-view"><p class="plan-summary">${summary}</p>`;
+  let html = `<div class="plan-view">${planSwitchHTML()}<p class="plan-summary">${summary}</p>`;
   if (overflow.length) html += `<p class="plan-warn">${overflow.length} ${overflow.length === 1 ? 'Thema passt' : 'Themen passen'} nicht mehr bis zum Schuljahresende.</p>`;
   if (!open.length) html += `<div class="plan-empty">Noch keine Themen. Trage die Reihenfolge ein, die App verteilt sie auf die kommenden Stunden. Für Parallelklassen: „Von Klasse übernehmen“.</div>`;
   html += '<div class="plan-list">' + open.map((t, i) => `
@@ -124,6 +148,7 @@ function renderPlanTab() {
           <span class="plan-when">${escHtml(formatWeekdayShort(t.done))}</span></div>`).join('') + '</div></details>';
   }
   content.innerHTML = html + '</div>';
+  wirePlanSwitch(content);
   const det = content.querySelector('details.plan-done');
   if (det) det.addEventListener('toggle', () => { planShowDone = det.open; });
   content.querySelector('[data-act="add"]').addEventListener('click', () => openPlanTopicForm(g.id, null));
@@ -133,6 +158,73 @@ function renderPlanTab() {
     row.querySelector('[data-act="edit"]').addEventListener('click', () => openPlanTopicForm(g.id, t));
     row.querySelectorAll('[data-act="up"],[data-act="down"]').forEach(b => b.addEventListener('click', () => movePlanTopic(g.id, t, b.dataset.act === 'up' ? -1 : 1)));
   });
+}
+// ── Stunden der Klasse mit Thema (BF4): Stundenplan → „Klasse“ und Klasse → „Planung“ zeigen dieselbe Liste ──
+// Vorbei: Unterrichtsinhalt (erste Zeile) bzw. abgehaktes Thema; kommend: geplantes Thema, sonst „+ Thema“. Frühere
+// Stunden (120 Tage) nur auf Knopfdruck. Antippen öffnet das Stunden-Fenster (Regel 106).
+function classLessonsHTML(g, todayStr, showPast) {
+  const { halfYearEnd } = schoolYearMarks(todayStr);
+  const { byKey, until } = planAssignments(g, todayStr);
+  const past = groupLessons(g.id, formatDate(addDays(parseDate(todayStr), -120)), formatDate(addDays(parseDate(todayStr), -1)));
+  const future = groupLessons(g.id, todayStr, until);
+  let lastWeek = '';
+  const row = (l, isPast) => {
+    const key = lessonKeyOf(l);
+    const wk = formatDate(mondayOf(parseDate(l.dateStr)));
+    const kw = wk !== lastWeek ? `<small class="ttc-kw">KW ${getWeekNumber(parseDate(l.dateStr))}</small>` : '';
+    lastWeek = wk;
+    const data = db.lessonData[key] || {};
+    const doneT = topicDoneIn(g, key);
+    const a = byKey.get(key);
+    let topic;
+    if (l.ausfall) topic = '<span class="ttc-muted">fällt aus</span>';
+    else if (doneT) topic = `<span class="ttc-done">✓ ${escHtml(doneT.title)}</span>`;
+    else if (isPast) topic = data.done ? escHtml(firstLine(data.done)) : '<span class="ttc-muted">–</span>';
+    else if (a) topic = `${escHtml(a.topic.title)}${a.of > 1 ? ` <small>(${a.unit}/${a.of})</small>` : ''}`;
+    else topic = '<button type="button" class="btn-secondary ttc-add-btn" data-act="add">+ Thema</button>'; // Kasten statt Link: gut zu treffen
+    const hasAdd = topic.includes('data-act="add"');   // Knopf im Knopf: Zeile dann ohne role, Datum ist der Knopf (AQ22, AH14)
+    const due = !isPast ? dueItemsFor(l.slot.id, l.dateStr) : { hw: [], tests: [] };
+    const badges = (due.hw.length ? `<span class="dash-badge hw">HA</span>` : '') + (due.tests.length ? `<span class="dash-badge test">Test</span>` : '');
+    // VoiceOver: Datum, Block, Thema und Fälliges im Namen (AZ7), Text des Themas ohne Markup
+    const plain = h => { const d = document.createElement('div'); d.innerHTML = h; return d.textContent.trim(); };
+    const label = escHtml([formatWeekdayShort(l.dateStr), l.block.label, hasAdd ? 'kein Thema' : plain(topic), due.hw.length ? 'HA fällig' : '', due.tests.length ? 'Test' : '']
+      .filter(x => x && x !== '–').join(', '));
+    return `<div class="ttc-row${isPast ? ' is-past' : ''}${l.dateStr === todayStr ? ' is-today' : ''}${l.ausfall ? ' is-off' : ''}"${hasAdd ? '' : ` role="button" tabindex="0" aria-label="${label}"`}
+        data-slot="${escHtml(l.slot.id)}" data-date="${escHtml(l.dateStr)}">
+        ${hasAdd ? `<button type="button" class="ttc-date ttc-open" aria-label="${label}">` : '<span class="ttc-date">'}${escHtml(formatWeekdayShort(l.dateStr))}${kw}${hasAdd ? '</button>' : '</span>'}<span class="ttc-block">${escHtml(l.block.label)}</span>
+        <span class="ttc-topic">${topic}</span><span class="ttc-badges">${badges}</span></div>`;
+  };
+  let html = '';
+  // Monats-Überschriften zur Orientierung beim Scrollen
+  let lastMonth = '';
+  const month = l => {
+    const m = l.dateStr.slice(0, 7);
+    if (m === lastMonth) return '';
+    lastMonth = m;
+    return `<div class="ttc-month">${escHtml(parseDate(l.dateStr).toLocaleDateString('de-DE', { month: 'long', year: 'numeric' }))}</div>`;
+  };
+  if (past.length) {
+    html += `<button type="button" class="link-btn ttc-past-toggle" data-act="past">${showPast ? 'Frühere Stunden ausblenden' : `Frühere Stunden anzeigen (${past.length})`}</button>`;
+    if (showPast) html += past.map(l => month(l) + row(l, true)).join('');
+  }
+  let marked = false;
+  future.forEach(l => {
+    if (!marked && halfYearEnd && l.dateStr > halfYearEnd) { html += `<div class="ttc-mark">Halbjahr · ${escHtml(formatDateDE(parseDate(halfYearEnd)))}</div>`; marked = true; }
+    html += month(l) + row(l, false);
+  });
+  if (!future.length) html += '<div class="plan-empty">Keine kommenden Stunden im Stundenplan.</div>';
+  return html;
+}
+function wireClassLessons(box, g, togglePast) {
+  const pastBtn = box.querySelector('[data-act="past"]');
+  if (pastBtn) pastBtn.addEventListener('click', togglePast);
+  box.querySelectorAll('.ttc-row').forEach(r => r.addEventListener('click', e => {
+    if (e.target.closest('[data-act="add"]')) { e.stopPropagation(); openPlanTopicForm(g.id, null); return; }
+    openLessonDetail(r.dataset.slot, r.dataset.date);
+  }));
+}
+function wirePlanSwitch(content) {
+  content.querySelectorAll('.plan-switch [data-view], .plan-empty [data-view]').forEach(b => b.addEventListener('click', () => setPlanView(b.dataset.view)));
 }
 // Verschieben in der Reihe der offenen Themen (per Objekt, Regel 4/9)
 // Vorlage (Parallelklasse): Themenliste einer anderen Klasse übernehmen – angehängt, als saubere Liste
@@ -190,10 +282,14 @@ function movePlanTopic(groupId, t, dir) {
   refreshPlanViews(groupId);
 }
 
+// Reiter „Planung“ gerade sichtbar (für diese Klasse)? Dann neu zeichnen – auch nach Änderungen an Stunden (BF4, Regel 42)
+function planTabShown(groupId = currentOverviewGroupId) {
+  return !!document.getElementById('view-students')?.classList.contains('active') && currentOverviewGroupId === groupId
+    && currentOverviewTab === 'plan' && !document.getElementById('overview-content').classList.contains('hidden');
+}
 function refreshPlanViews(groupId) {
   const active = id => document.getElementById(id)?.classList.contains('active');
-  if (active('view-students') && currentOverviewGroupId === groupId && currentOverviewTab === 'plan'
-      && !document.getElementById('overview-content').classList.contains('hidden')) renderPlanTab();
+  if (planTabShown(groupId)) renderPlanTab();
   if (active('view-timetable')) renderTimetable();
   refreshSeatingCockpit();
 }
@@ -315,8 +411,10 @@ function togglePlanTopicDoneFromForm() {
   closeModal('modal-plan-topic');
   refreshPlanViews(g.id);
 }
-function openPlanForGroup(groupId) {
+// „Ganze Planung“ und Stundenplan → „Planung“: Themen; Klassenname im Stunden-Fenster: Stunden (BF4)
+function openPlanForGroup(groupId, view = 'topics') {
   leaveLessonModal();
+  planView = view;
   switchView('classes');
   openGroupStudents(groupId);
   switchClassDashboardTab('plan');

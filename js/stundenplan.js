@@ -808,6 +808,7 @@ function refreshTimetableClock() {
 function renderScheduleViews() {
   renderTimetable();
   if (document.getElementById('view-dashboard')?.classList.contains('active')) renderDashboard();
+  if (planTabShown()) renderPlanTab();   // Klasse → Planung zeigt die Stunden mit Inhalt und Thema (BF4)
   refreshSeatingCockpit(); // Inhalt/HA der laufenden Stunde geändert (AD2)
 }
 
@@ -1610,9 +1611,6 @@ function renderTimetableClass(grid) {
   const g = groups.find(x => x.id === timetableClassGroupId);
   const todayStr = formatDate(new Date());
   const { halfYearEnd, yearEnd } = schoolYearMarks(todayStr);
-  const { byKey, until } = planAssignments(g, todayStr);
-  const past = groupLessons(g.id, formatDate(addDays(parseDate(todayStr), -120)), formatDate(addDays(parseDate(todayStr), -1)));
-  const future = groupLessons(g.id, todayStr, until);
   const counts = [];
   if (halfYearEnd) counts.push(`<b>${countLessons(g.id, todayStr, halfYearEnd)}</b> Stunden bis zum Halbjahr`);
   if (yearEnd) counts.push(`<b>${countLessons(g.id, todayStr, yearEnd)}</b> bis Schuljahresende`);
@@ -1621,63 +1619,12 @@ function renderTimetableClass(grid) {
       <span class="ttc-counts">${counts.length ? 'Noch ' + counts.join(' · ') : 'Halbjahr/Schuljahresende in den Einstellungen eintragen'}</span>
       <button type="button" class="btn-secondary ttc-plan-btn" data-act="plan">${icon('list')}<span>Planung</span></button>
     </div>`;
-  let lastWeek = '';
-  const row = (l, isPast) => {
-    const key = lessonKeyOf(l);
-    const wk = formatDate(mondayOf(parseDate(l.dateStr)));
-    const kw = wk !== lastWeek ? `<small class="ttc-kw">KW ${getWeekNumber(parseDate(l.dateStr))}</small>` : '';
-    lastWeek = wk;
-    const data = db.lessonData[key] || {};
-    const doneT = topicDoneIn(g, key);
-    const a = byKey.get(key);
-    let topic;
-    if (l.ausfall) topic = '<span class="ttc-muted">fällt aus</span>';
-    else if (doneT) topic = `<span class="ttc-done">✓ ${escHtml(doneT.title)}</span>`;
-    else if (isPast) topic = data.done ? escHtml(firstLine(data.done)) : '<span class="ttc-muted">–</span>';
-    else if (a) topic = `${escHtml(a.topic.title)}${a.of > 1 ? ` <small>(${a.unit}/${a.of})</small>` : ''}`;
-    else topic = '<button type="button" class="btn-secondary ttc-add-btn" data-act="add">+ Thema</button>'; // Kasten statt Link: gut zu treffen
-    const hasAdd = topic.includes('data-act="add"');   // Knopf im Knopf: Zeile dann ohne role, Datum ist der Knopf (AQ22, AH14)
-    const due = !isPast ? dueItemsFor(l.slot.id, l.dateStr) : { hw: [], tests: [] };
-    const badges = (due.hw.length ? `<span class="dash-badge hw">HA</span>` : '') + (due.tests.length ? `<span class="dash-badge test">Test</span>` : '');
-    // VoiceOver: Datum, Block, Thema und Fälliges im Namen (AZ7), Text des Themas ohne Markup
-    const plain = h => { const d = document.createElement('div'); d.innerHTML = h; return d.textContent.trim(); };
-    const label = escHtml([formatWeekdayShort(l.dateStr), l.block.label, hasAdd ? 'kein Thema' : plain(topic), due.hw.length ? 'HA fällig' : '', due.tests.length ? 'Test' : '']
-      .filter(x => x && x !== '–').join(', '));
-    return `<div class="ttc-row${isPast ? ' is-past' : ''}${l.dateStr === todayStr ? ' is-today' : ''}${l.ausfall ? ' is-off' : ''}"${hasAdd ? '' : ` role="button" tabindex="0" aria-label="${label}"`}
-        data-slot="${escHtml(l.slot.id)}" data-date="${escHtml(l.dateStr)}">
-        ${hasAdd ? `<button type="button" class="ttc-date ttc-open" aria-label="${label}">` : '<span class="ttc-date">'}${escHtml(formatWeekdayShort(l.dateStr))}${kw}${hasAdd ? '</button>' : '</span>'}<span class="ttc-block">${escHtml(l.block.label)}</span>
-        <span class="ttc-topic">${topic}</span><span class="ttc-badges">${badges}</span></div>`;
-  };
-  let html = head;
-  // Monats-Überschriften zur Orientierung beim Scrollen
-  let lastMonth = '';
-  const month = l => {
-    const m = l.dateStr.slice(0, 7);
-    if (m === lastMonth) return '';
-    lastMonth = m;
-    return `<div class="ttc-month">${escHtml(parseDate(l.dateStr).toLocaleDateString('de-DE', { month: 'long', year: 'numeric' }))}</div>`;
-  };
-  if (past.length) {
-    html += `<button type="button" class="link-btn ttc-past-toggle" data-act="past">${ttClassShowPast ? 'Frühere Stunden ausblenden' : `Frühere Stunden anzeigen (${past.length})`}</button>`;
-    if (ttClassShowPast) html += past.map(l => month(l) + row(l, true)).join('');
-  }
-  let marked = false;
-  future.forEach(l => {
-    if (!marked && halfYearEnd && l.dateStr > halfYearEnd) { html += `<div class="ttc-mark">Halbjahr · ${escHtml(formatDateDE(parseDate(halfYearEnd)))}</div>`; marked = true; }
-    html += month(l) + row(l, false);
-  });
-  if (!future.length) html += '<div class="plan-empty">Keine kommenden Stunden im Stundenplan.</div>';
-  grid.innerHTML = html;
+  grid.innerHTML = head + classLessonsHTML(g, todayStr, ttClassShowPast);   // dieselbe Liste wie Klasse → Planung (BF4)
   const sel = grid.querySelector('#ttc-group');
   sel.addEventListener('change', e => { timetableClassGroupId = e.target.value; renderTimetable(); });
   makeCustomFormDropdown(sel);   // sieht aus wie die anderen Auswahllisten (Pfeil), sonst kaum als Auswahl erkennbar
   grid.querySelector('[data-act="plan"]').addEventListener('click', () => openPlanForGroup(g.id));
-  const pastBtn = grid.querySelector('[data-act="past"]');
-  if (pastBtn) pastBtn.addEventListener('click', () => { ttClassShowPast = !ttClassShowPast; renderTimetable(); });
-  grid.querySelectorAll('.ttc-row').forEach(r => r.addEventListener('click', e => {
-    if (e.target.closest('[data-act="add"]')) { e.stopPropagation(); openPlanTopicForm(g.id, null); return; }
-    openLessonDetail(r.dataset.slot, r.dataset.date);
-  }));
+  wireClassLessons(grid, g, () => { ttClassShowPast = !ttClassShowPast; renderTimetable(); });
 }
 // Tagesansicht: geplantes bzw. behandeltes Thema in der Kachel (rechts, wo Platz ist)
 // Tagesansicht: Thema und Notizen rechts in der Kachel (AD3, AD16)

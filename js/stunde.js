@@ -98,7 +98,12 @@ function openLessonDetail(slotId, dateStr, { fromSeating = false } = {}) {
   const group = slot.groupId && db.groups.find(g => g.id === slot.groupId);
   // Klasse als Titel, Fach vorn in der Unterzeile (BUGS I13); ohne Klasse ist das Fach der Titel
   const t = lessonTitle(slot);
-  document.getElementById('lesson-modal-title').textContent = t.main;
+  const titleBtn = document.getElementById('lesson-modal-title');
+  titleBtn.textContent = t.main;
+  // Klassenname führt zur Klasse (Reiter „Planung“, Stunden, BF4); ohne Klasse ist er nur Text
+  titleBtn.disabled = !group;
+  if (group) titleBtn.setAttribute('aria-label', `Klasse ${group.className} öffnen`); else titleBtn.removeAttribute('aria-label');
+  titleBtn.title = group ? `${group.className} öffnen` : '';
   document.getElementById('lesson-modal-subtitle').textContent = [t.sub, DAYS[slot.day],
     block ? block.label + ' (' + block.start + '–' + block.end + ')' : '',
     d.toLocaleDateString('de-DE',{day:'2-digit',month:'long',year:'numeric'}), slot.room,

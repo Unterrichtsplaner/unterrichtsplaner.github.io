@@ -105,7 +105,14 @@ describe('Ansichten mit präparierten Daten', () => {
       app(`openSeatingStudentModal(${S}, ${G}, formatDate(new Date())); revealSeatingStudent()`);
       expect(document.querySelector('#sw-hub .sw-plus-grade')).not.toBeNull();
     },
-    'planung (klassenansicht)': () => app(`openGroupStudents(${G}); switchClassDashboardTab("plan")`),
+    // BF4: zwei Ansichten im Reiter, beide mit präparierten Daten (Stunden: Themen und Inhalte, Themen: die Liste)
+    'planung (klassenansicht) stunden': () => {
+      app(`openGroupStudents(${G}); switchClassDashboardTab("plan"); setPlanView("lessons"); planShowPastLessons = true; renderPlanTab()`);
+      expect(document.querySelectorAll('#overview-content .ttc-row').length).toBeGreaterThan(0);
+      expect(injected()).toBe(0); expect(brokenHandlers()).toEqual([]);
+      app('planShowPastLessons = false');
+    },
+    'planung (klassenansicht) themen': () => app(`openGroupStudents(${G}); switchClassDashboardTab("plan"); setPlanView("topics")`),
     'schülerapp (klassenansicht, einstellungen, beamer)': () => {   // AJ1
       app('SyncManager.isInitialized = true; SyncManager.currentUser = { uid: "u1" }');
       app(`db.settings.studentApp = { on: true, name: ${JSON.stringify(X)} }; setStudentAppOn(${G}, true); setStudentAppGoal(${G}, { target: 10, reward: ${JSON.stringify(X)} })`);

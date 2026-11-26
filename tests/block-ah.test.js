@@ -214,7 +214,7 @@ describe('AH46: Das ist neu (Nov. 2026, dritte Runde)', () => {
   it('neue Kennung, Punkte zu den sichtbaren Änderungen, alle Symbole vorhanden', () => {
     const w = app('WHATS_NEW');
     expect(w.id).toBe('2026-11-6');   // seit BF: eine Stunde, ein Fenster
-    expect(w.items.map(i => i.title)).toEqual(['Eine Stunde, ein Fenster', 'Blättern', 'Liegengebliebene Themen']);
+    expect(w.items.map(i => i.title)).toEqual(['Eine Stunde, ein Fenster', 'Blättern', 'Liegengebliebene Themen', 'Planung in der Klasse']);
     w.items.forEach(i => expect(app('ICONS')[i.icon], i.icon).toBeTruthy());
   });
 });

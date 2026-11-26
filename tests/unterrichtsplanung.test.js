@@ -143,7 +143,7 @@ describe('Erledigt im Stunden-Fenster', () => {
 });
 
 describe('Reiter „Planung“ in der Klassenansicht', () => {
-  const open = () => app('switchView("classes"); openGroupStudents("g1"); switchClassDashboardTab("plan")');
+  const open = () => app('switchView("classes"); openGroupStudents("g1"); switchClassDashboardTab("plan"); setPlanView("topics")');   // BF4: Themen hinter dem Umschalter
   const rows = () => [...document.querySelectorAll('#overview-content .plan-view > .plan-list .plan-row')].map(r => r.querySelector('b').textContent);
   it('Liste mit Termin je Thema und Stundenzahl bis Halbjahr/Schuljahresende', () => {
     open();
@@ -304,7 +304,7 @@ describe('Vorlage: Themen von einer Parallelklasse übernehmen', () => {
   });
 
   it('Knopf im Reiter „Planung“', () => {
-    app('switchView("classes"); openGroupStudents("g1"); switchClassDashboardTab("plan")');
+    app('switchView("classes"); openGroupStudents("g1"); switchClassDashboardTab("plan"); setPlanView("topics")');
     expect(document.querySelector('#overview-content [data-act="copy"]').textContent).toBe('Von Klasse übernehmen …');
   });
 });

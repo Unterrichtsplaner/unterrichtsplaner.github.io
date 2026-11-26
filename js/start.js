@@ -149,6 +149,11 @@ document.addEventListener('click', () => {
     menu.classList.add('hidden');
   }
 });
+// ▸ zu js/stunde.js: Klassenname im Kopf führt zur Klasse (BF4)
+document.getElementById('lesson-modal-title').addEventListener('click', () => {
+  const slot = db.lessonSlots.find(s => s.id === activeLessonId);
+  if (slot && slot.groupId && db.groups.some(g => g.id === slot.groupId)) openPlanForGroup(slot.groupId, 'lessons');
+});
 // ▸ zu js/stunde.js, Abschnitt „‹ › im Kopf“ (BF3)
 document.getElementById('btn-lesson-prev').addEventListener('click', () => stepLessonDetail(-1));
 document.getElementById('btn-lesson-next').addEventListener('click', () => stepLessonDetail(1));

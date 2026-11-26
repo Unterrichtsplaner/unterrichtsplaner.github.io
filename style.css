@@ -1528,6 +1528,9 @@ button.date-chip{font-family:inherit;padding:0;}
 .link-btn{font:inherit;color:var(--text-accent);background:none;border:none;padding:0;cursor:pointer;text-decoration:underline;text-underline-offset:2px;}
 .cloud-help-link{display:block;width:auto;margin:0 0 var(--space-3);text-align:left;justify-content:flex-start;}   /* Z5: linksbündig unter dem Text */
 .plan-summary{font-size:13px;color:var(--text-secondary);margin:0 0 var(--space-2);line-height:1.5;}
+/* Klasse → Planung (BF4): Umschalter „Stunden · Themen“ und die Stundenliste wie im Stundenplan */
+.tt-mode.plan-switch{display:inline-flex;margin:0 0 var(--space-3);}
+.ttc-list{display:flex;flex-direction:column;}
 .plan-summary b{color:var(--text-primary);}
 .plan-summary small{color:var(--text-muted);}
 .plan-warn{font-size:13px;color:var(--warning);margin:0 0 var(--space-2);}
@@ -1789,6 +1792,12 @@ input.form-input,select.form-input,input.entry-input,input.entry-date,.custom-fo
 .modal-lesson-detail .modal-header{flex-wrap:wrap;align-items:center;gap:var(--space-2) var(--space-4);padding:var(--space-4);}
 .lesson-head-title{flex:1 1 0;min-width:0;display:flex;flex-direction:column;gap:var(--space-1);}
 .lesson-head-name{display:flex;align-items:center;gap:var(--space-2);min-width:0;}
+/* Klassenname = Weg zur Klasse (BF4): sieht aus wie der Titel, leises › als Hinweis; ohne Klasse nur Text */
+.lesson-head-h{margin:0;min-width:0;overflow:hidden;}
+.lesson-title-btn{appearance:none;display:block;max-width:100%;margin:0;padding:0;background:none;border:0;font:inherit;color:inherit;text-align:left;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer;}
+.lesson-title-btn:not(:disabled)::after{content:' ›';color:var(--text-secondary);font-weight:400;}
+.lesson-title-btn:disabled{cursor:default;}
+@media (hover: hover){.lesson-title-btn:not(:disabled):hover{text-decoration:underline;text-underline-offset:3px;}}
 .lesson-head-btns{display:flex;align-items:center;gap:var(--space-2);flex-shrink:0;}
 /* Blättern ‹ › (BF3): schmal eine eigene Zeile, breit zwischen Titel und Knöpfen */
 .lesson-nav{order:3;flex:1 1 100%;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:var(--space-2);}

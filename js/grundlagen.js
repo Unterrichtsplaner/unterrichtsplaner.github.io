@@ -1019,6 +1019,7 @@ const WHATS_NEW = {
     { icon: 'edit',  title: 'Eine Stunde, ein Fenster', text: 'Was du in der Sitzplan-Leiste antippst (Zeit, Thema, Zähler oder „Stunde“), öffnet jetzt immer das Stunden-Fenster, wie im Stundenplan. Wer fehlt, wer letzte Stunde gefehlt hat und Geburtstage stehen dort in der Karte „Wer fehlt“.' },
     { icon: 'arrow-right', title: 'Blättern', text: 'Oben im Stunden-Fenster springst du mit ‹ und › zur vorigen oder nächsten Stunde der Klasse. Was du eingetippt hast, bleibt gespeichert. So planst du mehrere Stunden nacheinander.' },
     { icon: 'list',  title: 'Liegengebliebene Themen', text: 'Hast du ein Thema in seiner Stunde nicht abgehakt, steht in der nächsten Stunde „Offen seit …“. Mit „War schon dran“ hakst du es für die alte Stunde ab. Auch in vergangenen Stunden lässt sich ein offenes Thema jetzt abhaken.' },
+    { icon: 'classes', title: 'Planung in der Klasse', text: 'Unter Klasse → Planung stehen jetzt zuerst die Stunden mit ihrem Thema, ein Tipp öffnet die Stunde. Die Liste der Themen findest du daneben unter „Themen“. Im Stunden-Fenster führt der Klassenname dorthin.' },
   ],
 };
 const WHATS_NEW_SEEN_KEY = 'whats_new_seen';

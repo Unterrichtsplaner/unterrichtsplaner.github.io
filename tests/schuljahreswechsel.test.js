@@ -200,7 +200,7 @@ describe('Vorlagen in der Planung', () => {
     app(`copyPlanFrom("g1", "${id}")`);
     expect(app('groupPlan(db.groups[0]).map(t => t.title)')).toEqual(['Brüche', 'Terme']);
     expect(app('groupPlan(db.groups[0])[0].lessons')).toBe(6);
-    app('openGroupStudents("g1", "plan")');
+    app('openGroupStudents("g1", "plan"); setPlanView("topics")');   // BF4: Themen hinter dem Umschalter
     expect(document.getElementById('overview-content').textContent).toMatch(/Von Klasse oder Vorlage übernehmen/);
   });
 
