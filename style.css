@@ -560,6 +560,14 @@ button.student-name:focus-visible{outline:2px solid var(--accent);outline-offset
 .notes-section-body{margin-top:var(--space-2);animation:fadeIn .14s ease;}
 .lesson-absent-list{list-style:none;margin-top:var(--space-2);display:flex;flex-direction:column;gap:var(--space-1);font-size:13px;}
 .lesson-absent-list li{display:flex;justify-content:space-between;gap:var(--space-2);}
+.lesson-absent-list:empty{display:none;}
+/* Was früher das Fenster „Heute“ zeigte (BF2): letzte Stunde gefehlt, Geburtstag */
+.lesson-absent-extra{display:flex;flex-direction:column;gap:var(--space-2);font-size:13px;}
+.lesson-absent-group{display:flex;flex-direction:column;gap:2px;}
+.lesson-absent-sub{display:flex;align-items:center;gap:var(--space-1);font-size:12px;color:var(--text-secondary);}
+.lesson-absent-sub .ico{width:14px;height:14px;flex-shrink:0;}
+.lesson-absent-group p{margin:0;color:var(--text-primary);}
+.lesson-absent-group small{color:var(--text-secondary);}
 .absent-type{font-size:12px;font-weight:600;white-space:nowrap;}
 .absent-type.unexcused{color:var(--danger);}
 .absent-type.excused{color:var(--text-secondary);}
@@ -570,7 +578,6 @@ button.student-name:focus-visible{outline:2px solid var(--accent);outline-offset
 .notes-textarea::placeholder{color:var(--text-muted);}
 
 /* ─── Next lesson banner ─────────────── */
-.next-lesson-banner{display:flex;align-items:center;gap:var(--space-1);margin-top:var(--space-1);font-size:11px;color:var(--text-accent);}
 
 /* ─── Next lesson chip (in date row) ─────── */
 .upcoming-chips-row{padding:var(--space-2) 0 var(--space-1);}
@@ -1167,10 +1174,6 @@ select option{background:var(--bg-secondary);}
 .cockpit-count.test,.cockpit-count.absent{border-color:var(--danger);}
 .cockpit-count.bday{border-color:var(--accent);background:var(--accent-soft);}
 .cockpit-lesson-btn{flex-shrink:0;align-self:center;display:flex;align-items:center;gap:var(--space-1);min-height:44px;}
-.lt-this{margin:var(--space-2) 0 var(--space-2);font-size:14px;font-weight:700;color:var(--text-primary);}
-.lt-topic-row{display:flex;gap:var(--space-2);align-items:center;}
-.lt-topic-row .form-input{flex:1;min-width:0;}
-.lt-topic-row button{flex-shrink:0;}
 .cockpit-switch-btn{flex-shrink:0;align-self:center;display:flex;align-items:center;gap:var(--space-1);max-width:180px;}
 .cockpit-switch-btn span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 /* iPad hochkant: Zähler nur mit Symbol + Zahl */
@@ -1190,19 +1193,6 @@ select option{background:var(--bg-secondary);}
   .cockpit-lesson-btn{padding:0 var(--space-3);}
   .cockpit-lesson-btn span{display:none;}
 }
-/* Fenster „Heute“ */
-#seating-today-body{display:flex;flex-direction:column;gap:var(--space-3);}
-.today-meta{font-size:13px;color:var(--text-secondary);margin:0;line-height:1.5;}
-.today-section h3{display:flex;align-items:center;gap:var(--space-1);font-size:13px;font-weight:700;color:var(--text-secondary);margin:0 0 var(--space-1);}
-.today-section h3 .ico{width:15px;height:15px;}
-.today-section p{margin:0;font-size:14px;line-height:1.45;}
-.today-section ul{margin:0;padding-left:var(--space-4);font-size:14px;line-height:1.6;}
-.today-section small{color:var(--text-muted);}
-.today-section.muted p{color:var(--text-secondary);}
-.today-section.hw h3 .ico{color:var(--warning);}
-.today-section.test h3 .ico,.today-section.absent h3 .ico{color:var(--danger);}
-.today-section.bday h3 .ico{color:var(--text-accent);}
-.today-empty{color:var(--text-muted);font-size:14px;margin:0;}
 /* Karten: Symbole oben links, Mitarbeit-Verlauf als Punkte */
 .seating-card .sc-marks{position:absolute;top:5px;left:6px;display:flex;gap:var(--space-1);color:var(--text-muted);}
 .seating-card .sc-mark .ico{width:13px;height:13px;margin:0;}
@@ -1643,7 +1633,7 @@ button:focus-visible,[role="button"]:focus-visible,a:focus-visible,summary:focus
   *,*::before,*::after{animation-duration:.01ms !important;animation-iteration-count:1 !important;transition-duration:.01ms !important;scroll-behavior:auto !important;}
 }
 /* Scrollen im Fenster läuft nicht in die Seite dahinter durch */
-.modal-body,#seating-today-body{overscroll-behavior:contain;}
+.modal-body{overscroll-behavior:contain;}
 /* Überschriften ohne einzelnes Wort in der letzten Zeile */
 h1,h2,h3,.dash-heading,.subject-heading{text-wrap:balance;}
 /* Rückmeldung beim Darüberfahren (nur mit Maus, Regel 54) */
@@ -1800,7 +1790,12 @@ input.form-input,select.form-input,input.entry-input,input.entry-date,.custom-fo
 .lesson-head-title{flex:1 1 0;min-width:0;display:flex;flex-direction:column;gap:var(--space-1);}
 .lesson-head-name{display:flex;align-items:center;gap:var(--space-2);min-width:0;}
 .lesson-head-btns{display:flex;align-items:center;gap:var(--space-2);flex-shrink:0;}
-.modal-lesson-detail .next-lesson-banner{order:3;flex:1 1 100%;margin:0;font-size:13px;}
+/* Blättern ‹ › (BF3): schmal eine eigene Zeile, breit zwischen Titel und Knöpfen */
+.lesson-nav{order:3;flex:1 1 100%;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:var(--space-2);}
+.lesson-nav-btn{display:flex;align-items:center;justify-content:center;gap:var(--space-1);min-width:0;padding:0 var(--space-3);font-size:13px;white-space:nowrap;}
+.lesson-nav-text{overflow:hidden;text-overflow:ellipsis;}
+.lesson-nav-arrow{font-size:20px;line-height:1;flex-shrink:0;}
+.lesson-nav-btn:disabled .lesson-nav-text:empty{display:none;}
 .lesson-quick{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(0,1fr);gap:var(--space-2);flex-shrink:0;padding:var(--space-3) var(--space-4);background:var(--bg-secondary);border-bottom:1px solid var(--border);}
 .lesson-quick:not(:has(> :not(.hidden))){display:none;}
 .lesson-quick .btn-secondary{display:flex;align-items:center;justify-content:center;gap:var(--space-2);min-width:0;padding:0 var(--space-2);white-space:nowrap;}
@@ -1846,7 +1841,9 @@ input.form-input,select.form-input,input.entry-input,input.entry-date,.custom-fo
   .lq-long{display:inline;}
   .modal-lesson-detail .modal-header{flex-wrap:nowrap;}
   .lesson-head-title{flex:0 1 auto;}
-  .modal-lesson-detail .next-lesson-banner{order:0;flex:1 1 0;justify-content:flex-end;min-width:0;}
+  /* Breit: Blättern behält seine Breite, schrumpfen darf nur der Name (Regel 101) */
+  .lesson-nav{order:0;flex:0 0 auto;display:flex;justify-content:flex-end;margin-left:auto;}
+  .lesson-nav-btn{flex:0 0 auto;}
   #lesson-notes-form{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);align-content:start;}
   #lesson-notes-form .notes-section.lc-wide{grid-column:1 / -1;}
   .modal-lesson-detail .modal-footer{display:flex;justify-content:space-between;}
@@ -2276,7 +2273,7 @@ textarea.sa-jokers{min-height:120px;padding:var(--space-2) var(--space-3);resize
    (iPad: sonst Lupe und blaue Markierung statt Aktion); Inhalte, die man lesen oder weitergeben will, und alle
    Eingabefelder schon. Reihenfolge zählt: Grundsatz → Inhalte → Knöpfe darin → Eingaben. */
 body{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;}
-#overview-content, #sw-more, #lesson-notes-form, #seating-today-body,
+#overview-content, #sw-more, #lesson-notes-form,
 #modal-privacy .modal-body, #modal-cloud-help .modal-body, #modal-whats-new .modal-body, .cn-chip, .seating-notes, .sw-hub-hint, .sw-hub-notes li{-webkit-user-select:text;user-select:text;-webkit-touch-callout:default;}
 button, [role="button"], .tab-btn{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;}
 input, textarea, [contenteditable="true"]{-webkit-user-select:text;user-select:text;-webkit-touch-callout:default;}

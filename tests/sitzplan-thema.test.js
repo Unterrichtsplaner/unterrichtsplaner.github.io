@@ -70,109 +70,103 @@ describe('AI1: Leiste zeigt das geplante Thema', () => {
   });
 });
 
-describe('AI2: Fenster „Thema der Stunde“', () => {
-  it('Thema antippen öffnet das Fenster mit letzter Stunde und geplantem Thema', () => {
-    openSeating();
-    expect(cockpit().querySelector('.cockpit-topic').getAttribute('onclick')).toBe('openLessonTopic()');
-    app('openLessonTopic()');
-    expect(hidden('modal-lesson-topic')).toBe(false);
-    expect(val('lt-prev-done')).toBe('Brüche kürzen\nzweite Zeile');
-    expect(document.getElementById('lt-prev-label').textContent).toMatch(/Letzte Stunde · Fr/);
-    expect(val('lt-topic')).toBe('Brüche erweitern');
-    expect(document.getElementById('lt-topic-label').textContent).toContain('Stunde 1 von 2');
-    expect(val('lt-done')).toBe('');
+// Seit BF2 öffnet das Thema in der Leiste das Stunden-Fenster (das kleine Fenster „Thema“ gibt es nicht mehr).
+// Was jenes konnte, kann das Stunden-Fenster: letzte Stunde sehen (und mit ‹ ändern), Thema planen, „Erledigt“.
+const openLesson = () => { openSeating(); app(cockpit().querySelector('.cockpit-topic').getAttribute('onclick')); };
+const planInput = () => document.getElementById('lesson-plan-input');
+const typeTopic = v => { planInput().value = v; planInput().dispatchEvent(new Event('input')); };
+const tick = () => document.querySelector('#lesson-plan-box [data-act="toggle"]').click();
+describe('AI2/BF2: Thema antippen öffnet das Stunden-Fenster', () => {
+  it('mit letzter Stunde und geplantem Thema', () => {
+    openLesson();
+    expect(hidden('modal-lesson')).toBe(false);
+    expect(app('[activeLessonId, activeLessonDate]')).toEqual(['m1', MON]);
+    expect(document.querySelector('#lesson-plan-box .lesson-plan-prev p').textContent).toBe('Brüche kürzen\nzweite Zeile');
+    expect(document.querySelector('#lesson-plan-box .lesson-plan-prev span').textContent).toMatch(/Letzte Stunde · Fr/);
+    expect(planInput().value).toBe('Brüche erweitern');
+    expect(document.querySelector('#lesson-plan-box .notes-section-label').textContent).toContain('Stunde 1 von 2');
+    expect(val('lesson-done-text')).toBe('');
   });
 
-  it('„Erledigt“: Thema wandert in den Unterrichtsinhalt, Planung zählt die Stunde', () => {
-    openSeating();
-    app('openLessonTopic()');
-    app('lessonTopicDone()');
-    expect(val('lt-done')).toBe('Brüche erweitern');
+  it('„Erledigt“: Thema wandert in den Unterrichtsinhalt, Planung zählt die Stunde; noch einmal nimmt es zurück', () => {
+    openLesson();
+    tick();
+    expect(val('lesson-done-text')).toBe('Brüche erweitern');
     expect(plan()[0].doneLessons).toEqual([`m1_${MON}`]);
-    app('closeLessonTopic()');
-    expect(hidden('modal-lesson-topic')).toBe(true);
+    tick();
+    expect(plan()[0].doneLessons).toBeUndefined();
+    expect(val('lesson-done-text')).toBe('');
+    tick();
+    app('saveLessonDataAndClose()');
     expect(app('db').lessonData[`m1_${MON}`].done).toBe('Brüche erweitern');
     expect(topic()).toBe('Thema heute | Brüche erweitern');
   });
 
-  it('„Erledigt“ noch einmal nimmt es zurück', () => {
-    openSeating();
-    app('openLessonTopic()');
-    app('lessonTopicDone()');
-    app('lessonTopicDone()');
-    expect(plan()[0].doneLessons).toBeUndefined();
-    expect(val('lt-done')).toBe('');
-  });
-
   it('Thema ändern plant ein eigenes Thema für diese Stunde, die Reihe rutscht dahinter', () => {
-    openSeating();
-    app('openLessonTopic()');
-    setVal('lt-topic', 'Wiederholung');
-    app('closeLessonTopic()');
+    openLesson();
+    typeTopic('Wiederholung');
+    app('closeModalLikeButton("modal-lesson")');
     expect(plan().map(t => t.title)).toEqual(['Wiederholung', 'Brüche erweitern', 'Dezimalzahlen']);
     expect(plan()[0].pinned).toBe(MON);
     expect(topic()).toBe('Geplant | Wiederholung');
   });
 
-  it('letzte Stunde und Unterrichtsinhalt sind änderbar, Schließen übernimmt', () => {
-    openSeating();
-    app('openLessonTopic()');
-    setVal('lt-prev-done', 'Brüche kürzen, korrigiert');
-    setVal('lt-done', 'Einstieg mit Pizza');
-    const before = app('db').settings.lastModified;
-    at(8, 1);
-    app('closeModalLikeButton("modal-lesson-topic")');   // ✕, Escape, daneben tippen
+  it('letzte Stunde ändern: mit ‹ dorthin blättern (BF3), Eingetipptes beider Stunden bleibt', () => {
+    openLesson();
+    setVal('lesson-done-text', 'Einstieg mit Pizza');
+    document.getElementById('btn-lesson-prev').click();
+    expect(app('[activeLessonId, activeLessonDate]')).toEqual(['m4', FRI]);
+    setVal('lesson-done-text', 'Brüche kürzen, korrigiert');
+    app('closeModalLikeButton("modal-lesson")');
     expect(app('db').lessonData[`m4_${FRI}`].done).toBe('Brüche kürzen, korrigiert');
     expect(app('db').lessonData[`m1_${MON}`].done).toBe('Einstieg mit Pizza');
-    expect(app('db').settings.lastModified).not.toBe(before);
   });
 
   it('nichts geändert: kein Speichern', () => {
     openSeating();
     const before = app('db').settings.lastModified;
-    app('openLessonTopic()');
+    app('openCockpitLesson()');
     at(8, 1);
-    app('closeLessonTopic()');
+    app('closeModalLikeButton("modal-lesson")');
     expect(app('db').settings.lastModified).toBe(before);
     expect(app('db').lessonData[`m1_${MON}`]).toBeUndefined();
   });
 
   it('ohne Planung: leeres Feld, Eintippen plant', () => {
     app('db.groups[0].plan = []');
-    openSeating();
-    app('openLessonTopic()');
-    expect(val('lt-topic')).toBe('');
-    setVal('lt-topic', 'Prozentrechnung');
-    app('lessonTopicDone()');
+    openLesson();
+    expect(planInput().value).toBe('');
+    typeTopic('Prozentrechnung');
+    tick();
     expect(plan()[0].title).toBe('Prozentrechnung');
-    expect(val('lt-done')).toBe('Prozentrechnung');
+    expect(val('lesson-done-text')).toBe('Prozentrechnung');
+    app('saveLessonDataAndClose()');
   });
 
   it('„Ganze Planung“ übernimmt Eingaben und öffnet den Reiter Planung', () => {
-    openSeating();
-    app('openLessonTopic()');
-    setVal('lt-done', 'Notiert');
-    app('openLessonTopicPlan()');
-    expect(hidden('modal-lesson-topic')).toBe(true);
+    openLesson();
+    setVal('lesson-done-text', 'Notiert');
+    document.querySelector('#lesson-plan-box [data-act="plan"]').click();
+    expect(hidden('modal-lesson')).toBe(true);
     expect(app('db').lessonData[`m1_${MON}`].done).toBe('Notiert');
     expect(app('currentOverviewTab')).toBe('plan');
   });
 
   it('zählt als Eingabefenster (kein Pull mitten im Tippen) und übernimmt beim Verlassen der App', () => {
-    openSeating();
-    app('openLessonTopic()');
+    openLesson();
     expect(app('inputModalOpen()')).toBe(true);
-    setVal('lt-done', 'Beim Zuklappen');
+    setVal('lesson-done-text', 'Beim Zuklappen');
     app('onAppHidden()');
     expect(app('db').lessonData[`m1_${MON}`].done).toBe('Beim Zuklappen');
-    expect(hidden('modal-lesson-topic')).toBe(false);
+    expect(hidden('modal-lesson')).toBe(false);
+    app('saveLessonDataAndClose()');
   });
 
   it('Text mit Sonderzeichen wird nicht als HTML gezeigt', () => {
     app(`db.groups[0].plan[0].title = '<img src=x onerror=alert(1)>'`);
-    openSeating();
-    app('openLessonTopic()');
-    expect(document.querySelector('#modal-lesson-topic img')).toBe(null);
-    expect(val('lt-topic')).toBe('<img src=x onerror=alert(1)>');
+    openLesson();
+    expect(document.querySelector('#modal-lesson img')).toBe(null);
+    expect(planInput().value).toBe('<img src=x onerror=alert(1)>');
+    app('closeModal("modal-lesson")');
   });
 });

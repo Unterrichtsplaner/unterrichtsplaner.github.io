@@ -38,11 +38,11 @@ describe('AQ10/AP9: Leerraum im Titel', () => {
       expect(JSON.stringify(plan())).toBe(before);
     });
   }
-  it('Fenster „Thema“ aus der Sitzplan-Leiste genauso', () => {
+  it('aus der Sitzplan-Leiste genauso (seit BF2 dasselbe Stunden-Fenster)', () => {
     load([T('t1', 'Brüche  kürzen')]);
     const before = JSON.stringify(plan());
-    app('cockpitLesson = { slotId: "mo", dateStr: "2026-11-09" }; openLessonTopic()');
-    app('closeModalLikeButton("modal-lesson-topic")');
+    app('cockpitLesson = { slotId: "mo", dateStr: "2026-11-09" }; openCockpitLesson()');
+    app('closeModalLikeButton("modal-lesson")');
     expect(JSON.stringify(plan())).toBe(before);
   });
   it('AP9: Titel auf beiden Geräten verschieden umbenannt: Frage statt zweizeiligem Titel', () => {
@@ -77,16 +77,13 @@ describe('AQ15: Verrutschte feste Termine behalten ihre Reihenfolge', () => {
   });
 });
 
-describe('AQ16: Fenster „Thema“ für eine vergangene Stunde', () => {
-  it('kein Planungsfeld, Eintippen legt nichts an', () => {
+describe('AQ16: vergangene Stunde aus der Sitzplan-Leiste (seit BF2 das Stunden-Fenster)', () => {
+  it('kein Planungsfeld, Schließen legt nichts an', () => {
     vi.setSystemTime(new Date(2026, 10, 11, 7, 0));   // Mi
     load([T('t1', 'Dezimalzahlen')]);
-    app('cockpitLesson = { slotId: "mo", dateStr: "2026-11-09" }; openLessonTopic()');
-    const input = document.getElementById('lt-topic');
-    expect(input.disabled).toBe(true);
-    input.value = 'Prozentrechnung Einführung';
-    app('lessonTopicDone()');
-    app('closeModalLikeButton("modal-lesson-topic")');
+    app('cockpitLesson = { slotId: "mo", dateStr: "2026-11-09" }; openCockpitLesson()');
+    expect(document.getElementById('lesson-plan-input')).toBeNull();
+    app('closeModalLikeButton("modal-lesson")');
     expect(plan().map(t => t.title)).toEqual(['Dezimalzahlen']);
   });
 });

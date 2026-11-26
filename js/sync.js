@@ -774,7 +774,7 @@ function noticeSlowSync(promise) {
 // Einstellungen zählen nur mit, wenn dort etwas eingetippt ist: Sonst ersetzte der Pull die Eingaben still (BUGS T5).
 function inputModalOpen() {
   return [...document.querySelectorAll('.modal-overlay:not(.hidden)')]
-    .some(m => m.id === 'modal-settings' ? settingsDirty() : m.id !== 'modal-sync-conflict' && m.id !== 'modal-whats-new' && m.id !== 'modal-seating-today' && m.id !== 'modal-search' && m.id !== 'modal-plus-scan');   // Suche liest nur (AH19), Scanner hat keine Eingaben (AV1)
+    .some(m => m.id === 'modal-settings' ? settingsDirty() : m.id !== 'modal-sync-conflict' && m.id !== 'modal-whats-new' && m.id !== 'modal-search' && m.id !== 'modal-plus-scan');   // Suche liest nur (AH19), Scanner hat keine Eingaben (AV1)
 }
 function syncAfterModalsClosed() {
   if (!syncAfterModalClose || inputModalOpen()) return;
@@ -808,7 +808,6 @@ function onAppHidden() {
     commitSeatingStudentForm();
     if (swShown) setSeatingStudentShown(false);
   }
-  if (!document.getElementById('modal-lesson-topic').classList.contains('hidden')) storeLessonTopicForm();
   flushPendingSync();
   if (saPendingAt) sendStudentAppsNow();   // Schülerseiten: was noch wartet, jetzt (AK3) – über einen Abgleich (AT7)
 }

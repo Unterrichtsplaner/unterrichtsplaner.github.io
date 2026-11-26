@@ -31,9 +31,9 @@ describe('Aufbau', () => {
   it('alle Karten direkt im Raster; Anordnung macht layoutLessonCards (AH37)', () => {
     expect(cards().sort()).toEqual(['lc-content', 'lc-hw', 'lc-notes', 'lc-test', 'lesson-absent-container', 'lesson-class-notes', 'lesson-plan-box', 'lesson-todos'].sort());
   });
-  it('Kopf: Titel, nächste Stunden und Knöpfe nebeneinander; drei gleiche Knöpfe in einer Leiste', () => {
+  it('Kopf: Titel, Blättern ‹ › (BF3) und Knöpfe nebeneinander; drei gleiche Knöpfe in einer Leiste', () => {
     const head = document.querySelector('.modal-lesson-detail .modal-header');
-    expect([...head.children].map(c => c.id || c.className)).toEqual(['lesson-head-title', 'next-lesson-banner', 'lesson-head-btns']);
+    expect([...head.children].map(c => c.id || c.className)).toEqual(['lesson-head-title', 'lesson-nav', 'lesson-head-btns']);
     expect([...document.querySelector('.lesson-quick').children].map(b => b.id)).toEqual(['lesson-seating-link-container', 'lesson-btn-overview', 'lesson-btn-students']);
   });
   it('Knöpfe tragen den langen Namen als aria-label', () => {

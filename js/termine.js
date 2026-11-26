@@ -239,6 +239,27 @@ function previousLessonOfGroup(groupId, dateStr, beforeMins) {
   }
   return null;
 }
+// Vorige (dir -1) bzw. nächste (dir 1) Stunde derselben Klasse (relatedSlots, Regel 41), auch am selben Tag; ohne Ausfall,
+// bis 70 Tage weit (Regel 17). Fürs Blättern im Stunden-Fenster (BF3). lessonsOnDate liefert nach Uhrzeit sortiert.
+function lessonNeighbor(slotId, dateStr, dir) {
+  const slot = db.lessonSlots.find(s => s.id === slotId);
+  if (!slot) return null;
+  const ids = new Set(relatedSlots(slot).map(s => s.id));
+  const mine = ds => lessonsOnDate(ds).filter(l => ids.has(l.slot.id) && !l.ausfall);
+  const all = lessonsOnDate(dateStr);
+  const at = all.findIndex(l => l.slot.id === slotId);
+  if (at >= 0) {
+    const same = (dir > 0 ? all.slice(at + 1) : all.slice(0, at).reverse()).find(l => ids.has(l.slot.id) && !l.ausfall);
+    if (same) return same;
+  }
+  let d = parseDate(dateStr);
+  for (let i = 0; i < 70; i++) {
+    d = addDays(d, dir);
+    const list = mine(formatDate(d));
+    if (list.length) return dir > 0 ? list[0] : list[list.length - 1];
+  }
+  return null;
+}
 // Ein Formatierer für alle Aufrufe, Ergebnis je Datum gemerkt: Große Tabellen rufen das für jede Zelle (AU14)
 const WEEKDAY_SHORT_FMT = new Intl.DateTimeFormat('de-DE', { weekday: 'short', day: '2-digit', month: '2-digit' });
 const weekdayShortCache = new Map();

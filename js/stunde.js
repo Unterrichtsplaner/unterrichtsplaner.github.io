@@ -115,14 +115,7 @@ function openLessonDetail(slotId, dateStr, { fromSeating = false } = {}) {
   kindBadge.classList.toggle('sub', !!slot.substitute);
   document.getElementById('btn-lesson-substitute').classList.toggle('hidden', isOneOffSlot(slot));
 
-  // Next lesson banner (first upcoming)
-  if (_upcomingDates.length) {
-    document.getElementById('next-lesson-banner').classList.remove('hidden');
-    const labels = _upcomingDates.slice(0,2).map(u => formatDateLong(u.dateStr)).join(' · ');
-    document.getElementById('next-lesson-text').textContent = `Nächste Stunden: ${labels}`;
-  } else {
-    document.getElementById('next-lesson-banner').classList.add('hidden');
-  }
+  renderLessonNav(slot, dateStr);   // ‹ › vorige/nächste Stunde (BF3)
 
   // ── Fill in data ──
   document.getElementById('lesson-done-text').value  = data.done  || '';
@@ -148,26 +141,69 @@ function openLessonDetail(slotId, dateStr, { fromSeating = false } = {}) {
   openModal('modal-lesson');
 }
 
+// ‹ › im Kopf: vorige/nächste Stunde derselben Klasse (BF3). Hat die Klasse an dem Tag mehrere Stunden, steht der Block dabei.
+let lessonNavTargets = { '-1': null, '1': null };
+function renderLessonNav(slot, dateStr) {
+  const ids = new Set(relatedSlots(slot).map(s => s.id));
+  [[-1, 'btn-lesson-prev', 'Vorige Stunde'], [1, 'btn-lesson-next', 'Nächste Stunde']].forEach(([dir, id, name]) => {
+    const l = lessonNeighbor(slot.id, dateStr, dir);
+    lessonNavTargets[dir] = l ? { slotId: l.slot.id, dateStr: l.dateStr } : null;
+    const btn = document.getElementById(id);
+    const several = l && lessonsOnDate(l.dateStr).filter(x => ids.has(x.slot.id) && !x.ausfall).length > 1;
+    const text = l ? formatWeekdayShort(l.dateStr) + (several && l.block ? ', ' + l.block.label : '') : '';
+    btn.querySelector('.lesson-nav-text').textContent = text;
+    btn.disabled = !l;
+    btn.setAttribute('aria-label', l ? `${name}: ${text}` : `${name}: keine in den nächsten 10 Wochen`);
+    btn.title = btn.getAttribute('aria-label');
+  });
+}
+// Blättern übernimmt Eingetipptes wie „Schließen“ (storeLessonForm, Regel 35); das Fenster bleibt offen. Aus dem Sitzplan
+// geöffnet, bleibt Privates auch in der nächsten Stunde verborgen (Beamer, AS7).
+function stepLessonDetail(dir) {
+  const target = lessonNavTargets[dir];
+  if (!target || document.getElementById('modal-lesson').classList.contains('hidden')) return;
+  storeLessonForm();
+  renderScheduleViews();   // auch ohne Formular-Änderung: HA per „+“, Thema …
+  if (!db.lessonSlots.some(s => s.id === target.slotId)) { showToast('Diese Stunde gibt es nicht mehr (z. B. durch Sync)', 'error'); return; }
+  openLessonDetail(target.slotId, target.dateStr, { fromSeating: lessonFromSeating });
+}
+
 // „Heute fehlen“ im Stunden-Fenster; auch nach Einträgen über „Schüler bewerten“ neu (BUGS M10)
+// Heute und künftig dazu, was früher nur das Fenster „Heute“ im Sitzplan zeigte (BF2): wer letzte Stunde gefehlt hat und
+// heute da ist (Stoff nachholen), Geburtstage. Nur Namen, nie Gründe (Beamer).
 function renderLessonAbsent(slot, dateStr) { fillLessonAbsent(slot, dateStr); layoutLessonCards(); }
 function fillLessonAbsent(slot, dateStr) {
   const absentContainer = document.getElementById('lesson-absent-container');
   const absentList = document.getElementById('lesson-absent-list');
   absentContainer.classList.add('hidden');
   absentList.innerHTML = '';
+  absentContainer.querySelector('.lesson-absent-extra')?.remove();
   if (!slot.groupId || !db.students[slot.groupId]) return;
-  const absent = db.students[slot.groupId].filter(s =>
-    (s.attendance || []).some(a => a.date === dateStr && (a.type === 'abwesend' || a.type === 'entschuldigt'))
-  );
-  if (!absent.length) return;
+  const students = db.students[slot.groupId];
+  const absentOn = ds => students.filter(s => (s.attendance || []).some(a => a.date === ds && (a.type === 'abwesend' || a.type === 'entschuldigt')));
+  const absent = absentOn(dateStr);
   const today = formatDate(new Date());
-  document.querySelector('#lesson-absent-container .notes-section-label').textContent = dateStr === today ? 'Heute fehlen'
-    : `${dateStr < today ? 'Gefehlt' : 'Fehlen'} am ${formatDateDE(parseDate(dateStr))}`; // BUGS V7
+  const name = s => escHtml([s.firstName, s.lastName].filter(Boolean).join(' '));
+  let missed = [], birthdays = [];
+  if (dateStr >= today) {
+    const own = lessonsOnDate(dateStr).find(l => l.slot.id === slot.id);
+    const prev = previousLessonOfGroup(slot.groupId, dateStr, own && own.range ? own.range.start : 0);
+    if (prev && prev.dateStr !== dateStr) missed = absentOn(prev.dateStr).filter(s => !absent.includes(s));
+    birthdays = students.map(s => ({ s, b: birthdayInfo(s, dateStr) })).filter(x => x.b);
+  }
+  if (!absent.length && !missed.length && !birthdays.length) return;
+  document.querySelector('#lesson-absent-container .notes-section-label').textContent = !absent.length ? 'In der Klasse'
+    : dateStr === today ? 'Heute fehlen' : `${dateStr < today ? 'Gefehlt' : 'Fehlen'} am ${formatDateDE(parseDate(dateStr))}`; // BUGS V7
   absentList.innerHTML = absent.map(s => {
     const excused = (s.attendance || []).some(a => a.date === dateStr && a.type === 'entschuldigt');
-    return `<li><span>${escHtml([s.firstName, s.lastName].filter(Boolean).join(' '))}</span>` +
+    return `<li><span>${name(s)}</span>` +
       `<span class="absent-type ${excused ? 'excused' : 'unexcused'}">${excused ? 'entschuldigt' : 'unentschuldigt'}</span></li>`;
   }).join('');
+  const groups = [];
+  if (missed.length) groups.push(`<div class="lesson-absent-group"><span class="lesson-absent-sub">${icon('calendar-x')}Letzte Stunde gefehlt · Stoff nachholen</span><p>${missed.map(name).join(', ')}</p></div>`);
+  if (birthdays.length) groups.push(`<div class="lesson-absent-group"><span class="lesson-absent-sub">${icon('cake')}Geburtstag</span><p>${birthdays.map(({ s, b }) =>
+    name(s) + (b.age ? ` <small>wird ${b.age}</small>` : '') + (b.when === 'past' ? ` <small>hatte am ${escHtml(formatWeekdayShort(b.date))}</small>` : '')).join(', ')}</p></div>`);
+  if (groups.length) absentList.insertAdjacentHTML('afterend', `<div class="lesson-absent-extra">${groups.join('')}</div>`);
   absentContainer.classList.remove('hidden');
 }
 

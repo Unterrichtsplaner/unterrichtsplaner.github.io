@@ -110,27 +110,22 @@ describe('Cockpit-Leiste', () => {
     expect(cockpit().querySelectorAll('.cockpit-count').length).toBe(4);
   });
 
-  it('Zähler und Zeit öffnen das Fenster „Heute“ mit allen Namen und Texten (das Thema sein eigenes, AI2)', () => {
+  it('BF2: Zähler, Zeit und Thema öffnen das Stunden-Fenster dieser Stunde mit allen Namen und Texten', () => {
     at(8, 0);
     openSeating();
-    [...cockpit().querySelectorAll('.cockpit-count'), cockpit().querySelector('.cockpit-time')]
-      .forEach(b => expect(b.getAttribute('onclick')).toBe('openSeatingToday()'));
-    expect(cockpit().querySelector('.cockpit-topic').getAttribute('onclick')).toBe('openLessonTopic()');
-    app('openSeatingToday()');
-    const m = document.getElementById('modal-seating-today');
+    [...cockpit().querySelectorAll('.cockpit-count'), cockpit().querySelector('.cockpit-time'), cockpit().querySelector('.cockpit-topic')]
+      .forEach(b => expect(b.getAttribute('onclick')).toBe('openCockpitLesson()'));
+    app('openCockpitLesson()');
+    const m = document.getElementById('modal-lesson');
     expect(m.classList.contains('hidden')).toBe(false);
+    expect(app('[activeLessonId, activeLessonDate]')).toEqual(['m1', MON]);
     const t = m.textContent.replace(/\s+/g, ' ');
-    expect(t).toContain('Heute · 7a Mathe');
-    expect(t).toMatch(/Danach: 9c · R132/);
-    expect(m.innerHTML).toContain('Brüche kürzen<br>zweite Zeile');  // hier der ganze Text, mit Zeilen
+    expect(document.querySelector('#lesson-plan-box .lesson-plan-prev p').textContent).toBe('Brüche kürzen\nzweite Zeile');
     expect(t).toContain('S. 12 Nr. 3');
-    expect(t).toMatch(/Fehlt heute \(1\)\s*Clara Muster entschuldigt/);
-    expect(t).toMatch(/Letzte Stunde gefehlt \(1\).*Ben Muster/);
+    expect(t).toMatch(/Heute fehlen\s*Clara Muster\s*entschuldigt/);
+    expect(t).toMatch(/Letzte Stunde gefehlt · Stoff nachholen\s*Ben Muster/);
     expect(t).toMatch(/Anna Muster wird 13/);
-    expect(t).toMatch(/David Muster wird 14 · hatte am Sa/);
-    app('openCockpitLesson()');                                   // „Stunde eintragen“ schließt „Heute“
-    expect(m.classList.contains('hidden')).toBe(true);
-    expect(document.getElementById('modal-lesson').classList.contains('hidden')).toBe(false);
+    expect(t).toMatch(/David Muster wird 14 hatte am Sa/);
   });
 
   it('„Letzte Stunde gefehlt“ steht auf der Karte (nur während der Stunde)', () => {
@@ -150,8 +145,9 @@ describe('Cockpit-Leiste', () => {
     openSeating();
     expect(topic()).toBe('Thema | Noch kein Thema eingetragen');
     expect(cockpit().querySelector('.cockpit-counts')).toBeNull();
-    app('openSeatingToday()');
-    expect(document.getElementById('seating-today-body').textContent).toContain('Nichts fällig, alle da.');
+    app('openCockpitLesson()');
+    expect(document.getElementById('lesson-absent-container').classList.contains('hidden')).toBe(true);   // alle da
+    app('closeModal("modal-lesson")');
   });
 
   it('Thema der laufenden Stunde hat Vorrang vor der letzten', () => {
@@ -487,14 +483,14 @@ describe('Restzeit nach dem Entsperren (AH3)', () => {
     expect(mins()).toBe('42 Min');
   });
 
-  it('auch mit offenem Fenster (z. B. „Heute“)', () => {
+  it('auch mit offenem Fenster (z. B. Stunden-Fenster)', () => {
     at(8, 30);
     openSeating();
-    app('openSeatingToday()');
+    app('openCockpitLesson()');
     at(8, 40, 5);
     comeBack();
     expect(mins()).toBe('35 Min');
-    app('closeModal("modal-seating-today")');
+    app('saveLessonDataAndClose()');
   });
 
   it('gleiche Minute: Knöpfe bleiben dieselben (Tippen geht nicht verloren)', () => {

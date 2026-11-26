@@ -807,7 +807,6 @@ const MODAL_CLOSE_ACTIONS = {
   'modal-whats-new': () => closeWhatsNew(),          // Wegdrücken zählt als gelesen
   'modal-plan-topic': () => cancelPlanTopic(),       // bei Änderungen fragen (Regel 55)
   'modal-class-notes': () => closeClassNotes(),      // Eingetipptes übernehmen, nicht verwerfen (AD15)
-  'modal-lesson-topic': () => closeLessonTopic(),    // Eingetipptes übernehmen, nicht verwerfen (AI2)
   'modal-new-year': () => closeNewYear(),            // ab Schritt 2 nachfragen (Y6)
   'modal-give-sticker': () => closeGive(),           // Eingetipptes nur nach Rückfrage verwerfen (AJ2b)
   'modal-plus-scan': () => closePlusScanner(),       // Kamera aus (AV1)
@@ -1015,13 +1014,11 @@ function initAllCustomDropdowns() {
 // Für das nächste große Update: `id` ändern und die Punkte ersetzen. Gemerkt wird nur auf diesem Gerät
 // (nicht in `db`, nicht synchronisiert). Neue Nutzer ohne Daten sehen es nie.
 const WHATS_NEW = {
-  id: '2026-11-5',
+  id: '2026-11-6',   // BF: eine Stunde, ein Fenster
   items: [
-    { icon: 'participation', title: 'Mitarbeit in vier Stufen', text: 'Neu: ++ sehr gut, + gut, − wenig, −− schwach. Bisherige Einträge bleiben: 😊 ist jetzt „gut“, 😐 „wenig“, ☹️ „schwach“.' },
-    { icon: 'seating',  title: 'Sitzplan', text: 'Oben steht die Klasse. Die Pfeile springen zur vorigen oder nächsten Stunde der Klasse, ein Tipp aufs Datum öffnet den Kalender. Die Leiste darüber zeigt außerhalb der Stunde die nächste.' },
-    { icon: 'clock',    title: 'Timer und Stoppuhr', text: 'Unten als Knöpfe neben Zufall und Gruppen. Antippen öffnet die Bedienung, die laufende Zeit steht im Knopf.' },
-    { icon: 'panel',    title: 'Leiste links', text: 'Die Suche steht oben als Menüpunkt, „Einklappen“ unten. In den Einstellungen unter „Leiste“ ordnest du die Menüpunkte selbst und heftest Klassen an.' },
-    { icon: 'classes',  title: 'Klassenlehrer', text: 'Beim Bearbeiten einer Klasse eintragen. Der Name steht dann im Klassenkopf, auf der Klassenkarte und im Stunden-Fenster.' },
+    { icon: 'edit',  title: 'Eine Stunde, ein Fenster', text: 'Was du in der Sitzplan-Leiste antippst (Zeit, Thema, Zähler oder „Stunde“), öffnet jetzt immer das Stunden-Fenster, wie im Stundenplan. Wer fehlt, wer letzte Stunde gefehlt hat und Geburtstage stehen dort in der Karte „Wer fehlt“.' },
+    { icon: 'arrow-right', title: 'Blättern', text: 'Oben im Stunden-Fenster springst du mit ‹ und › zur vorigen oder nächsten Stunde der Klasse. Was du eingetippt hast, bleibt gespeichert. So planst du mehrere Stunden nacheinander.' },
+    { icon: 'list',  title: 'Liegengebliebene Themen', text: 'Hast du ein Thema in seiner Stunde nicht abgehakt, steht in der nächsten Stunde „Offen seit …“. Mit „War schon dran“ hakst du es für die alte Stunde ab. Auch in vergangenen Stunden lässt sich ein offenes Thema jetzt abhaken.' },
   ],
 };
 const WHATS_NEW_SEEN_KEY = 'whats_new_seen';

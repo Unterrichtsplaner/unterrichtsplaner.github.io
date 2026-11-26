@@ -196,23 +196,23 @@ describe('Leiste oben: immer da', () => {
     app('db.lessonData["m3_2026-11-02"] = { done: "Brüche erweitern\\nTafelbild nachholen" }; db.lessonData["m1_2026-11-02"] = { done: "Brüche kürzen" }');
     open('g1');
     expect(txt(cockpit().querySelector('.cockpit-topic-text'))).toBe('Brüche erweitern');
-    app('openLessonTopic()');
-    expect($('lt-this-label').textContent).toBe('Diese Stunde · 3. Block');
-    expect($('lt-done').value).toBe('Brüche erweitern\nTafelbild nachholen');
-    expect($('lt-prev-label').textContent).toMatch(/^Letzte Stunde · Mo\.?,? 02\.11\.?$/);
-    expect($('lt-prev-done').value).toBe('Brüche kürzen');
-    app('closeModal("modal-lesson-topic")');
+    app('openCockpitLesson()');   // BF2: das Stunden-Fenster dieser Stunde
+    expect(app('[activeLessonId, activeLessonDate]')).toEqual(['m3', '2026-11-02']);
+    expect($('lesson-done-text').value).toBe('Brüche erweitern\nTafelbild nachholen');
+    expect($('lesson-plan-box').querySelector('.lesson-plan-prev span').textContent).toMatch(/^Letzte Stunde · Mo\.?,? 02\.11\.?$/);
+    expect($('lesson-plan-box').querySelector('.lesson-plan-prev p').textContent).toBe('Brüche kürzen');
+    app('saveLessonDataAndClose()');
   });
   it('BE11: Stunde ohne Eintrag zeigt den Rückfall „Letzte Stunde“, Antippen öffnet trotzdem die eben gehaltene', () => {
     at(14, 0);
     app('db.lessonData["m1_2026-11-02"] = { done: "Brüche kürzen" }');
     open('g1');
     expect(txt(cockpit().querySelector('.cockpit-topic-label'))).toMatch(/^Letzte Stunde/);
-    app('openLessonTopic()');
-    expect($('lt-this-label').textContent).toBe('Diese Stunde · 3. Block');
-    expect($('lt-done').value).toBe('');
-    expect($('lt-prev-done').value).toBe('Brüche kürzen');
-    app('closeModal("modal-lesson-topic")');
+    app('openCockpitLesson()');
+    expect(app('[activeLessonId, activeLessonDate]')).toEqual(['m3', '2026-11-02']);
+    expect($('lesson-done-text').value).toBe('');
+    expect($('lesson-plan-box').querySelector('.lesson-plan-prev p').textContent).toBe('Brüche kürzen');
+    app('saveLessonDataAndClose()');
   });
   it('anderer Tag gewählt: die Stunde an diesem Tag', () => {
     at(8, 0);
@@ -221,8 +221,10 @@ describe('Leiste oben: immer da', () => {
     expect(kicker()).toBe('Stunde');
     expect(when()).toMatch(/^Fr\.?,? 30\.10\.?$/);
     expect(txt(cockpit().querySelector('.cockpit-topic-text'))).toBe('Brüche kürzen');
-    app('openSeatingToday()');
-    expect($('seating-today-title').textContent).toMatch(/^Fr\.?,? 30\.10\.? · 7a/);
+    app('openCockpitLesson()');
+    expect(app('activeLessonDate')).toBe('2026-10-30');
+    expect($('lesson-modal-title').textContent).toBe('7a');
+    app('saveLessonDataAndClose()');
   });
   it('während der Stunde: wie bisher Restzeit, Bildschirm bleibt an', async () => {
     at(8, 0);

@@ -251,10 +251,9 @@ describe('Auszug der Klasse (studentAppSnapshot)', () => {
   });
   it('BE7: „Erledigt“ am Thema schreibt den Titel als erste Zeile über schon Getipptes, Zurücknehmen entfernt nur ihn', () => {
     app('db.settings.studentApp = { on: true }; Object.assign(ensureStudentApp(db.groups[0]), { on: true, access: StudentShare.newAccess() })');
-    document.body.insertAdjacentHTML('beforeend', '<textarea id="be7-done"></textarea>');
-    const ta = document.getElementById('be7-done');
+    const ta = document.getElementById('lesson-done-text');   // das Feld „Unterrichtsinhalt“ des Stunden-Fensters
     ta.value = 'Songaufbau waagerecht, noch Folie 8 machen';
-    const tick = () => app('toggleLessonTopicDone(db.lessonSlots[0], "2026-11-09", db.groups[0].plan[1], "be7-done", () => {})');
+    const tick = () => app('toggleLessonTopicDone(db.lessonSlots[0], "2026-11-09", db.groups[0].plan[1])');
     tick();
     expect(ta.value).toBe('Terme\nSongaufbau waagerecht, noch Folie 8 machen');
     tick();
@@ -264,15 +263,14 @@ describe('Auszug der Klasse (studentAppSnapshot)', () => {
     expect(ta.value).toBe('Terme');   // leer: wie bisher nur der Titel
     tick();
     expect(ta.value).toBe('');
-    ta.remove();
+    ta.value = '';
   });
   it('BE7: ohne Schülerapp bleibt „Erledigt“ wie bisher (nichts davor)', () => {
-    document.body.insertAdjacentHTML('beforeend', '<textarea id="be7-done"></textarea>');
-    const ta = document.getElementById('be7-done');
+    const ta = document.getElementById('lesson-done-text');
     ta.value = 'eigener Text';
-    app('toggleLessonTopicDone(db.lessonSlots[0], "2026-11-09", db.groups[0].plan[1], "be7-done", () => {})');
+    app('toggleLessonTopicDone(db.lessonSlots[0], "2026-11-09", db.groups[0].plan[1])');
     expect(ta.value).toBe('eigener Text');
-    ta.remove();
+    ta.value = '';
   });
 
   it('abgewählte Inhalte fehlen ganz', () => {

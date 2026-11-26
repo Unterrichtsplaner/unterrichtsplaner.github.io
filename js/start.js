@@ -149,10 +149,9 @@ document.addEventListener('click', () => {
     menu.classList.add('hidden');
   }
 });
-// ▸ zu js/sitzplan.js, Abschnitt „Fenster „Thema der Stunde“ aus der Sitzplan-Leiste (AI2)“
-document.getElementById('lt-topic')?.addEventListener('keydown', e => {
-  if (e.key === 'Enter') { e.preventDefault(); commitLessonTopic('lt-topic', lessonTopicShown, refreshLessonTopicRow); }
-});
+// ▸ zu js/stunde.js, Abschnitt „‹ › im Kopf“ (BF3)
+document.getElementById('btn-lesson-prev').addEventListener('click', () => stepLessonDetail(-1));
+document.getElementById('btn-lesson-next').addEventListener('click', () => stepLessonDetail(1));
 document.addEventListener('pointerdown', noteSeatingTouch, true);
 document.addEventListener('keydown', noteSeatingTouch, true);
 document.addEventListener('visibilitychange', () => {

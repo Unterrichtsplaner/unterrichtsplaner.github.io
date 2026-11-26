@@ -187,7 +187,12 @@ describe('Ansichten mit präparierten Daten', () => {
       app('setTimetableMode("week")');
     },
     'stunde mit geplantem thema': () => app(`openLessonDetail(${JSON.stringify(ID('slot'))}, "2026-09-21"); renderLessonPlanBox(db.lessonSlots[0], "2026-09-21")`),
-    'sitzplan heute-fenster': () => app(`switchView("seating"); currentSeatingGroupId = ${G}; currentSeatingDateStr = "2026-09-21"; renderSeatingPlan(); openSeatingToday()`),
+    // BF2: Leiste → Stunden-Fenster mit „Wer fehlt“, letzte Stunde gefehlt, Geburtstag und ‹ › (früher Fenster „Heute“)
+    'sitzplan leiste → stunden-fenster': () => {
+      app(`switchView("seating"); currentSeatingGroupId = ${G}; currentSeatingDateStr = "2026-09-21"; renderSeatingPlan(); openCockpitLesson()`);
+      expect(document.getElementById('modal-lesson').classList.contains('hidden')).toBe(false);   // wirklich offen
+      expect(document.getElementById('btn-lesson-prev').getAttribute('aria-label')).toMatch(/^Vorige Stunde/);
+    },
     'klassennotizen (liste, dashboard, stunde)': () => {
       app('switchView("classes")');
       expect(document.querySelector('.cr-notes')).not.toBeNull();   // Notizen wirklich gezeichnet

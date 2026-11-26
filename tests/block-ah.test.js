@@ -174,8 +174,8 @@ describe('AH17: was sich markieren lässt', () => {
   it('Grundsatz nicht markierbar, ohne Kopieren-Menü', () => {
     expect(block()).toMatch(/body\{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;\}/);
   });
-  it('Inhalte wieder markierbar: Tabellen, Profil, Stunden-Fenster, Heute, Datenschutz, Neuigkeiten, Notizen', () => {
-    for (const sel of ['#overview-content', '#sw-more', '#lesson-notes-form', '#seating-today-body',
+  it('Inhalte wieder markierbar: Tabellen, Profil, Stunden-Fenster, Datenschutz, Neuigkeiten, Notizen', () => {
+    for (const sel of ['#overview-content', '#sw-more', '#lesson-notes-form',
       '#modal-privacy .modal-body', '#modal-whats-new .modal-body', '.cn-chip', '.seating-notes'])
       expect(block()).toContain(sel);
     expect(block()).toMatch(/\{-webkit-user-select:text;user-select:text;-webkit-touch-callout:default;\}/);
@@ -211,10 +211,10 @@ describe('AH21: Handy-Menüleiste unten', () => {
 
 // AH46: „Das ist neu“ für die Designüberarbeitung
 describe('AH46: Das ist neu (Nov. 2026, dritte Runde)', () => {
-  it('neue Kennung, 5 Punkte zu den sichtbaren Änderungen, alle Symbole vorhanden', () => {
+  it('neue Kennung, Punkte zu den sichtbaren Änderungen, alle Symbole vorhanden', () => {
     const w = app('WHATS_NEW');
-    expect(w.id).toBe('2026-11-5');   // seit AH52 fünfte Runde
-    expect(w.items.map(i => i.title)).toEqual(['Mitarbeit in vier Stufen', 'Sitzplan', 'Timer und Stoppuhr', 'Leiste links', 'Klassenlehrer']);
+    expect(w.id).toBe('2026-11-6');   // seit BF: eine Stunde, ein Fenster
+    expect(w.items.map(i => i.title)).toEqual(['Eine Stunde, ein Fenster', 'Blättern', 'Liegengebliebene Themen']);
     w.items.forEach(i => expect(app('ICONS')[i.icon], i.icon).toBeTruthy());
   });
 });

@@ -81,21 +81,20 @@ describe('AS3: „Rückgängig“ zeichnet nur das Fenster des richtigen Schüle
   });
 });
 
-describe('AS4: Fenster „Heute“ öffnet die gezeigte Stunde', () => {
-  it('nach dem Klingeln: „Stunde eintragen“ öffnet weiter die Stunde, die das Fenster zeigt', () => {
+describe('AS4 (seit BF2 das Stunden-Fenster): offen aus der Leiste bleibt es bei seiner Stunde', () => {
+  it('nach dem Klingeln zeigt die Leiste schon die nächste, das offene Fenster behält die gezeigte Stunde', () => {
     at(11, 9, 50);   // Mi 11.11., Stunde „mi“ (2. Block) läuft; die 7b hat danach noch den 3. Block
     app(`db.lessonSlots.push({ id: 'mi3', day: 2, block: 3, part: 'full', subject: 'Mathe', color: '#3b82f6', groupId: 'g1', recurring: 'none', specificDate: '2026-11-11' })`);
     app('openSeatingForGroup("g1")');
     app('refreshSeatingCockpit()');
     expect(app('cockpitLesson')).toEqual({ slotId: 'mi', dateStr: '2026-11-11' });
-    app('openSeatingToday()');
+    app('openCockpitLesson()');
     at(11, 11, 40);   // Stunde vorbei, die nächste der Klasse beginnt gleich: Leiste zeigt schon sie (BE11)
     app('refreshSeatingCockpit()');
     expect(app('cockpitLesson && cockpitLesson.slotId')).toBe('mi3');
-    expect(document.querySelector('#modal-seating-today [onclick="openSeatingTodayLesson()"]')).not.toBeNull();
-    app('openSeatingTodayLesson()');
     expect(app('activeLessonId')).toBe('mi');
     expect(app('activeLessonDate')).toBe('2026-11-11');
+    app('saveLessonDataAndClose()');
   });
 });
 

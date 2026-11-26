@@ -61,7 +61,7 @@
       }
     })();
   </script>
-  <link rel="stylesheet" href="style.css?v=590" />
+  <link rel="stylesheet" href="style.css?v=591" />
   <script>
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
@@ -450,10 +450,11 @@
         </div>
         <span id="lesson-modal-subtitle" class="modal-subtitle"></span>
       </div>
-      <div id="next-lesson-banner" class="next-lesson-banner hidden">
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
-          <span id="next-lesson-text"></span>
-        </div>
+      <!-- Blättern: vorige/nächste Stunde derselben Klasse (BF3), Eingetipptes wird übernommen -->
+      <div id="lesson-nav" class="lesson-nav">
+        <button type="button" id="btn-lesson-prev" class="btn-secondary lesson-nav-btn"><span class="lesson-nav-arrow" aria-hidden="true">‹</span><span class="lesson-nav-text"></span></button>
+        <button type="button" id="btn-lesson-next" class="btn-secondary lesson-nav-btn"><span class="lesson-nav-text"></span><span class="lesson-nav-arrow" aria-hidden="true">›</span></button>
+      </div>
       <div class="lesson-head-btns">
         <button type="button" class="btn-icon" id="btn-lesson-cards" onclick="openLessonCardsModal()" title="Karten anordnen" aria-label="Karten anordnen"><i data-icon="cards"></i></button>
         <button class="btn-icon" onclick="openEditLesson()" title="Stunde bearbeiten">
@@ -1704,55 +1705,7 @@
     </div>
   </div>
 
-  <!-- Cockpit: alles zur laufenden Stunde (AD2), öffnet sich über die Leiste im Sitzplan -->
-  <div id="modal-seating-today" class="modal-overlay hidden" onclick="closeModalOnOverlay(event,'modal-seating-today')">
-    <div class="modal modal-small" onclick="event.stopPropagation()">
-      <div class="modal-header">
-        <h2 id="seating-today-title">Heute</h2>
-        <button class="modal-close" aria-label="Schließen" onclick="closeModal('modal-seating-today')">✕</button>
-      </div>
-      <div class="modal-body" id="seating-today-body"></div>
-      <div class="modal-footer">
-        <button class="btn-secondary" onclick="closeModal('modal-seating-today')">Schließen</button>
-        <button class="btn-primary" onclick="openSeatingTodayLesson()"><i data-icon="edit"></i>Stunde eintragen</button>
-      </div>
-    </div>
-  </div>
-
   <!-- Unterrichtsplanung: Thema (AD3) -->
-  <!-- Thema der Stunde: aus der Sitzplan-Leiste (AI2) -->
-  <div id="modal-lesson-topic" class="modal-overlay hidden" onclick="closeModalOnOverlay(event,'modal-lesson-topic')">
-    <div class="modal modal-small" onclick="event.stopPropagation()">
-      <div class="modal-header">
-        <h2 id="lesson-topic-title">Thema</h2>
-        <button class="modal-close" aria-label="Schließen" onclick="closeModalLikeButton('modal-lesson-topic')">✕</button>
-      </div>
-      <div class="modal-body">
-        <div class="form-group" id="lt-prev-group">
-          <label for="lt-prev-done" id="lt-prev-label">Letzte Stunde</label>
-          <textarea id="lt-prev-done" class="form-input" rows="2" placeholder="Was letzte Stunde gemacht wurde"></textarea>
-        </div>
-        <h3 class="lt-this" id="lt-this-label">Diese Stunde</h3>
-        <div class="form-group">
-          <label for="lt-topic" id="lt-topic-label">Thema</label>
-          <div class="lt-topic-row">
-            <input type="text" id="lt-topic" class="form-input" maxlength="200" placeholder="Thema für diese Stunde" />
-            <button type="button" id="lt-topic-done" class="btn-primary" onclick="lessonTopicDone()">Erledigt</button>
-          </div>
-          <p id="lt-topic-note" class="field-hint-muted hidden"></p>
-        </div>
-        <div class="form-group">
-          <label for="lt-done">Unterrichtsinhalt</label>
-          <textarea id="lt-done" class="form-input" rows="3" placeholder="Was in dieser Stunde gemacht wurde"></textarea>
-          <p id="lt-done-hint" class="field-hint-muted done-hint hidden">Die Klasse sieht das Thema und die erste Zeile. Was darunter steht, siehst nur du.</p>
-        </div>
-      </div>
-      <div class="modal-footer">
-        <button class="btn-secondary" onclick="openLessonTopicPlan()"><i data-icon="list"></i>Ganze Planung</button>
-        <button class="btn-primary" onclick="closeLessonTopic()">Fertig</button>
-      </div>
-    </div>
-  </div>
 
   <div id="modal-plan-topic" class="modal-overlay hidden" onclick="closeModalOnOverlay(event,'modal-plan-topic')">
     <div class="modal modal-small" onclick="event.stopPropagation()">
@@ -2013,31 +1966,31 @@
   </div>
 
   <script src="lib/crypto-js.min.js"></script>
-  <script src="crypto-helper.js?v=590"></script>
+  <script src="crypto-helper.js?v=591"></script>
   <script src="lib/firebase-app-compat.js"></script>
   <script src="lib/firebase-auth-compat.js"></script>
   <script src="lib/firebase-firestore-compat.js"></script>
-  <script src="firebase-config.js?v=590"></script>
-  <script src="sync-manager.js?v=590"></script>
-  <script src="sync-merge.js?v=590"></script>
+  <script src="firebase-config.js?v=591"></script>
+  <script src="sync-manager.js?v=591"></script>
+  <script src="sync-merge.js?v=591"></script>
   <script src="lib/qrcode.js"></script>
-  <script src="student-share.js?v=590"></script>
-  <script src="js/grundlagen.js?v=590"></script>
-  <script src="js/termine.js?v=590"></script>
-  <script src="js/stundenplan.js?v=590"></script>
-  <script src="js/stunde.js?v=590"></script>
-  <script src="js/planung.js?v=590"></script>
-  <script src="js/klassen.js?v=590"></script>
-  <script src="js/noten.js?v=590"></script>
-  <script src="js/schueler-fenster.js?v=590"></script>
-  <script src="js/sitzplan.js?v=590"></script>
-  <script src="js/dashboard.js?v=590"></script>
-  <script src="js/einstellungen.js?v=590"></script>
-  <script src="js/bericht.js?v=590"></script>
-  <script src="js/sync.js?v=590"></script>
-  <script src="js/schuelerapp-planer.js?v=590"></script>
-  <script src="js/scanner.js?v=590"></script>
-  <script src="js/schuelerapp-hub.js?v=590"></script>
-  <script src="js/start.js?v=590"></script>
+  <script src="student-share.js?v=591"></script>
+  <script src="js/grundlagen.js?v=591"></script>
+  <script src="js/termine.js?v=591"></script>
+  <script src="js/stundenplan.js?v=591"></script>
+  <script src="js/stunde.js?v=591"></script>
+  <script src="js/planung.js?v=591"></script>
+  <script src="js/klassen.js?v=591"></script>
+  <script src="js/noten.js?v=591"></script>
+  <script src="js/schueler-fenster.js?v=591"></script>
+  <script src="js/sitzplan.js?v=591"></script>
+  <script src="js/dashboard.js?v=591"></script>
+  <script src="js/einstellungen.js?v=591"></script>
+  <script src="js/bericht.js?v=591"></script>
+  <script src="js/sync.js?v=591"></script>
+  <script src="js/schuelerapp-planer.js?v=591"></script>
+  <script src="js/scanner.js?v=591"></script>
+  <script src="js/schuelerapp-hub.js?v=591"></script>
+  <script src="js/start.js?v=591"></script>
 </body>
 </html>
