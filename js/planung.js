@@ -435,21 +435,29 @@ function fillLessonPlanBox(slot, dateStr) {
   lessonPlanShown = null;
   const g = slot.groupId && db.groups.find(x => x.id === slot.groupId);
   const todayStr = formatDate(new Date());
-  if (!g || (dateStr < todayStr && !topicDoneIn(g, slot.id + '_' + dateStr))) { box.classList.add('hidden'); box.innerHTML = ''; return; }
   const key = slot.id + '_' + dateStr;
-  const doneT = topicDoneIn(g, key);
-  const a = !doneT && dateStr >= todayStr ? planAssignments(g, todayStr).byKey.get(key) : null;
+  const past = dateStr < todayStr;
+  const doneT = g ? topicDoneIn(g, key) : null;
+  // Vergangene Stunde ohne Haken (BF1 b): das Thema, das dort lag, als wäre die Stunde noch offen – nachträglich abhaken,
+  // aber kein Feld zum Neu-Planen (AQ16). Ohne Thema dort (keine Planung, Ausfall) keine Karte wie bisher.
+  let a = g && !doneT ? planAssignments(g, past ? dateStr : todayStr).byKey.get(key) : null;
+  if (past && a && !planRunningOn(g, a.topic, dateStr)) a = null;
+  if (!g || (past && !doneT && !a)) { box.classList.add('hidden'); box.innerHTML = ''; return; }
   const t = doneT || (a && a.topic) || null;
   box.classList.remove('hidden');
   const unit = doneT ? doneT.doneLessons.indexOf(key) + 1 : a ? a.unit : 0;
-  const label = `${doneT ? 'Erledigt' : t ? 'Geplant' : 'Thema'}${t && topicLength(t) > 1 ? ` · Stunde ${unit} von ${topicLength(t)}` : ''}`;
+  const label = `${doneT ? 'Erledigt' : past ? 'Noch offen' : t ? 'Geplant' : 'Thema'}${t && topicLength(t) > 1 ? ` · Stunde ${unit} von ${topicLength(t)}` : ''}`;
   const head = `<div class="notes-section-header"><span class="notes-section-icon">${icon('list')}</span><span class="notes-section-label">${label}</span>`
     + `<button type="button" class="link-btn lesson-plan-link" data-act="plan">Ganze Planung</button></div>`;
   const note = t && t.note ? `<div class="lesson-plan-note">${escHtml(t.note)}</div>` : '';
   const prev = lessonPrevHTML(slot, dateStr);
+  const lateLesson = !doneT && !past ? topicLateLesson(g, t, todayStr) : null;
   if (doneT) {
     box.innerHTML = `${head}${prev}<div class="lesson-plan-row is-done"><div class="lesson-plan-text"><b>${escHtml(doneT.title)}</b>${note}</div>
       <button type="button" class="btn-secondary lesson-plan-btn" data-act="toggle">✓ Erledigt</button></div>`;
+  } else if (past) {
+    box.innerHTML = `${head}${prev}<div class="lesson-plan-row is-open"><div class="lesson-plan-text"><b>${escHtml(t.title)}</b>${note}</div>
+      <button type="button" class="btn-primary lesson-plan-btn" data-act="toggle">Erledigt</button></div>`;
   } else {
     box.innerHTML = `${head}${prev}${note}<div class="lesson-plan-row"><input type="text" id="lesson-plan-input" class="entry-input" maxlength="200"
       placeholder="Thema für diese Stunde" aria-label="Thema für diese Stunde" />
@@ -462,12 +470,78 @@ function fillLessonPlanBox(slot, dateStr) {
     sync();
     input.addEventListener('input', sync);
     input.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); commitLessonTopic(); } });
+    if (lateLesson) {
+      // Liegengeblieben (BF1 a): sonst rutscht es still weiter und landet Wochen später per „Erledigt“ im Unterrichtsinhalt
+      const lateEl = Object.assign(document.createElement('div'), { className: 'lesson-plan-late' });
+      lateEl.innerHTML = `<span>Offen seit ${escHtml(formatWeekdayShort(lateLesson.dateStr))}</span><button type="button" class="link-btn" data-act="earlier">War schon dran</button>`;
+      box.querySelector('.lesson-plan-row').before(lateEl);
+      lateEl.querySelector('[data-act="earlier"]').addEventListener('click', () => {
+        commitLessonTopic();   // etwas anderes eingetippt: das ist dann das Thema für diese Stunde
+        markTopicDoneEarlier(slot, dateStr, t, lateLesson);
+      });
+    }
   }
   box.querySelector('[data-act="plan"]').addEventListener('click', () => openPlanForGroup(g.id));
   box.querySelector('[data-act="toggle"]').addEventListener('click', () => {
-    const topic = doneT || commitLessonTopic();
+    const topic = doneT || (past ? t : commitLessonTopic());
     if (topic) toggleLessonTopicDone(slot, dateStr, topic);
   });
+}
+// Lag ein Thema in einer vergangenen Stunde schon „wirklich“ an? Eingetippt bzw. fester Termin: ab seinem Tag. Listen-Thema:
+// nur, wenn die Klasse vor dieser Stunde schon etwas abgehakt hat – sonst zeigte jede alte Stunde einer eben angelegten
+// Planung „Noch offen: erstes Thema“ (BF1 b).
+function planRunningOn(g, t, dateStr) {
+  if (isDateStr(t.pinned)) return t.pinned <= dateStr;
+  return groupPlan(g).some(x => (Array.isArray(x.doneLessons) && x.doneLessons.some(k => String(k).slice(-10) < dateStr))
+    || (isDateStr(x.done) && x.done < dateStr));
+}
+// Eingetipptes Thema (fester Termin für eine Stunde), dessen Stunde gehalten wurde, ohne dass es abgehakt wurde (BF1 a).
+// Ist seine Stunde ausgefallen, rutscht es mit Absicht weiter (AH54) – dann kein Hinweis. Listen-Themen haben keinen Tag.
+function topicLateLesson(g, t, todayStr) {
+  if (!t || t.done || topicDoneCount(t) || !isDateStr(t.pinned) || t.pinned >= todayStr) return null;
+  const own = lessonsOnDate(t.pinned).find(l => t.pinnedSlot ? l.slot.id === t.pinnedSlot : l.slot.groupId === g.id);
+  return own && !own.ausfall ? own : null;
+}
+// „War schon dran“: Thema für die alte Stunde abhaken; deren Unterrichtsinhalt bekommt das Thema wie bei „Erledigt“.
+// Die alte Stunde ist nicht das offene Fenster, also hier direkt in lessonData (Regel 69 gilt für das offene Fenster).
+function markTopicDoneEarlier(slot, dateStr, t, lesson) {
+  const g = db.groups.find(x => x.id === slot.groupId);
+  if (!g || !groupPlan(g).includes(t)) { showToast('Dieses Thema gibt es nicht mehr (z. B. durch Sync)', 'error'); return; }
+  const key = lessonKeyOf(lesson);
+  const had = Object.prototype.hasOwnProperty.call(db.lessonData, key), before = had ? db.lessonData[key].done : undefined;
+  t.doneLessons = [...(Array.isArray(t.doneLessons) ? t.doneLessons : []), key];
+  if (t.doneLessons.length >= topicLength(t)) t.done = lesson.dateStr;
+  const text = doneTextWithTopic(before, t, g.id);
+  if (text !== (before || '')) { if (!had) db.lessonData[key] = {}; db.lessonData[key].done = text; }
+  saveDB();
+  refreshLessonPlanBox({ slotId: slot.id, dateStr });
+  refreshPlanViews(g.id);
+  renderScheduleViews();
+  showUndoToast(`„${t.title}“ für ${formatWeekdayShort(lesson.dateStr)} abgehakt`, () => {
+    if (!db.groups.includes(g) || !groupPlan(g).includes(t) || !Array.isArray(t.doneLessons)) return;
+    const i = t.doneLessons.indexOf(key);
+    if (i < 0) return;
+    t.doneLessons.splice(i, 1);
+    if (!t.doneLessons.length) delete t.doneLessons;
+    delete t.done;
+    const d = db.lessonData[key];
+    if (d && d.done === text) {
+      if (!had) { if (Object.keys(d).length === 1) delete db.lessonData[key]; else delete d.done; }
+      else if (before === undefined) delete d.done; else d.done = before;
+    }
+    saveDB();
+    refreshLessonPlanBox({ slotId: slot.id, dateStr });
+    refreshPlanViews(g.id);
+    renderScheduleViews();
+  });
+}
+// Unterrichtsinhalt nach dem Abhaken eines Themas: leer → das Thema; sieht die Klasse nur die erste Zeile (BE7), steht das
+// Thema oben, eigener Text darunter; sonst bleibt der Text.
+function doneTextWithTopic(text, t, groupId) {
+  const s = String(text || '');
+  if (!s.trim()) return t.title;
+  if (studentAppFirstLineOnly(groupId) && normTopicTitle(firstLine(s)) !== normTopicTitle(t.title)) return t.title + '\n' + s;
+  return s;
 }
 // Was die Klasse in der Stunde davor gemacht hat (Unterrichtsinhalt), wie „Zuletzt“ in der Klassen-Ansicht (AH56)
 function lessonPrevHTML(slot, dateStr) {
@@ -558,9 +632,8 @@ function toggleLessonTopicDone(slot, dateStr, t, doneFieldId = 'lesson-done-text
   } else {
     t.doneLessons.push(key);
     if (t.doneLessons.length >= topicLength(t)) t.done = dateStr;
-    if (ta && !ta.value.trim()) ta.value = t.title;
     // BE7: Sieht die Klasse nur die erste Zeile, steht das Thema dort, eigener Text rutscht darunter und bleibt privat
-    else if (ta && studentAppFirstLineOnly(g.id) && normTopicTitle(firstLine(ta.value)) !== normTopicTitle(t.title)) ta.value = t.title + '\n' + ta.value;
+    if (ta) ta.value = doneTextWithTopic(ta.value, t, g.id);
   }
   saveDB();
   rerender();

@@ -1570,6 +1570,9 @@ button.date-chip{font-family:inherit;padding:0;}
 .lesson-plan-btn{flex-shrink:0;}
 .lesson-plan-note{font-size:12px;color:var(--text-secondary);white-space:pre-wrap;}
 .lesson-plan-link{margin-left:auto;font-size:13px;}
+/* Liegengebliebenes Thema (BF1): leise Zeile über dem Feld, Knopf „War schon dran“ */
+.lesson-plan-late{display:flex;align-items:center;flex-wrap:wrap;gap:var(--space-1) var(--space-2);font-size:12px;color:var(--text-secondary);}
+.lesson-plan-late .link-btn{font-size:13px;}
 /* Letzte Stunde der Klasse (AH56): leise, höchstens drei Zeilen */
 .lesson-plan-prev{display:flex;flex-direction:column;gap:2px;font-size:13px;}
 .lesson-plan-prev span{font-size:12px;color:var(--text-muted);}

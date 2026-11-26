@@ -573,7 +573,7 @@ function setLessonCards(order, hidden) {
 function lessonCardHasContent(key) {
   const el = document.querySelector(LESSON_CARDS.find(c => c.key === key).sel);
   if (LESSON_CARDS.find(c => c.key === key).always) return true;
-  if (key === 'plan') return !!el.querySelector('.lesson-plan-row.is-done') || !!(el.querySelector('#lesson-plan-input')?.value.trim());
+  if (key === 'plan') return !!el.querySelector('.lesson-plan-row.is-done, .lesson-plan-row.is-open') || !!(el.querySelector('#lesson-plan-input')?.value.trim());
   if (key === 'classnotes') return !!el.querySelector('.cn-chip, .lc-veil');
   if (key === 'content' || key === 'notes') return !!el.querySelector('textarea').value.trim();
   const incoming = document.getElementById(`${key}-incoming-list`);
